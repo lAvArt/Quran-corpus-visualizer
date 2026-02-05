@@ -1,0 +1,568 @@
+/**
+ * Dark Theme Styles for Advanced Visualizations
+ * Inspired by the high-end data visualization references
+ */
+
+/* ============================================================================
+   Theme Toggle & Variables
+   ============================================================================ */
+
+[data-theme="dark"] {
+  --bg-0: #0a0a0f;
+  --bg-1: #111118;
+  --bg-2: #1a1a24;
+  --ink: #ffffff;
+  --ink-secondary: rgba(255, 255, 255, 0.7);
+  --ink-muted: rgba(255, 255, 255, 0.4);
+  --panel: rgba(20, 20, 30, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #ef4444;
+  --accent-2: #3b82f6;
+  --accent-glow: rgba(239, 68, 68, 0.6);
+  --accent-2-glow: rgba(59, 130, 246, 0.6);
+}
+
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(239, 68, 68, 0.08), transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(59, 130, 246, 0.06), transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.04), transparent 60%),
+    var(--bg-0);
+  color: var(--ink);
+}
+
+/* ============================================================================
+   Neural Background Effect
+   ============================================================================ */
+
+.neural-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.neural-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+[data-theme="dark"] .neural-bg {
+  background:
+    radial-gradient(circle at 15% 25%, rgba(239, 68, 68, 0.12), transparent 35%),
+    radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.1), transparent 35%),
+    radial-gradient(circle at 50% 80%, rgba(139, 92, 246, 0.08), transparent 40%);
+}
+
+/* Animated background glow */
+[data-theme="dark"] .neural-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.02),
+    transparent 70%
+  );
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* ============================================================================
+   Dark Panel Styles
+   ============================================================================ */
+
+[data-theme="dark"] .panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  backdrop-filter: blur(16px);
+}
+
+[data-theme="dark"] .panel-head {
+  border-bottom: 1px solid var(--line);
+}
+
+[data-theme="dark"] .eyebrow {
+  color: var(--accent);
+  letter-spacing: 0.2em;
+}
+
+[data-theme="dark"] .panel-head h2 {
+  color: var(--ink);
+}
+
+/* ============================================================================
+   Visualization Container
+   ============================================================================ */
+
+.viz-container {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+[data-theme="dark"] .viz-container {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(20, 20, 30, 0.95),
+    rgba(10, 10, 15, 1)
+  );
+}
+
+.viz-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ============================================================================
+   Radial Arc Visualization
+   ============================================================================ */
+
+.radial-arc {
+  --arc-stroke: rgba(255, 255, 255, 0.15);
+  --node-fill: rgba(255, 255, 255, 0.9);
+  --node-stroke: rgba(255, 255, 255, 0.3);
+  --glow-color: var(--accent);
+}
+
+.radial-arc .main-arc {
+  fill: none;
+  stroke: var(--arc-stroke);
+  stroke-width: 2;
+}
+
+.radial-arc .node {
+  fill: var(--node-fill);
+  stroke: var(--node-stroke);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.radial-arc .node:hover {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 12px var(--glow-color));
+}
+
+.radial-arc .node.highlighted {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 20px var(--accent-glow));
+}
+
+.radial-arc .connection {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.radial-arc .connection:hover {
+  opacity: 1;
+}
+
+.radial-arc .connection.highlighted {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+/* Bar extensions from arc */
+.radial-arc .bar {
+  fill: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+.radial-arc .bar:hover {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.radial-arc .bar.colored {
+  fill: currentColor;
+}
+
+/* ============================================================================
+   Network Graph Visualization
+   ============================================================================ */
+
+.network-graph {
+  --node-default: rgba(255, 255, 255, 0.8);
+  --edge-default: rgba(255, 255, 255, 0.1);
+  --edge-highlighted: var(--accent);
+}
+
+.network-graph .edge {
+  stroke: var(--edge-default);
+  stroke-width: 1;
+  fill: none;
+  transition: all 0.3s ease;
+}
+
+.network-graph .edge.highlighted {
+  stroke: var(--edge-highlighted);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.network-graph .node-circle {
+  fill: var(--node-default);
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.network-graph .node-circle:hover {
+  transform-origin: center;
+  filter: drop-shadow(0 0 16px var(--accent-glow));
+}
+
+.network-graph .node-circle.highlighted {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 24px var(--accent-glow));
+}
+
+.network-graph .node-circle.hub {
+  stroke-width: 2;
+}
+
+.network-graph .node-label {
+  fill: var(--ink-secondary);
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.network-graph .node-group:hover .node-label {
+  opacity: 1;
+}
+
+/* Orbital rings (background decoration) */
+.network-graph .orbital-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.03);
+  stroke-width: 1;
+}
+
+/* ============================================================================
+   Glow Effects
+   ============================================================================ */
+
+.glow-red {
+  filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8));
+}
+
+.glow-blue {
+  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.8));
+}
+
+.glow-purple {
+  filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.8));
+}
+
+.glow-white {
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+}
+
+.glow-animated {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 12px currentColor); }
+  50% { filter: drop-shadow(0 0 24px currentColor); }
+}
+
+/* ============================================================================
+   Flow Path Animations
+   ============================================================================ */
+
+.flow-path {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: flow-draw 2s ease forwards;
+}
+
+@keyframes flow-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.flow-path-animated {
+  animation: flow-move 3s linear infinite;
+}
+
+@keyframes flow-move {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ============================================================================
+   Interactive Controls
+   ============================================================================ */
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.viz-control-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .viz-control-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.viz-control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ink);
+}
+
+.viz-control-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.viz-control-select {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .viz-control-select {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.viz-control-select option {
+  background: var(--bg-1);
+  color: var(--ink);
+}
+
+/* ============================================================================
+   Tooltip Styles
+   ============================================================================ */
+
+.viz-tooltip {
+  position: absolute;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  pointer-events: none;
+  z-index: 100;
+  max-width: 280px;
+  transform: translate(-50%, -100%);
+  margin-top: -12px;
+}
+
+[data-theme="dark"] .viz-tooltip {
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+}
+
+.viz-tooltip-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.viz-tooltip-subtitle {
+  color: var(--ink-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+.viz-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+
+.viz-tooltip-row:first-of-type {
+  border-top: none;
+}
+
+.viz-tooltip-label {
+  color: var(--ink-muted);
+}
+
+.viz-tooltip-value {
+  font-weight: 500;
+}
+
+/* ============================================================================
+   Legend Styles
+   ============================================================================ */
+
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.viz-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--ink-secondary);
+}
+
+.viz-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.viz-legend-line {
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* ============================================================================
+   Mode Switcher
+   ============================================================================ */
+
+.mode-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-2);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.mode-switcher-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-switcher-btn:hover {
+  color: var(--ink-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-switcher-btn.active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* ============================================================================
+   Loading States
+   ============================================================================ */
+
+.viz-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--ink-muted);
+}
+
+.viz-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   Arabic Text Enhancements
+   ============================================================================ */
+
+.arabic-text {
+  font-family: "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  direction: rtl;
+  line-height: 1.8;
+}
+
+.arabic-large {
+  font-size: 1.6rem;
+}
+
+.arabic-medium {
+  font-size: 1.2rem;
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .viz-container {
+    min-height: 350px;
+  }
+
+  .viz-controls {
+    padding: 10px 12px;
+  }
+
+  .viz-control-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .mode-switcher {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mode-switcher-btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+  }
+}

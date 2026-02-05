@@ -60,6 +60,26 @@ Any later semantic ranking must remain explainable:
 
 See `docs/ROADMAP.md` for milestone detail.
 
+## Current Implementation Status
+
+Initial `v0.1` slice is live in code:
+
+- App shell + TypeScript data contracts.
+- Sample corpus tokens for development.
+- `RootFlowSankey` prototype with root filter and count labels.
+- `AyahDependencyGraph` prototype for single-ayah dependency arcs.
+- `MorphologyInspector` with hover/focus token inspection.
+- `SemanticSearchPanel` with phase-1 filters (root, lemma, POS, ayah).
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
 ## Academic and Educational Intent
 
 This project is built as a research and learning instrument. The goal is clarity, source discipline, and reproducible interpretation support.
