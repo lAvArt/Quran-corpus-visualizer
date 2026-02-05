@@ -59,6 +59,11 @@ export default function RadialSuraMap({
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const themeColors = theme === "dark" ? DARK_THEME : DARK_THEME; // Use dark for now
 
@@ -149,19 +154,30 @@ export default function RadialSuraMap({
 
   // Update dimensions on resize
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
         setDimensions({
-          width: Math.max(rect.width, 600),
-          height: Math.max(rect.height, 600),
+          width: Math.max(width, 600),
+          height: Math.max(height, 600),
         });
       }
-    };
+    });
 
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
+    observer.observe(containerRef.current);
+
+    // Initial check
+    const rect = containerRef.current.getBoundingClientRect();
+    if(rect.width > 0 && rect.height > 0) {
+        setDimensions({
+            width: Math.max(rect.width, 600),
+            height: Math.max(rect.height, 600),
+        });
+    }
+
+    return () => observer.disconnect();
   }, []);
 
   const centerX = dimensions.width / 2;
@@ -225,6 +241,7 @@ export default function RadialSuraMap({
       </div>
 
       <div ref={containerRef} className="viz-container" style={{ height: 650 }}>
+        {!isMounted ? null : (
         <svg
           ref={svgRef}
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
@@ -386,6 +403,7 @@ export default function RadialSuraMap({
             </text>
           </g>
         </svg>
+        )}
 
         {/* Tooltip */}
         <AnimatePresence>

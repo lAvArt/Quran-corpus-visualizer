@@ -117,7 +117,7 @@ export default function VisualizationSwitcher({
       <style jsx>{`
         .viz-switcher-container {
           position: relative;
-          margin-bottom: 20px;
+          min-width: 250px;
         }
 
         .viz-switcher-header {

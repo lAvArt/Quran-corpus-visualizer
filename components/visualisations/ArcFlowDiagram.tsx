@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, useState, useCallback } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { DARK_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
@@ -42,10 +42,31 @@ export default function ArcFlowDiagram({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);
+  const [dimensions, setDimensions] = useState({ width: 900, height: 700 });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            setDimensions({
+                width: Math.max(entry.contentRect.width, 600),
+                height: Math.max(entry.contentRect.height, 600),
+            });
+        }
+    });
+    observer.observe(containerRef.current);
+    
+    // Initial size
+    const rect = containerRef.current.getBoundingClientRect();
+    if(rect.width) setDimensions({ width: rect.width, height: rect.height });
+
+    return () => observer.disconnect();
+  }, []);
 
   const themeColors = DARK_THEME;
-  const width = 900;
-  const height = 700;
+  const { width, height } = dimensions;
   const arcCenterX = width * 0.15;
   const arcCenterY = height * 0.5;
   const arcRadius = height * 0.45;
@@ -274,6 +295,7 @@ export default function ArcFlowDiagram({
       </div>
 
       <div ref={containerRef} className="viz-container" style={{ height: 650 }}>
+        {!isMounted ? null : (
         <svg viewBox={`0 0 ${width} ${height}`} className="radial-arc viz-canvas">
           <defs>
             {/* Gradient definitions for each connection */}
@@ -434,6 +456,7 @@ export default function ArcFlowDiagram({
             </text>
           </g>
         </svg>
+        )}
 
         {/* Tooltip */}
         <AnimatePresence>

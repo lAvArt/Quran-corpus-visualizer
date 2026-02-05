@@ -25,19 +25,17 @@ export default function AyahDependencyGraph({ data, onTokenHover, onTokenFocus }
   const spacing = 165;
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <div>
-          <p className="eyebrow">MVP Visualisation</p>
-          <h2>AyahDependencyGraph</h2>
-        </div>
-        <p className="ayah-meta">
-          Ayah {data.ayah.id} - {data.ayah.textUthmani}
-        </p>
+    <div className="dep-graph-wrapper">
+      <div className="dep-header">
+        <h2 className="viz-title">Dependency Tree</h2>
+        <span className="ayah-meta-tag">
+          {data.ayah.id} - <span className="arabic-font" lang="ar">{data.ayah.textUthmani}</span>
+        </span>
       </div>
 
-      <svg viewBox={`0 0 ${width} 320`} className="dependency-graph" role="img" aria-label="Single-ayah dependency graph">
-        {data.dependencies.map((edge, idx) => {
+      <div className="dep-scroll-area">
+        <svg viewBox={`0 0 ${width} 320`} className="dependency-graph" role="img" aria-label="Single-ayah dependency graph">
+            {data.dependencies.map((edge, idx) => {
           const dependent = tokenMap.get(edge.dependentTokenId);
           const head = tokenMap.get(edge.headTokenId);
 
@@ -98,6 +96,59 @@ export default function AyahDependencyGraph({ data, onTokenHover, onTokenFocus }
           );
         })}
       </svg>
-    </section>
+      </div>
+
+      <style jsx>{`
+        .dep-graph-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-1);
+        }
+
+        .dep-header {
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed var(--line);
+        }
+
+        .viz-title {
+            margin: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--ink-secondary);
+        }
+
+        .ayah-meta-tag {
+            background: rgba(0,0,0,0.04);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: var(--ink);
+        }
+
+        .arabic-font {
+            font-family: "Amiri", serif;
+        }
+
+        .dep-scroll-area {
+            flex: 1;
+            overflow: auto;
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dependency-graph {
+            height: 320px;
+            min-width: 980px;
+        }
+      `}</style>
+    </div>
   );
 }

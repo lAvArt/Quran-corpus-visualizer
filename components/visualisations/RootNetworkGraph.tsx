@@ -50,6 +50,7 @@ export default function RootNetworkGraph({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   const themeColors = DARK_THEME;
 
@@ -136,19 +137,31 @@ export default function RootNetworkGraph({
 
   // Update dimensions on resize
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
+    setIsMounted(true);
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Use the full viewport size for the "web" feel
         setDimensions({
-          width: Math.max(rect.width, 600),
-          height: Math.max(rect.height, 500),
+          width: Math.max(entry.contentRect.width, 900),
+          height: Math.max(entry.contentRect.height, 800),
         });
       }
-    };
+    });
 
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
+    observer.observe(containerRef.current);
+    
+    // Initial size
+    const rect = containerRef.current.getBoundingClientRect();
+    if(rect.width > 0 && rect.height > 0) {
+        setDimensions({
+            width: Math.max(rect.width, 600),
+            height: Math.max(rect.height, 500),
+        });
+    }
+
+    return () => observer.disconnect();
   }, []);
 
   // Initialize D3 force simulation
@@ -237,30 +250,28 @@ export default function RootNetworkGraph({
   );
 
   return (
-    <section className="panel" data-theme={theme}>
+    <section className="immersive-viz" data-theme={theme}>
+      {/* 
       <div className="panel-head">
-        <div>
-          <p className="eyebrow">Network Analysis</p>
-          <h2>Root Network Graph</h2>
-        </div>
-        <p className="ayah-meta">
-          {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
-          {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
-          {initialLinks.length} connections
+          Removed for immersive mode 
+      </div>
+      */}
+
+      <div className="viz-controls floating-controls">
+        <p className="ayah-meta-glass">
+            {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
+            {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
+            {initialLinks.length} connections
         </p>
       </div>
 
-      <div className="viz-controls">
-        <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
-          Large nodes are roots (trilateral base). Small nodes are lemmas. Hover to explore connections.
-        </span>
-      </div>
-
-      <div ref={containerRef} className="viz-container" style={{ height: 600 }}>
+      <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
+        {!isMounted ? null : (
         <svg
           ref={svgRef}
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
           className="network-graph viz-canvas"
+          style={{ width: '100%', height: '100%' }}
         >
           <defs>
             {/* Radial gradient for background glow */}
@@ -447,6 +458,7 @@ export default function RootNetworkGraph({
             })}
           </g>
         </svg>
+        )}
 
         {/* Tooltip */}
         <AnimatePresence>
