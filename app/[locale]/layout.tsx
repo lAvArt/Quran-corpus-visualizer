@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Amiri, Fraunces, Space_Grotesk } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "./providers";
 import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
