@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useId, useState } from "react";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 interface VisualizationSwitcherProps {
@@ -16,37 +16,43 @@ const VISUALIZATION_OPTIONS: Array<{
   description: string;
   icon: string;
 }> = [
-  {
-    mode: "radial-sura",
-    label: "Radial Sura",
-    description: "Circular layout showing verse structure with root connections",
-    icon: "◉",
-  },
-  {
-    mode: "root-network",
-    label: "Root Network",
-    description: "Force-directed graph of trilateral roots and their lemmas",
-    icon: "⬡",
-  },
-  {
-    mode: "arc-flow",
-    label: "Arc Flow",
-    description: "Arc diagram with frequency bars and flowing connections",
-    icon: "⌒",
-  },
-  {
-    mode: "dependency-tree",
-    label: "Dependency",
-    description: "Traditional syntax dependency graph for single verses",
-    icon: "⊏",
-  },
-  {
-    mode: "sankey-flow",
-    label: "Sankey Flow",
-    description: "Root-to-lemma flow visualization with proportional widths",
-    icon: "≋",
-  },
-];
+    {
+      mode: "surah-distribution",
+      label: "Surah Distribution",
+      description: "Spiral visualization of all 114 Surahs and their sizes",
+      icon: "◎",
+    },
+    {
+      mode: "radial-sura",
+      label: "Radial Sura",
+      description: "Circular layout showing verse structure with root connections",
+      icon: "\u25C9",
+    },
+    {
+      mode: "root-network",
+      label: "Root Network",
+      description: "Force-directed graph of trilateral roots and their lemmas",
+      icon: "\u2B21",
+    },
+    {
+      mode: "arc-flow",
+      label: "Arc Flow",
+      description: "Arc diagram with frequency bars and flowing connections",
+      icon: "\u2312",
+    },
+    {
+      mode: "dependency-tree",
+      label: "Dependency",
+      description: "Traditional syntax dependency graph for single verses",
+      icon: "\u228F",
+    },
+    {
+      mode: "sankey-flow",
+      label: "Sankey Flow",
+      description: "Root-to-lemma flow visualization with proportional widths",
+      icon: "\u224B",
+    },
+  ];
 
 export default function VisualizationSwitcher({
   currentMode,
@@ -55,6 +61,7 @@ export default function VisualizationSwitcher({
   onThemeChange,
 }: VisualizationSwitcherProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const dropdownId = useId();
 
   const handleModeSelect = useCallback(
     (mode: VisualizationMode) => {
@@ -69,37 +76,48 @@ export default function VisualizationSwitcher({
   return (
     <div className="viz-switcher-container">
       <div className="viz-switcher-header">
-        <div className="viz-switcher-current" onClick={() => setIsExpanded(!isExpanded)}>
-          <span className="viz-switcher-icon">{currentOption?.icon ?? "◉"}</span>
+        <button
+          type="button"
+          className="viz-switcher-current"
+          aria-expanded={isExpanded}
+          aria-controls={dropdownId}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className="viz-switcher-icon">{currentOption?.icon ?? "\u25C9"}</span>
           <div className="viz-switcher-info">
             <span className="viz-switcher-label">{currentOption?.label ?? "Select"}</span>
             <span className="viz-switcher-desc">{currentOption?.description ?? ""}</span>
           </div>
-          <span className={`viz-switcher-arrow ${isExpanded ? "expanded" : ""}`}>▾</span>
-        </div>
+          <span className={`viz-switcher-arrow ${isExpanded ? "expanded" : ""}`}>{"\u25BE"}</span>
+        </button>
 
         <div className="viz-theme-toggle">
           <button
+            type="button"
             className={`theme-btn ${theme === "light" ? "active" : ""}`}
             onClick={() => onThemeChange("light")}
             title="Light theme"
+            aria-pressed={theme === "light"}
           >
-            ☀
+            {"\u2600"}
           </button>
           <button
+            type="button"
             className={`theme-btn ${theme === "dark" ? "active" : ""}`}
             onClick={() => onThemeChange("dark")}
             title="Dark theme"
+            aria-pressed={theme === "dark"}
           >
-            ☾
+            {"\u263E"}
           </button>
         </div>
       </div>
 
       {isExpanded && (
-        <div className="viz-switcher-dropdown">
+        <div className="viz-switcher-dropdown" id={dropdownId}>
           {VISUALIZATION_OPTIONS.map((option) => (
             <button
+              type="button"
               key={option.mode}
               className={`viz-switcher-option ${currentMode === option.mode ? "active" : ""}`}
               onClick={() => handleModeSelect(option.mode)}
@@ -109,6 +127,7 @@ export default function VisualizationSwitcher({
                 <span className="viz-switcher-label">{option.label}</span>
                 <span className="viz-switcher-desc">{option.description}</span>
               </div>
+
             </button>
           ))}
         </div>
@@ -117,7 +136,8 @@ export default function VisualizationSwitcher({
       <style jsx>{`
         .viz-switcher-container {
           position: relative;
-          min-width: 250px;
+          min-width: 270px;
+          max-width: 360px;
         }
 
         .viz-switcher-header {
@@ -131,21 +151,39 @@ export default function VisualizationSwitcher({
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 14px 18px;
+          padding: 12px 14px;
           border: 1px solid var(--line);
           border-radius: 14px;
-          background: var(--panel);
+          background: rgba(255, 255, 255, 0.7);
+          color: var(--ink);
+          font-family: inherit;
+          text-align: left;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
         }
 
         .viz-switcher-current:hover {
           border-color: var(--accent);
+          transform: translateY(-1px);
+        }
+
+        .viz-switcher-current:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .viz-switcher-icon {
-          font-size: 1.5rem;
-          opacity: 0.8;
+          width: 34px;
+          height: 34px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px;
+          background: rgba(15, 118, 110, 0.12);
+          color: var(--accent);
+          font-size: 1.05rem;
+          font-weight: 600;
         }
 
         .viz-switcher-info {
@@ -163,10 +201,11 @@ export default function VisualizationSwitcher({
         .viz-switcher-desc {
           font-size: 0.8rem;
           color: var(--ink-secondary);
-          opacity: 0.7;
+          opacity: 0.85;
         }
 
         .viz-switcher-arrow {
+          margin-left: auto;
           font-size: 0.9rem;
           opacity: 0.5;
           transition: transform 0.2s ease;
@@ -182,16 +221,18 @@ export default function VisualizationSwitcher({
           padding: 4px;
           border: 1px solid var(--line);
           border-radius: 10px;
-          background: var(--panel);
+          background: rgba(255, 255, 255, 0.75);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
         }
 
         .theme-btn {
-          width: 36px;
-          height: 36px;
-          border: none;
+          width: 34px;
+          height: 34px;
+          border: 1px solid transparent;
           border-radius: 8px;
           background: transparent;
-          font-size: 1.1rem;
+          font-size: 1rem;
+          color: var(--ink-muted);
           cursor: pointer;
           transition: all 0.2s ease;
           opacity: 0.5;
@@ -205,14 +246,16 @@ export default function VisualizationSwitcher({
         .theme-btn.active {
           opacity: 1;
           background: var(--accent);
+          border-color: var(--accent);
           color: white;
+          box-shadow: 0 6px 16px var(--accent-glow);
         }
 
         .viz-switcher-dropdown {
           position: absolute;
           top: calc(100% + 8px);
           left: 0;
-          right: 60px;
+          right: 0;
           z-index: 50;
           display: flex;
           flex-direction: column;
@@ -220,7 +263,7 @@ export default function VisualizationSwitcher({
           padding: 8px;
           border: 1px solid var(--line);
           border-radius: 14px;
-          background: var(--panel);
+          background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(16px);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
         }
@@ -230,7 +273,7 @@ export default function VisualizationSwitcher({
           align-items: center;
           gap: 12px;
           padding: 12px 14px;
-          border: none;
+          border: 1px solid transparent;
           border-radius: 10px;
           background: transparent;
           text-align: left;
@@ -262,6 +305,25 @@ export default function VisualizationSwitcher({
           .viz-switcher-dropdown {
             right: 0;
           }
+        }
+
+        :global([data-theme="dark"]) .viz-switcher-current {
+          background: rgba(18, 18, 26, 0.75);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        :global([data-theme="dark"]) .viz-switcher-icon {
+          background: rgba(249, 115, 22, 0.18);
+          color: var(--accent);
+        }
+
+        :global([data-theme="dark"]) .viz-theme-toggle {
+          background: rgba(18, 18, 26, 0.75);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        :global([data-theme="dark"]) .viz-switcher-dropdown {
+          background: rgba(18, 18, 26, 0.92);
         }
       `}</style>
     </div>

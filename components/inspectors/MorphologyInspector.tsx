@@ -12,26 +12,26 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
   if (!token) {
     return (
       <div className="inspector-empty-state">
-        <div className="empty-icon">👆</div>
+        <div className="empty-icon">{"\u2191"}</div>
         <p>Hover over a node to see quick details.</p>
         <p>Click a node to lock this view.</p>
         
         <style jsx>{`
-            .inspector-empty-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 100%;
-                text-align: center;
-                color: var(--ink-muted);
-                padding: 2rem 1rem;
-            }
-            .empty-icon {
-                font-size: 2rem;
-                margin-bottom: 1rem;
-                opacity: 0.5;
-            }
+        .inspector-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: var(--ink-muted);
+            padding: 2rem 1rem;
+        }
+        .empty-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
         `}</style>
       </div>
     );
@@ -45,11 +45,11 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
                 {mode === "focus" ? "LOCKED" : "PREVIEW"}
             </span>
             {mode === "focus" && (
-                <button onClick={onClearFocus} className="close-btn" aria-label="Clear selection">×</button>
+                <button type="button" onClick={onClearFocus} className="close-btn" aria-label="Clear selection">{"\u00D7"}</button>
             )}
         </div>
         
-        <h2 className="token-arabic" lang="ar">{token.text}</h2>
+        <h2 className="token-arabic" lang="ar" dir="rtl">{token.text}</h2>
         <div className="token-id">{token.id}</div>
       </div>
 
@@ -58,15 +58,15 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
         <div className="data-grid">
             <div className="data-item">
                 <span className="label">Root</span>
-                <span className="value arabic-font" lang="ar">{token.root || "—"}</span>
+                <span className="value arabic-font" lang="ar">{token.root || "\u2014"}</span>
             </div>
             <div className="data-item">
                 <span className="label">Lemma</span>
-                <span className="value arabic-font" lang="ar">{token.lemma || "—"}</span>
+                <span className="value arabic-font" lang="ar">{token.lemma || "\u2014"}</span>
             </div>
             <div className="data-item">
                 <span className="label">Stem</span>
-                <span className="value arabic-font" lang="ar">{token.morphology.stem || "—"}</span>
+                <span className="value arabic-font" lang="ar">{token.morphology.stem || "\u2014"}</span>
             </div>
             <div className="data-item">
                 <span className="label">POS</span>
@@ -104,20 +104,23 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
             padding-bottom: 1rem;
             margin-bottom: 1rem;
         }
-        
+
         .header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
         }
 
         .status-badge {
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 0.65rem;
+            padding: 4px 10px;
+            border-radius: 999px;
             font-weight: 600;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--accent);
         }
 
         .status-badge.focus {
@@ -126,76 +129,91 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
         }
 
         .status-badge.hover {
-            background: var(--line);
-            color: var(--ink-secondary);
+            background: rgba(15, 118, 110, 0.12);
+            color: var(--accent);
         }
 
         .close-btn {
-            background: none;
-            border: none;
-            font-size: 1.2rem;
+            background: var(--bg-2);
+            border: 1px solid var(--line);
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            font-size: 1.1rem;
             line-height: 1;
             cursor: pointer;
-            color: var(--ink-muted);
+            color: var(--ink);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
         }
 
         .close-btn:hover {
-            color: var(--ink);
+            color: white;
+            background: var(--accent);
+            border-color: var(--accent);
         }
 
         .token-arabic {
-            font-size: 2.5rem;
-            margin: 0.5rem 0;
+            font-size: 2.4rem;
+            margin: 0.3rem 0 0.4rem;
             line-height: 1.2;
             color: var(--ink);
-            font-family: "Amiri", "Noto Sans Arabic", serif;
+            font-family: var(--font-arabic, "Amiri"), "Amiri", "Noto Sans Arabic", serif;
         }
 
         .token-id {
-            font-family: monospace;
+            font-family: "SFMono-Regular", Menlo, Consolas, monospace;
             color: var(--ink-muted);
-            font-size: 0.8rem;
+            font-size: 0.78rem;
         }
 
         .inspector-section {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.6);
         }
 
         .inspector-section h3 {
-            font-size: 0.85rem;
+            font-size: 0.78rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             color: var(--ink-muted);
             margin: 0 0 0.8rem 0;
         }
 
         .data-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
         }
 
         .data-item {
-            background: rgba(0,0,0,0.03);
-            border-radius: 8px;
-            padding: 8px 12px;
+            background: var(--bg-2);
+            border-radius: 10px;
+            padding: 8px 10px;
             display: flex;
             flex-direction: column;
+            border: 1px solid var(--line);
         }
 
         .data-item .label {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--ink-muted);
             margin-bottom: 4px;
         }
 
         .data-item .value {
-            font-weight: 500;
-            font-size: 1.1rem;
+            font-weight: 600;
+            font-size: 1rem;
         }
-        
+
         .arabic-font {
-            font-family: "Amiri", "Noto Sans Arabic", serif;
+            font-family: var(--font-arabic, "Amiri"), "Amiri", "Noto Sans Arabic", serif;
+            direction: rtl;
         }
 
         .gloss-text {
@@ -212,28 +230,38 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
         }
 
         .feature-tag {
-            display: flex;
+            display: inline-flex;
+            gap: 6px;
             border: 1px solid var(--line);
-            border-radius: 6px;
-            overflow: hidden;
-            font-size: 0.8rem;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            background: rgba(255, 255, 255, 0.7);
         }
 
         .f-key {
-            background: rgba(0,0,0,0.03);
-            padding: 4px 8px;
-            border-right: 1px solid var(--line);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.65rem;
             color: var(--ink-secondary);
         }
 
         .f-val {
-            padding: 4px 8px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
+        @media (max-width: 520px) {
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        :global([data-theme="dark"]) .inspector-section {
+            background: rgba(16, 16, 24, 0.7);
+        }
+
+        :global([data-theme="dark"]) .feature-tag {
+            background: rgba(16, 16, 24, 0.7);
         }
       `}</style>
     </div>

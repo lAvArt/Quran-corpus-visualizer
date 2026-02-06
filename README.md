@@ -75,6 +75,7 @@ Initial `v0.1` slice is live in code:
 
 ```bash
 npm install
+npm run fetch:morphology
 npm run dev
 ```
 

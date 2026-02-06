@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { useZoom } from "@/lib/hooks/useZoom";
 
 interface RadialSuraMapProps {
   tokens: CorpusToken[];
@@ -13,6 +14,8 @@ interface RadialSuraMapProps {
   suraNameArabic: string;
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
+  onRootSelect?: (root: string | null) => void;
+  highlightRoot?: string | null;
   theme?: "light" | "dark";
 }
 
@@ -52,25 +55,67 @@ export default function RadialSuraMap({
   suraNameArabic,
   onTokenHover,
   onTokenFocus,
+  onRootSelect,
+  highlightRoot,
   theme = "dark",
 }: RadialSuraMapProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { svgRef, gRef } = useZoom<SVGSVGElement>();
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
+  const [hoveredAyah, setHoveredAyah] = useState<number | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
+  const [selectedConnection, setSelectedConnection] = useState<RootConnection | null>(null);
+  const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
+  const [showHints, setShowHints] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const prevSuraIdRef = useRef<number | null>(null);
+  const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
+  const shouldAnimateBars = shouldAnimateConnections;
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  useEffect(() => {
+    setSelectedConnection(null);
+    setSelectedAyah(null);
+    setHoveredAyah(null);
+    setHoveredRoot(null);
+    setHoveredConnection(null);
+  }, [suraId]);
+
+  useEffect(() => {
+    prevSuraIdRef.current = suraId;
+  }, [suraId]);
+
   const themeColors = theme === "dark" ? DARK_THEME : DARK_THEME; // Use dark for now
 
+  // ... displayArabicName useMemo ...
+
+  const displayArabicName = useMemo(() => {
+    if (!suraNameArabic) return "";
+    if (suraNameArabic.includes("\\u")) {
+      return suraNameArabic.replace(/\\u([0-9a-fA-F]{4})/g, (_, code) =>
+        String.fromCharCode(parseInt(code, 16))
+      );
+    }
+    return suraNameArabic;
+  }, [suraNameArabic]);
+
   // Process tokens into visualization data
-  const { ayahBars, rootConnections, ayahCount, uniqueRoots } = useMemo(() => {
+  const {
+    ayahBars,
+    rootConnections,
+    ayahCount,
+    uniqueRoots,
+    rootOccurrences,
+    ayahRootCounts,
+    ayahRootMax,
+  } = useMemo(() => {
     const ayahTokens = new Map<number, CorpusToken[]>();
     const rootOccurrences = new Map<string, number[]>(); // root -> list of ayahs
+    const rootCountsByAyah = new Map<number, Map<string, number>>();
 
     // Group tokens by ayah
     for (const token of tokens) {
@@ -89,10 +134,15 @@ export default function RadialSuraMap({
         if (!ayahs.includes(token.ayah)) {
           ayahs.push(token.ayah);
         }
+        if (!rootCountsByAyah.has(token.ayah)) {
+          rootCountsByAyah.set(token.ayah, new Map<string, number>());
+        }
+        const rootCounts = rootCountsByAyah.get(token.ayah)!;
+        rootCounts.set(token.root, (rootCounts.get(token.root) ?? 0) + 1);
       }
     }
 
-    const ayahCount = ayahTokens.size;
+    const ayahCount = ayahTokens.size || 1;
     const maxTokens = Math.max(...Array.from(ayahTokens.values()).map((t) => t.length), 1);
 
     // Create ayah bars
@@ -108,13 +158,24 @@ export default function RadialSuraMap({
       const angle = ((ayahNum - 1) / ayahCount) * 360 - 90; // Start from top
       const barHeight = 30 + (ayahTokensList.length / maxTokens) * 120;
 
+      // Determine if ayah contains the highlighted root
+      const containsRoot = highlightRoot
+        ? ayahTokensList.some(t => t.root === highlightRoot)
+        : false;
+
+      // Adjust color if we are highlighting a root
+      let barColor = getNodeColor(dominantPOS);
+      if (highlightRoot) {
+        barColor = containsRoot ? themeColors.accent : "rgba(255,255,255,0.1)";
+      }
+
       bars.push({
         ayah: ayahNum,
         tokenCount: ayahTokensList.length,
         angle,
         barHeight,
         dominantPOS,
-        color: getNodeColor(dominantPOS),
+        color: barColor,
       });
     });
 
@@ -124,13 +185,13 @@ export default function RadialSuraMap({
 
     rootOccurrences.forEach((ayahs, root) => {
       if (ayahs.length < 2) return;
-      
+
       // Create connections between consecutive occurrences
       for (let i = 0; i < ayahs.length - 1; i++) {
         const source = ayahs[i];
         const target = ayahs[i + 1];
         const pairKey = `${source}-${target}-${root}`;
-        
+
         if (!processedPairs.has(pairKey)) {
           processedPairs.add(pairKey);
           connections.push({
@@ -144,13 +205,54 @@ export default function RadialSuraMap({
       }
     });
 
+    const highlightList = highlightRoot ? (rootOccurrences.get(highlightRoot) ?? []) : [];
+    highlightList.sort((a, b) => a - b);
+    const maxByAyah = new Map<number, number>();
+    rootCountsByAyah.forEach((counts, ayahNum) => {
+      let max = 1;
+      counts.forEach((count) => {
+        if (count > max) max = count;
+      });
+      maxByAyah.set(ayahNum, max);
+    });
+
     return {
       ayahBars: bars,
-      rootConnections: connections.slice(0, 50), // Limit for performance
+      rootConnections: connections,
       ayahCount,
       uniqueRoots: [...rootOccurrences.keys()],
+      rootOccurrences,
+      ayahRootCounts: rootCountsByAyah,
+      ayahRootMax: maxByAyah,
     };
   }, [tokens, suraId]);
+
+  const highlightAyahs = useMemo(() => {
+    if (!highlightRoot) return [];
+    const list = rootOccurrences.get(highlightRoot) ?? [];
+    return [...list].sort((a, b) => a - b);
+  }, [highlightRoot, rootOccurrences]);
+
+  const highlightAyahSet = useMemo(() => new Set(highlightAyahs), [highlightAyahs]);
+  const activeAyah = selectedAyah ?? hoveredAyah;
+  const activeAyahRootCounts = useMemo(() => {
+    if (!activeAyah) return null;
+    return ayahRootCounts.get(activeAyah) ?? null;
+  }, [activeAyah, ayahRootCounts]);
+  const activeAyahMaxCount = useMemo(() => {
+    if (!activeAyah) return 1;
+    return ayahRootMax.get(activeAyah) ?? 1;
+  }, [activeAyah, ayahRootMax]);
+  const activeRootColorMap = useMemo(() => {
+    if (!activeAyahRootCounts) return null;
+    const map = new Map<string, string>();
+    activeAyahRootCounts.forEach((count, root) => {
+      const ratio = activeAyahMaxCount > 0 ? count / activeAyahMaxCount : 0;
+      const color = d3.interpolateTurbo(Math.min(1, Math.max(0.15, ratio)));
+      map.set(root, color);
+    });
+    return map;
+  }, [activeAyahRootCounts, activeAyahMaxCount]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -170,11 +272,11 @@ export default function RadialSuraMap({
 
     // Initial check
     const rect = containerRef.current.getBoundingClientRect();
-    if(rect.width > 0 && rect.height > 0) {
-        setDimensions({
-            width: Math.max(rect.width, 600),
-            height: Math.max(rect.height, 600),
-        });
+    if (rect.width > 0 && rect.height > 0) {
+      setDimensions({
+        width: Math.max(rect.width, 600),
+        height: Math.max(rect.height, 600),
+      });
     }
 
     return () => observer.disconnect();
@@ -200,7 +302,7 @@ export default function RadialSuraMap({
       const midAngle = (sourceAngle + targetAngle) / 2;
       const angleDiff = Math.abs(targetAngle - sourceAngle);
       const curveDepth = innerRadius * (0.3 + angleDiff * 0.15);
-      
+
       const controlX = centerX + Math.cos(midAngle) * (innerRadius - curveDepth);
       const controlY = centerY + Math.sin(midAngle) * (innerRadius - curveDepth);
 
@@ -209,8 +311,43 @@ export default function RadialSuraMap({
     [centerX, centerY, innerRadius, ayahCount]
   );
 
+  const connectionPaths = useMemo(() => {
+    const map = new Map<string, string>();
+    rootConnections.forEach((conn) => {
+      const key = `${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`;
+      map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
+    });
+    return map;
+  }, [rootConnections, generateConnectionPath]);
+
+  const barsWithGeometry = useMemo(() => {
+    return ayahBars.map((bar) => {
+      const angleRad = (bar.angle * Math.PI) / 180;
+      const startX = centerX + Math.cos(angleRad) * innerRadius;
+      const startY = centerY + Math.sin(angleRad) * innerRadius;
+      const endX = centerX + Math.cos(angleRad) * (innerRadius + bar.barHeight);
+      const endY = centerY + Math.sin(angleRad) * (innerRadius + bar.barHeight);
+      return { bar, angleRad, startX, startY, endX, endY };
+    });
+  }, [ayahBars, centerX, centerY, innerRadius]);
+
+  const selectedAyahData = useMemo(
+    () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),
+    [selectedAyah, ayahBars]
+  );
+
+  const visibleConnections = useMemo(() => {
+    if (!selectedConnection) return rootConnections;
+    return rootConnections.filter(
+      (conn) =>
+        conn.root === selectedConnection.root &&
+        conn.sourceAyah === selectedConnection.sourceAyah &&
+        conn.targetAyah === selectedConnection.targetAyah
+    );
+  }, [rootConnections, selectedConnection]);
+
   const handleBarHover = (ayah: number | null) => {
-    setSelectedAyah(ayah);
+    setHoveredAyah(ayah);
     if (ayah) {
       const token = tokens.find((t) => t.sura === suraId && t.ayah === ayah);
       if (token) onTokenHover(token.id);
@@ -219,251 +356,401 @@ export default function RadialSuraMap({
     }
   };
 
+  const handleConnectionHover = (connection: RootConnection | null) => {
+    setHoveredConnection(connection);
+    setHoveredRoot(connection?.root ?? null);
+  };
+
+  const handleConnectionSelect = (event: MouseEvent<SVGPathElement>, connection: RootConnection) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isSameSelection =
+      selectedConnection?.root === connection.root &&
+      selectedConnection?.sourceAyah === connection.sourceAyah &&
+      selectedConnection?.targetAyah === connection.targetAyah;
+
+    if (isSameSelection) {
+      setSelectedConnection(null);
+      if (onRootSelect) onRootSelect(null);
+      return;
+    }
+
+    setSelectedConnection(connection);
+    if (onRootSelect) onRootSelect(connection.root);
+  };
+
   return (
-    <section className="panel" data-theme={theme}>
+    <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
       <div className="panel-head">
         <div>
           <p className="eyebrow">Advanced Visualization</p>
-          <h2>Radial Sura Map</h2>
+          <h2>Radial Surah Map</h2>
         </div>
         <div style={{ textAlign: "right" }}>
           <p className="arabic-text arabic-large" style={{ margin: 0 }}>
-            {suraNameArabic}
+            {displayArabicName}
           </p>
           <p className="ayah-meta">{suraName} · {ayahCount} Ayat · {uniqueRoots.length} Unique Roots</p>
         </div>
       </div>
 
       <div className="viz-controls">
-        <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
-          Hover bars to explore ayah structure. Arcs show root connections across verses.
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            className="hint-toggle"
+            onClick={() => setShowHints((prev) => !prev)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.85)",
+              fontSize: "0.75rem",
+              cursor: "pointer",
+            }}
+          >
+            {showHints ? "Hide Help" : "Show Help"}
+          </button>
+          {showHints && (
+            <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
+              Bars = ayahs (length = token count, color = dominant POS). Dots = ayah endpoints (click to focus).
+              Arcs = shared roots between ayahs (click to filter that root).
+              {highlightRoot && ` Filtering: ${highlightRoot}`}
+            </span>
+          )}
+        </div>
+        {highlightRoot && highlightAyahs.length > 0 && (
+          <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: "0.78rem" }}>
+            Linked verses: {highlightAyahs.join(", ")}
+          </div>
+        )}
       </div>
 
-      <div ref={containerRef} className="viz-container" style={{ height: 650 }}>
-        {!isMounted ? null : (
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-          className="radial-arc viz-canvas"
-        >
-          <defs>
-            {/* Gradient for connections */}
-            <linearGradient id="connectionGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={themeColors.accent} stopOpacity="0.6" />
-              <stop offset="50%" stopColor={themeColors.accentSecondary} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={themeColors.accent} stopOpacity="0.6" />
-            </linearGradient>
-
-            {/* Glow filter */}
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-
-            <filter id="strongGlow" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur stdDeviation="8" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Background orbital rings */}
-          {[0.6, 0.75, 0.9, 1.05].map((scale, i) => (
-            <circle
-              key={i}
-              cx={centerX}
-              cy={centerY}
-              r={innerRadius * scale}
-              fill="none"
-              stroke="rgba(255, 255, 255, 0.03)"
-              strokeWidth={1}
-            />
-          ))}
-
-          {/* Main arc (the black band) */}
-          <circle
-            cx={centerX}
-            cy={centerY}
-            r={innerRadius}
-            className="main-arc"
-            fill="none"
-            stroke="rgba(255, 255, 255, 0.15)"
-            strokeWidth={3}
-          />
-
-          {/* Root connections (flowing curves inside the circle) */}
-          <g className="connections">
-            {rootConnections.map((conn, idx) => {
-              const isHighlighted = hoveredRoot === conn.root || selectedAyah === conn.sourceAyah || selectedAyah === conn.targetAyah;
-              return (
-                <motion.path
-                  key={`${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`}
-                  d={generateConnectionPath(conn.sourceAyah, conn.targetAyah)}
-                  className={`connection ${isHighlighted ? "highlighted" : ""}`}
-                  stroke={isHighlighted ? themeColors.accent : "url(#connectionGrad)"}
-                  strokeWidth={isHighlighted ? 2.5 : 1.5}
-                  fill="none"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
-                  transition={{ duration: 1.5, delay: idx * 0.02 }}
-                  filter={isHighlighted ? "url(#glow)" : undefined}
-                  onMouseEnter={() => setHoveredRoot(conn.root)}
-                  onMouseLeave={() => setHoveredRoot(null)}
-                />
-              );
-            })}
-          </g>
-
-          {/* Ayah bars radiating outward */}
-          <g className="ayah-bars">
-            {ayahBars.map((bar) => {
-              const angleRad = (bar.angle * Math.PI) / 180;
-              const startX = centerX + Math.cos(angleRad) * innerRadius;
-              const startY = centerY + Math.sin(angleRad) * innerRadius;
-              const endX = centerX + Math.cos(angleRad) * (innerRadius + bar.barHeight);
-              const endY = centerY + Math.sin(angleRad) * (innerRadius + bar.barHeight);
-
-              const isSelected = selectedAyah === bar.ayah;
-
-              return (
-                <motion.g
-                  key={bar.ayah}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: bar.ayah * 0.03 }}
-                >
-                  <line
-                    x1={startX}
-                    y1={startY}
-                    x2={endX}
-                    y2={endY}
-                    className="bar colored"
-                    stroke={isSelected ? themeColors.accent : bar.color}
-                    strokeWidth={isSelected ? 4 : 2.5}
-                    strokeLinecap="round"
-                    filter={isSelected ? "url(#strongGlow)" : undefined}
-                    style={{ cursor: "pointer" }}
-                    onMouseEnter={() => handleBarHover(bar.ayah)}
-                    onMouseLeave={() => handleBarHover(null)}
-                    onClick={() => {
-                      const token = tokens.find((t) => t.sura === suraId && t.ayah === bar.ayah);
-                      if (token) onTokenFocus(token.id);
-                    }}
-                  />
-                  {/* Small circle at the end of bar */}
-                  <circle
-                    cx={endX}
-                    cy={endY}
-                    r={isSelected ? 5 : 3}
-                    fill={isSelected ? themeColors.accent : bar.color}
-                    filter={isSelected ? "url(#glow)" : undefined}
-                  />
-                </motion.g>
-              );
-            })}
-          </g>
-
-          {/* Center info */}
-          <g className="center-info">
-            <text
-              x={centerX}
-              y={centerY - 20}
-              textAnchor="middle"
-              fill={themeColors.textColors.primary}
-              fontSize="28"
-              fontWeight="700"
-              className="arabic-text"
-            >
-              {suraNameArabic}
-            </text>
-            <text
-              x={centerX}
-              y={centerY + 15}
-              textAnchor="middle"
-              fill={themeColors.textColors.secondary}
-              fontSize="14"
-            >
-              {suraName}
-            </text>
-            <text
-              x={centerX}
-              y={centerY + 35}
-              textAnchor="middle"
-              fill={themeColors.textColors.muted}
-              fontSize="12"
-            >
-              {ayahCount} verses
-            </text>
-          </g>
-        </svg>
+      <div className="viz-left-stack">
+        {highlightRoot && (
+          <div className="viz-left-panel">
+            <div className="viz-tooltip-title">Selected Root</div>
+            <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+            {highlightAyahs.length > 0 && (
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">Linked ayahs</span>
+                <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Tooltip */}
         <AnimatePresence>
-          {selectedAyah && (
+          {selectedAyahData && (
             <motion.div
-              className="viz-tooltip"
+              className="viz-left-panel"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              style={{
-                position: "absolute",
-                top: 20,
-                right: 20,
-                transform: "none",
-              }}
             >
               <div className="viz-tooltip-title">Ayah {selectedAyah}</div>
               <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
-              {ayahBars.find((b) => b.ayah === selectedAyah) && (
-                <>
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Tokens</span>
-                    <span className="viz-tooltip-value">
-                      {ayahBars.find((b) => b.ayah === selectedAyah)?.tokenCount}
-                    </span>
-                  </div>
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Dominant POS</span>
-                    <span className="viz-tooltip-value">
-                      {ayahBars.find((b) => b.ayah === selectedAyah)?.dominantPOS}
-                    </span>
-                  </div>
-                </>
-              )}
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">Tokens</span>
+                <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
+              </div>
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">Dominant POS</span>
+                <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {(selectedConnection || hoveredConnection) && (
+            <motion.div
+              className="viz-left-panel"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+            >
+              <div className="viz-tooltip-title">Root Connection</div>
+              <div className="viz-tooltip-subtitle arabic-text">
+                {(selectedConnection ?? hoveredConnection)?.root}
+              </div>
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">From</span>
+                <span className="viz-tooltip-value">
+                  Ayah {(selectedConnection ?? hoveredConnection)?.sourceAyah}
+                </span>
+              </div>
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">To</span>
+                <span className="viz-tooltip-value">
+                  Ayah {(selectedConnection ?? hoveredConnection)?.targetAyah}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="viz-legend">
+          <div className="viz-legend-item">
+            <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
+            <span>Noun</span>
+          </div>
+          <div className="viz-legend-item">
+            <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
+            <span>Verb</span>
+          </div>
+          <div className="viz-legend-item">
+            <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
+            <span>Adjective</span>
+          </div>
+          <div className="viz-legend-item">
+            <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
+            <span>Preposition</span>
+          </div>
+          <div className="viz-legend-item">
+            <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
+            <span>Root Connection</span>
+          </div>
+          <div className="viz-legend-item">
+            <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
+            <span>Ayah Bar</span>
+          </div>
+        </div>
       </div>
 
-      <div className="viz-legend">
-        <div className="viz-legend-item">
-          <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
-          <span>Noun</span>
-        </div>
-        <div className="viz-legend-item">
-          <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
-          <span>Verb</span>
-        </div>
-        <div className="viz-legend-item">
-          <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
-          <span>Adjective</span>
-        </div>
-        <div className="viz-legend-item">
-          <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
-          <span>Preposition</span>
-        </div>
-        <div className="viz-legend-item">
-          <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
-          <span>Root Connection</span>
-        </div>
+      <div ref={containerRef} className="viz-container" style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
+        {!isMounted ? null : (
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+            className="radial-sura-map viz-canvas"
+            style={{ width: "100%", height: "100%", cursor: "grab" }}
+            onClick={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (onRootSelect) onRootSelect(null);
+              setSelectedAyah(null);
+              setSelectedConnection(null);
+              setHoveredRoot(null);
+              setHoveredConnection(null);
+              setHoveredAyah(null);
+            }}
+          >
+            <g ref={gRef}>
+              <defs>
+                {/* Gradient for connections */}
+                <linearGradient id="connectionGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={themeColors.accent} stopOpacity="0.6" />
+                  <stop offset="50%" stopColor={themeColors.accentSecondary} stopOpacity="0.4" />
+                  <stop offset="100%" stopColor={themeColors.accent} stopOpacity="0.6" />
+                </linearGradient>
+
+                <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor={themeColors.glowColors.primary} stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="transparent" />
+                </radialGradient>
+
+                {/* Glow filter */}
+                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <filter id="strongGlow" x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur stdDeviation="8" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Background orbital rings */}
+              {[0.6, 0.75, 0.9, 1.05].map((scale, i) => (
+                <circle
+                  key={i}
+                  cx={centerX}
+                  cy={centerY}
+                  r={innerRadius * scale}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.03)"
+                  strokeWidth={1}
+                />
+              ))}
+
+              {/* Main arc (the black band) */}
+              <circle
+                cx={centerX}
+                cy={centerY}
+                r={innerRadius}
+                className="main-arc"
+                fill="none"
+                stroke="rgba(255, 255, 255, 0.15)"
+                strokeWidth={3}
+              />
+
+              {/* Center Title */}
+              <g className="center-title" transform={`translate(${centerX}, ${centerY})`}>
+                <circle r={80} fill="url(#centerGlow)" />
+                <text
+                  y={-10}
+                  textAnchor="middle"
+                  className="arabic-text"
+                  fill={themeColors.textColors.primary}
+                  fontSize="32"
+                  fontWeight="bold"
+                >
+                  {displayArabicName}
+                </text>
+                <text
+                  y={25}
+                  textAnchor="middle"
+                  fill={themeColors.textColors.secondary}
+                  fontSize="14"
+                  letterSpacing="2px"
+                >
+                  {suraName}
+                </text>
+                <text
+                  y={45}
+                  textAnchor="middle"
+                  fill={themeColors.textColors.muted}
+                  fontSize="12"
+                >
+                  {ayahCount} Ayahs
+                </text>
+              </g>
+
+              {/* Root connections (flowing curves inside the circle) */}
+              <g className="connections">
+                {visibleConnections.map((conn, idx) => {
+                  const isActiveAyah =
+                    !!activeAyah && (conn.sourceAyah === activeAyah || conn.targetAyah === activeAyah);
+                  const countColor = isActiveAyah ? activeRootColorMap?.get(conn.root) ?? null : null;
+                  const isHighlighted = hoveredRoot === conn.root || isActiveAyah;
+                  const pathKey = `${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`;
+                  const pathD = connectionPaths.get(pathKey) ?? "";
+                  return (
+                    <g key={`${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`}>
+                      <motion.path
+                        d={pathD}
+                        className={`connection ${isHighlighted ? "highlighted" : ""}`}
+                        stroke={countColor ?? (isHighlighted ? themeColors.accent : "url(#connectionGrad)")}
+                        strokeWidth={isHighlighted ? 2.5 : 1.5}
+                        fill="none"
+                        pointerEvents="none"
+                        initial={shouldAnimateConnections ? { pathLength: 0, opacity: 0 } : false}
+                        animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
+                        transition={shouldAnimateConnections ? { duration: 1.5, delay: idx * 0.02 } : { duration: 0 }}
+                        filter={isHighlighted ? "url(#glow)" : undefined}
+                        onMouseEnter={() => handleConnectionHover(conn)}
+                        onMouseLeave={() => handleConnectionHover(null)}
+                      />
+                      <path
+                        d={pathD}
+                        stroke="rgba(255, 255, 255, 0.001)"
+                        strokeWidth={12}
+                        fill="none"
+                        pointerEvents="stroke"
+                        style={{ cursor: "pointer" }}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onMouseEnter={() => handleConnectionHover(conn)}
+                        onMouseLeave={() => handleConnectionHover(null)}
+                        onClick={(event) => handleConnectionSelect(event, conn)}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
+
+              {/* Ayah bars radiating outward */}
+              <g className="ayah-bars">
+                {barsWithGeometry.map(({ bar, angleRad, startX, startY, endX, endY }) => {
+                  const isSelected = selectedAyah === bar.ayah;
+
+                  return (
+                    <motion.g
+                      key={bar.ayah}
+                      initial={shouldAnimateBars ? { opacity: 0 } : false}
+                      animate={{ opacity: 1 }}
+                      transition={shouldAnimateBars ? { delay: bar.ayah * 0.03 } : { duration: 0 }}
+                    >
+                      <line
+                        x1={startX}
+                        y1={startY}
+                        x2={endX}
+                        y2={endY}
+                        className="bar colored"
+                        stroke={isSelected ? themeColors.accent : bar.color}
+                        strokeWidth={isSelected ? 4 : 2.5}
+                        strokeLinecap="round"
+                        filter={isSelected ? "url(#strongGlow)" : undefined}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={() => handleBarHover(bar.ayah)}
+                        onMouseLeave={() => handleBarHover(null)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedAyah(bar.ayah);
+                          const token = tokens.find((t) => t.sura === suraId && t.ayah === bar.ayah);
+                          if (token) onTokenFocus(token.id);
+                        }}
+                      />
+                      {/* Small circle at the end of bar */}
+                      <circle
+                        cx={endX}
+                        cy={endY}
+                        r={isSelected ? 5 : 3}
+                        fill={isSelected ? themeColors.accent : bar.color}
+                        filter={isSelected ? "url(#glow)" : undefined}
+                      />
+                      <circle
+                        cx={endX}
+                        cy={endY}
+                        r={12}
+                        fill="transparent"
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={() => handleBarHover(bar.ayah)}
+                        onMouseLeave={() => handleBarHover(null)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedAyah(bar.ayah);
+                          const token = tokens.find((t) => t.sura === suraId && t.ayah === bar.ayah);
+                          if (token) onTokenFocus(token.id);
+                        }}
+                      />
+                      {(() => {
+                        const labelRadius = innerRadius + bar.barHeight + 18;
+                        const labelX = centerX + Math.cos(angleRad) * labelRadius;
+                        const labelY = centerY + Math.sin(angleRad) * labelRadius;
+                        const isEmphasized =
+                          highlightAyahSet.has(bar.ayah) ||
+                          bar.ayah === selectedAyah ||
+                          bar.ayah === hoveredAyah;
+                        return (
+                          <text
+                            x={labelX}
+                            y={labelY}
+                            textAnchor={angleRad > Math.PI / 2 && angleRad < (3 * Math.PI) / 2 ? "end" : "start"}
+                            fill={isEmphasized ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)"}
+                            fontSize={isEmphasized ? "8.5" : "8"}
+                            fontWeight={isEmphasized ? 600 : 400}
+                            style={{ pointerEvents: "none" }}
+                          >
+                            {bar.ayah}
+                          </text>
+                        );
+                      })()}
+                    </motion.g>
+                  );
+                })}
+              </g>
+            </g>
+          </svg>
+        )}
+
       </div>
     </section>
   );

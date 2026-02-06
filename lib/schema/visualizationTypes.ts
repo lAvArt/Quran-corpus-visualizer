@@ -14,6 +14,8 @@ export type VisualizationMode =
   | "arc-flow"         // Arc diagram with flowing connections
   | "dependency-tree"  // Traditional dependency graph
   | "sankey-flow"      // Root-to-lemma Sankey diagram
+  | "surah-distribution" // Spiral view of all surahs
+  | "corpus-architecture" // Global corpus hierarchy map
   | "heatmap";         // Frequency heatmap grid
 
 export interface VisualizationConfig {
@@ -227,8 +229,8 @@ export const DARK_THEME: VisualizationTheme = {
   },
   textColors: {
     primary: "#ffffff",
-    secondary: "rgba(255, 255, 255, 0.7)",
-    muted: "rgba(255, 255, 255, 0.4)",
+    secondary: "rgba(255, 255, 255, 0.9)",
+    muted: "rgba(255, 255, 255, 0.65)",
   },
 };
 

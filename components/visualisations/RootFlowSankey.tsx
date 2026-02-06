@@ -105,6 +105,24 @@ export default function RootFlowSankey({
         </svg>
       </div>
 
+      <div className="viz-legend">
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-line"
+            style={{ background: "linear-gradient(90deg, #2dd4bf, #38bdf8, #f472b6)" }}
+          />
+          <span>Root → Lemma flow</span>
+        </div>
+        <div className="viz-legend-item">
+          <div className="viz-legend-line" style={{ background: "var(--accent)", height: 6 }} />
+          <span>Thickness = frequency</span>
+        </div>
+        <div className="viz-legend-item">
+          <div className="viz-legend-dot" style={{ background: "var(--bg-1)", border: "1px solid var(--line)" }} />
+          <span>Columns</span>
+        </div>
+      </div>
+
       <style jsx>{`
         .sankey-wrapper {
             width: 100%;

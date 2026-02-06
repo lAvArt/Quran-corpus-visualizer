@@ -10,6 +10,10 @@ This project uses curated linguistic annotation sources for Quranic text analysi
 - Website: https://corpus.quran.com/
 - Usage: morphology, syntactic dependency, lexical metadata
 - Attribution: required in repository and UI where source-derived views are rendered
+- Dataset: `public/data/quranic-corpus-morphology-0.4.txt` (verbatim copy)
+- Version: morphology 0.4
+- Retrieval date: 2026-02-06
+- License note (from file header): verbatim copies allowed, changes not allowed; source attribution and link required.
 
 ## Source Handling Policy
 

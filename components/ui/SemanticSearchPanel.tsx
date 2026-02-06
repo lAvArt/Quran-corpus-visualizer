@@ -3,31 +3,67 @@
 import { useMemo, useState } from "react";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
+import { SURAH_NAMES } from "@/lib/data/surahData";
 
 interface SemanticSearchPanelProps {
   tokens: CorpusToken[];
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
+  onSelectSurah?: (surahId: number) => void;
+  scope?: { type: "global" } | { type: "surah"; surahId: number };
 }
 
-export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus }: SemanticSearchPanelProps) {
+export default function SemanticSearchPanel({
+  tokens,
+  onTokenHover,
+  onTokenFocus,
+  onSelectSurah,
+  scope = { type: "global" },
+}: SemanticSearchPanelProps) {
   const [root, setRoot] = useState("");
   const [lemma, setLemma] = useState("");
   const [pos, setPos] = useState<PartOfSpeech | "">("");
   const [ayah, setAyah] = useState("");
 
-  const tokenById = useMemo(() => new Map(tokens.map((t) => [t.id, t])), [tokens]);
-  const index = useMemo(() => buildPhaseOneIndexes(tokens), [tokens]);
+  const scopedTokens = useMemo(() => {
+    if (scope.type === "surah") {
+      return tokens.filter((token) => token.sura === scope.surahId);
+    }
+    return tokens;
+  }, [tokens, scope]);
+
+  const tokenById = useMemo(
+    () => new Map(scopedTokens.map((t) => [t.id, t])),
+    [scopedTokens]
+  );
+  const index = useMemo(() => buildPhaseOneIndexes(scopedTokens), [scopedTokens]);
+
+  const normalizedAyahQuery = useMemo(() => {
+    if (!ayah) return "";
+    if (scope.type === "surah" && !ayah.includes(":")) {
+      return `${scope.surahId}:${ayah}`;
+    }
+    return ayah;
+  }, [ayah, scope]);
 
   const results = useMemo(() => {
     const ids = queryPhaseOne(index, {
       root: root || undefined,
       lemma: lemma || undefined,
       pos: pos || undefined,
-      ayah: ayah || undefined
+      ayah: normalizedAyahQuery || undefined
     });
     return [...ids].map((id) => tokenById.get(id)).filter((token): token is CorpusToken => !!token);
-  }, [ayah, index, lemma, pos, root, tokenById]);
+  }, [index, lemma, pos, root, tokenById, normalizedAyahQuery]);
+
+  const scopeLabel = useMemo(() => {
+    if (scope.type === "surah") {
+      const info = SURAH_NAMES[scope.surahId];
+      const name = info?.name ? ` · ${info.name}` : "";
+      return `Surah ${scope.surahId}${name}`;
+    }
+    return "Global";
+  }, [scope]);
 
   return (
     <div className="search-panel">
@@ -42,9 +78,23 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
       */}
 
       <div className="search-controls">
-        <input value={root} onChange={(e) => setRoot(e.target.value)} placeholder="Root (e.g., هدي)" className="search-input"/>
-        <input value={lemma} onChange={(e) => setLemma(e.target.value)} placeholder="Lemma (e.g., هُدًى)" className="search-input"/>
-        <select value={pos} onChange={(e) => setPos(e.target.value as PartOfSpeech | "")} className="search-select">
+        <input
+          value={root}
+          onChange={(e) => setRoot(e.target.value)}
+          placeholder="Root (e.g., \u0647\u062F\u064A)"
+          className="search-input"
+        />
+        <input
+          value={lemma}
+          onChange={(e) => setLemma(e.target.value)}
+          placeholder="Lemma (e.g., \u0647\u064F\u062F\u064B\u0649)"
+          className="search-input"
+        />
+        <select
+          value={pos}
+          onChange={(e) => setPos(e.target.value as PartOfSpeech | "")}
+          className="search-select"
+        >
           <option value="">All POS</option>
           <option value="N">Noun (N)</option>
           <option value="V">Verb (V)</option>
@@ -52,11 +102,22 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
           <option value="ADJ">Adjective</option>
           <option value="PRON">Pronoun</option>
         </select>
-        <input value={ayah} onChange={(e) => setAyah(e.target.value)} placeholder="Ayah (e.g., 1:5)" className="search-input"/>
+        <input
+          value={ayah}
+          onChange={(e) => setAyah(e.target.value)}
+          placeholder="Ayah (e.g., 1:5)"
+          className="search-input"
+        />
+      </div>
+
+      <div className="results-scope">
+        <span>Scope</span>
+        <span className="scope-pill">{scopeLabel}</span>
       </div>
 
       <div className="results-header">
-        Found {results.length} tokens
+        <span>Found {results.length} tokens</span>
+        <span className="results-sub">Click a row to focus</span>
       </div>
 
       <div className="search-results-list">
@@ -72,11 +133,16 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
               className="result-item"
               onMouseEnter={() => onTokenHover(token.id)}
               onMouseLeave={() => onTokenHover(null)}
-              onClick={() => onTokenFocus(token.id)}
+              onClick={() => {
+                if (scope.type === "global" && onSelectSurah) {
+                  onSelectSurah(token.sura);
+                }
+                onTokenFocus(token.id);
+              }}
             >
-              <span className="res-arabic" lang="ar">{token.text}</span>
+              <span className="res-arabic" lang="ar" dir="rtl">{token.text}</span>
               <span className="res-meta">
-                 {token.sura}:{token.ayah} • {token.pos}
+                 {token.sura}:{token.ayah} - {token.pos}
               </span>
             </button>
           ))
@@ -93,26 +159,57 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
             display: grid;
             gap: 8px;
             margin-bottom: 16px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .search-input, .search-select {
-            padding: 8px 12px;
+            padding: 9px 12px;
             border: 1px solid var(--line);
             border-radius: 8px;
-            background: rgba(255,255,255,0.5);
+            background: var(--bg-2);
+            color: var(--ink);
             width: 100%;
             font-size: 0.9rem;
         }
         .search-input:focus, .search-select:focus {
             outline: none;
             border-color: var(--accent);
-            background: white;
+            background: rgba(255, 255, 255, 0.9);
         }
         .results-header {
-            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
             color: var(--ink-muted);
             margin-bottom: 8px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
+        }
+        .results-scope {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--ink-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .scope-pill {
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.65);
+            border: 1px solid var(--line);
+            color: var(--ink-secondary);
+            font-size: 0.7rem;
+            text-transform: none;
+            letter-spacing: 0.02em;
+        }
+        .results-sub {
+            font-size: 0.72rem;
+            color: var(--ink-secondary);
+            letter-spacing: 0.04em;
+            text-transform: none;
         }
         .search-results-list {
             flex: 1;
@@ -127,20 +224,21 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            border: 1px solid transparent;
-            border-radius: 6px;
-            background: rgba(0,0,0,0.02);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.65);
             cursor: pointer;
             text-align: left;
             transition: all 0.2s;
         }
         .result-item:hover {
-            background: white;
-            border-color: var(--line);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background: rgba(255, 255, 255, 0.95);
+            border-color: var(--accent);
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+            transform: translateY(-1px);
         }
         .res-arabic {
-            font-family: "Amiri", serif;
+            font-family: var(--font-arabic, "Amiri"), "Amiri", serif;
             font-size: 1.1rem;
         }
         .res-meta {
@@ -154,6 +252,28 @@ export default function SemanticSearchPanel({ tokens, onTokenHover, onTokenFocus
             font-size: 0.9rem;
             border: 2px dashed var(--line);
             border-radius: 8px;
+        }
+
+        @media (max-width: 640px) {
+            .search-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        :global([data-theme="dark"]) .search-input,
+        :global([data-theme="dark"]) .search-select {
+            background: rgba(18, 18, 26, 0.75);
+        }
+
+        :global([data-theme="dark"]) .result-item {
+            background: rgba(16, 16, 24, 0.65);
+        }
+
+        :global([data-theme="dark"]) .result-item:hover {
+            background: rgba(20, 20, 28, 0.95);
+        }
+        :global([data-theme="dark"]) .scope-pill {
+            background: rgba(16, 16, 24, 0.8);
         }
       `}</style>
     </div>
