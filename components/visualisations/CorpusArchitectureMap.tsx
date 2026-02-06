@@ -735,7 +735,7 @@ export default function CorpusArchitectureMap({
                             >
                                 {focusedSurahId
                                     ? SURAH_NAMES[focusedSurahId]?.name
-                                    : (internalSelectedRoot ?? "Architecture")}
+                                    : (internalSelectedRoot ?? t("architecture"))}
                             </text>
                             {focusedSurahId && (
                                 <text
@@ -772,7 +772,7 @@ export default function CorpusArchitectureMap({
                                         fill: themeColors.textColors.secondary
                                     }}
                                 >
-                                    {selectedRootInfo?.count ? `${selectedRootInfo.count} ${ts("occurrences")}` : ""}
+                                    {selectedRootInfo?.count ? t("occurrences", { count: selectedRootInfo.count }) : ""}
                                 </text>
                             )}
                         </g>

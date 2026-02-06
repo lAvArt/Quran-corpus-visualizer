@@ -307,6 +307,7 @@
             "architecture": "Architecture",
             "stats": "{rootCount} Roots • {ayahCount} Ayahs",
             "occurrences": "{count} occurrences",
+            "selectedRoot": "Selected Root",
             "Help": {
                 "title": "Corpus Architecture Map",
                 "description": "An interactive radial dendrogram visualizing the hierarchical structure of the Quran, from the full Corpus down to Surahs and their most frequent Roots.",
