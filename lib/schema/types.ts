@@ -30,6 +30,7 @@ export interface AyahRecord {
   suraId: number;
   ayahNumber: number;
   textUthmani: string;
+  textSimple?: string;
   tokenIds: string[];
 }
 

@@ -10,6 +10,7 @@
  */
 
 const API_BASE = "https://api.quran.com/api/v4";
+const DEFAULT_VERSE_FIELDS = ["text_uthmani", "text_imlaei", "text_imlaei_simple"];
 
 export interface QuranChapter {
   id: number;
@@ -60,6 +61,9 @@ export interface QuranVerse {
   words?: QuranWord[];
   text_uthmani?: string;
   text_simple?: string;
+  text_imlaei?: string;
+  text_imlaei_simple?: string;
+  text_uthmani_simple?: string;
 }
 
 export interface ChaptersResponse {
@@ -112,12 +116,14 @@ class QuranApiClient {
       page?: number;
       perPage?: number;
       translations?: number[];
+      fields?: string[];
     } = {}
   ): Promise<VersesResponse> {
     const params = new URLSearchParams();
     if (options.words) params.set("words", "true");
     if (options.page) params.set("page", options.page.toString());
     if (options.perPage) params.set("per_page", options.perPage.toString());
+    params.set("fields", options.fields?.length ? options.fields.join(",") : DEFAULT_VERSE_FIELDS.join(","));
     if (options.translations?.length) {
       params.set("translations", options.translations.join(","));
     }
@@ -129,10 +135,11 @@ class QuranApiClient {
 
   async getVerse(
     verseKey: string,
-    options: { words?: boolean } = {}
+    options: { words?: boolean; fields?: string[] } = {}
   ): Promise<QuranVerse> {
     const params = new URLSearchParams();
     if (options.words) params.set("words", "true");
+    params.set("fields", options.fields?.length ? options.fields.join(",") : DEFAULT_VERSE_FIELDS.join(","));
 
     const query = params.toString();
     const endpoint = `/verses/by_key/${verseKey}${query ? `?${query}` : ""}`;
@@ -142,7 +149,7 @@ class QuranApiClient {
 
   async getAllVersesForChapter(
     chapterId: number,
-    options: { words?: boolean } = {}
+    options: { words?: boolean; fields?: string[] } = {}
   ): Promise<QuranVerse[]> {
     const allVerses: QuranVerse[] = [];
     let page = 1;

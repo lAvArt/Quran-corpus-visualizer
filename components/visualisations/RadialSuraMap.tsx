@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getAyah } from "@/lib/corpus/corpusLoader";
+import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface RadialSuraMapProps {
   tokens: CorpusToken[];
@@ -19,17 +23,7 @@ interface RadialSuraMapProps {
   theme?: "light" | "dark";
 }
 
-interface RadialNode {
-  id: string;
-  ayah: number;
-  position: number;
-  angle: number;
-  radius: number;
-  text: string;
-  root: string;
-  pos: string;
-  color: string;
-}
+
 
 interface AyahBar {
   ayah: number;
@@ -61,12 +55,14 @@ export default function RadialSuraMap({
 }: RadialSuraMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { svgRef, gRef } = useZoom<SVGSVGElement>();
+  const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
   const [hoveredAyah, setHoveredAyah] = useState<number | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<RootConnection | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
+  const [fullAyahText, setFullAyahText] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const prevSuraIdRef = useRef<number | null>(null);
@@ -89,7 +85,21 @@ export default function RadialSuraMap({
     prevSuraIdRef.current = suraId;
   }, [suraId]);
 
-  const themeColors = theme === "dark" ? DARK_THEME : DARK_THEME; // Use dark for now
+  useEffect(() => {
+    if (selectedAyah) {
+      getAyah(suraId, selectedAyah).then(record => {
+        if (record) {
+          setFullAyahText(record.textUthmani);
+        } else {
+          setFullAyahText(null);
+        }
+      });
+    } else {
+      setFullAyahText(null);
+    }
+  }, [selectedAyah, suraId]);
+
+  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
   // ... displayArabicName useMemo ...
 
@@ -166,7 +176,11 @@ export default function RadialSuraMap({
       // Adjust color if we are highlighting a root
       let barColor = getNodeColor(dominantPOS);
       if (highlightRoot) {
-        barColor = containsRoot ? themeColors.accent : "rgba(255,255,255,0.1)";
+        barColor = containsRoot
+          ? themeColors.accent
+          : theme === "dark"
+            ? "rgba(255,255,255,0.1)"
+            : "rgba(31, 28, 25, 0.16)";
       }
 
       bars.push({
@@ -225,7 +239,7 @@ export default function RadialSuraMap({
       ayahRootCounts: rootCountsByAyah,
       ayahRootMax: maxByAyah,
     };
-  }, [tokens, suraId]);
+  }, [tokens, suraId, highlightRoot, themeColors.accent, theme]);
 
   const highlightAyahs = useMemo(() => {
     if (!highlightRoot) return [];
@@ -285,7 +299,6 @@ export default function RadialSuraMap({
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
   const innerRadius = Math.min(dimensions.width, dimensions.height) * 0.25;
-  const outerRadius = Math.min(dimensions.width, dimensions.height) * 0.42;
 
   // Generate arc path for connections
   const generateConnectionPath = useCallback(
@@ -402,9 +415,9 @@ export default function RadialSuraMap({
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              color: "rgba(255,255,255,0.85)",
+              background: "color-mix(in srgb, var(--line), transparent 22%)",
+              border: "1px solid var(--line)",
+              color: "var(--ink-secondary)",
               fontSize: "0.75rem",
               cursor: "pointer",
             }}
@@ -426,97 +439,120 @@ export default function RadialSuraMap({
         )}
       </div>
 
-      <div className="viz-left-stack">
-        {highlightRoot && (
-          <div className="viz-left-panel">
-            <div className="viz-tooltip-title">Selected Root</div>
-            <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
-            {highlightAyahs.length > 0 && (
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">Linked ayahs</span>
-                <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
-              </div>
+      {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
+        <div className="viz-left-stack">
+          {highlightRoot && (
+            <div className="viz-left-panel">
+              <div className="viz-tooltip-title">Selected Root</div>
+              <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+              {highlightAyahs.length > 0 && (
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">Linked ayahs</span>
+                  <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <AnimatePresence>
+            {selectedAyahData && (
+              <motion.div
+                className="viz-left-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+              >
+                <div className="viz-tooltip-title">Ayah {selectedAyah}</div>
+                <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
+
+                {fullAyahText && (
+                  <div className="viz-tooltip-subtitle arabic-text" style={{
+                    marginTop: '0.5rem',
+                    fontSize: '1.4rem',
+                    lineHeight: '1.6',
+                    textAlign: 'right',
+                    direction: 'rtl',
+                    width: '100%',
+                    color: 'var(--ink)',
+                    paddingBottom: '0.5rem',
+                    borderBottom: '1px solid var(--line)'
+                  }}>
+                    {fullAyahText}
+                  </div>
+                )}
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">Tokens</span>
+                  <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
+                </div>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">Dominant POS</span>
+                  <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
+                </div>
+              </motion.div>
             )}
-          </div>
-        )}
+          </AnimatePresence>
 
-        <AnimatePresence>
-          {selectedAyahData && (
-            <motion.div
-              className="viz-left-panel"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-            >
-              <div className="viz-tooltip-title">Ayah {selectedAyah}</div>
-              <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">Tokens</span>
-                <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
-              </div>
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">Dominant POS</span>
-                <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <AnimatePresence>
+            {(selectedConnection || hoveredConnection) && (
+              <motion.div
+                className="viz-left-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+              >
+                <div className="viz-tooltip-title">Root Connection</div>
+                <div className="viz-tooltip-subtitle arabic-text">
+                  {(selectedConnection ?? hoveredConnection)?.root}
+                </div>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">From</span>
+                  <span className="viz-tooltip-value">
+                    Ayah {(selectedConnection ?? hoveredConnection)?.sourceAyah}
+                  </span>
+                </div>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">To</span>
+                  <span className="viz-tooltip-value">
+                    Ayah {(selectedConnection ?? hoveredConnection)?.targetAyah}
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <AnimatePresence>
-          {(selectedConnection || hoveredConnection) && (
-            <motion.div
-              className="viz-left-panel"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-            >
-              <div className="viz-tooltip-title">Root Connection</div>
-              <div className="viz-tooltip-subtitle arabic-text">
-                {(selectedConnection ?? hoveredConnection)?.root}
-              </div>
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">From</span>
-                <span className="viz-tooltip-value">
-                  Ayah {(selectedConnection ?? hoveredConnection)?.sourceAyah}
-                </span>
-              </div>
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">To</span>
-                <span className="viz-tooltip-value">
-                  Ayah {(selectedConnection ?? hoveredConnection)?.targetAyah}
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="viz-legend">
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
-            <span>Noun</span>
+          <div className="viz-legend" style={{ marginTop: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
+              <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+              <HelpIcon onClick={() => setShowHelp(true)} />
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
+              <span>Noun</span>
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
+              <span>Verb</span>
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
+              <span>Adjective</span>
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
+              <span>Preposition</span>
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
+              <span>Root Connection</span>
+            </div>
+            <div className="viz-legend-item">
+              <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
+              <span>Ayah Bar</span>
+            </div>
           </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
-            <span>Verb</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
-            <span>Adjective</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
-            <span>Preposition</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
-            <span>Root Connection</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
-            <span>Ayah Bar</span>
-          </div>
-        </div>
-      </div>
+        </div>,
+        document.getElementById('viz-sidebar-portal')!
+      )}
 
       <div ref={containerRef} className="viz-container" style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
         {!isMounted ? null : (
@@ -567,6 +603,11 @@ export default function RadialSuraMap({
                   </feMerge>
                 </filter>
               </defs>
+              <VizExplainerDialog
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                content={VIZ_HELP_CONTENT["radial-sura"]}
+              />
 
               {/* Background orbital rings */}
               {[0.6, 0.75, 0.9, 1.05].map((scale, i) => (
@@ -576,7 +617,7 @@ export default function RadialSuraMap({
                   cy={centerY}
                   r={innerRadius * scale}
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.03)"
+                  stroke={theme === "dark" ? "rgba(255, 255, 255, 0.03)" : "rgba(31, 28, 25, 0.08)"}
                   strokeWidth={1}
                 />
               ))}
@@ -588,7 +629,7 @@ export default function RadialSuraMap({
                 r={innerRadius}
                 className="main-arc"
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.15)"
+                stroke={theme === "dark" ? "rgba(255, 255, 255, 0.15)" : "rgba(31, 28, 25, 0.24)"}
                 strokeWidth={3}
               />
 
@@ -651,7 +692,7 @@ export default function RadialSuraMap({
                       />
                       <path
                         d={pathD}
-                        stroke="rgba(255, 255, 255, 0.001)"
+                        stroke="transparent"
                         strokeWidth={12}
                         fill="none"
                         pointerEvents="stroke"
@@ -734,7 +775,15 @@ export default function RadialSuraMap({
                             x={labelX}
                             y={labelY}
                             textAnchor={angleRad > Math.PI / 2 && angleRad < (3 * Math.PI) / 2 ? "end" : "start"}
-                            fill={isEmphasized ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)"}
+                            fill={
+                              isEmphasized
+                                ? theme === "dark"
+                                  ? "rgba(255,255,255,0.45)"
+                                  : "rgba(31, 28, 25, 0.62)"
+                                : theme === "dark"
+                                  ? "rgba(255,255,255,0.22)"
+                                  : "rgba(31, 28, 25, 0.36)"
+                            }
                             fontSize={isEmphasized ? "8.5" : "8"}
                             fontWeight={isEmphasized ? 600 : 400}
                             style={{ pointerEvents: "none" }}

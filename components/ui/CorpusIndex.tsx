@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
-import { motion, AnimatePresence } from "framer-motion";
+
 
 interface CorpusIndexProps {
     tokens: CorpusToken[];
@@ -99,24 +99,36 @@ export default function CorpusIndex({
         }
     }, [activeTab, searchQuery, data]);
 
-    const [visibleItems, setVisibleItems] = useState(100);
 
-    // Reset visible items when tab or query changes
-    useMemo(() => {
-        setVisibleItems(100);
-    }, [activeTab, searchQuery]);
-
-    // ... (rest is same)
-
-    const handleLoadMore = () => {
-        setVisibleItems(prev => prev + 100);
-    };
 
     return (
         <div className={`corpus-index ${className}`}>
-            {/* ... */}
+            <div className="index-tabs">
+                {(["surah", "root", "lemma"] as const).map((mode) => (
+                    <button
+                        key={mode}
+                        className={`index-tab-btn ${activeTab === mode ? "active" : ""}`}
+                        onClick={() => setActiveTab(mode)}
+                    >
+                        {mode}
+                    </button>
+                ))}
+            </div>
+
+            <div className="search-container">
+                <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                    type="text"
+                    className="index-search-input"
+                    placeholder="Filter..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
             <div className="index-list custom-scrollbar">
-                {filteredItems.slice(0, visibleItems).map((item) => (
+                {filteredItems.map((item) => (
                     // ... item render ...
                     <button
                         key={item.id}
@@ -143,14 +155,7 @@ export default function CorpusIndex({
                     </button>
                 ))}
 
-                {filteredItems.length > visibleItems && (
-                    <button
-                        onClick={handleLoadMore}
-                        className="index-load-more"
-                    >
-                        Show More ({filteredItems.length - visibleItems} remaining)
-                    </button>
-                )}
+
 
                 {filteredItems.length === 0 && (
                     <div className="index-empty">
@@ -161,22 +166,7 @@ export default function CorpusIndex({
 
             <style jsx>{`
                 /* ... existing styles ... */
-                .index-load-more {
-                    width: 100%;
-                    padding: 12px;
-                    margin-top: 8px;
-                    background: var(--bg-2);
-                    border: 1px dashed var(--line);
-                    border-radius: 8px;
-                    color: var(--accent);
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .index-load-more:hover {
-                    background: var(--bg-1);
-                    border-color: var(--accent);
-                }
+
                  /* ... existing styles ... */
                  
                  /* RE-INSERTING PREVIOUS STYLES TO ENSURE THEY ARE NOT LOST */

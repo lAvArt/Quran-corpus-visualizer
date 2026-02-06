@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Amiri, Fraunces, Space_Grotesk } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -36,7 +37,9 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${fraunces.variable} ${amiri.variable}`}
     >
-      <body className="body-root">{children}</body>
+      <body className="body-root">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

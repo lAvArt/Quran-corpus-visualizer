@@ -15,6 +15,9 @@
   --accent-3: #1d4ed8;
   --accent-glow: rgba(15, 118, 110, 0.4);
   --accent-2-glow: rgba(245, 158, 11, 0.45);
+  --header-dock-height: 42px;
+  --header-gap: 28px;
+  --header-clearance: calc(var(--header-dock-height) + var(--header-gap));
 }
 
 * {
@@ -48,10 +51,11 @@ body {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle, rgba(31, 28, 25, 0.14) 1px, transparent 1.5px) 0 0 / 40px 40px,
-    linear-gradient(120deg, transparent 46%, rgba(15, 118, 110, 0.18) 50%, transparent 54%) 0 0 / 320px 320px,
-    radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.12), transparent 42%);
-  opacity: 0.3;
+    radial-gradient(circle at 15% 18%, rgba(15, 118, 110, 0.12), transparent 40%),
+    radial-gradient(circle at 84% 16%, rgba(245, 158, 11, 0.12), transparent 36%),
+    radial-gradient(circle, rgba(31, 28, 25, 0.1) 1px, transparent 1.7px) 0 0 / 36px 36px,
+    radial-gradient(circle, rgba(15, 118, 110, 0.06) 0.8px, transparent 1.5px) 18px 18px / 44px 44px;
+  opacity: 0.34;
   mix-blend-mode: multiply;
   animation: drift-grid 28s linear infinite;
 }
@@ -360,11 +364,11 @@ body {
 
 @keyframes drift-grid {
   from {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 
   to {
-    transform: translateY(-34px);
+    transform: translate3d(-20px, -28px, 0);
   }
 }
 
@@ -476,19 +480,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 80px 16px 16px;
+  padding: var(--header-clearance) 16px 16px;
 }
 
 .floating-header {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  right: 1rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
-  pointer-events: none;
-  /* Let clicks pass through around content */
   display: flex;
   justify-content: center;
+  pointer-events: none;
+  /* Container passes clicks, content catches them */
 }
 
 .header-dock {
@@ -496,23 +500,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  width: min(1180px, 100%);
-  padding: 0.85rem 1.25rem;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 24px;
-  box-shadow:
-    0 18px 60px rgba(15, 23, 42, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  gap: 0.8rem;
+  width: 100%;
+  min-height: var(--header-dock-height);
+  padding: 0.36rem 1rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .brand-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 220px;
+  gap: 0px;
+  min-width: 160px;
+}
+
+.header-dock .eyebrow {
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
 }
 
 .brand-title-row {
@@ -523,16 +531,16 @@ body {
 
 .brand-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 0.82rem;
   font-family: var(--font-display, "Fraunces"), "Georgia", serif;
   letter-spacing: 0.01em;
 }
 
 .version-pill {
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  padding: 0.18rem 0.55rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.6);
@@ -541,23 +549,25 @@ body {
 
 .brand-meta {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.6rem;
   color: var(--ink-secondary);
+  display: none;
+  /* Hide meta for ultra-slim header */
 }
 
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .sidebar-toggle-btn {
   background: var(--ink);
   color: var(--bg-0);
   border: 1px solid rgba(31, 28, 25, 0.15);
-  padding: 0.55rem 1.1rem;
+  padding: 0.22rem 0.62rem;
   border-radius: 99px;
-  font-size: 0.85rem;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -575,7 +585,7 @@ body {
 
 .floating-sidebar {
   position: absolute;
-  top: 5.5rem;
+  top: var(--header-clearance);
   right: 1rem;
   bottom: 1rem;
   width: min(380px, 92vw);
@@ -593,11 +603,9 @@ body {
 
 /* Dark Mode Header adjustments */
 [data-theme='dark'] .header-dock {
-  background: rgba(18, 18, 26, 0.75);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 18px 60px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: rgba(18, 18, 26, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 [data-theme='dark'] .sidebar-toggle-btn {
@@ -610,8 +618,12 @@ body {
 }
 
 @media (max-width: 980px) {
+  :root {
+    --header-clearance: 140px;
+  }
+
   .immersive-viewport {
-    padding: 140px 20px 24px;
+    padding: var(--header-clearance) 20px 24px;
   }
 
   .header-dock {
@@ -752,20 +764,59 @@ body {
   color: var(--ink-secondary);
 }
 
-/* Left rail stack for legends + selection cards */
-.current-selection-panel {
+/* Unified Sidebar Stack */
+.viz-sidebar-stack {
   position: fixed;
-  top: 6.3rem;
+  top: var(--header-clearance);
   left: 1rem;
-  z-index: 37;
-  width: min(300px, calc(100vw - 2rem));
+  bottom: 1rem;
+  z-index: 40;
+  width: min(280px, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  /* Let clicks pass through gaps */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 2rem;
+  scrollbar-width: thin;
+}
+
+/* Scrollbar styling for sidebar */
+.viz-sidebar-stack::-webkit-scrollbar {
+  width: 4px;
+}
+
+.viz-sidebar-stack::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viz-sidebar-stack::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* Reset specific panels to flow naturally in stack */
+.current-selection-panel,
+.viz-left-panel,
+.viz-legend {
+  position: static !important;
+  /* Override any inline or specific fixed positioning */
+  width: 100% !important;
+  pointer-events: auto;
+  flex-shrink: 0;
+  /* Prevent squashing */
+}
+
+/* Original panel styling (visuals only, not layout) */
+.current-selection-panel {
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.76);
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
-  pointer-events: auto;
 }
 
 [data-theme="dark"] .current-selection-panel {
@@ -793,16 +844,24 @@ body {
   color: var(--ink-secondary);
   text-align: right;
   font-weight: 500;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 60%;
+  min-width: 0;
 }
 
+.selection-value.arabic-text {
+  font-family: "Amiri", serif;
+  font-size: 0.95rem;
+  direction: rtl;
+}
+
+/* The old stack container is now redundant, but kept for legacy viz if needed 
+   Resetting it to not interfere if used inside the new stack
+*/
 .viz-left-stack {
-  position: fixed;
-  top: 15.4rem;
-  left: 1rem;
-  z-index: 36;
-  width: min(300px, calc(100vw - 2rem));
-  max-height: calc(100vh - 16.4rem);
-  overflow-y: auto;
+  position: static;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -838,14 +897,14 @@ body {
 /* Legend container (shared) */
 .viz-legend {
   position: fixed;
-  top: 15.4rem;
+  bottom: 1rem;
   left: 1rem;
   z-index: 35;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: min(280px, calc(100vw - 2rem));
-  max-height: calc(100vh - 16.4rem);
+  gap: 8px;
+  width: min(240px, calc(100vw - 2rem));
+  max-height: 180px;
   overflow-y: auto;
   padding: 12px 14px;
   margin: 0;
@@ -884,23 +943,23 @@ body {
 
 @media (max-width: 980px) {
   .current-selection-panel {
-    top: 9.6rem;
+    top: var(--header-clearance);
   }
 
   .viz-left-stack {
-    top: 18.7rem;
-    max-height: calc(100vh - 19.7rem);
+    top: var(--header-clearance);
+    max-height: calc(100vh - var(--header-clearance) - 1rem);
   }
 
   .viz-legend {
-    top: 18.7rem;
-    max-height: calc(100vh - 19.7rem);
+    top: var(--header-clearance);
+    max-height: calc(100vh - var(--header-clearance) - 1rem);
   }
 }
 
 @media (max-width: 900px) {
   .current-selection-panel {
-    top: 9.2rem;
+    top: var(--header-clearance);
     right: 1rem;
     left: 1rem;
     width: auto;

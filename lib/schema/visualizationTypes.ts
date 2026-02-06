@@ -236,12 +236,12 @@ export const DARK_THEME: VisualizationTheme = {
 
 export const LIGHT_THEME: VisualizationTheme = {
   name: "light",
-  background: "#f8f5ef",
+  background: "#f8f4ec",
   foreground: "#1c1917",
   accent: "#0f766e",
   accentSecondary: "#1d4ed8",
   nodeColors: {
-    default: "#1c1917",
+    default: "#334155",
     highlighted: "#0f766e",
     selected: "#ea580c",
     muted: "#d1d5db",

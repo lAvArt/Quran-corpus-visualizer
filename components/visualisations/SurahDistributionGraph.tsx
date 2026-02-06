@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface SurahDistributionGraphProps {
     tokens: CorpusToken[];
@@ -33,7 +36,7 @@ interface SurahNode {
 export default function SurahDistributionGraph({
     tokens,
     onTokenHover,
-    onTokenFocus,
+    onTokenFocus: _onTokenFocus,
     onSurahSelect,
     highlightRoot,
     theme = "dark",
@@ -51,8 +54,14 @@ export default function SurahDistributionGraph({
             }),
     });
     const [dimensions, setDimensions] = useState({ width: 1200, height: 800 });
+    const [showHelp, setShowHelp] = useState(false);
     const [hoveredSurah, setHoveredSurah] = useState<number | null>(null);
     const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
@@ -83,7 +92,7 @@ export default function SurahDistributionGraph({
         const yScale = d3.scaleSqrt()
             .domain([minTokens, maxTokens === minTokens ? minTokens + 1 : maxTokens])
             .range([dimensions.height - padding, padding]);
-        const colorScale = d3.scaleSequential(d3.interpolateTurbo)
+        const colorScale = d3.scaleSequential(theme === "dark" ? d3.interpolateTurbo : d3.interpolateViridis)
             .domain([minAyahs, maxAyahs === minAyahs ? minAyahs + 1 : maxAyahs]);
 
         const nodes: SurahNode[] = [];
@@ -121,9 +130,9 @@ export default function SurahDistributionGraph({
             tokenExtent: [minTokens, maxTokens] as [number, number],
             colorScale
         };
-    }, [tokens, dimensions, highlightRoot]);
+    }, [tokens, dimensions, highlightRoot, theme]);
 
-    const { surahNodes, xScale, yScale, xTicks, yTicks, padding, ayahExtent, tokenExtent, colorScale } = layout;
+    const { surahNodes, xScale, yScale, xTicks, yTicks, padding, ayahExtent, colorScale } = layout;
 
     // Resize observer
     useEffect(() => {
@@ -170,7 +179,7 @@ export default function SurahDistributionGraph({
     const totalSurahs = surahNodes.length;
 
     return (
-        <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
+        <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
             <div className="viz-controls floating-controls">
                 <p className="ayah-meta-glass">
                     {totalSurahs} Surahs · {totalTokens.toLocaleString()} Words
@@ -222,7 +231,7 @@ export default function SurahDistributionGraph({
                                     x2={dimensions.width - padding}
                                     y1={yScale(tick)}
                                     y2={yScale(tick)}
-                                    stroke="rgba(255,255,255,0.06)"
+                                    stroke={theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(31, 28, 25, 0.1)"}
                                 />
                             ))}
                             {xTicks.map((tick) => (
@@ -232,7 +241,7 @@ export default function SurahDistributionGraph({
                                     x2={xScale(tick)}
                                     y1={padding}
                                     y2={dimensions.height - padding}
-                                    stroke="rgba(255,255,255,0.04)"
+                                    stroke={theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(31, 28, 25, 0.08)"}
                                 />
                             ))}
                         </g>
@@ -360,7 +369,7 @@ export default function SurahDistributionGraph({
                                             cy={node.y}
                                             r={node.radius}
                                             fill={isHighlighted ? themeColors.accent : node.color}
-                                            stroke="rgba(255,255,255,0.3)"
+                                            stroke={theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(31, 28, 25, 0.28)"}
                                             strokeWidth={isHighlighted ? 2 : 1}
                                             filter={isHighlighted ? "url(#surahGlow)" : undefined}
                                         />
@@ -370,7 +379,7 @@ export default function SurahDistributionGraph({
                                             x={node.x}
                                             y={node.y + (node.radius > 15 ? 4 : 2)}
                                             textAnchor="middle"
-                                            fill={theme === "dark" ? "#fff" : "#1a1a1a"}
+                                            fill={themeColors.foreground}
                                             fontSize={node.radius > 12 ? "10px" : "6px"}
                                             fontWeight="600"
                                             style={{ pointerEvents: "none" }}
@@ -387,7 +396,12 @@ export default function SurahDistributionGraph({
                                                 fill={themeColors.textColors.primary}
                                                 fontSize="12px"
                                                 fontWeight="500"
-                                                style={{ pointerEvents: "none", textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
+                                                style={{
+                                                    pointerEvents: "none",
+                                                    textShadow: theme === "dark"
+                                                        ? "0 2px 4px rgba(0,0,0,0.5)"
+                                                        : "0 1px 2px rgba(255,255,255,0.65)"
+                                                }}
                                             >
                                                 {node.name}
                                             </text>
@@ -399,93 +413,108 @@ export default function SurahDistributionGraph({
                     </g>
                 </svg>
 
-                {/* Tooltip */}
-                <AnimatePresence>
-                    {(hoveredSurah || selectedSurah) && (
-                        <motion.div
-                            className="viz-tooltip"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            style={{
-                                position: "absolute",
-                                top: 20,
-                                left: 20,
-                            }}
-                        >
-                            {(() => {
-                                const node = surahNodes.find(n => n.id === (hoveredSurah ?? selectedSurah));
-                                if (!node) return null;
+            </div>
 
-                                return (
-                                    <>
-                                        <div className="viz-tooltip-title">
-                                            {node.name}
-                                        </div>
-                                        <div className="viz-tooltip-subtitle">
-                                            Surah {node.id}
-                                        </div>
-                                        <div className="viz-tooltip-row">
-                                            <span className="viz-tooltip-label">Words</span>
-                                            <span className="viz-tooltip-value">{node.tokenCount.toLocaleString()}</span>
-                                        </div>
-                                        <div className="viz-tooltip-row">
-                                            <span className="viz-tooltip-label">Ayahs</span>
-                                            <span className="viz-tooltip-value">{node.ayahCount}</span>
-                                        </div>
-                                        {node.tokens[0] && (
-                                            <div className="viz-tooltip-row">
-                                                <span className="viz-tooltip-label">First word</span>
-                                                <span className="viz-tooltip-value arabic-text">
-                                                    {node.tokens[0].text}
-                                                </span>
+            {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
+                <div className="viz-left-stack">
+                    <AnimatePresence>
+                        {(hoveredSurah || selectedSurah) && (
+                            <motion.div
+                                className="viz-left-panel"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                            >
+                                {(() => {
+                                    const node = surahNodes.find(n => n.id === (hoveredSurah ?? selectedSurah));
+                                    if (!node) return null;
+
+                                    return (
+                                        <>
+                                            <div className="viz-tooltip-title">
+                                                {node.name}
                                             </div>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+                                            <div className="viz-tooltip-subtitle">
+                                                Surah {node.id}
+                                            </div>
+                                            <div className="viz-tooltip-row">
+                                                <span className="viz-tooltip-label">Words</span>
+                                                <span className="viz-tooltip-value">{node.tokenCount.toLocaleString()}</span>
+                                            </div>
+                                            <div className="viz-tooltip-row">
+                                                <span className="viz-tooltip-label">Ayahs</span>
+                                                <span className="viz-tooltip-value">{node.ayahCount}</span>
+                                            </div>
+                                            {node.tokens[0] && (
+                                                <div className="viz-tooltip-row">
+                                                    <span className="viz-tooltip-label">First word</span>
+                                                    <span className="viz-tooltip-value arabic-text">
+                                                        {node.tokens[0].text}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-            <div className="viz-legend">
-                <div className="viz-legend-item">
-                    <div
-                        className="viz-legend-dot"
-                        style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
-                    />
-                    <span>Fewer ayahs</span>
-                </div>
-                <div className="viz-legend-item">
-                    <div
-                        className="viz-legend-dot"
-                        style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
-                    />
-                    <span>Moderate ayahs</span>
-                </div>
-                <div className="viz-legend-item">
-                    <div
-                        className="viz-legend-dot"
-                        style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
-                    />
-                    <span>More ayahs</span>
-                </div>
-                <div className="viz-legend-item">
-                    <div
-                        className="viz-legend-dot"
-                        style={{ background: themeColors.accent, width: 14, height: 14 }}
-                    />
-                    <span>Selected / Root match</span>
-                </div>
-                <div className="viz-legend-item">
-                    <div
-                        className="viz-legend-dot"
-                        style={{ background: "rgba(255,255,255,0.4)", width: 8, height: 8 }}
-                    />
-                    <span>Size = token count</span>
-                </div>
-            </div>
+                    <div className="viz-legend" style={{ marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
+                            <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+                            <HelpIcon onClick={() => setShowHelp(true)} />
+                        </div>
+                        <div className="viz-legend-item">
+                            <div
+                                className="viz-legend-dot"
+                                style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
+                            />
+                            <span>Fewer ayahs</span>
+                        </div>
+                        <div className="viz-legend-item">
+                            <div
+                                className="viz-legend-dot"
+                                style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
+                            />
+                            <span>Moderate ayahs</span>
+                        </div>
+                        <div className="viz-legend-item">
+                            <div
+                                className="viz-legend-dot"
+                                style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
+                            />
+                            <span>More ayahs</span>
+                        </div>
+                        <div className="viz-legend-item">
+                            <div
+                                className="viz-legend-dot"
+                                style={{ background: themeColors.accent, width: 14, height: 14 }}
+                            />
+                            <span>Selected / Root match</span>
+                        </div>
+                        <div className="viz-legend-item">
+                            <div
+                                className="viz-legend-dot"
+                                style={{
+                                    background: theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(31, 28, 25, 0.35)",
+                                    width: 8,
+                                    height: 8
+                                }}
+                            />
+                            <span>Size = token count</span>
+                        </div>
+                    </div>
+                </div>,
+                document.getElementById('viz-sidebar-portal')!
+            )}
+
+            <VizExplainerDialog
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                content={VIZ_HELP_CONTENT["surah-distribution"]}
+                theme={theme}
+            />
         </section>
     );
 }

@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -33,7 +36,7 @@ export default function CorpusArchitectureMap({
     theme = "dark"
 }: CorpusArchitectureMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [zoomLevel, setZoomLevel] = useState(0.45);
+    const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
     const zoomTransformRef = useRef(d3.zoomIdentity);
     const zoomRafRef = useRef<number | null>(null);
@@ -49,7 +52,7 @@ export default function CorpusArchitectureMap({
     const { svgRef, gRef } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 12,
-        initialScale: 0.45,
+        initialScale: 1.4,
         onZoom: handleZoom,
         onZoomEnd: (transform) =>
             setZoomLevel((prev) => {
@@ -58,9 +61,10 @@ export default function CorpusArchitectureMap({
             }),
     });
 
-    const [dimensions, setDimensions] = useState({ width: 1600, height: 1600 });
+    const [dimensions] = useState({ width: 1600, height: 1600 });
     const [hoveredNode, setHoveredNode] = useState<d3.HierarchyPointNode<HierarchyNode> | null>(null);
     const [focusedSurahId, setFocusedSurahId] = useState<number | null>(null);
+    const [internalSelectedRoot, setInternalSelectedRoot] = useState<string | null>(null);
     const [selectedRootInfo, setSelectedRootInfo] = useState<{
         root: string;
         count: number;
@@ -69,11 +73,26 @@ export default function CorpusArchitectureMap({
         surahArabic: string | null;
     } | null>(null);
 
+    const [showHelp, setShowHelp] = useState(false);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => { setIsMounted(true); }, []);
+
     useEffect(() => {
         if (selectedSurahId) {
             setFocusedSurahId(selectedSurahId);
         }
     }, [selectedSurahId]);
+
+    const focusedSurahStats = useMemo(() => {
+        if (!focusedSurahId) return null;
+        const surahTokens = tokens.filter(t => t.sura === focusedSurahId);
+        const uniqueRoots = new Set(surahTokens.map(t => t.root).filter(Boolean)).size;
+        return {
+            rootsCount: uniqueRoots,
+            ayahsCount: SURAH_NAMES[focusedSurahId]?.verses || 0
+        };
+    }, [focusedSurahId, tokens]);
 
     useEffect(() => {
         return () => {
@@ -124,11 +143,10 @@ export default function CorpusArchitectureMap({
             .forEach(([suraId, data]) => {
                 const surahName = SURAH_NAMES[suraId]?.name || `Surah ${suraId}`;
 
-                // Get top roots for this surah to avoid massive DOM explosion
-                // We can increase this limit or use semantic zoom to load more later
+                // Get top roots for this surah - limit for performance
                 const topRoots = Array.from(data.rootCounts.entries())
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 20) // Limit to top 20 roots per Surah for visual clarity
+                    .slice(0, 6) // Limit to 6 roots per Surah for performance
                     .map(([rootTxt, count]) => ({
                         id: `s${suraId}-r${rootTxt}`,
                         name: rootTxt,
@@ -158,10 +176,10 @@ export default function CorpusArchitectureMap({
         // Tree layout puts them at depth based on parent
         // For radial dendrogram, cluster is usually better for alignment
         // Keep radius smaller to reserve space for root offsets
-        const layoutRadius = Math.max(260, Math.min(dimensions.width, dimensions.height) / 2 - 300);
+        const layoutRadius = Math.max(180, Math.min(dimensions.width, dimensions.height) / 2 - 200);
         const layout = d3.cluster<HierarchyNode>()
             .size([360, layoutRadius])
-            .separation((a, b) => (a.parent === b.parent ? 1 : 2) / a.depth);
+            .separation((a, b) => (a.parent === b.parent ? 2 : 3) / a.depth);
 
         const root = layout(hierarchy);
 
@@ -187,10 +205,11 @@ export default function CorpusArchitectureMap({
             return 0.05;
         }
 
-        // If we are filtering by root:
-        if (highlightRoot) {
-            const isMatch = d.data.type === 'word_root' && d.data.originalId === highlightRoot;
-            const isParentSurah = d.children?.some(child => child.data.originalId === highlightRoot);
+        // If we are filtering by root (either from parent or internal selection):
+        const activeRoot = highlightRoot || internalSelectedRoot;
+        if (activeRoot) {
+            const isMatch = d.data.type === 'word_root' && d.data.originalId === activeRoot;
+            const isParentSurah = d.children?.some(child => child.data.originalId === activeRoot);
 
             if (isMatch || isParentSurah) return 1;
             return 0.1; // Dim others more
@@ -209,7 +228,7 @@ export default function CorpusArchitectureMap({
         return 0.1;
     };
 
-    const themeColors = DARK_THEME; // Enforce dark theme for best contrast
+    const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
     const lodMode = focusedSurahId ? "focus" : zoomLevel < 0.65 ? "surah" : zoomLevel < 1.25 ? "focus" : "full";
     const focusSurahNodeId = focusedSurahId ? `s-${focusedSurahId}` : null;
@@ -271,8 +290,9 @@ export default function CorpusArchitectureMap({
             const max = maxBySurah.get(parentId ?? "") ?? 1;
             const ratio = Math.log1p(node.data.value) / Math.log1p(max);
             const rank = rootRankById.get(node.data.id) ?? 1;
-            const rankNudge = Math.min(84, rank * 3);
-            const offset = 40 + ratio * 240 + rankNudge;
+            // More aggressive spacing by rank to avoid overlap
+            const rankNudge = Math.min(80, rank * 12);
+            const offset = 30 + ratio * 60 + rankNudge;
             offsets.set(node.data.id, offset);
         });
         return offsets;
@@ -287,10 +307,11 @@ export default function CorpusArchitectureMap({
             const total = rootCountBySurah.get(parentId) ?? 1;
             const index = rootIndexById.get(node.data.id) ?? 0;
             const centered = index - (total - 1) / 2;
-            const step = focusSurahNodeId ? 1.6 : 1.05;
-            const spread = Math.min(16, total * step);
+            // Increased spread to avoid collision
+            const step = focusSurahNodeId ? 5.0 : 3.5;
+            const spread = Math.min(65, total * step);
             const baseOffset = centered * (spread / Math.max(1, total - 1));
-            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(2.8, 0.25 * Math.max(1, index));
+            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(4, 0.5 * Math.max(1, index));
             offsets.set(node.data.id, baseOffset + forkNudge);
         });
         return offsets;
@@ -346,6 +367,9 @@ export default function CorpusArchitectureMap({
         return map;
     }, [nodes, getNodeAngle, getNodeRadius]);
 
+    // Defer zoom transform updates for smoother zooming
+    const deferredZoom = useDeferredValue(zoomTransform);
+
     const visibleNodes = useMemo(() => {
         const padding = 160;
         const minX = -viewRadius - padding;
@@ -376,13 +400,13 @@ export default function CorpusArchitectureMap({
         const isInView = (node: d3.HierarchyPointNode<HierarchyNode>) => {
             const position = nodePositionById.get(node.data.id);
             if (!position) return false;
-            const screenX = position.x * zoomTransform.k + zoomTransform.x;
-            const screenY = position.y * zoomTransform.k + zoomTransform.y;
+            const screenX = position.x * deferredZoom.k + deferredZoom.x;
+            const screenY = position.y * deferredZoom.k + deferredZoom.y;
             return screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY;
         };
 
         return nodes.filter((node) => shouldShowRoot(node) && isInView(node));
-    }, [nodes, lodMode, highlightRoot, hoveredNode, focusSurahNodeId, zoomTransform, rootRankById, rootVisibilityLimit, nodePositionById, viewRadius]);
+    }, [nodes, lodMode, highlightRoot, hoveredNode, focusSurahNodeId, deferredZoom, rootRankById, rootVisibilityLimit, nodePositionById, viewRadius]);
 
     const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.data.id)), [visibleNodes]);
     const visibleLinks = useMemo(() => {
@@ -402,9 +426,9 @@ export default function CorpusArchitectureMap({
 
     const labelOffsetForNode = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
-            if (node.data.type !== "word_root") return 10;
+            if (node.data.type !== "word_root") return 8;
             const offset = rootOffsetById.get(node.data.id) ?? 0;
-            return 18 + Math.min(64, offset * 0.7);
+            return 12 + Math.min(16, offset * 0.25);
         },
         [rootOffsetById]
     );
@@ -412,61 +436,92 @@ export default function CorpusArchitectureMap({
     return (
         <section
             className="immersive-viz viz-fullwidth"
+            data-theme={theme}
             style={{
                 width: '100%',
                 height: '100vh',
                 position: 'relative',
                 overflow: 'hidden',
-                background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)' // Force deep dark background
+                background: theme === "dark"
+                    ? "radial-gradient(circle at center, #0f172a 0%, #020617 100%)"
+                    : "radial-gradient(circle at 16% 18%, rgba(15, 118, 110, 0.14), transparent 42%), radial-gradient(circle at 84% 16%, rgba(245, 158, 11, 0.14), transparent 40%), linear-gradient(160deg, #f8f4ec, #efe6d7)"
             }}
         >
-            <div
-                className="viz-controls floating-controls"
-                style={{
-                    bottom: '2rem',
-                    left: '2rem',
-                    pointerEvents: 'none',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                }}
-            >
-                <div className="ayah-meta-glass" style={{ pointerEvents: 'auto', textAlign: 'left' }}>
-                    <strong>Corpus Architecture</strong><br />
-                    <span style={{ fontSize: '0.8em', opacity: 0.7 }}>
-                        Center: Corpus Root<br />
-                        Ring 1: Surahs<br />
-                        Outer: Top Roots
-                    </span>
-                    <br /><br />
-                    <span style={{ fontSize: '0.8em', opacity: 0.7 }}>
-                        Nodes: {nodes.length} | Links: {links.length}
-                    </span>
-                </div>
-                <div className="viz-legend" style={{ pointerEvents: 'auto' }}>
-                    <div className="viz-legend-item">
-                        <div
-                            className="viz-legend-dot"
-                            style={{ background: themeColors.accent, width: 12, height: 12 }}
-                        />
-                        <span>Surah</span>
-                    </div>
-                    <div className="viz-legend-item">
-                        <div
-                            className="viz-legend-dot"
-                            style={{ background: themeColors.nodeColors.default, width: 10, height: 10 }}
-                        />
-                        <span>Root</span>
-                    </div>
-                    <div className="viz-legend-item">
-                        <div
-                            className="viz-legend-line"
-                            style={{ background: themeColors.edgeColors.default }}
-                        />
-                        <span>Root Link</span>
-                    </div>
-                </div>
-            </div>
+
+            {/* Portal controls to sidebar stack */
+                isMounted && (typeof document !== 'undefined') && document.getElementById('viz-sidebar-portal') && createPortal(
+                    <div className="viz-left-stack">
+                        <div className="viz-left-panel">
+                            <strong style={{ fontSize: '0.95em' }}>Corpus Architecture</strong><br />
+                            <span style={{ fontSize: '0.72em', opacity: 0.6, lineHeight: 1.4 }}>
+                                Center → Surahs → Top Roots
+                            </span>
+                        </div>
+
+                        <AnimatePresence>
+                            {selectedRootInfo && (
+                                <motion.div
+                                    className="viz-left-panel"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                >
+                                    <div className="viz-tooltip-title arabic-text" style={{ fontSize: '1.3em' }}>{selectedRootInfo.root}</div>
+                                    <div className="viz-tooltip-subtitle" style={{ fontSize: '0.8em', marginTop: 4 }}>
+                                        {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : "Root"} {" "}
+                                        {selectedRootInfo.surahArabic ? `| ${selectedRootInfo.surahArabic}` : ""}
+                                    </div>
+                                    <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
+                                        <span className="viz-tooltip-label">In this Surah</span>
+                                        <span className="viz-tooltip-value">{selectedRootInfo.count}</span>
+                                    </div>
+                                    <div className="viz-tooltip-row">
+                                        <span className="viz-tooltip-label">Total in Quran</span>
+                                        {/* We can calculate total from tokens if available in scope, or just show what we have */}
+                                        <span className="viz-tooltip-value">
+                                            {tokens.filter(t => t.root === selectedRootInfo.root).length}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="viz-legend" style={{ marginTop: 'auto' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
+                                <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+                                <HelpIcon onClick={() => setShowHelp(true)} />
+                            </div>
+                            <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: themeColors.accent, width: 10, height: 10 }}
+                                />
+                                <span style={{ fontSize: '0.75em' }}>Surah</span>
+                            </div>
+                            <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
+                                />
+                                <span style={{ fontSize: '0.75em' }}>Root</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-line"
+                                    style={{ background: themeColors.edgeColors.default }}
+                                />
+                                <span style={{ fontSize: '0.75em' }}>Link</span>
+                            </div>
+                        </div>
+                    </div>,
+                    document.getElementById('viz-sidebar-portal')!
+                )}
+
+            <VizExplainerDialog
+                isOpen={showHelp}
+                onClose={() => setShowHelp(false)}
+                content={VIZ_HELP_CONTENT["corpus-architecture"]}
+            />
 
             <div ref={containerRef} className="viz-container-full">
                 <svg
@@ -491,7 +546,11 @@ export default function CorpusArchitectureMap({
                         <g className="links" fill="none" strokeWidth={1}>
                             {visibleLinks.map((link, i) => {
                                 const isSourceRoot = link.source.data.id === 'corpus';
-                                const stroke = isSourceRoot ? 'rgba(255,255,255,0.05)' : themeColors.edgeColors.default;
+                                const stroke = isSourceRoot
+                                    ? theme === "dark"
+                                        ? "rgba(255,255,255,0.05)"
+                                        : "rgba(31, 28, 25, 0.1)"
+                                    : themeColors.edgeColors.default;
                                 const isFocusLink = focusSurahNodeId
                                     ? link.source.data.id === focusSurahNodeId ||
                                     link.target.data.id === focusSurahNodeId ||
@@ -567,11 +626,15 @@ export default function CorpusArchitectureMap({
                                                 setFocusedSurahId((prev) => (prev === surahId ? null : surahId));
                                                 onNodeSelect?.('surah', surahId);
                                                 setSelectedRootInfo(null);
+                                                setInternalSelectedRoot(null);
                                             } else if (node.data.type === 'word_root') {
                                                 const root = node.data.originalId as string;
+                                                // Toggle: click again to deselect
+                                                const isDeselect = internalSelectedRoot === root;
+                                                setInternalSelectedRoot(isDeselect ? null : root);
                                                 const surahId = node.parent?.data.originalId as number | undefined;
                                                 const surah = surahId ? SURAH_NAMES[surahId] : null;
-                                                setSelectedRootInfo({
+                                                setSelectedRootInfo(isDeselect ? null : {
                                                     root,
                                                     count: node.data.value,
                                                     surahId: surahId ?? null,
@@ -601,29 +664,24 @@ export default function CorpusArchitectureMap({
                                         {/* Labels */}
                                         {showLabel && (
                                             <text
-                                                dy="0.31em"
+                                                dy="0.35em"
                                                 x={position.angleDeg < 180 ? labelOffsetForNode(node) : -labelOffsetForNode(node)}
                                                 textAnchor={position.angleDeg < 180 ? "start" : "end"}
                                                 transform={`rotate(${position.angleDeg < 180 ? position.angleDeg - 90 : position.angleDeg + 90})`}
-                                                fontSize={node.data.type === 'surah' ? 12 : 10} // Larger text
+                                                fontSize={node.data.type === 'surah' ? 9 : 8}
                                                 fill={themeColors.textColors.primary}
                                                 fontWeight={isHighlighted ? "bold" : "normal"}
-                                                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)', pointerEvents: "none" }} // Shadow for visibility
+                                                style={{
+                                                    textShadow: theme === "dark"
+                                                        ? "0 1px 3px rgba(0,0,0,0.9)"
+                                                        : "0 1px 2px rgba(255,255,255,0.65)",
+                                                    pointerEvents: "none"
+                                                }}
                                             >
                                                 {node.data.type === "surah" ? (
-                                                    <>
-                                                        <tspan>{node.data.name}</tspan>
-                                                        <tspan
-                                                            x={position.angleDeg < 180 ? labelOffsetForNode(node) : -labelOffsetForNode(node)}
-                                                            dy="1.2em"
-                                                            fontSize="10"
-                                                            fill="rgba(255,255,255,0.75)"
-                                                            direction="rtl"
-                                                            unicodeBidi="plaintext"
-                                                        >
-                                                            {SURAH_NAMES[node.data.originalId as number]?.arabic ?? ""}
-                                                        </tspan>
-                                                    </>
+                                                    <tspan>
+                                                        {node.data.name} | {SURAH_NAMES[node.data.originalId as number]?.arabic ?? ""}
+                                                    </tspan>
                                                 ) : (
                                                     node.data.name
                                                 )}
@@ -633,36 +691,83 @@ export default function CorpusArchitectureMap({
                                 );
                             })}
                         </g>
+
+                        {/* Central Info Display */}
+                        <g className="central-info" pointerEvents="none" style={{ transition: "opacity 0.3s ease" }}>
+                            <circle
+                                r={80}
+                                fill={theme === "dark" ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)"}
+                                filter="blur(20px)"
+                            />
+                            <text
+                                y={-24}
+                                textAnchor="middle"
+                                style={{
+                                    fontSize: '18px',
+                                    fontWeight: '400',
+                                    fill: theme === "dark" ? "rgba(255,255,255,0.7)" : "rgba(31, 28, 25, 0.7)",
+                                    letterSpacing: '0.05em',
+                                    textTransform: 'uppercase'
+                                }}
+                            >
+                                {focusedSurahId ? `SURAH ${focusedSurahId}` : (internalSelectedRoot ? "Selected Root" : "Corpus")}
+                            </text>
+                            <text
+                                y={10}
+                                textAnchor="middle"
+                                style={{
+                                    fontSize: '28px',
+                                    fontWeight: '600',
+                                    fill: themeColors.textColors.primary,
+                                    textShadow: theme === "dark" ? "0 2px 10px rgba(0,0,0,0.5)" : "0 2px 10px rgba(255,255,255,0.5)"
+                                }}
+                            >
+                                {focusedSurahId
+                                    ? SURAH_NAMES[focusedSurahId]?.name
+                                    : (internalSelectedRoot ?? "Architecture")}
+                            </text>
+                            {focusedSurahId && (
+                                <text
+                                    y={50}
+                                    textAnchor="middle"
+                                    className="arabic-text"
+                                    style={{
+                                        fontSize: '24px',
+                                        fill: themeColors.accent,
+                                        fontFamily: 'Amiri, serif'
+                                    }}
+                                >
+                                    {SURAH_NAMES[focusedSurahId]?.arabic}
+                                </text>
+                            )}
+                            {focusedSurahId && focusedSurahStats && (
+                                <text
+                                    y={80}
+                                    textAnchor="middle"
+                                    style={{
+                                        fontSize: '15px',
+                                        fill: themeColors.textColors.secondary
+                                    }}
+                                >
+                                    {focusedSurahStats.rootsCount} Roots • {focusedSurahStats.ayahsCount} Ayahs
+                                </text>
+                            )}
+                            {internalSelectedRoot && !focusedSurahId && (
+                                <text
+                                    y={40}
+                                    textAnchor="middle"
+                                    style={{
+                                        fontSize: '14px',
+                                        fill: themeColors.textColors.secondary
+                                    }}
+                                >
+                                    {selectedRootInfo?.count ? `${selectedRootInfo.count} occurrences` : ""}
+                                </text>
+                            )}
+                        </g>
                     </g>
                 </svg>
             </div>
-
-            <AnimatePresence>
-                {selectedRootInfo && (
-                    <motion.div
-                        className="viz-tooltip"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        style={{
-                            position: "absolute",
-                            right: 24,
-                            bottom: 24,
-                            transform: "none",
-                        }}
-                    >
-                        <div className="viz-tooltip-title arabic-text">{selectedRootInfo.root}</div>
-                        <div className="viz-tooltip-subtitle">
-                            {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : "Root"}{" "}
-                            {selectedRootInfo.surahArabic ? `· ${selectedRootInfo.surahArabic}` : ""}
-                        </div>
-                        <div className="viz-tooltip-row">
-                            <span className="viz-tooltip-label">Occurrences</span>
-                            <span className="viz-tooltip-value">{selectedRootInfo.count}</span>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </section>
     );
 }

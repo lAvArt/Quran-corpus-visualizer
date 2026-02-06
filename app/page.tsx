@@ -19,25 +19,65 @@ import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 
+const STORAGE_KEY = "quran-corpus-viz-state";
+
 export default function HomePage() {
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
-  const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture"); // Changed initial state
+  // Initialize with defaults to avoid hydration mismatch
+  const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedSurahId, setSelectedSurahId] = useState<number>(1);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
 
+
   // Corpus loading state
   const [tokens, setTokens] = useState<CorpusToken[]>(() => getSampleData());
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
   const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
 
+  // Load persisted state after hydration (client-side only)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const saved = JSON.parse(stored);
+        if (saved.vizMode) setVizMode(saved.vizMode);
+        if (saved.theme) setTheme(saved.theme);
+        if (saved.selectedSurahId) setSelectedSurahId(saved.selectedSurahId);
+        if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
+        if (saved.selectedLemma !== undefined) setSelectedLemma(saved.selectedLemma);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+    // setIsHydrated(true); // removed unused
+  }, []);
+
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  // Persist state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          vizMode,
+          theme,
+          selectedSurahId,
+          selectedRoot,
+          selectedLemma,
+        })
+      );
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [vizMode, theme, selectedSurahId, selectedRoot, selectedLemma]);
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -130,17 +170,6 @@ export default function HomePage() {
     setSelectedLemma(lemma);
   }, []);
 
-  // Compute stats for display
-  const stats = useMemo(() => {
-    const suraSet = new Set(allTokens.map(t => t.sura));
-    const rootSet = new Set(allTokens.filter(t => t.root).map(t => t.root));
-    return {
-      suraCount: suraSet.size,
-      tokenCount: allTokens.length,
-      rootCount: rootSet.size,
-    };
-  }, [allTokens]);
-
   // Render the active visualization
   const renderVisualization = () => {
     switch (vizMode) {
@@ -221,6 +250,7 @@ export default function HomePage() {
             selectedAyah={selectedAyahInSurah}
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
+            onSurahChange={setSelectedSurahId}
             theme={theme}
           />
         );
@@ -233,6 +263,7 @@ export default function HomePage() {
             tokenById={tokenById}
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
+            selectedSurahId={selectedSurahId}
           />
         );
 
@@ -245,18 +276,14 @@ export default function HomePage() {
     <div className="immersive-dashboard" data-theme={theme}>
       <div className="neural-bg" aria-hidden />
 
-      {/* Floating Header */}
+      {/* Site Header */}
       <header className="floating-header">
         <div className="header-dock">
           <div className="brand-block">
             <p className="eyebrow">Quran Corpus Visualizer</p>
             <div className="brand-title-row">
-              <h1 className="brand-title">Corpus Atlas</h1>
-              <span className="version-pill">v0.4</span>
+              <h1 className="brand-title">quran.pluragate.org</h1>
             </div>
-            <p className="brand-meta">
-              {stats.suraCount} Surahs · {stats.tokenCount.toLocaleString()} Tokens · {stats.rootCount} Roots
-            </p>
           </div>
 
           <GlobalSearch
@@ -285,33 +312,38 @@ export default function HomePage() {
       </header>
 
       {/* Loading indicator */}
-      {isLoadingCorpus && loadingProgress && (
-        <div className="loading-indicator">
-          <div className="loading-bar">
-            <div
-              className="loading-progress"
-              style={{
-                width: `${(loadingProgress.currentSura / loadingProgress.totalSuras) * 100}%`,
-              }}
-            />
+      {
+        isLoadingCorpus && loadingProgress && (
+          <div className="loading-indicator">
+            <div className="loading-bar">
+              <div
+                className="loading-progress"
+                style={{
+                  width: `${(loadingProgress.currentSura / loadingProgress.totalSuras) * 100}%`,
+                }}
+              />
+            </div>
+            <span className="loading-text">{loadingProgress.message}</span>
           </div>
-          <span className="loading-text">{loadingProgress.message}</span>
-        </div>
-      )}
+        )
+      }
 
       {/* Main Full-Screen Visualization */}
       <main className="immersive-viewport viz-fullwidth">
         {renderVisualization()}
       </main>
 
-      <CurrentSelectionPanel
-        vizMode={vizMode}
-        selectedSurahId={selectedSurahId}
-        selectedAyah={selectedAyahInSurah}
-        selectedRoot={selectedRootValue}
-        selectedLemma={selectedLemmaValue}
-        activeToken={focusedToken ?? null}
-      />
+      <div id="viz-sidebar-portal" className="viz-sidebar-stack">
+        <CurrentSelectionPanel
+          vizMode={vizMode}
+          selectedSurahId={selectedSurahId}
+          selectedAyah={selectedAyahInSurah}
+          selectedRoot={selectedRootValue}
+          selectedLemma={selectedLemmaValue}
+          activeToken={focusedToken ?? null}
+          allTokens={allTokens}
+        />
+      </div>
 
       {/* Collapsible Sidebar */}
       <div className={`floating-sidebar ${isSidebarOpen ? "open" : ""}`}>
@@ -333,7 +365,7 @@ export default function HomePage() {
       <style jsx>{`
         .loading-indicator {
           position: fixed;
-          top: 80px;
+          top: var(--header-clearance);
           left: 50%;
           transform: translateX(-50%);
           z-index: 100;
@@ -366,6 +398,6 @@ export default function HomePage() {
           color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-    </div>
+    </div >
   );
 }

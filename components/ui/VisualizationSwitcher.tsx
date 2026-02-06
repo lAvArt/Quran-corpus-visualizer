@@ -17,6 +17,12 @@ const VISUALIZATION_OPTIONS: Array<{
   icon: string;
 }> = [
     {
+      mode: "corpus-architecture",
+      label: "Corpus Architecture",
+      description: "Global corpus hierarchy map showing structure overview",
+      icon: "⬡",
+    },
+    {
       mode: "surah-distribution",
       label: "Surah Distribution",
       description: "Spiral visualization of all 114 Surahs and their sizes",
@@ -136,22 +142,23 @@ export default function VisualizationSwitcher({
       <style jsx>{`
         .viz-switcher-container {
           position: relative;
-          min-width: 270px;
-          max-width: 360px;
+          width: min(56vw, 620px);
+          min-width: 420px;
+          max-width: 620px;
         }
 
         .viz-switcher-header {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
         }
 
         .viz-switcher-current {
           flex: 1;
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 12px 14px;
+          gap: 10px;
+          padding: 8px 12px;
           border: 1px solid var(--line);
           border-radius: 14px;
           background: rgba(255, 255, 255, 0.7);
@@ -174,8 +181,8 @@ export default function VisualizationSwitcher({
         }
 
         .viz-switcher-icon {
-          width: 34px;
-          height: 34px;
+          width: 28px;
+          height: 28px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -195,13 +202,17 @@ export default function VisualizationSwitcher({
 
         .viz-switcher-label {
           font-weight: 600;
-          font-size: 0.95rem;
+          font-size: 0.88rem;
+          white-space: nowrap;
         }
 
         .viz-switcher-desc {
-          font-size: 0.8rem;
+          font-size: 0.74rem;
           color: var(--ink-secondary);
           opacity: 0.85;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .viz-switcher-arrow {
@@ -218,7 +229,7 @@ export default function VisualizationSwitcher({
         .viz-theme-toggle {
           display: flex;
           gap: 4px;
-          padding: 4px;
+          padding: 3px;
           border: 1px solid var(--line);
           border-radius: 10px;
           background: rgba(255, 255, 255, 0.75);
@@ -226,8 +237,8 @@ export default function VisualizationSwitcher({
         }
 
         .theme-btn {
-          width: 34px;
-          height: 34px;
+          width: 28px;
+          height: 28px;
           border: 1px solid transparent;
           border-radius: 8px;
           background: transparent;
@@ -272,7 +283,7 @@ export default function VisualizationSwitcher({
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 14px;
+          padding: 10px 12px;
           border: 1px solid transparent;
           border-radius: 10px;
           background: transparent;
@@ -298,6 +309,11 @@ export default function VisualizationSwitcher({
         }
 
         @media (max-width: 640px) {
+          .viz-switcher-container {
+            width: 100%;
+            min-width: 0;
+          }
+
           .viz-switcher-desc {
             display: none;
           }

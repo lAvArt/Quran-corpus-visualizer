@@ -20,7 +20,7 @@ export default function GlobalSearch({
     tokens,
     onTokenSelect,
     onTokenHover,
-    theme,
+    theme: _theme,
 }: GlobalSearchProps) {
     const [query, setQuery] = useState("");
     const [isOpen, setIsOpen] = useState(false);
@@ -150,7 +150,10 @@ export default function GlobalSearch({
     return (
         <div className="global-search">
             <div className="search-input-wrapper">
-                <span className="search-icon">🔍</span>
+                <svg className="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="M21 21l-4.35-4.35" />
+                </svg>
                 <input
                     ref={inputRef}
                     type="text"
@@ -173,7 +176,7 @@ export default function GlobalSearch({
                             inputRef.current?.focus();
                         }}
                     >
-                        ✕
+                        ×
                     </button>
                 )}
             </div>
@@ -219,35 +222,35 @@ export default function GlobalSearch({
         .global-search {
           position: relative;
           width: 100%;
-          max-width: 320px;
+          max-width: 280px;
         }
 
         .search-input-wrapper {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 10px 14px;
+          gap: 6px;
+          padding: 6px 10px;
           border: 1px solid var(--line);
-          border-radius: 12px;
+          border-radius: 8px;
           background: rgba(255, 255, 255, 0.7);
           transition: all 0.2s ease;
         }
 
         .search-input-wrapper:focus-within {
           border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-glow);
+          box-shadow: 0 0 0 2px var(--accent-glow);
         }
 
         .search-icon {
-          font-size: 0.9rem;
           opacity: 0.5;
+          flex-shrink: 0;
         }
 
         .search-input {
           flex: 1;
           border: none;
           background: transparent;
-          font-size: 0.9rem;
+          font-size: 0.8rem;
           color: var(--ink);
           outline: none;
         }
@@ -261,8 +264,8 @@ export default function GlobalSearch({
           background: transparent;
           color: var(--ink-muted);
           cursor: pointer;
-          padding: 2px 6px;
-          font-size: 0.8rem;
+          padding: 2px 4px;
+          font-size: 0.85rem;
         }
 
         .search-clear:hover {
@@ -271,25 +274,25 @@ export default function GlobalSearch({
 
         .search-results-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 6px);
           left: 0;
           right: 0;
           z-index: 100;
-          max-height: 400px;
+          max-height: 360px;
           overflow-y: auto;
           border: 1px solid var(--line);
-          border-radius: 12px;
+          border-radius: 10px;
           background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(16px);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
         }
 
         .search-result-item {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           width: 100%;
-          padding: 12px 14px;
+          padding: 10px 12px;
           border: none;
           border-bottom: 1px solid var(--line);
           background: transparent;
@@ -308,10 +311,10 @@ export default function GlobalSearch({
         }
 
         .result-arabic {
-          font-size: 1.2rem;
+          font-size: 1.1rem;
           font-family: var(--font-arabic, "Amiri"), serif;
           direction: rtl;
-          min-width: 60px;
+          min-width: 50px;
           color: var(--ink);
         }
 
@@ -323,11 +326,11 @@ export default function GlobalSearch({
         }
 
         .result-type {
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
-          padding: 2px 6px;
-          border-radius: 4px;
+          letter-spacing: 0.06em;
+          padding: 1px 5px;
+          border-radius: 3px;
           width: fit-content;
         }
 
@@ -352,21 +355,21 @@ export default function GlobalSearch({
         }
 
         .result-match {
-          font-size: 0.8rem;
+          font-size: 0.75rem;
           color: var(--ink-secondary);
         }
 
         .result-location {
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: var(--ink-muted);
           font-family: monospace;
         }
 
         .search-no-results {
-          padding: 16px;
+          padding: 14px;
           text-align: center;
           color: var(--ink-muted);
-          font-size: 0.9rem;
+          font-size: 0.85rem;
         }
 
         :global([data-theme="dark"]) .search-input-wrapper {

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -59,22 +62,48 @@ export default function RootNetworkGraph({
   const [isMounted, setIsMounted] = useState(false);
   const [rootLimit, setRootLimit] = useState<number>(filterBySurahId ? 80 : 30);
   const [zoomScale, setZoomScale] = useState(1);
+  const [showHelp, setShowHelp] = useState(false);
   const rafRef = useRef<number | null>(null);
   const pendingFrameRef = useRef(false);
   const latestNodesRef = useRef<NetworkNode[]>([]);
 
-  const themeColors = DARK_THEME; // Use helper if available, or fallback
+  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+
+  const totalAvailableRoots = useMemo(() => {
+    const scopeTokens = filterBySurahId
+      ? tokens.filter((token) => token.sura === filterBySurahId)
+      : tokens;
+    const roots = new Set<string>();
+
+    for (const token of scopeTokens) {
+      const root = token.root?.trim();
+      if (!root) continue;
+      roots.add(root);
+    }
+
+    return roots.size;
+  }, [tokens, filterBySurahId]);
+
+  const minRootLimit = filterBySurahId
+    ? (totalAvailableRoots > 0 ? Math.min(20, totalAvailableRoots) : 1)
+    : 10;
+  const maxRootLimit = filterBySurahId
+    ? Math.max(totalAvailableRoots, minRootLimit)
+    : 80;
+  const rootLimitStep = filterBySurahId
+    ? (maxRootLimit - minRootLimit <= 80 ? 1 : 5)
+    : 5;
 
   useEffect(() => {
-    const min = filterBySurahId ? 20 : 10;
-    const max = filterBySurahId ? 220 : 80;
-    const fallback = filterBySurahId ? 80 : 30;
-    setRootLimit((prev) => (prev < min || prev > max ? fallback : prev));
-  }, [filterBySurahId]);
-
-  const minRootLimit = filterBySurahId ? 20 : 10;
-  const maxRootLimit = filterBySurahId ? 220 : 80;
-  const rootLimitStep = filterBySurahId ? 10 : 5;
+    const fallback = filterBySurahId
+      ? Math.min(Math.max(80, minRootLimit), maxRootLimit)
+      : 30;
+    setRootLimit((prev) => {
+      if (prev < minRootLimit) return minRootLimit;
+      if (prev > maxRootLimit) return maxRootLimit;
+      return prev || fallback;
+    });
+  }, [filterBySurahId, minRootLimit, maxRootLimit]);
 
   // Build network data from tokens
   const { initialNodes, initialLinks, hasMorphology, hasScopeTokens } = useMemo(() => {
@@ -405,12 +434,20 @@ export default function RootNetworkGraph({
           : themeColors.accent;
 
       const stroke = isSelected
-        ? "rgba(249, 115, 22, 0.95)"
+        ? theme === "dark"
+          ? "rgba(249, 115, 22, 0.95)"
+          : "rgba(194, 65, 12, 0.9)"
         : isConnectedToSelection
-          ? "rgba(59, 130, 246, 0.9)"
+          ? theme === "dark"
+            ? "rgba(59, 130, 246, 0.9)"
+            : "rgba(37, 99, 235, 0.85)"
           : isRoot
-            ? "rgba(255, 255, 255, 0.4)"
-            : "rgba(255, 255, 255, 0.2)";
+            ? theme === "dark"
+              ? "rgba(255, 255, 255, 0.4)"
+              : "rgba(31, 28, 25, 0.34)"
+            : theme === "dark"
+              ? "rgba(255, 255, 255, 0.2)"
+              : "rgba(31, 28, 25, 0.22)";
 
       return {
         fill,
@@ -422,7 +459,7 @@ export default function RootNetworkGraph({
         labelOpacity: isDimmed ? 0.3 : isSelected || isConnectedToSelection || isHovered ? 1 : 0.7,
       };
     },
-    [selectedNode, connectedNodeIds, themeColors]
+    [selectedNode, connectedNodeIds, themeColors, theme]
   );
 
   const activeNode = useMemo(() => {
@@ -431,144 +468,161 @@ export default function RootNetworkGraph({
     return nodes.find((node) => node.id === activeId) ?? null;
   }, [hoveredNode, selectedNode, nodes]);
 
+  const sidebarCards = (
+    <div className="viz-left-stack">
+      <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
+        <div>
+          {rootCount} roots - {lemmaCount} lemmas -{" "}
+          {initialLinks.length} connections
+        </div>
+        <div style={{ display: "grid", gap: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="eyebrow" style={{ fontSize: "0.75rem", opacity: 0.8 }}>Root limit</span>
+            </div>
+            <HelpIcon onClick={() => setShowHelp(true)} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{rootLimit}</span>
+            {filterBySurahId ? (
+              <span style={{ fontSize: "0.72rem", opacity: 0.76 }}>
+                Total Available roots: {totalAvailableRoots}
+              </span>
+            ) : null}
+          </div>
+          <input
+            type="range"
+            min={minRootLimit}
+            max={maxRootLimit}
+            step={rootLimitStep}
+            value={rootLimit}
+            onChange={(event) => setRootLimit(Number(event.target.value))}
+            aria-label="Root limit"
+            className="root-limit-slider"
+          />
+        </div>
+        <div style={{ display: "grid", gap: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>Zoom</span>
+            <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{Math.round(zoomScale * 100)}%</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>Drag to pan - wheel to zoom</span>
+            <button
+              type="button"
+              className="clear-focus"
+              style={{ padding: "4px 9px", fontSize: "0.72rem" }}
+              onClick={handleResetZoom}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        {!hasScopeTokens && filterBySurahId && (
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            No token data loaded for this surah yet. Keep corpus loading, then retry this surah.
+          </span>
+        )}
+        {hasScopeTokens && !hasMorphology && filterBySurahId && (
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            Morphology data unavailable for this surah. Roots/lemmas require a full morphology dataset.
+          </span>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {activeNode && (
+          <motion.div
+            className="viz-left-panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+          >
+            <div className="viz-tooltip-title arabic-text">
+              {activeNode.label}
+            </div>
+            <div className="viz-tooltip-subtitle">
+              {activeNode.type === "root" ? "Root" : "Lemma"}
+            </div>
+            <div className="viz-tooltip-row">
+              <span className="viz-tooltip-label">Occurrences</span>
+              <span className="viz-tooltip-value">{activeNode.frequency}</span>
+            </div>
+            {activeNode.tokens[0] && (
+              <>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">Example</span>
+                  <span className="viz-tooltip-value arabic-text">
+                    {activeNode.tokens[0].text}
+                  </span>
+                </div>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">Gloss</span>
+                  <span className="viz-tooltip-value">
+                    {activeNode.tokens[0].morphology.gloss ?? "-"}
+                  </span>
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="viz-legend">
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{
+              background: themeColors.nodeColors.default,
+              width: 16,
+              height: 16,
+            }}
+          />
+          <span>Root (trilateral)</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+          />
+          <span>Noun lemma</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+          />
+          <span>Verb lemma</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{ background: themeColors.nodeColors.selected, width: 12, height: 12 }}
+          />
+          <span>Selected node</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{ background: themeColors.accentSecondary, width: 12, height: 12 }}
+          />
+          <span>Directly connected</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <section className="immersive-viz" data-theme={theme}>
+    <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* 
       <div className="panel-head">
           Removed for immersive mode 
       </div>
       */}
 
-      <div className="viz-left-stack">
-        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
-          <div>
-            {rootCount} roots - {lemmaCount} lemmas -{" "}
-            {initialLinks.length} connections
-          </div>
-          <div style={{ display: "grid", gap: "6px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>Root limit</span>
-              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{rootLimit}</span>
-            </div>
-            <input
-              type="range"
-              min={minRootLimit}
-              max={maxRootLimit}
-              step={rootLimitStep}
-              value={rootLimit}
-              onChange={(event) => setRootLimit(Number(event.target.value))}
-              aria-label="Root limit"
-            />
-          </div>
-          <div style={{ display: "grid", gap: "6px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>Zoom</span>
-              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{Math.round(zoomScale * 100)}%</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>Drag to pan - wheel to zoom</span>
-              <button
-                type="button"
-                className="clear-focus"
-                style={{ padding: "4px 9px", fontSize: "0.72rem" }}
-                onClick={handleResetZoom}
-              >
-                Reset
-              </button>
-            </div>
-          </div>
-          {!hasScopeTokens && filterBySurahId && (
-            <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
-              No token data loaded for this surah yet. Keep corpus loading, then retry this surah.
-            </span>
-          )}
-          {hasScopeTokens && !hasMorphology && filterBySurahId && (
-            <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
-              Morphology data unavailable for this surah. Roots/lemmas require a full morphology dataset.
-            </span>
-          )}
-        </div>
-
-        <AnimatePresence>
-          {activeNode && (
-            <motion.div
-              className="viz-left-panel"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-            >
-              <div className="viz-tooltip-title arabic-text">
-                {activeNode.label}
-              </div>
-              <div className="viz-tooltip-subtitle">
-                {activeNode.type === "root" ? "Root" : "Lemma"}
-              </div>
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">Occurrences</span>
-                <span className="viz-tooltip-value">{activeNode.frequency}</span>
-              </div>
-              {activeNode.tokens[0] && (
-                <>
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Example</span>
-                    <span className="viz-tooltip-value arabic-text">
-                      {activeNode.tokens[0].text}
-                    </span>
-                  </div>
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Gloss</span>
-                    <span className="viz-tooltip-value">
-                      {activeNode.tokens[0].morphology.gloss ?? "-"}
-                    </span>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="viz-legend">
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{
-                background: themeColors.nodeColors.default,
-                width: 16,
-                height: 16,
-              }}
-            />
-            <span>Root (trilateral)</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-            />
-            <span>Noun lemma</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-            />
-            <span>Verb lemma</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: themeColors.nodeColors.selected, width: 12, height: 12 }}
-            />
-            <span>Selected node</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: themeColors.accentSecondary, width: 12, height: 12 }}
-            />
-            <span>Directly connected</span>
-          </div>
-        </div>
-      </div>
+      {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
+        ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
+        : sidebarCards}
 
       <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
         {!isMounted ? null : (
@@ -582,7 +636,10 @@ export default function RootNetworkGraph({
             <defs>
               {/* Radial gradient for background glow */}
               <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="rgba(239, 68, 68, 0.1)" />
+                <stop
+                  offset="0%"
+                  stopColor={theme === "dark" ? "rgba(239, 68, 68, 0.1)" : "rgba(15, 118, 110, 0.12)"}
+                />
                 <stop offset="100%" stopColor="transparent" />
               </radialGradient>
 
@@ -604,6 +661,11 @@ export default function RootNetworkGraph({
                 </feMerge>
               </filter>
             </defs>
+            <VizExplainerDialog
+              isOpen={showHelp}
+              onClose={() => setShowHelp(false)}
+              content={VIZ_HELP_CONTENT["root-network"]}
+            />
 
             <g ref={zoomLayerRef}>
               {/* Background orbital rings */}
@@ -629,88 +691,156 @@ export default function RootNetworkGraph({
 
               {/* Links */}
               <g className="links">
-              {links.map((link, idx) => {
-                const source = link.source as NetworkNode;
-                const target = link.target as NetworkNode;
-                const { sourceId, targetId } = getLinkNodeIds(link);
-                const linkKey = sourceId < targetId ? `${sourceId}::${targetId}` : `${targetId}::${sourceId}`;
+                {links.map((link, idx) => {
+                  const source = link.source as NetworkNode;
+                  const target = link.target as NetworkNode;
+                  const { sourceId, targetId } = getLinkNodeIds(link);
+                  const linkKey = sourceId < targetId ? `${sourceId}::${targetId}` : `${targetId}::${sourceId}`;
 
-                if (!source.x || !source.y || !target.x || !target.y) return null;
+                  if (!source.x || !source.y || !target.x || !target.y) return null;
 
-                const isConnectedToSelection = connectedLinkKeys.has(linkKey);
-                const isConnectedToHover =
-                  Boolean(hoveredNode) && (sourceId === hoveredNode || targetId === hoveredNode);
-                const isDimmedBySelection = Boolean(selectedNode) && !isConnectedToSelection;
-                const strokeColor = isConnectedToSelection
-                  ? themeColors.accentSecondary
-                  : isConnectedToHover
-                    ? themeColors.accent
-                    : themeColors.edgeColors.default;
-                const strokeWidth = isConnectedToSelection ? 2.6 : isConnectedToHover ? 2 : 1;
-                const baseOpacity = isConnectedToSelection ? 0.92 : isConnectedToHover ? 0.8 : 0.3;
-                const targetOpacity = isDimmedBySelection ? 0.1 : baseOpacity;
+                  const isConnectedToSelection = connectedLinkKeys.has(linkKey);
+                  const isConnectedToHover =
+                    Boolean(hoveredNode) && (sourceId === hoveredNode || targetId === hoveredNode);
+                  const isDimmedBySelection = Boolean(selectedNode) && !isConnectedToSelection;
+                  const strokeColor = isConnectedToSelection
+                    ? themeColors.accentSecondary
+                    : isConnectedToHover
+                      ? themeColors.accent
+                      : themeColors.edgeColors.default;
+                  const strokeWidth = isConnectedToSelection ? 2.6 : isConnectedToHover ? 2 : 1;
+                  const baseOpacity = isConnectedToSelection ? 0.92 : isConnectedToHover ? 0.8 : 0.3;
+                  const targetOpacity = isDimmedBySelection ? 0.1 : baseOpacity;
 
-                // Calculate control point for curved line
-                const midX = (source.x + target.x) / 2;
-                const midY = (source.y + target.y) / 2;
-                const dx = target.x - source.x;
-                const dy = target.y - source.y;
-                const normalX = -dy * 0.15;
-                const normalY = dx * 0.15;
+                  // Calculate control point for curved line
+                  const midX = (source.x + target.x) / 2;
+                  const midY = (source.y + target.y) / 2;
+                  const dx = target.x - source.x;
+                  const dy = target.y - source.y;
+                  const normalX = -dy * 0.15;
+                  const normalY = dx * 0.15;
 
-                if (isDense) {
+                  if (isDense) {
+                    return (
+                      <path
+                        key={idx}
+                        d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
+                        className={`edge ${isConnectedToSelection || isConnectedToHover ? "highlighted" : ""}`}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        opacity={targetOpacity}
+                        fill="none"
+                      />
+                    );
+                  }
+
                   return (
-                    <path
+                    <motion.path
                       key={idx}
                       d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
                       className={`edge ${isConnectedToSelection || isConnectedToHover ? "highlighted" : ""}`}
                       stroke={strokeColor}
                       strokeWidth={strokeWidth}
-                      opacity={targetOpacity}
                       fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{
+                        pathLength: 1,
+                        opacity: targetOpacity,
+                      }}
+                      transition={{ duration: 1, delay: idx * 0.01 }}
+                      filter={isConnectedToSelection || isConnectedToHover ? "url(#subtleGlow)" : undefined}
                     />
                   );
-                }
-
-                return (
-                  <motion.path
-                    key={idx}
-                    d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
-                    className={`edge ${isConnectedToSelection || isConnectedToHover ? "highlighted" : ""}`}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{
-                      pathLength: 1,
-                      opacity: targetOpacity,
-                    }}
-                    transition={{ duration: 1, delay: idx * 0.01 }}
-                    filter={isConnectedToSelection || isConnectedToHover ? "url(#subtleGlow)" : undefined}
-                  />
-                );
-              })}
+                })}
               </g>
 
               {/* Nodes */}
               <g className="nodes">
-              {nodes.map((node) => {
-                if (!node.x || !node.y) return null;
+                {nodes.map((node) => {
+                  if (!node.x || !node.y) return null;
 
-                const isHovered = hoveredNode === node.id;
-                const isSelected = selectedNode === node.id;
-                const isHighlighted = isHovered || isSelected;
-                const isRoot = node.type === "root";
-                const visualState = getNodeVisualState(node, isHovered, isSelected, isRoot);
-                const showLabel =
-                  showLabels && (!isDense || isHighlighted || isRoot || visualState.isConnectedToSelection);
+                  const isHovered = hoveredNode === node.id;
+                  const isSelected = selectedNode === node.id;
+                  const isHighlighted = isHovered || isSelected;
+                  const isRoot = node.type === "root";
+                  const visualState = getNodeVisualState(node, isHovered, isSelected, isRoot);
+                  const showLabel =
+                    showLabels && (!isDense || isHighlighted || isRoot || visualState.isConnectedToSelection);
 
-                if (isDense) {
+                  if (isDense) {
+                    return (
+                      <g
+                        key={node.id}
+                        className="node-group"
+                        transform={`translate(${node.x},${node.y})`}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={() => handleNodeHover(node)}
+                        onMouseLeave={() => handleNodeHover(null)}
+                        onClick={() => handleNodeClick(node)}
+                        opacity={visualState.opacity}
+                      >
+                        {/* Outer glow ring for highlighted root nodes */}
+                        {isRoot && (isHighlighted || visualState.isConnectedToSelection) && (
+                          <circle
+                            r={node.radius + 12}
+                            fill="none"
+                            stroke={visualState.ringColor}
+                            strokeWidth={2}
+                            opacity={0.4}
+                          />
+                        )}
+
+                        {/* Node circle */}
+                        <circle
+                          r={node.radius}
+                          className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
+                          fill={visualState.fill}
+                          stroke={visualState.stroke}
+                          strokeWidth={isRoot ? 2 : 1}
+                        />
+
+                        {/* Inner highlight for root nodes */}
+                        {isRoot && (
+                          <circle
+                            r={node.radius * 0.3}
+                            fill={theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.48)"}
+                          />
+                        )}
+
+                        {/* Label */}
+                        {showLabel && (
+                          <text
+                            className="node-label arabic-text"
+                            y={node.radius + 16}
+                            style={{
+                              opacity: visualState.labelOpacity,
+                              fontSize: isRoot ? "14px" : "11px",
+                              fontWeight: isRoot ? 600 : 400,
+                            }}
+                          >
+                            {node.label}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  }
+
                   return (
-                    <g
+                    <motion.g
                       key={node.id}
                       className="node-group"
-                      transform={`translate(${node.x},${node.y})`}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{
+                        scale: 1,
+                        opacity: 1,
+                        x: node.x,
+                        y: node.y,
+                      }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 15,
+                      }}
                       style={{ cursor: "pointer" }}
                       onMouseEnter={() => handleNodeHover(node)}
                       onMouseLeave={() => handleNodeHover(null)}
@@ -719,12 +849,19 @@ export default function RootNetworkGraph({
                     >
                       {/* Outer glow ring for highlighted root nodes */}
                       {isRoot && (isHighlighted || visualState.isConnectedToSelection) && (
-                        <circle
+                        <motion.circle
                           r={node.radius + 12}
                           fill="none"
                           stroke={visualState.ringColor}
                           strokeWidth={2}
-                          opacity={0.4}
+                          opacity={0.5}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1.1, opacity: 0.5 }}
+                          transition={{
+                            repeat: Infinity,
+                            repeatType: "reverse",
+                            duration: 1,
+                          }}
                         />
                       )}
 
@@ -735,13 +872,14 @@ export default function RootNetworkGraph({
                         fill={visualState.fill}
                         stroke={visualState.stroke}
                         strokeWidth={isRoot ? 2 : 1}
+                        filter={!isDense && (isHighlighted || visualState.isConnectedToSelection) ? "url(#nodeGlow)" : undefined}
                       />
 
                       {/* Inner highlight for root nodes */}
                       {isRoot && (
                         <circle
                           r={node.radius * 0.3}
-                          fill="rgba(255, 255, 255, 0.2)"
+                          fill={theme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.48)"}
                         />
                       )}
 
@@ -759,91 +897,73 @@ export default function RootNetworkGraph({
                           {node.label}
                         </text>
                       )}
-                    </g>
+                    </motion.g>
                   );
-                }
-
-                return (
-                  <motion.g
-                    key={node.id}
-                    className="node-group"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{
-                      scale: 1,
-                      opacity: 1,
-                      x: node.x,
-                      y: node.y,
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 100,
-                      damping: 15,
-                    }}
-                    style={{ cursor: "pointer" }}
-                    onMouseEnter={() => handleNodeHover(node)}
-                    onMouseLeave={() => handleNodeHover(null)}
-                    onClick={() => handleNodeClick(node)}
-                    opacity={visualState.opacity}
-                  >
-                    {/* Outer glow ring for highlighted root nodes */}
-                    {isRoot && (isHighlighted || visualState.isConnectedToSelection) && (
-                      <motion.circle
-                        r={node.radius + 12}
-                        fill="none"
-                        stroke={visualState.ringColor}
-                        strokeWidth={2}
-                        opacity={0.5}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1.1, opacity: 0.5 }}
-                        transition={{
-                          repeat: Infinity,
-                          repeatType: "reverse",
-                          duration: 1,
-                        }}
-                      />
-                    )}
-
-                    {/* Node circle */}
-                    <circle
-                      r={node.radius}
-                      className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
-                      fill={visualState.fill}
-                      stroke={visualState.stroke}
-                      strokeWidth={isRoot ? 2 : 1}
-                      filter={!isDense && (isHighlighted || visualState.isConnectedToSelection) ? "url(#nodeGlow)" : undefined}
-                    />
-
-                    {/* Inner highlight for root nodes */}
-                    {isRoot && (
-                      <circle
-                        r={node.radius * 0.3}
-                        fill="rgba(255, 255, 255, 0.2)"
-                      />
-                    )}
-
-                    {/* Label */}
-                    {showLabel && (
-                      <text
-                        className="node-label arabic-text"
-                        y={node.radius + 16}
-                        style={{
-                          opacity: visualState.labelOpacity,
-                          fontSize: isRoot ? "14px" : "11px",
-                          fontWeight: isRoot ? 600 : 400,
-                        }}
-                      >
-                        {node.label}
-                      </text>
-                    )}
-                  </motion.g>
-                );
-              })}
+                })}
               </g>
             </g>
           </svg>
         )}
       </div>
+
+      <style jsx global>{`
+        .root-limit-slider {
+          width: 100%;
+          height: 8px;
+          margin: 0;
+          border-radius: 999px;
+          appearance: none;
+          -webkit-appearance: none;
+          background: color-mix(in srgb, var(--line), transparent 20%);
+          accent-color: var(--accent);
+          cursor: pointer;
+        }
+
+        .root-limit-slider::-webkit-slider-runnable-track {
+          height: 8px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--line), transparent 20%);
+        }
+
+        .root-limit-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 16px;
+          height: 16px;
+          margin-top: -4px;
+          border-radius: 50%;
+          border: 2px solid var(--accent);
+          background: var(--accent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 78%);
+        }
+
+        .root-limit-slider::-moz-range-track {
+          height: 8px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--line), transparent 20%);
+          border: none;
+        }
+
+        .root-limit-slider::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 2px solid var(--accent);
+          background: var(--accent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 78%);
+        }
+
+        [data-theme="dark"] .root-limit-slider {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        [data-theme="dark"] .root-limit-slider::-webkit-slider-runnable-track {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        [data-theme="dark"] .root-limit-slider::-moz-range-track {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
     </section>
   );
 }
-

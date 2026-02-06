@@ -2,9 +2,13 @@
 
 import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
+import { getAyah } from "@/lib/corpus/corpusLoader";
+import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -40,6 +44,20 @@ interface FlowConnection {
   isContextMatch: boolean;
 }
 
+const POS_LABELS: Record<string, string> = {
+  N: "Noun",
+  V: "Verb",
+  ADJ: "Adjective",
+  PRON: "Pronoun",
+  P: "Preposition",
+  PART: "Particle",
+  CONJ: "Conjunction",
+};
+
+function getPosLabel(pos: string): string {
+  return POS_LABELS[pos] ?? pos;
+}
+
 export default function ArcFlowDiagram({
   tokens,
   groupBy = "root",
@@ -60,7 +78,20 @@ export default function ArcFlowDiagram({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);
   const [dimensions, setDimensions] = useState({ width: 1400, height: 900 });
+
   const [isMounted, setIsMounted] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [fullAyahText, setFullAyahText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedSurahId && selectedAyah) {
+      getAyah(selectedSurahId, selectedAyah).then((record) => {
+        setFullAyahText(record ? record.textUthmani : null);
+      });
+    } else {
+      setFullAyahText(null);
+    }
+  }, [selectedSurahId, selectedAyah]);
 
   useEffect(() => {
     setActiveGroupBy(groupBy);
@@ -93,6 +124,17 @@ export default function ArcFlowDiagram({
   }, []);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    const sidebarPortal = document.getElementById("viz-sidebar-portal");
+    if (!sidebarPortal) return;
+
+    sidebarPortal.classList.add("arcflow-scrollless");
+    return () => {
+      sidebarPortal.classList.remove("arcflow-scrollless");
+    };
+  }, []);
+
+  useEffect(() => {
     if (!svgRef.current || !gRef.current) return;
 
     const svgSelection = d3.select(svgRef.current);
@@ -119,7 +161,7 @@ export default function ArcFlowDiagram({
     };
   }, [dimensions.width, dimensions.height]);
 
-  const themeColors = DARK_THEME;
+  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
   const scopedTokens = useMemo(() => {
     if (!selectedSurahId) return tokens;
@@ -281,8 +323,15 @@ export default function ArcFlowDiagram({
     const nodesResult: FlowNode[] = sortedGroups.map(([key, data], idx) => {
       const position = idx / (sortedGroups.length - 1 || 1);
       const barHeight = 34 + (data.count / maxGroupCount) * maxBarHeightForLayout;
-      const colorPalette = GRADIENT_PALETTES.vibrant;
-      const colorIndex = Math.floor((data.count / maxGroupCount) * (colorPalette.length - 1));
+      const frequencyRatio = Math.log1p(data.count) / Math.log1p(maxGroupCount || 1);
+      const identityRatio = sortedGroups.length > 1 ? idx / (sortedGroups.length - 1) : 0.5;
+      const rootIdentityColor = d3.interpolateSinebow(0.08 + identityRatio * 0.84);
+      const rootFrequencyColor = d3.interpolateRgbBasis([
+        "#a21caf",
+        "#7c3aed",
+        "#2563eb",
+        "#06b6d4",
+      ])(frequencyRatio);
 
       const isContextMatch =
         data.matchCount > 0 ||
@@ -297,7 +346,11 @@ export default function ArcFlowDiagram({
         count: data.count,
         position,
         barHeight,
-        color: activeGroupBy === "pos" ? getNodeColor(key) : colorPalette[colorIndex] ?? "#ffffff",
+        color: activeGroupBy === "pos"
+          ? getNodeColor(key)
+          : activeGroupBy === "root"
+            ? d3.interpolateRgb(rootFrequencyColor, rootIdentityColor)(0.4)
+            : d3.interpolateRgbBasis(GRADIENT_PALETTES.vibrant)(identityRatio),
         sampleToken: data.sampleToken,
         matchCount: data.matchCount,
         isContextMatch,
@@ -452,6 +505,7 @@ export default function ArcFlowDiagram({
     hasContextSelection,
     tokenMatchesContext,
     maxBarHeightForLayout,
+    themeColors.nodeColors.default,
   ]);
 
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
@@ -548,114 +602,187 @@ export default function ArcFlowDiagram({
     return items;
   }, [selectedSurahId, selectedAyah, selectedRoot, selectedLemma]);
 
-  return (
-    <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
-      <div className="viz-left-stack">
-        <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }}>
-          <div>
-            <p className="eyebrow" style={{ marginBottom: 4 }}>Flow Analysis</p>
-            <h2 style={{ margin: 0 }}>Arc Flow Diagram</h2>
-          </div>
+  const activeGroupLabel =
+    activeGroupBy === "root" ? "Root" : activeGroupBy === "pos" ? "Part of Speech" : "Ayah";
+  const scopeLabel = selectedSurahId ? `surah ${selectedSurahId}` : "global corpus";
+  const modeDescription =
+    activeGroupBy === "root"
+      ? "Bars are roots. Length = root frequency. Curves link roots that share lemmas."
+      : activeGroupBy === "pos"
+        ? "Bars are POS tags (N, V, ADJ, PRON, P, PART, CONJ). Curves show adjacent POS pairs within the same ayah."
+        : "Bars are ayahs in scope. Curves show context transitions between selected ayahs.";
 
-          <div style={{ fontSize: "0.83rem", color: "var(--ink-secondary)" }}>
-            {nodes.length} groups - {connections.length} connections
-          </div>
-
-          <div className="mode-switcher">
-            <button
-              className={`mode-switcher-btn ${activeGroupBy === "root" ? "active" : ""}`}
-              onClick={() => setActiveGroupBy("root")}
-            >
-              By Root
-            </button>
-            <button
-              className={`mode-switcher-btn ${activeGroupBy === "pos" ? "active" : ""}`}
-              onClick={() => setActiveGroupBy("pos")}
-            >
-              By POS
-            </button>
-            <button
-              className={`mode-switcher-btn ${activeGroupBy === "ayah" ? "active" : ""}`}
-              onClick={() => setActiveGroupBy("ayah")}
-            >
-              By Ayah
-            </button>
-          </div>
-
-          <div style={{ display: "grid", gap: "6px", fontSize: "0.78rem", color: "var(--ink-muted)" }}>
-            <span>Scope tokens: {scopedTokens.length.toLocaleString()}</span>
-            <span>Context-linked tokens: {contextTokenCount.toLocaleString()}</span>
-            <span>Zoom: {Math.round(zoomLevel * 100)}%</span>
-          </div>
-
-          <div style={{ display: "grid", gap: "8px" }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" className="clear-focus" onClick={handleZoomOut}>
-                -
-              </button>
-              <button type="button" className="clear-focus" onClick={handleZoomIn}>
-                +
-              </button>
-              <button type="button" className="clear-focus" onClick={handleResetZoom}>
-                Reset
-              </button>
-            </div>
-            <span style={{ fontSize: "0.74rem", color: "var(--ink-muted)" }}>
-              Drag canvas to pan. Wheel or +/- to zoom.
-            </span>
-          </div>
+  const sidebarCards = (
+    <div className="viz-left-stack arcflow-sidebar-stack">
+      <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }}>
+        <div>
+          <p className="eyebrow" style={{ marginBottom: 4 }}>Flow Analysis</p>
+          <h2 style={{ margin: 0 }}>Arc Flow Diagram</h2>
         </div>
 
-        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
-          <div className="viz-tooltip-title" style={{ fontSize: "0.92rem" }}>Linked Selection</div>
-          {selectedSummary.length > 0 ? (
-            <div style={{ display: "grid", gap: "6px" }}>
-              {selectedSummary.map((item) => (
-                <div key={item.label} className="viz-tooltip-row" style={{ borderTop: "none", padding: 0 }}>
-                  <span className="viz-tooltip-label">{item.label}</span>
-                  <span className="viz-tooltip-value arabic-text">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>
-              No surah/ayah/root/lemma selection is active.
-            </div>
-          )}
+        <div style={{ fontSize: "0.83rem", color: "var(--ink-secondary)" }}>
+          {nodes.length} groups - {connections.length} connections
         </div>
 
-        <div className="viz-legend">
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-line"
-              style={{ background: `linear-gradient(90deg, ${GRADIENT_PALETTES.vibrant.join(", ")})` }}
-            />
-            <span>Bar color and length = frequency</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-line" style={{ background: themeColors.accentSecondary }} />
-            <span>Context-linked relationships</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: themeColors.accent, width: 12, height: 12 }} />
-            <span>Hovered / active node</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-dot" style={{ background: "rgba(255,255,255,0.8)", width: 10, height: 10 }} />
-            <span>Selection context match</span>
-          </div>
-          <div className="viz-legend-item">
-            <div className="viz-legend-line" style={{ background: "rgba(255,255,255,0.35)", height: 2 }} />
-            <span>
-              {activeGroupBy === "root"
-                ? "Links = shared lemmas"
-                : activeGroupBy === "pos"
-                  ? "Links = adjacent POS pairs"
-                  : "Links = context transitions across ayahs"}
+        <div className="mode-switcher">
+          <button
+            className={`mode-switcher-btn ${activeGroupBy === "root" ? "active" : ""}`}
+            onClick={() => setActiveGroupBy("root")}
+          >
+            By Root
+          </button>
+          <button
+            className={`mode-switcher-btn ${activeGroupBy === "pos" ? "active" : ""}`}
+            onClick={() => setActiveGroupBy("pos")}
+          >
+            By POS
+          </button>
+          <button
+            className={`mode-switcher-btn ${activeGroupBy === "ayah" ? "active" : ""}`}
+            onClick={() => setActiveGroupBy("ayah")}
+          >
+            By Ayah
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gap: "6px", fontSize: "0.78rem", color: "var(--ink-muted)" }}>
+          <span>Grouped by: {activeGroupLabel}</span>
+          <span>Scope: {scopeLabel}</span>
+          {selectedAyah ? <span>Ayah context: {selectedAyah}</span> : null}
+          <span>Scope tokens: {scopedTokens.length.toLocaleString()}</span>
+          <span>Context-linked tokens: {contextTokenCount.toLocaleString()}</span>
+          <span>Zoom: {Math.round(zoomLevel * 100)}%</span>
+          <span style={{ lineHeight: 1.4 }}>{modeDescription}</span>
+          {activeGroupBy === "pos" ? (
+            <span style={{ lineHeight: 1.35 }}>
+              POS mapping: N noun, V verb, ADJ adjective, PRON pronoun, P preposition, PART particle, CONJ conjunction.
             </span>
+          ) : null}
+        </div>
+
+        <div style={{ display: "grid", gap: "8px" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="clear-focus" onClick={handleZoomOut}>
+              -
+            </button>
+            <button type="button" className="clear-focus" onClick={handleZoomIn}>
+              +
+            </button>
+            <button type="button" className="clear-focus" onClick={handleResetZoom}>
+              Reset
+            </button>
           </div>
+          <span style={{ fontSize: "0.74rem", color: "var(--ink-muted)" }}>
+            Drag canvas to pan. Wheel or +/- to zoom.
+          </span>
         </div>
       </div>
+
+      <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
+        <div className="viz-tooltip-title" style={{ fontSize: "0.92rem" }}>Linked Selection</div>
+        {selectedSummary.length > 0 ? (
+          <div style={{ display: "grid", gap: "6px" }}>
+            {selectedSummary.map((item) => (
+              <div key={item.label} className="viz-tooltip-row" style={{ borderTop: "none", padding: 0 }}>
+                <span className="viz-tooltip-label">{item.label}</span>
+                <span className="viz-tooltip-value arabic-text">{item.value}</span>
+              </div>
+            ))}
+
+            {fullAyahText && (
+              <div className="viz-tooltip-subtitle arabic-text" style={{
+                marginTop: '0.5rem',
+                fontSize: '1.3rem',
+                lineHeight: '1.6',
+                textAlign: 'right',
+                direction: 'rtl',
+                width: '100%',
+                color: 'var(--ink-primary)',
+                paddingTop: '0.5rem',
+                borderTop: '1px solid var(--line)',
+              }}>
+                {fullAyahText}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>
+            No surah/ayah/root/lemma selection is active.
+          </div>
+        )}
+      </div>
+
+      <div className="viz-legend">
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
+          <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+          <HelpIcon onClick={() => setShowHelp(true)} />
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-line"
+            style={{
+              background: activeGroupBy === "root"
+                ? "linear-gradient(90deg, #a21caf, #7c3aed, #2563eb, #06b6d4)"
+                : `linear-gradient(90deg, ${GRADIENT_PALETTES.vibrant.join(", ")})`,
+            }}
+          />
+          <span>
+            {activeGroupBy === "root"
+              ? "Bar length = frequency, color distinguishes root groups"
+              : "Bar color and length = frequency"}
+          </span>
+        </div>
+        <div className="viz-legend-item">
+          <div className="viz-legend-line" style={{ background: themeColors.accentSecondary }} />
+          <span>Context-linked relationships</span>
+        </div>
+        <div className="viz-legend-item">
+          <div className="viz-legend-dot" style={{ background: themeColors.accent, width: 12, height: 12 }} />
+          <span>Hovered / active node</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-dot"
+            style={{
+              background: theme === "dark" ? "rgba(255,255,255,0.8)" : "rgba(31, 28, 25, 0.55)",
+              width: 10,
+              height: 10,
+            }}
+          />
+          <span>Selection context match</span>
+        </div>
+        <div className="viz-legend-item">
+          <div
+            className="viz-legend-line"
+            style={{
+              background: theme === "dark" ? "rgba(255,255,255,0.35)" : "rgba(31, 28, 25, 0.35)",
+              height: 2,
+            }}
+          />
+          <span>
+            {activeGroupBy === "root"
+              ? "Links = shared lemmas"
+              : activeGroupBy === "pos"
+                ? "Links = adjacent POS pairs"
+                : "Links = context transitions across ayahs"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
+      {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
+        ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
+        : null}
+
+      <VizExplainerDialog
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        content={VIZ_HELP_CONTENT["arc-flow"]}
+        theme={theme}
+      />
 
       <div
         ref={containerRef}
@@ -691,7 +818,7 @@ export default function ArcFlowDiagram({
               <path
                 d={`M ${arcCenterX + Math.cos(arcStartAngle) * arcRadius} ${arcCenterY + Math.sin(arcStartAngle) * arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${arcCenterX + Math.cos(arcEndAngle) * arcRadius} ${arcCenterY + Math.sin(arcEndAngle) * arcRadius}`}
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.08)"
+                stroke={theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(31, 28, 25, 0.12)"}
                 strokeWidth={isCompact ? 52 : 64}
                 strokeLinecap="round"
               />
@@ -738,6 +865,18 @@ export default function ArcFlowDiagram({
                   const barEndX = pos.x + Math.cos(pos.angle) * node.barHeight;
                   const barEndY = pos.y + Math.sin(pos.angle) * node.barHeight;
 
+                  const showLabel =
+                    isHovered ||
+                    isContextNode ||
+                    (activeGroupBy === "pos") ||
+                    (activeGroupBy === "root"
+                      ? (idx < 18 || zoomLevel > 1 || node.count > maxCount * 0.18)
+                      : node.count > maxCount * 0.45);
+                  const labelOffset = activeGroupBy === "root" ? 16 : 14;
+                  const labelX = barEndX + Math.cos(pos.angle) * labelOffset;
+                  const labelY = barEndY + Math.sin(pos.angle) * labelOffset;
+                  const labelOnLeft = pos.angle > Math.PI / 2 || pos.angle < -Math.PI / 2;
+
                   return (
                     <motion.g
                       key={node.id}
@@ -777,20 +916,25 @@ export default function ArcFlowDiagram({
                           cy={barEndY}
                           r={7}
                           fill="none"
-                          stroke="rgba(255,255,255,0.6)"
+                          stroke={theme === "dark" ? "rgba(255,255,255,0.6)" : "rgba(31, 28, 25, 0.38)"}
                           strokeWidth={1.2}
                         />
                       )}
 
-                      {(isHovered || isContextNode || node.count > maxCount * 0.45) && (
+                      {showLabel && (
                         <motion.text
-                          x={barEndX + Math.cos(pos.angle) * 14}
-                          y={barEndY + Math.sin(pos.angle) * 14}
+                          x={labelX}
+                          y={labelY}
                           fill={themeColors.textColors.secondary}
-                          fontSize={isHovered || isContextNode ? 12 : 10}
+                          fontSize={isHovered || isContextNode ? 12 : activeGroupBy === "root" ? 11 : 10}
                           fontWeight={isHovered || isContextNode ? 600 : 400}
-                          textAnchor="start"
+                          textAnchor={labelOnLeft ? "end" : "start"}
                           className="arabic-text"
+                          style={{
+                            paintOrder: "stroke",
+                            stroke: theme === "dark" ? "rgba(12, 12, 18, 0.85)" : "rgba(248, 244, 236, 0.88)",
+                            strokeWidth: 2.4,
+                          }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                         >
@@ -802,37 +946,6 @@ export default function ArcFlowDiagram({
                 })}
               </g>
 
-              <g className="info-overlay">
-                <text
-                  x={width - 30}
-                  y={38}
-                  textAnchor="end"
-                  fill={themeColors.textColors.muted}
-                  fontSize="12"
-                >
-                  Grouped by {activeGroupBy}
-                </text>
-                <text
-                  x={width - 30}
-                  y={58}
-                  textAnchor="end"
-                  fill={themeColors.textColors.muted}
-                  fontSize="11"
-                >
-                  Scope: {selectedSurahId ? `surah ${selectedSurahId}` : "global corpus"}
-                </text>
-                {selectedAyah ? (
-                  <text
-                    x={width - 30}
-                    y={78}
-                    textAnchor="end"
-                    fill={themeColors.textColors.muted}
-                    fontSize="11"
-                  >
-                    Ayah context: {selectedAyah}
-                  </text>
-                ) : null}
-              </g>
             </g>
           </svg>
         )}
@@ -855,6 +968,12 @@ export default function ArcFlowDiagram({
               <div className="viz-tooltip-subtitle">
                 {activeGroupBy === "root" ? "Root" : activeGroupBy === "pos" ? "Part of Speech" : "Ayah"}
               </div>
+              {activeGroupBy === "pos" ? (
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">POS meaning</span>
+                  <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label)}</span>
+                </div>
+              ) : null}
               <div className="viz-tooltip-row">
                 <span className="viz-tooltip-label">Occurrences</span>
                 <span className="viz-tooltip-value">{hoveredNodeData.count}</span>
@@ -883,6 +1002,19 @@ export default function ArcFlowDiagram({
           )}
         </AnimatePresence>
       </div>
+
+      <style jsx global>{`
+        .viz-sidebar-stack.arcflow-scrollless {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+
+        .viz-sidebar-stack.arcflow-scrollless::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
+        }
+      `}</style>
     </section>
   );
 }

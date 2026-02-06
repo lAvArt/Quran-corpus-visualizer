@@ -4,8 +4,9 @@
  */
 
 const DB_NAME = 'quran-corpus-cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for verses store
 const STORE_TOKENS = 'tokens';
+const STORE_VERSES = 'verses';
 const STORE_METADATA = 'metadata';
 
 interface CacheMetadata {
@@ -61,6 +62,12 @@ class CorpusCache {
                     tokenStore.createIndex('by_pos', 'pos', { unique: false });
                 }
 
+                // Store for full verses (keyed by surah:ayah)
+                if (!db.objectStoreNames.contains(STORE_VERSES)) {
+                    const verseStore = db.createObjectStore(STORE_VERSES, { keyPath: 'id' });
+                    verseStore.createIndex('by_sura', 'suraId', { unique: false });
+                }
+
                 // Store for metadata
                 if (!db.objectStoreNames.contains(STORE_METADATA)) {
                     db.createObjectStore(STORE_METADATA, { keyPath: 'key' });
@@ -78,6 +85,21 @@ class CorpusCache {
 
         for (const token of tokens) {
             store.put(token);
+        }
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async storeVerses(verses: unknown[]): Promise<void> {
+        const db = await this.init();
+        const tx = db.transaction(STORE_VERSES, 'readwrite');
+        const store = tx.objectStore(STORE_VERSES);
+
+        for (const verse of verses) {
+            store.put(verse);
         }
 
         return new Promise((resolve, reject) => {
@@ -124,6 +146,31 @@ class CorpusCache {
         });
     }
 
+    async getVerse(verseId: string): Promise<unknown | null> {
+        const db = await this.init();
+        const tx = db.transaction(STORE_VERSES, 'readonly');
+        const store = tx.objectStore(STORE_VERSES);
+
+        return new Promise((resolve, reject) => {
+            const request = store.get(verseId);
+            request.onsuccess = () => resolve(request.result ?? null);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async getVersesBySura(suraId: number): Promise<unknown[]> {
+        const db = await this.init();
+        const tx = db.transaction(STORE_VERSES, 'readonly');
+        const store = tx.objectStore(STORE_VERSES);
+        const index = store.index('by_sura');
+
+        return new Promise((resolve, reject) => {
+            const request = index.getAll(suraId);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async getTokenCount(): Promise<number> {
         const db = await this.init();
         const tx = db.transaction(STORE_TOKENS, 'readonly');
@@ -163,8 +210,9 @@ class CorpusCache {
 
     async clearAll(): Promise<void> {
         const db = await this.init();
-        const tx = db.transaction([STORE_TOKENS, STORE_METADATA], 'readwrite');
+        const tx = db.transaction([STORE_TOKENS, STORE_VERSES, STORE_METADATA], 'readwrite');
         tx.objectStore(STORE_TOKENS).clear();
+        tx.objectStore(STORE_VERSES).clear();
         tx.objectStore(STORE_METADATA).clear();
 
         return new Promise((resolve, reject) => {

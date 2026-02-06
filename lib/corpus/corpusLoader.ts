@@ -3,11 +3,13 @@
  * Handles loading from API, merging with morphology data, and caching
  */
 
-import { quranApi, type QuranChapter, type QuranVerse, type QuranWord } from '@/lib/api/quranApi';
+import { quranApi, type QuranWord } from '@/lib/api/quranApi';
+
+
 import { corpusCache } from '@/lib/cache/corpusCache';
 import { SAMPLE_MORPHOLOGY_DATA } from '@/lib/corpus/morphologyData';
 import { loadMorphologyMap, type MorphologyEntry, buildSampleMorphologyMap } from '@/lib/corpus/morphologyLoader';
-import type { CorpusToken, PartOfSpeech } from '@/lib/schema/types';
+import type { CorpusToken, PartOfSpeech, AyahRecord } from '@/lib/schema/types';
 
 export interface LoadingProgress {
     currentSura: number;
@@ -94,29 +96,7 @@ function wordToToken(
     };
 }
 
-/**
- * Load all verses for a single surah
- */
-async function loadSurahTokens(
-    suraId: number,
-    morphologyMap: Map<string, MorphologyEntry> | null
-): Promise<CorpusToken[]> {
-    const verses = await quranApi.getAllVersesForChapter(suraId, { words: true });
-    const tokens: CorpusToken[] = [];
 
-    for (const verse of verses) {
-        if (!verse.words) continue;
-
-        for (const word of verse.words) {
-            // Skip end markers
-            if (word.char_type_name !== 'word') continue;
-
-            tokens.push(wordToToken(suraId, verse.verse_number, word, word.position, morphologyMap));
-        }
-    }
-
-    return tokens;
-}
 
 /**
  * Load full corpus progressively with caching
@@ -136,16 +116,16 @@ export async function loadFullCorpus(
     const notify = () => onProgress?.(progress);
 
     try {
-    // Load morphology map (required for full-root coverage)
-    let morphologyMap: Map<string, MorphologyEntry> | null = null;
-    let morphologyFallbackBySura: Map<number, CorpusToken[]> | null = null;
-    try {
-        morphologyMap = await loadMorphologyMap();
-        morphologyFallbackBySura = buildMorphologyFallbackBySura(morphologyMap);
-        console.log(`[CorpusLoader] Morphology loaded: ${morphologyMap.size.toLocaleString()} entries`);
-    } catch (err) {
-        console.warn('[CorpusLoader] Failed to load morphology map, falling back to sample data.', err);
-    }
+        // Load morphology map (required for full-root coverage)
+        let morphologyMap: Map<string, MorphologyEntry> | null = null;
+        let morphologyFallbackBySura: Map<number, CorpusToken[]> | null = null;
+        try {
+            morphologyMap = await loadMorphologyMap();
+            morphologyFallbackBySura = buildMorphologyFallbackBySura(morphologyMap);
+            console.log(`[CorpusLoader] Morphology loaded: ${morphologyMap.size.toLocaleString()} entries`);
+        } catch (err) {
+            console.warn('[CorpusLoader] Failed to load morphology map, falling back to sample data.', err);
+        }
 
         // Check cache first
         progress.status = 'loading';
@@ -189,6 +169,7 @@ export async function loadFullCorpus(
         progress.totalSuras = chapters.length;
 
         const allTokens: CorpusToken[] = [];
+        const allVerses: AyahRecord[] = [];
 
         for (let i = 0; i < chapters.length; i++) {
             const chapter = chapters[i];
@@ -197,10 +178,36 @@ export async function loadFullCorpus(
             notify();
 
             try {
-                const tokens = await loadSurahTokens(chapter.id, morphologyMap);
-                allTokens.push(...tokens);
+                // Ensure we get verses with full text
+                const verses = await quranApi.getAllVersesForChapter(chapter.id, { words: true });
+
+                for (const verse of verses) {
+                    // Create AyahRecord
+                    if (verse.words) {
+                        const ayahRecord: AyahRecord = {
+                            id: verse.verse_key,
+                            suraId: chapter.id,
+                            ayahNumber: verse.verse_number,
+                            textUthmani: verse.text_uthmani || verse.text_uthmani_simple || verse.text_imlaei || verse.text_imlaei_simple || verse.text_simple || "",
+                            textSimple: verse.text_imlaei_simple || verse.text_imlaei || verse.text_simple || undefined,
+                            tokenIds: []
+                        };
+
+                        const verseTokens: CorpusToken[] = [];
+                        for (const word of verse.words) {
+                            if (word.char_type_name !== 'word') continue;
+                            const token = wordToToken(chapter.id, verse.verse_number, word, word.position, morphologyMap);
+                            verseTokens.push(token);
+                            ayahRecord.tokenIds.push(token.id);
+                        }
+
+                        allTokens.push(...verseTokens);
+                        allVerses.push(ayahRecord);
+                    }
+                }
+
                 progress.currentTokens = allTokens.length;
-                console.log(`[CorpusLoader] Loaded ${chapter.name_simple}: ${tokens.length} tokens (total: ${allTokens.length})`);
+                console.log(`[CorpusLoader] Loaded ${chapter.name_simple}: ${verses.length} verses, ${allTokens.length} tokens`);
                 notify();
             } catch (err) {
                 console.warn(`[CorpusLoader] Failed to load surah ${chapter.id}:`, err);
@@ -220,12 +227,14 @@ export async function loadFullCorpus(
             }
         }
 
-        // Cache the loaded tokens
+        // Cache the loaded tokens AND verses
         progress.status = 'caching';
         progress.message = 'Caching tokens for offline access...';
         notify();
 
         await corpusCache.storeTokens(allTokens);
+        await corpusCache.storeVerses(allVerses);
+
         await corpusCache.setMetadata('corpus', {
             tokenCount: allTokens.length,
             hasMorphology: Boolean(morphologyMap),
@@ -293,15 +302,43 @@ export async function loadSurahs(
             if (cached.length > 0 && !cachedHasRoots) {
                 await corpusCache.clearAll();
             }
-            let tokens: CorpusToken[] = [];
+
+            // Load from API with full verses
             try {
-                tokens = await loadSurahTokens(suraId, morphologyMap);
+                const verses = await quranApi.getAllVersesForChapter(suraId, { words: true });
+                const verseTokens: CorpusToken[] = [];
+                const versesRecords: AyahRecord[] = [];
+
+                for (const verse of verses) {
+                    if (verse.words) {
+                        const ayahRecord: AyahRecord = {
+                            id: verse.verse_key,
+                            suraId: suraId,
+                            ayahNumber: verse.verse_number,
+                            textUthmani: verse.text_uthmani || verse.text_uthmani_simple || verse.text_imlaei || verse.text_imlaei_simple || verse.text_simple || "",
+                            textSimple: verse.text_imlaei_simple || verse.text_imlaei || verse.text_simple || undefined,
+                            tokenIds: []
+                        };
+
+                        for (const word of verse.words) {
+                            if (word.char_type_name !== 'word') continue;
+                            const token = wordToToken(suraId, verse.verse_number, word, word.position, morphologyMap);
+                            verseTokens.push(token);
+                            ayahRecord.tokenIds.push(token.id);
+                        }
+                        versesRecords.push(ayahRecord);
+                    }
+                }
+
+                allTokens.push(...verseTokens);
+                await corpusCache.storeTokens(verseTokens);
+                await corpusCache.storeVerses(versesRecords);
             } catch (err) {
                 console.warn(`[CorpusLoader] Failed API load for surah ${suraId}, trying morphology fallback.`, err);
-                tokens = morphologyFallbackBySura?.get(suraId) ?? [];
+                const fallbackTokens = morphologyFallbackBySura?.get(suraId) ?? [];
+                allTokens.push(...fallbackTokens);
+                await corpusCache.storeTokens(fallbackTokens);
             }
-            allTokens.push(...tokens);
-            await corpusCache.storeTokens(tokens);
         }
 
         progress.currentTokens = allTokens.length;
@@ -320,10 +357,48 @@ export async function loadSurahs(
 
     return allTokens;
 }
-
 /**
- * Get the bundled sample data (useful for initial render before API load)
+ * Get full ayah record from cache
  */
+export async function getAyah(sura: number, ayah: number): Promise<AyahRecord | null> {
+    const id = `${sura}:${ayah}`;
+    try {
+        const record = (await corpusCache.getVerse(id)) as AyahRecord | null;
+        const cachedText = record?.textSimple?.trim() || record?.textUthmani?.trim();
+        if (record && cachedText) {
+            return record;
+        }
+    } catch (err) {
+        console.warn(`[CorpusLoader] Failed to fetch ayah ${id}`, err);
+    }
+
+    try {
+        const verse = await quranApi.getVerse(id);
+        const fetchedRecord: AyahRecord = {
+            id,
+            suraId: sura,
+            ayahNumber: ayah,
+            textUthmani: verse.text_uthmani || verse.text_uthmani_simple || verse.text_imlaei || verse.text_imlaei_simple || verse.text_simple || "",
+            textSimple: verse.text_imlaei_simple || verse.text_imlaei || verse.text_simple || undefined,
+            tokenIds: verse.words
+                ? verse.words
+                    .filter((word) => word.char_type_name === 'word')
+                    .map((word) => `${sura}:${ayah}:${word.position}`)
+                : [],
+        };
+
+        try {
+            await corpusCache.storeVerses([fetchedRecord]);
+        } catch (cacheErr) {
+            console.warn(`[CorpusLoader] Failed to cache ayah ${id}`, cacheErr);
+        }
+
+        return fetchedRecord;
+    } catch (err) {
+        console.warn(`[CorpusLoader] Failed to fetch ayah ${id} from API`, err);
+        return null;
+    }
+}
 export function getSampleData(): CorpusToken[] {
     return [...SAMPLE_MORPHOLOGY_DATA];
 }

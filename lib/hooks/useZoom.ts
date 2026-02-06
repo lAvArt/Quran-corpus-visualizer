@@ -20,6 +20,7 @@ export function useZoom<SVGType extends SVGSVGElement>({
     const gRef = useRef<SVGGElement>(null);
     const onZoomRef = useRef<ZoomOptions["onZoom"]>(onZoom);
     const onZoomEndRef = useRef<ZoomOptions["onZoomEnd"]>(onZoomEnd);
+    const zoomInstanceRef = useRef<d3.ZoomBehavior<SVGType, unknown> | null>(null);
 
     useEffect(() => {
         onZoomRef.current = onZoom;
@@ -36,6 +37,8 @@ export function useZoom<SVGType extends SVGSVGElement>({
                 d3.select(gRef.current).attr("transform", event.transform);
                 onZoomRef.current?.(event.transform);
             });
+
+        zoomInstanceRef.current = zoom;
 
         zoom.on("end", (event) => {
             onZoomEndRef.current?.(event.transform);
@@ -56,5 +59,15 @@ export function useZoom<SVGType extends SVGSVGElement>({
         };
     }, [minScale, maxScale, initialScale]);
 
-    return { svgRef, gRef };
+    const resetZoom = () => {
+        if (svgRef.current && zoomInstanceRef.current) {
+            d3.select(svgRef.current)
+                .transition()
+                .duration(750)
+                .call(zoomInstanceRef.current.transform, d3.zoomIdentity.translate(0, 0).scale(initialScale));
+            onZoomRef.current?.(d3.zoomIdentity.translate(0, 0).scale(initialScale));
+        }
+    };
+
+    return { svgRef, gRef, resetZoom };
 }

@@ -12,7 +12,7 @@
  * - Morphological features (case, gender, number, person, etc.)
  */
 
-import type { CorpusToken, PartOfSpeech, Morphology } from "@/lib/schema/types";
+import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 
 // Extended POS types following Quranic Arabic Corpus conventions
 export type ExtendedPOS =
