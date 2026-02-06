@@ -1,0 +1,371 @@
+{
+    "Index": {
+        "title": "Quran Corpus Visualizer",
+        "eyebrow": "Quran Corpus Visualizer",
+        "brand": "quran.pluragate.org",
+        "hideTools": "Hide Tools ->",
+        "showTools": "Show Tools <-"
+    },
+    "AppSidebar": {
+        "index": "Index",
+        "search": "Search",
+        "inspector": "Inspector",
+        "attribution": "Morphology source:"
+    },
+    "GlobalSearch": {
+        "placeholder": "Search roots, words, meanings...",
+        "noResults": "No results found"
+    },
+    "VisualizationSwitcher": {
+        "select": "Select",
+        "lightTheme": "Light theme",
+        "darkTheme": "Dark theme",
+        "modes": {
+            "corpus-architecture": {
+                "label": "Corpus Architecture",
+                "description": "Global corpus hierarchy map showing structure overview"
+            },
+            "surah-distribution": {
+                "label": "Surah Distribution",
+                "description": "Spiral visualization of all 114 Surahs and their sizes"
+            },
+            "radial-sura": {
+                "label": "Radial Sura",
+                "description": "Circular layout showing verse structure with root connections"
+            },
+            "root-network": {
+                "label": "Root Network",
+                "description": "Force-directed graph of trilateral roots and their lemmas"
+            },
+            "arc-flow": {
+                "label": "Arc Flow",
+                "description": "Arc diagram with frequency bars and flowing connections"
+            },
+            "dependency-tree": {
+                "label": "Dependency",
+                "description": "Traditional syntax dependency graph for single verses"
+            },
+            "sankey-flow": {
+                "label": "Sankey Flow",
+                "description": "Root-to-lemma flow visualization with proportional widths"
+            }
+        }
+    },
+    "LanguageSwitcher": {
+        "switchLabel": "Switch to {locale}"
+    },
+    "CorpusIndex": {
+        "tabs": {
+            "surah": "Surah",
+            "root": "Root",
+            "lemma": "Lemma"
+        },
+        "searchPlaceholder": "Filter...",
+        "verses": "verses",
+        "noResults": "No results found"
+    },
+    "CurrentSelectionPanel": {
+        "title": "Current Selection",
+        "labels": {
+            "view": "View",
+            "surah": "Surah",
+            "ayah": "Ayah",
+            "root": "Root",
+            "lemma": "Lemma",
+            "token": "Token"
+        },
+        "ayahTokens": "Ayah Tokens"
+    },
+    "SemanticSearchPanel": {
+        "placeholders": {
+            "root": "Root (e.g., هدي)",
+            "lemma": "Lemma (e.g., هُدًى)",
+            "ayah": "Ayah (e.g., 1:5)"
+        },
+        "pos": {
+            "all": "All POS",
+            "noun": "Noun (N)",
+            "verb": "Verb (V)",
+            "particle": "Particle (P)",
+            "adjective": "Adjective",
+            "pronoun": "Pronoun"
+        },
+        "scope": "Scope",
+        "global": "Global",
+        "surah": "Surah {id}",
+        "found": "Found {count} tokens",
+        "clickToFocus": "Click a row to focus",
+        "empty": "Enter criteria to find tokens."
+    },
+    "VizExplainer": {
+        "helpLabel": "How to read this graph"
+    },
+    "MorphologyInspector": {
+        "emptyState": {
+            "hover": "Hover over a node to see quick details.",
+            "click": "Click a node to lock this view."
+        },
+        "status": {
+            "locked": "LOCKED",
+            "preview": "PREVIEW"
+        },
+        "clearSelection": "Clear selection",
+        "sections": {
+            "morphology": "Morphology",
+            "translation": "Translation",
+            "features": "Features"
+        },
+        "labels": {
+            "root": "Root",
+            "lemma": "Lemma",
+            "stem": "Stem",
+            "pos": "POS"
+        },
+        "noGloss": "No gloss available"
+    },
+    "Visualizations": {
+        "Shared": {
+            "legend": "LEGEND",
+            "zoom": "Zoom",
+            "reset": "Reset",
+            "clear": "Clear",
+            "surah": "Surah",
+            "ayah": "Ayah",
+            "root": "Root",
+            "lemma": "Lemma",
+            "pos": "POS",
+            "gloss": "Gloss",
+            "occurrences": "Occurrences",
+            "advancedViz": "Advanced Visualization",
+            "uniqueRoots": "Unique Roots",
+            "hideHelp": "Hide Help",
+            "showHelp": "Show Help",
+            "filtering": "Filtering",
+            "linkedAyahs": "Linked Ayahs",
+            "selectedRoot": "Selected Root",
+            "ayahCaps": "AYAH",
+            "surahCaps": "SURAH",
+            "link": "Link",
+            "roots": "roots",
+            "ayahs": "ayahs",
+            "dominantPOS": "Dominant POS",
+            "noun": "Noun",
+            "verb": "Verb",
+            "adjective": "Adjective",
+            "preposition": "Preposition",
+            "lemmas": "lemmas",
+            "panAndZoom": "Pan & Zoom",
+            "connections": "connections",
+            "ref": "Ref",
+            "selectedNode": "Selected node",
+            "directlyConnected": "Directly connected",
+            "example": "Example",
+            "inThisSurah": "In this Surah",
+            "totalInQuran": "Total in Quran",
+            "total": "Total",
+            "noData": "No data for",
+            "selectedToken": "Selected Token",
+            "hoveredToken": "Hovered Token",
+            "zoomIn": "Zoom In",
+            "zoomOut": "Zoom Out",
+            "showing": "showing",
+            "of": "of",
+            "flows": "flows",
+            "remaining": "remaining",
+            "scope": "Scope",
+            "activeRoot": "Active Root",
+            "shown": "Shown",
+            "coverage": "Coverage",
+            "howToRead": "How to Read"
+        },
+        "SurahDistribution": {
+            "fewerAyahs": "Fewer ayahs",
+            "moderateAyahs": "Moderate ayahs",
+            "moreAyahs": "More ayahs",
+            "selectedRoot": "Selected / Root match",
+            "tokenCountSize": "Size = token count",
+            "xAxis": "SURAH INDEX",
+            "yAxis": "TOKEN COUNT",
+            "surah": "Surah",
+            "words": "Words",
+            "Help": {
+                "title": "Surah Distribution Graph",
+                "description": "A linear distribution plot comparing Surahs based on length, token density, or other selected metrics.",
+                "yAxisLabel": "Y-Axis Height",
+                "yAxisText": "Height of each bar/point represents the total token count (or selected metric) for that Surah.",
+                "xAxisLabel": "X-Axis Sequence",
+                "xAxisText": "Arranged in standard Mushaf order (1. Al-Fatiha to 114. An-Nas).",
+                "highlightsLabel": "Highlights",
+                "highlightsText": "Colored markers indicate Surahs containing the currently selected Root or Lemma."
+            }
+        },
+        "ArcFlow": {
+            "title": "Arc Flow Diagram",
+            "groups": "{count} groups - {linkCount} connections",
+            "byRoot": "By Root",
+            "byPOS": "By POS",
+            "byAyah": "By Ayah",
+            "groupedBy": "Grouped by: {value}",
+            "scope": "Scope: {value}",
+            "ayahContext": "Ayah context: {value}",
+            "zoom": "Zoom: {value}%",
+            "modeDescription": "Drag canvas to pan. Wheel or +/- to zoom.",
+            "linkedSelection": "Linked Selection",
+            "noSelection": "No surah/ayah/root/lemma selection is active.",
+            "rootLegend": "Bar length = frequency, color distinguishes root groups",
+            "posLegend": "Bar color and length = frequency",
+            "contextLinks": "Context-linked relationships",
+            "activeNode": "Hovered / active node",
+            "contextMatch": "Selection context match",
+            "linksRoot": "Links = shared lemmas",
+            "linksPOS": "Links = adjacent POS pairs",
+            "linksAyah": "Links = context transitions across ayahs",
+            "tokens": "tokens",
+            "posMapping": "POS mapping: N noun, V verb, ADJ adjective, PRON pronoun, P preposition, PART particle, CONJ conjunction.",
+            "Help": {
+                "title": "Arc Flow Diagram",
+                "description": "Compares grouped linguistic units in an arc layout, with curved links showing meaningful co-occurrence patterns.",
+                "rootLabel": "By Root",
+                "rootText": "Each bar is a Root. Bar length shows frequency in scope. Curves connect roots that share lemmas.",
+                "posLabel": "By POS",
+                "posText": "Each bar is a Part-of-Speech tag from morphology data (N, V, ADJ, PRON, P, PART, CONJ). Curves show adjacent POS pairs inside the same Ayah.",
+                "ayahLabel": "By Ayah",
+                "ayahText": "Each bar is an Ayah in current context. Curves connect ayahs when selected context tokens transition across ayah boundaries."
+            }
+        },
+        "RadialSura": {
+            "advanced": "Advanced Visualization",
+            "title": "Radial Surah Map",
+            "structuralMap": "Structural Map",
+            "meta": "{ayahCount} Ayat · {rootCount} Unique Roots",
+            "hideHelp": "Hide Help",
+            "showHelp": "Show Help",
+            "hints": "Hover bars and links for details. Click to pin a selection.",
+            "helpText": "Bars = ayahs (length = token count, color = dominant POS). Dots = ayah endpoints (click to focus). Arcs = shared roots between ayahs (click to filter that root).",
+            "filtering": "Filtering: {root}",
+            "linkedVerses": "Linked verses: {verses}",
+            "selectedRoot": "Selected Root",
+            "nodeAyah": "Ayah {id}",
+            "nodeTokens": "{count} Tokens",
+            "rootConnection": "Root Connection",
+            "from": "From",
+            "to": "To",
+            "ayahBar": "Ayah Bar",
+            "legendNoun": "Noun",
+            "legendVerb": "Verb",
+            "legendAdj": "Adjective",
+            "legendPrep": "Preposition",
+            "legendRoot": "Root Connection",
+            "legendBar": "Ayah Bar",
+            "Help": {
+                "title": "Radial Surah Map",
+                "description": "A compact circular visualization of a single Surah's composition, plotting every Ayah (verse) and its constituent tokens.",
+                "ringsLabel": "Rings & Ayahs",
+                "ringsText": "The circle is divided into segments representing Ayahs. The number of rings corresponds to the length/complexity of the Ayah.",
+                "dotsLabel": "Token Dots",
+                "dotsText": "Each dot is a word/token. Color represents the Part of Speech (Noun, Verb, Particle).",
+                "navLabel": "Navigation",
+                "navText": "Hover over dots to read the specific word and its translation. Click to focus on that token's connections."
+            }
+        },
+        "AyahDependency": {
+            "controls": "Dependency Controls",
+            "title": "Ayah Dependency",
+            "total": "{count} total",
+            "prevAyah": "Previous ayah",
+            "nextAyah": "Next ayah",
+            "tokens": "Tokens",
+            "links": "Links",
+            "canvas": "Canvas",
+            "zoomIn": "Zoom In",
+            "zoomOut": "Zoom Out",
+            "fit": "Fit to View",
+            "relations": "Relation Labels",
+            "selectedToken": "Selected Token",
+            "hoveredToken": "Hovered Token",
+            "tokenDetails": "Token Details",
+            "analysisSummary": "Analysis Summary",
+            "hoverToken": "Hovered Token",
+            "empty": "Hover or click a token rectangle",
+            "noTokens": "No tokens available for {surah} in current dataset.",
+            "Help": {
+                "title": "Dependency Tree",
+                "description": "A hierarchical tree view of the grammatical structure within a single Ayah.",
+                "treeLabel": "Tree Structure",
+                "treeText": "Top nodes are the main clauses. Child nodes represent dependent words (subjects, objects, modifiers).",
+                "linksLabel": "Links",
+                "linksText": "Lines represent grammatical dependencies (e.g., 'subject of', 'modified by')."
+            }
+        },
+        "CorpusArchitecture": {
+            "title": "Corpus Architecture",
+            "subtitle": "Center → Surahs → Top Roots",
+            "structuralView": "Structural View",
+            "inSurah": "In this Surah",
+            "total": "Total in Quran",
+            "corpus": "Corpus",
+            "architecture": "Architecture",
+            "stats": "{rootCount} Roots • {ayahCount} Ayahs",
+            "occurrences": "{count} occurrences",
+            "Help": {
+                "title": "Corpus Architecture Map",
+                "description": "An interactive radial dendrogram visualizing the hierarchical structure of the Quran, from the full Corpus down to Surahs and their most frequent Roots.",
+                "hierarchyLabel": "Hierarchy Levels",
+                "hierarchyText": "The center node represents the entire Quran. The first ring of nodes are the 114 Surahs. Branching out from each Surah are its top recurring Roots.",
+                "nodesLabel": "Nodes & Size",
+                "nodesText": "Surah (colorful) and Root (white) nodes. Larger nodes indicate higher token volume or frequency within their parent scope.",
+                "interactLabel": "Interactions",
+                "interactText": "Click a Surah to verify focus (drill down). Click a Root to see detailed stats. Use mouse wheel to zoom/pan."
+            }
+        },
+        "RootFlow": {
+            "title": "Root to Lemma",
+            "filterByRoot": "Filter by Root",
+            "allRoots": "All roots",
+            "notFound": "Root '{root}' not found in {scope}. Try selecting 'All roots'.",
+            "noFlows": "No flows found for {scope}.",
+            "showMore": "Show More",
+            "helpLeftRight": "Left column lists roots and right column lists lemmas.",
+            "helpBands": "Each curved band maps one root to one lemma.",
+            "helpThickness": "Thicker bands mean higher frequency in the current scope.",
+            "helpHover": "Hover a band to preview a sample token, click to inspect it.",
+            "rootNode": "Root Nodes",
+            "lemmaNode": "Lemma Nodes",
+            "Help": {
+                "title": "Root-Lemma Flow",
+                "description": "A Sankey diagram tracing the flow from Arabic unique Roots to their various derived Lemmas, visualizing morphological productivity.",
+                "widthLabel": "Flow Width",
+                "widthText": "The thickness of each band represents the Frequency of that specific Root-to-Lemma derivation.",
+                "leftRightLabel": "Left to Right",
+                "leftRightText": "Left column lists Roots. Right column lists Lemmas. The flow shows which roots generate which lemmas.",
+                "scopeLabel": "Scope Awareness",
+                "scopeText": "Counts update based on whether you are viewing the whole Quran or a specific Surah."
+            }
+        },
+        "RootNetwork": {
+            "rootLimit": "Root limit",
+            "availableRoots": "Total Available roots:",
+            "dragPan": "Drag to pan - wheel to zoom",
+            "noTokens": "No token data loaded for this surah yet. Keep corpus loading, then retry this surah.",
+            "noMorphology": "Morphology data unavailable for this surah. Roots/lemmas require a full morphology dataset.",
+            "rootTrilateral": "Root (trilateral)",
+            "nounLemma": "Noun lemma",
+            "verbLemma": "Verb lemma",
+            "complexity": "Complexity",
+            "totalAvailable": "Total Available",
+            "rootNodes": "Root Nodes",
+            "lemmaNodes": "Lemma Nodes",
+            "tokenNodes": "Token Nodes",
+            "Help": {
+                "title": "Root Network Graph",
+                "description": "A force-directed graph revealing the linguistic connections between Roots and Lemmas based on their co-occurrence and derivation patterns.",
+                "rootsLabel": "Roots & Lemmas",
+                "rootsText": "Large central nodes are Roots (trilateral origins). Smaller peripheral nodes are Lemmas (dictionary forms) derived from them.",
+                "distanceLabel": "Link Distance",
+                "distanceText": "Shorter links indicate a stronger, more frequent connection between a Root and a Lemma.",
+                "sizeLabel": "Node Size",
+                "sizeText": "Proportional to the total frequency of occurrences in the selected scope (Surah or full Quran)."
+            }
+        }
+    }
+}

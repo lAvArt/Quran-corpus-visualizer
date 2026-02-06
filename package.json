@@ -8,14 +8,18 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "i18n:check": "node scripts/check-i18n.js",
+    "i18n:pseudo": "node scripts/pseudo-localize.js",
     "fetch:morphology": "node scripts/fetch-morphology.js"
   },
   "dependencies": {
     "@types/d3": "^7.4.3",
     "@use-gesture/react": "^10.3.1",
+    "@vercel/analytics": "^1.6.1",
     "d3": "^7.9.0",
     "framer-motion": "^12.33.0",
     "next": "^16.1.6",
+    "next-intl": "^4.8.2",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },

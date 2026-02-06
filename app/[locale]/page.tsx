@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import RadialSuraMap from "@/components/visualisations/RadialSuraMap";
 import RootNetworkGraph from "@/components/visualisations/RootNetworkGraph";
@@ -7,8 +8,10 @@ import SurahDistributionGraph from "@/components/visualisations/SurahDistributio
 import ArcFlowDiagram from "@/components/visualisations/ArcFlowDiagram";
 import AyahDependencyGraph from "@/components/visualisations/AyahDependencyGraph";
 import RootFlowSankey from "@/components/visualisations/RootFlowSankey";
-import CorpusArchitectureMap from "@/components/visualisations/CorpusArchitectureMap"; // Added import
+import CorpusArchitectureMap from "@/components/visualisations/CorpusArchitectureMap";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
@@ -22,6 +25,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 const STORAGE_KEY = "quran-corpus-viz-state";
 
 export default function HomePage() {
+  const t = useTranslations('Index');
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   // Initialize with defaults to avoid hydration mismatch
@@ -31,7 +35,6 @@ export default function HomePage() {
   const [selectedSurahId, setSelectedSurahId] = useState<number>(1);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
-
 
   // Corpus loading state
   const [tokens, setTokens] = useState<CorpusToken[]>(() => getSampleData());
@@ -53,7 +56,6 @@ export default function HomePage() {
     } catch {
       // Ignore localStorage errors
     }
-    // setIsHydrated(true); // removed unused
   }, []);
 
   // Apply theme to document
@@ -99,7 +101,6 @@ export default function HomePage() {
         }
       } catch (err) {
         console.error('[Page] Failed to load corpus:', err);
-        // Keep sample data on error
       } finally {
         if (!cancelled) setIsLoadingCorpus(false);
       }
@@ -162,8 +163,6 @@ export default function HomePage() {
 
   const handleRootSelect = useCallback((root: string | null) => {
     setSelectedRoot(root);
-    // Optional: Switch to root network or just stay and highlight?
-    // Let's stay in current view but highlight, unless in surah distribution where it might be hard to see
   }, []);
 
   const handleLemmaSelect = useCallback((lemma: string) => {
@@ -213,7 +212,7 @@ export default function HomePage() {
           />
         );
 
-      case "corpus-architecture": // Added new case
+      case "corpus-architecture":
         return (
           <CorpusArchitectureMap
             tokens={allTokens}
@@ -280,9 +279,9 @@ export default function HomePage() {
       <header className="floating-header">
         <div className="header-dock">
           <div className="brand-block">
-            <p className="eyebrow">Quran Corpus Visualizer</p>
+            <p className="eyebrow">{t('eyebrow')}</p>
             <div className="brand-title-row">
-              <h1 className="brand-title">quran.pluragate.org</h1>
+              <h1 className="brand-title">{t('brand')}</h1>
             </div>
           </div>
 
@@ -294,6 +293,11 @@ export default function HomePage() {
           />
 
           <div className="header-controls">
+            <div className="header-button-group">
+              <LanguageSwitcher />
+              <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
+            </div>
+
             <VisualizationSwitcher
               currentMode={vizMode}
               onModeChange={setVizMode}
@@ -305,7 +309,7 @@ export default function HomePage() {
               className={`sidebar-toggle-btn ${isSidebarOpen ? "active" : ""}`}
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             >
-              {isSidebarOpen ? "Hide Tools ->" : "Show Tools <-"}
+              {isSidebarOpen ? t('hideTools') : t('showTools')}
             </button>
           </div>
         </div>

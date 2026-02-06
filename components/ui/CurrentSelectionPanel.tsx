@@ -15,16 +15,9 @@ interface CurrentSelectionPanelProps {
   allTokens?: CorpusToken[];
 }
 
-const modeLabel: Record<VisualizationMode, string> = {
-  "radial-sura": "Radial Sura",
-  "root-network": "Root Network",
-  "arc-flow": "Arc Flow",
-  "dependency-tree": "Dependency Tree",
-  "sankey-flow": "Sankey Flow",
-  "surah-distribution": "Surah Distribution",
-  "corpus-architecture": "Corpus Architecture",
-  heatmap: "Heatmap",
-};
+// Note: modeLabel was removed as translations are now handled by useTranslations
+
+import { useTranslations } from "next-intl";
 
 export default function CurrentSelectionPanel({
   vizMode,
@@ -35,7 +28,15 @@ export default function CurrentSelectionPanel({
   activeToken,
   allTokens = [],
 }: CurrentSelectionPanelProps) {
+  const t = useTranslations('CurrentSelectionPanel');
   const surah = SURAH_NAMES[selectedSurahId];
+
+  // Map modes to translation keys, or just use the raw key if we added them to messages
+  // We added keys to messages/en.json under "VisualizationSwitcher.modes" but also need generic labels here?
+  // Let's reuse VisualizationSwitcher.modes keys for the mode name if possible, or add simple mapping.
+  // Actually, let's keep it simple and just translate the static labels for now, 
+  // and maybe dynamically translate the mode name using the existing VisSwitcher keys.
+  const tViz = useTranslations('VisualizationSwitcher.modes');
 
   const ayahTokensText = useMemo(() => {
     if (!selectedAyah || !selectedSurahId) return null;
@@ -52,14 +53,14 @@ export default function CurrentSelectionPanel({
 
   return (
     <aside className="current-selection-panel">
-      <p className="eyebrow">Current Selection</p>
+      <p className="eyebrow">{t('title')}</p>
       <div className="selection-grid">
         <div className="selection-row">
-          <span className="selection-label">View</span>
-          <span className="selection-value">{modeLabel[vizMode]}</span>
+          <span className="selection-label">{t('labels.view')}</span>
+          <span className="selection-value">{tViz(`${vizMode}.label`)}</span>
         </div>
         <div className="selection-row">
-          <span className="selection-label">Surah</span>
+          <span className="selection-label">{t('labels.surah')}</span>
           <span className="selection-value">
             <span className="surah-bilingual">
               <span className="surah-number">{selectedSurahId}.</span>
@@ -69,19 +70,19 @@ export default function CurrentSelectionPanel({
           </span>
         </div>
         <div className="selection-row">
-          <span className="selection-label">Ayah</span>
+          <span className="selection-label">{t('labels.ayah')}</span>
           <span className="selection-value">{selectedAyah ?? "-"}</span>
         </div>
         <div className="selection-row">
-          <span className="selection-label">Root</span>
+          <span className="selection-label">{t('labels.root')}</span>
           <span className="selection-value arabic-text">{selectedRoot ?? "-"}</span>
         </div>
         <div className="selection-row">
-          <span className="selection-label">Lemma</span>
+          <span className="selection-label">{t('labels.lemma')}</span>
           <span className="selection-value arabic-text">{selectedLemma ?? "-"}</span>
         </div>
         <div className="selection-row">
-          <span className="selection-label">Token</span>
+          <span className="selection-label">{t('labels.token')}</span>
           <span className="selection-value arabic-text">{activeToken?.text ?? "-"}</span>
         </div>
       </div>
@@ -89,7 +90,7 @@ export default function CurrentSelectionPanel({
       {/* Ayah Tokens Display */}
       {ayahTokensText && (
         <div className="ayah-display">
-          <p className="eyebrow">Ayah Tokens</p>
+          <p className="eyebrow">{t('ayahTokens')}</p>
           <div className="ayah-scroll-shell">
             <p className="ayah-text-content arabic-text">{ayahTokensText}</p>
           </div>

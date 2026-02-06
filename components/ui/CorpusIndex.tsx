@@ -16,6 +16,8 @@ interface CorpusIndexProps {
 
 type TabMode = "surah" | "root" | "lemma";
 
+import { useTranslations } from "next-intl";
+
 export default function CorpusIndex({
     tokens,
     onSelectSurah,
@@ -24,6 +26,7 @@ export default function CorpusIndex({
     className = "",
     selectedSurahId,
 }: CorpusIndexProps) {
+    const t = useTranslations('CorpusIndex');
     const [activeTab, setActiveTab] = useState<TabMode>("surah");
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -58,7 +61,6 @@ export default function CorpusIndex({
         return { surahCounts, rootCounts, lemmaCounts };
     }, [tokens, selectedSurahId, activeTab]);
 
-    // Filter and sort items
     const filteredItems = useMemo(() => {
         const query = searchQuery.toLowerCase();
 
@@ -68,7 +70,7 @@ export default function CorpusIndex({
                     id: parseInt(id),
                     label: `${id}. ${data.name}`,
                     subLabel: data.arabic,
-                    count: data.verses.toString() + " verses", // Or token count from our data
+                    count: data.verses.toString() + " " + t('verses'), // Dynamic suffix
                     tokenCount: 0, // Placeholder, actual count is in computed data
                     value: parseInt(id),
                 }))
@@ -97,9 +99,7 @@ export default function CorpusIndex({
                 .filter((item) => item.label.includes(query))
                 .sort((a, b) => b.count - a.count);
         }
-    }, [activeTab, searchQuery, data]);
-
-
+    }, [activeTab, searchQuery, data, t]);
 
     return (
         <div className={`corpus-index ${className}`}>
@@ -110,7 +110,7 @@ export default function CorpusIndex({
                         className={`index-tab-btn ${activeTab === mode ? "active" : ""}`}
                         onClick={() => setActiveTab(mode)}
                     >
-                        {mode}
+                        {t(`tabs.${mode}`)}
                     </button>
                 ))}
             </div>
@@ -122,14 +122,13 @@ export default function CorpusIndex({
                 <input
                     type="text"
                     className="index-search-input"
-                    placeholder="Filter..."
+                    placeholder={t('searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
             <div className="index-list custom-scrollbar">
                 {filteredItems.map((item) => (
-                    // ... item render ...
                     <button
                         key={item.id}
                         onClick={() => {
@@ -154,15 +153,14 @@ export default function CorpusIndex({
                         </span>
                     </button>
                 ))}
-
-
-
-                {filteredItems.length === 0 && (
-                    <div className="index-empty">
-                        No results found
-                    </div>
-                )}
-            </div>
+                {
+                    filteredItems.length === 0 && (
+                        <div className="index-empty">
+                            {t('noResults')}
+                        </div>
+                    )
+                }
+            </div >
 
             <style jsx>{`
                 /* ... existing styles ... */
@@ -308,6 +306,6 @@ export default function CorpusIndex({
                     color: var(--ink-muted);
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

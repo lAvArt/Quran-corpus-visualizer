@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { useTranslations, useLocale } from "next-intl";
 
 export interface VizExplainerContent {
     title: string;
@@ -19,6 +20,9 @@ interface VizExplainerDialogProps {
 }
 
 export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }: VizExplainerDialogProps) {
+    const locale = useLocale();
+    const isRtl = locale === 'ar';
+
     if (!isOpen || typeof document === "undefined") return null;
 
     return createPortal(
@@ -61,6 +65,8 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                         borderRadius: "18px",
                         boxShadow: "0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)",
                         backdropFilter: "blur(20px)",
+                        direction: isRtl ? "rtl" : "ltr",
+                        textAlign: isRtl ? "right" : "left",
                     }}
                 >
                     <button
@@ -68,7 +74,7 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                         style={{
                             position: "absolute",
                             top: "20px",
-                            right: "20px",
+                            [isRtl ? 'left' : 'right']: "20px",
                             background: "rgba(255,255,255,0.03)",
                             border: "1px solid var(--line)",
                             borderRadius: "50%",
@@ -107,7 +113,15 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                         </svg>
                     </button>
 
-                    <h2 style={{ margin: "0 0 8px 0", fontSize: "1.75rem", fontFamily: "var(--font-display, serif)", color: "var(--ink)", letterSpacing: "-0.02em" }}>{content.title}</h2>
+                    <h2 style={{
+                        margin: "0 0 8px 0",
+                        fontSize: "1.75rem",
+                        fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-display, serif)",
+                        color: "var(--ink)",
+                        letterSpacing: isRtl ? "0" : "-0.02em"
+                    }}>
+                        {content.title}
+                    </h2>
                     <p
                         style={{
                             fontSize: "1.05rem",
@@ -142,7 +156,8 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                                             fontSize: "1rem",
                                             fontWeight: 600,
                                             color: "var(--ink)",
-                                            letterSpacing: "0.01em",
+                                            letterSpacing: isRtl ? "0" : "0.01em",
+                                            fontFamily: isRtl ? "var(--font-arabic)" : "inherit",
                                         }}
                                     >
                                         {section.label}
@@ -169,14 +184,16 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
 }
 
 export function HelpIcon({ onClick }: { onClick: () => void }) {
+    const t = useTranslations('VizExplainer');
     return (
         <button
             onClick={onClick}
             className="viz-help-btn"
-            title="How to read this graph"
-            aria-label="How to read this graph"
+            title={t('helpLabel')}
+            aria-label={t('helpLabel')}
             style={{
                 background: "rgba(255,255,255,0.05)",
+                // ...
                 border: "1px solid var(--line)",
                 borderRadius: "50%",
                 width: "24px",

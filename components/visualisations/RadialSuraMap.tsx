@@ -8,8 +8,8 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
+import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
-import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface RadialSuraMapProps {
   tokens: CorpusToken[];
@@ -53,6 +53,8 @@ export default function RadialSuraMap({
   highlightRoot,
   theme = "dark",
 }: RadialSuraMapProps) {
+  const t = useTranslations("Visualizations.RadialSura");
+  const ts = useTranslations("Visualizations.Shared");
   const containerRef = useRef<HTMLDivElement>(null);
   const { svgRef, gRef } = useZoom<SVGSVGElement>();
   const [showHelp, setShowHelp] = useState(false);
@@ -396,14 +398,14 @@ export default function RadialSuraMap({
     <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
       <div className="panel-head">
         <div>
-          <p className="eyebrow">Advanced Visualization</p>
-          <h2>Radial Surah Map</h2>
+          <p className="eyebrow">{ts("advancedViz")}</p>
+          <h2>{t("structuralMap")}</h2>
         </div>
         <div style={{ textAlign: "right" }}>
           <p className="arabic-text arabic-large" style={{ margin: 0 }}>
             {displayArabicName}
           </p>
-          <p className="ayah-meta">{suraName} · {ayahCount} Ayat · {uniqueRoots.length} Unique Roots</p>
+          <p className="ayah-meta">{suraName} · {ayahCount} {ts("ayah")} · {uniqueRoots.length} {ts("uniqueRoots")}</p>
         </div>
       </div>
 
@@ -422,19 +424,18 @@ export default function RadialSuraMap({
               cursor: "pointer",
             }}
           >
-            {showHints ? "Hide Help" : "Show Help"}
+            {showHints ? ts("hideHelp") : ts("showHelp")}
           </button>
           {showHints && (
             <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
-              Bars = ayahs (length = token count, color = dominant POS). Dots = ayah endpoints (click to focus).
-              Arcs = shared roots between ayahs (click to filter that root).
-              {highlightRoot && ` Filtering: ${highlightRoot}`}
+              {t("hints")}
+              {highlightRoot && ` ${ts("filtering")}: ${highlightRoot}`}
             </span>
           )}
         </div>
         {highlightRoot && highlightAyahs.length > 0 && (
           <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: "0.78rem" }}>
-            Linked verses: {highlightAyahs.join(", ")}
+            {ts("linkedAyahs")}: {highlightAyahs.join(", ")}
           </div>
         )}
       </div>
@@ -443,11 +444,11 @@ export default function RadialSuraMap({
         <div className="viz-left-stack">
           {highlightRoot && (
             <div className="viz-left-panel">
-              <div className="viz-tooltip-title">Selected Root</div>
+              <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
               <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
               {highlightAyahs.length > 0 && (
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Linked ayahs</span>
+                  <span className="viz-tooltip-label">{ts("linkedAyahs")}</span>
                   <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
                 </div>
               )}
@@ -462,7 +463,7 @@ export default function RadialSuraMap({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
-                <div className="viz-tooltip-title">Ayah {selectedAyah}</div>
+                <div className="viz-tooltip-title">{ts("ayahCaps")} {selectedAyah}</div>
                 <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
 
                 {fullAyahText && (
@@ -481,11 +482,11 @@ export default function RadialSuraMap({
                   </div>
                 )}
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Tokens</span>
+                  <span className="viz-tooltip-label">{ts("occurrences")}</span>
                   <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
                 </div>
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Dominant POS</span>
+                  <span className="viz-tooltip-label">{ts("dominantPOS")}</span>
                   <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
                 </div>
               </motion.div>
@@ -500,20 +501,20 @@ export default function RadialSuraMap({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
-                <div className="viz-tooltip-title">Root Connection</div>
+                <div className="viz-tooltip-title">{t("rootConnection")}</div>
                 <div className="viz-tooltip-subtitle arabic-text">
                   {(selectedConnection ?? hoveredConnection)?.root}
                 </div>
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">From</span>
+                  <span className="viz-tooltip-label">{t("from")}</span>
                   <span className="viz-tooltip-value">
-                    Ayah {(selectedConnection ?? hoveredConnection)?.sourceAyah}
+                    {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.sourceAyah}
                   </span>
                 </div>
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">To</span>
+                  <span className="viz-tooltip-label">{t("to")}</span>
                   <span className="viz-tooltip-value">
-                    Ayah {(selectedConnection ?? hoveredConnection)?.targetAyah}
+                    {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.targetAyah}
                   </span>
                 </div>
               </motion.div>
@@ -522,32 +523,32 @@ export default function RadialSuraMap({
 
           <div className="viz-legend" style={{ marginTop: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
-              <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+              <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
               <HelpIcon onClick={() => setShowHelp(true)} />
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
-              <span>Noun</span>
+              <span>{ts("noun")}</span>
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
-              <span>Verb</span>
+              <span>{ts("verb")}</span>
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
-              <span>Adjective</span>
+              <span>{ts("adjective")}</span>
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
-              <span>Preposition</span>
+              <span>{ts("preposition")}</span>
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
-              <span>Root Connection</span>
+              <span>{t("rootConnection")}</span>
             </div>
             <div className="viz-legend-item">
               <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
-              <span>Ayah Bar</span>
+              <span>{t("ayahBar")}</span>
             </div>
           </div>
         </div>,
@@ -606,7 +607,15 @@ export default function RadialSuraMap({
               <VizExplainerDialog
                 isOpen={showHelp}
                 onClose={() => setShowHelp(false)}
-                content={VIZ_HELP_CONTENT["radial-sura"]}
+                content={{
+                  title: t("Help.title"),
+                  description: t("Help.description"),
+                  sections: [
+                    { label: t("Help.ringsLabel"), text: t("Help.ringsText") },
+                    { label: t("Help.dotsLabel"), text: t("Help.dotsText") },
+                    { label: t("Help.navLabel"), text: t("Help.navText") },
+                  ]
+                }}
               />
 
               {/* Background orbital rings */}
@@ -661,7 +670,7 @@ export default function RadialSuraMap({
                   fill={themeColors.textColors.muted}
                   fontSize="12"
                 >
-                  {ayahCount} Ayahs
+                  {ayahCount} {ts("ayah")}
                 </text>
               </g>
 

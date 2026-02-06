@@ -1,22 +1,25 @@
 "use client";
 
 import type { CorpusToken } from "@/lib/schema/types";
+import { useTranslations } from "next-intl";
 
 interface MorphologyInspectorProps {
-  token: CorpusToken | null;
-  mode: "hover" | "focus" | "idle";
-  onClearFocus: () => void;
+    token: CorpusToken | null;
+    mode: "hover" | "focus" | "idle";
+    onClearFocus: () => void;
 }
 
 export default function MorphologyInspector({ token, mode, onClearFocus }: MorphologyInspectorProps) {
-  if (!token) {
-    return (
-      <div className="inspector-empty-state">
-        <div className="empty-icon">{"\u2191"}</div>
-        <p>Hover over a node to see quick details.</p>
-        <p>Click a node to lock this view.</p>
-        
-        <style jsx>{`
+    const t = useTranslations('MorphologyInspector');
+
+    if (!token) {
+        return (
+            <div className="inspector-empty-state">
+                <div className="empty-icon">{"\u2191"}</div>
+                <p>{t('emptyState.hover')}</p>
+                <p>{t('emptyState.click')}</p>
+
+                <style jsx>{`
         .inspector-empty-state {
             display: flex;
             flex-direction: column;
@@ -33,68 +36,68 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
             opacity: 0.6;
         }
         `}</style>
-      </div>
-    );
-  }
-
-  return (
-    <div className="inspector-content">
-      <div className="inspector-header">
-        <div className="header-top">
-           <span className={`status-badge ${mode}`}>
-                {mode === "focus" ? "LOCKED" : "PREVIEW"}
-            </span>
-            {mode === "focus" && (
-                <button type="button" onClick={onClearFocus} className="close-btn" aria-label="Clear selection">{"\u00D7"}</button>
-            )}
-        </div>
-        
-        <h2 className="token-arabic" lang="ar" dir="rtl">{token.text}</h2>
-        <div className="token-id">{token.id}</div>
-      </div>
-
-      <div className="inspector-section">
-        <h3>Morphology</h3>
-        <div className="data-grid">
-            <div className="data-item">
-                <span className="label">Root</span>
-                <span className="value arabic-font" lang="ar">{token.root || "\u2014"}</span>
             </div>
-            <div className="data-item">
-                <span className="label">Lemma</span>
-                <span className="value arabic-font" lang="ar">{token.lemma || "\u2014"}</span>
-            </div>
-            <div className="data-item">
-                <span className="label">Stem</span>
-                <span className="value arabic-font" lang="ar">{token.morphology.stem || "\u2014"}</span>
-            </div>
-            <div className="data-item">
-                <span className="label">POS</span>
-                <span className="value">{token.pos}</span>
-            </div>
-        </div>
-      </div>
+        );
+    }
 
-       <div className="inspector-section">
-        <h3>Translation</h3>
-        <p className="gloss-text">{token.morphology.gloss || "No gloss available"}</p>
-      </div>
-
-      {Object.keys(token.morphology.features).length > 0 && (
-          <div className="inspector-section">
-            <h3>Features</h3>
-            <div className="features-list">
-              {Object.entries(token.morphology.features).map(([key, value]) => (
-                <div key={key} className="feature-tag">
-                  <span className="f-key">{key}</span>
-                  <span className="f-val">{value}</span>
+    return (
+        <div className="inspector-content">
+            <div className="inspector-header">
+                <div className="header-top">
+                    <span className={`status-badge ${mode}`}>
+                        {mode === "focus" ? t('status.locked') : t('status.preview')}
+                    </span>
+                    {mode === "focus" && (
+                        <button type="button" onClick={onClearFocus} className="close-btn" aria-label={t('clearSelection')}>{"\u00D7"}</button>
+                    )}
                 </div>
-              ))}
-            </div>
-          </div>
-      )}
 
-      <style jsx>{`
+                <h2 className="token-arabic" lang="ar" dir="rtl">{token.text}</h2>
+                <div className="token-id">{token.id}</div>
+            </div>
+
+            <div className="inspector-section">
+                <h3>{t('sections.morphology')}</h3>
+                <div className="data-grid">
+                    <div className="data-item">
+                        <span className="label">{t('labels.root')}</span>
+                        <span className="value arabic-font" lang="ar">{token.root || "\u2014"}</span>
+                    </div>
+                    <div className="data-item">
+                        <span className="label">{t('labels.lemma')}</span>
+                        <span className="value arabic-font" lang="ar">{token.lemma || "\u2014"}</span>
+                    </div>
+                    <div className="data-item">
+                        <span className="label">{t('labels.stem')}</span>
+                        <span className="value arabic-font" lang="ar">{token.morphology.stem || "\u2014"}</span>
+                    </div>
+                    <div className="data-item">
+                        <span className="label">{t('labels.pos')}</span>
+                        <span className="value">{token.pos}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="inspector-section">
+                <h3>{t('sections.translation')}</h3>
+                <p className="gloss-text">{token.morphology.gloss || t('noGloss')}</p>
+            </div>
+
+            {Object.keys(token.morphology.features).length > 0 && (
+                <div className="inspector-section">
+                    <h3>{t('sections.features')}</h3>
+                    <div className="features-list">
+                        {Object.entries(token.morphology.features).map(([key, value]) => (
+                            <div key={key} className="feature-tag">
+                                <span className="f-key">{key}</span>
+                                <span className="f-val">{value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <style jsx>{`
         .inspector-content {
             animation: fadeIn 0.2s ease;
         }
@@ -264,6 +267,6 @@ export default function MorphologyInspector({ token, mode, onClearFocus }: Morph
             background: rgba(16, 16, 24, 0.7);
         }
       `}</style>
-    </div>
-  );
+        </div>
+    );
 }

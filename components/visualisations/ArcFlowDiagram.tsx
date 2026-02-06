@@ -7,8 +7,8 @@ import * as d3 from "d3";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
+import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
-import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -45,17 +45,18 @@ interface FlowConnection {
 }
 
 const POS_LABELS: Record<string, string> = {
-  N: "Noun",
-  V: "Verb",
-  ADJ: "Adjective",
-  PRON: "Pronoun",
-  P: "Preposition",
-  PART: "Particle",
-  CONJ: "Conjunction",
+  N: "noun",
+  V: "verb",
+  ADJ: "adjective",
+  PRON: "pronoun",
+  P: "preposition",
+  PART: "particle",
+  CONJ: "conjunction",
 };
 
-function getPosLabel(pos: string): string {
-  return POS_LABELS[pos] ?? pos;
+function getPosLabel(pos: string, ts: (key: string) => string): string {
+  const key = POS_LABELS[pos];
+  return key ? ts(key) : pos;
 }
 
 export default function ArcFlowDiagram({
@@ -69,6 +70,8 @@ export default function ArcFlowDiagram({
   selectedLemma,
   theme = "dark",
 }: ArcFlowDiagramProps) {
+  const t = useTranslations("Visualizations.ArcFlow");
+  const ts = useTranslations("Visualizations.Shared");
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -603,25 +606,25 @@ export default function ArcFlowDiagram({
   }, [selectedSurahId, selectedAyah, selectedRoot, selectedLemma]);
 
   const activeGroupLabel =
-    activeGroupBy === "root" ? "Root" : activeGroupBy === "pos" ? "Part of Speech" : "Ayah";
-  const scopeLabel = selectedSurahId ? `surah ${selectedSurahId}` : "global corpus";
+    activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah");
+  const scopeLabel = selectedSurahId ? `${ts("surah")} ${selectedSurahId}` : "global corpus";
   const modeDescription =
     activeGroupBy === "root"
-      ? "Bars are roots. Length = root frequency. Curves link roots that share lemmas."
+      ? t("linksRoot")
       : activeGroupBy === "pos"
-        ? "Bars are POS tags (N, V, ADJ, PRON, P, PART, CONJ). Curves show adjacent POS pairs within the same ayah."
-        : "Bars are ayahs in scope. Curves show context transitions between selected ayahs.";
+        ? t("linksPOS")
+        : t("linksAyah");
 
   const sidebarCards = (
     <div className="viz-left-stack arcflow-sidebar-stack">
       <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }}>
         <div>
-          <p className="eyebrow" style={{ marginBottom: 4 }}>Flow Analysis</p>
-          <h2 style={{ margin: 0 }}>Arc Flow Diagram</h2>
+          <p className="eyebrow" style={{ marginBottom: 4 }}>{t("title")}</p>
+          <h2 style={{ margin: 0 }}>{t("title")}</h2>
         </div>
 
         <div style={{ fontSize: "0.83rem", color: "var(--ink-secondary)" }}>
-          {nodes.length} groups - {connections.length} connections
+          {t("groups", { count: nodes.length, linkCount: connections.length })}
         </div>
 
         <div className="mode-switcher">
@@ -629,33 +632,33 @@ export default function ArcFlowDiagram({
             className={`mode-switcher-btn ${activeGroupBy === "root" ? "active" : ""}`}
             onClick={() => setActiveGroupBy("root")}
           >
-            By Root
+            {t("byRoot")}
           </button>
           <button
             className={`mode-switcher-btn ${activeGroupBy === "pos" ? "active" : ""}`}
             onClick={() => setActiveGroupBy("pos")}
           >
-            By POS
+            {t("byPOS")}
           </button>
           <button
             className={`mode-switcher-btn ${activeGroupBy === "ayah" ? "active" : ""}`}
             onClick={() => setActiveGroupBy("ayah")}
           >
-            By Ayah
+            {t("byAyah")}
           </button>
         </div>
 
         <div style={{ display: "grid", gap: "6px", fontSize: "0.78rem", color: "var(--ink-muted)" }}>
-          <span>Grouped by: {activeGroupLabel}</span>
-          <span>Scope: {scopeLabel}</span>
-          {selectedAyah ? <span>Ayah context: {selectedAyah}</span> : null}
-          <span>Scope tokens: {scopedTokens.length.toLocaleString()}</span>
-          <span>Context-linked tokens: {contextTokenCount.toLocaleString()}</span>
-          <span>Zoom: {Math.round(zoomLevel * 100)}%</span>
+          <span>{t("groupedBy", { value: activeGroupLabel })}</span>
+          <span>{t("scope", { value: scopeLabel })}</span>
+          {selectedAyah ? <span>{t("ayahContext", { value: selectedAyah })}</span> : null}
+          <span>{ts("surah")} tokens: {scopedTokens.length.toLocaleString()}</span>
+          <span>{t("contextLinks")}: {contextTokenCount.toLocaleString()}</span>
+          <span>{t("zoom", { value: Math.round(zoomLevel * 100) })}</span>
           <span style={{ lineHeight: 1.4 }}>{modeDescription}</span>
           {activeGroupBy === "pos" ? (
             <span style={{ lineHeight: 1.35 }}>
-              POS mapping: N noun, V verb, ADJ adjective, PRON pronoun, P preposition, PART particle, CONJ conjunction.
+              {t("posMapping")}
             </span>
           ) : null}
         </div>
@@ -669,17 +672,17 @@ export default function ArcFlowDiagram({
               +
             </button>
             <button type="button" className="clear-focus" onClick={handleResetZoom}>
-              Reset
+              {ts("reset")}
             </button>
           </div>
           <span style={{ fontSize: "0.74rem", color: "var(--ink-muted)" }}>
-            Drag canvas to pan. Wheel or +/- to zoom.
+            {t("modeDescription")}
           </span>
         </div>
       </div>
 
       <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
-        <div className="viz-tooltip-title" style={{ fontSize: "0.92rem" }}>Linked Selection</div>
+        <div className="viz-tooltip-title" style={{ fontSize: "0.92rem" }}>{t("linkedSelection")}</div>
         {selectedSummary.length > 0 ? (
           <div style={{ display: "grid", gap: "6px" }}>
             {selectedSummary.map((item) => (
@@ -707,14 +710,14 @@ export default function ArcFlowDiagram({
           </div>
         ) : (
           <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>
-            No surah/ayah/root/lemma selection is active.
+            {t("noSelection")}
           </div>
         )}
       </div>
 
       <div className="viz-legend">
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
-          <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+          <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
           <HelpIcon onClick={() => setShowHelp(true)} />
         </div>
         <div className="viz-legend-item">
@@ -728,17 +731,17 @@ export default function ArcFlowDiagram({
           />
           <span>
             {activeGroupBy === "root"
-              ? "Bar length = frequency, color distinguishes root groups"
-              : "Bar color and length = frequency"}
+              ? t("rootLegend")
+              : t("posLegend")}
           </span>
         </div>
         <div className="viz-legend-item">
           <div className="viz-legend-line" style={{ background: themeColors.accentSecondary }} />
-          <span>Context-linked relationships</span>
+          <span>{t("contextLinks")}</span>
         </div>
         <div className="viz-legend-item">
           <div className="viz-legend-dot" style={{ background: themeColors.accent, width: 12, height: 12 }} />
-          <span>Hovered / active node</span>
+          <span>{t("activeNode")}</span>
         </div>
         <div className="viz-legend-item">
           <div
@@ -749,7 +752,7 @@ export default function ArcFlowDiagram({
               height: 10,
             }}
           />
-          <span>Selection context match</span>
+          <span>{t("contextMatch")}</span>
         </div>
         <div className="viz-legend-item">
           <div
@@ -761,10 +764,10 @@ export default function ArcFlowDiagram({
           />
           <span>
             {activeGroupBy === "root"
-              ? "Links = shared lemmas"
+              ? t("linksRoot")
               : activeGroupBy === "pos"
-                ? "Links = adjacent POS pairs"
-                : "Links = context transitions across ayahs"}
+                ? t("linksPOS")
+                : t("linksAyah")}
           </span>
         </div>
       </div>
@@ -780,7 +783,15 @@ export default function ArcFlowDiagram({
       <VizExplainerDialog
         isOpen={showHelp}
         onClose={() => setShowHelp(false)}
-        content={VIZ_HELP_CONTENT["arc-flow"]}
+        content={{
+          title: t("Help.title"),
+          description: t("Help.description"),
+          sections: [
+            { label: t("Help.rootLabel"), text: t("Help.rootText") },
+            { label: t("Help.posLabel"), text: t("Help.posText") },
+            { label: t("Help.ayahLabel"), text: t("Help.ayahText") },
+          ]
+        }}
         theme={theme}
       />
 
@@ -966,16 +977,16 @@ export default function ArcFlowDiagram({
             >
               <div className="viz-tooltip-title arabic-text">{hoveredNodeData.label}</div>
               <div className="viz-tooltip-subtitle">
-                {activeGroupBy === "root" ? "Root" : activeGroupBy === "pos" ? "Part of Speech" : "Ayah"}
+                {activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah")}
               </div>
               {activeGroupBy === "pos" ? (
                 <div className="viz-tooltip-row">
                   <span className="viz-tooltip-label">POS meaning</span>
-                  <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label)}</span>
+                  <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label, ts)}</span>
                 </div>
               ) : null}
               <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">Occurrences</span>
+                <span className="viz-tooltip-label">{ts("occurrences")}</span>
                 <span className="viz-tooltip-value">{hoveredNodeData.count}</span>
               </div>
               {hoveredNodeData.matchCount > 0 && (
@@ -987,11 +998,11 @@ export default function ArcFlowDiagram({
               {hoveredNodeData.sampleToken && (
                 <>
                   <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Example</span>
+                    <span className="viz-tooltip-label">{ts("lemma")}</span>
                     <span className="viz-tooltip-value arabic-text">{hoveredNodeData.sampleToken.text}</span>
                   </div>
                   <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">Ref</span>
+                    <span className="viz-tooltip-label">{ts("ref")}</span>
                     <span className="viz-tooltip-value">
                       {hoveredNodeData.sampleToken.sura}:{hoveredNodeData.sampleToken.ayah}
                     </span>

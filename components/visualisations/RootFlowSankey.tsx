@@ -2,6 +2,9 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+
 import type { ChangeEvent } from "react";
 import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
 import { useZoom } from "@/lib/hooks/useZoom";
@@ -39,8 +42,11 @@ export default function RootFlowSankey({
   onTokenFocus,
   selectedSurahId,
 }: RootFlowSankeyProps) {
+  const t = useTranslations("Visualizations.RootFlow");
+  const ts = useTranslations("Visualizations.Shared");
   const [selectedRoot, setSelectedRoot] = useState<string>("all");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
@@ -114,8 +120,8 @@ export default function RootFlowSankey({
   // Calculate scope-aware ratio (visible flows vs total flows IN SCOPE)
   const visibleRatio = totalFlows > 0 ? Math.round((visibleFlows.length / totalFlows) * 100) : 0;
   const hasVisibleFlows = visibleFlows.length > 0;
-  const scopeLabel = selectedSurahId ? `Surah ${selectedSurahId}` : "Entire corpus";
-  const selectedRootLabel = selectedRoot === "all" ? `All roots (${availableRoots.length})` : selectedRoot;
+  const scopeLabel = selectedSurahId ? ts("surah") + " " + selectedSurahId : ts("global");
+  const selectedRootLabel = selectedRoot === "all" ? t("allRoots") + " (" + availableRoots.length + ")" : selectedRoot;
   const maxCount = Math.max(...visibleFlows.map((flow) => flow.count), 1);
   const height = Math.max(420, visibleFlows.length * 56 + 170);
 
@@ -132,25 +138,27 @@ export default function RootFlowSankey({
     <div className="viz-left-stack sankey-sidebar-stack">
       <div className="viz-left-panel sankey-control-card">
         <div className="sankey-card-head">
-          <p className="eyebrow">Sankey Controls</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "8px" }}>
+            <p className="eyebrow">{t("title")}</p>
+            <HelpIcon onClick={() => setShowHelp(true)} />
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3>Root to Lemma</h3>
             <button
               type="button"
               onClick={resetZoom}
               className="clear-focus"
               style={{ fontSize: "0.75rem", padding: "2px 8px", background: "var(--line)", borderRadius: "4px", border: "none", cursor: "pointer" }}
             >
-              Reset view
+              {ts("reset")}
             </button>
           </div>
         </div>
 
         <label className="sankey-field">
-          <span className="sankey-label">Root selector</span>
+          <span className="sankey-label">{t("filterByRoot")}</span>
           <div className="sankey-select-shell">
             <select value={selectedRoot} onChange={handleRootChange} className="sankey-select">
-              <option value="all">All roots ({availableRoots.length})</option>
+              <option value="all">{t("allRoots")} ({availableRoots.length})</option>
               {availableRoots.slice(0, 300).map((root) => (
                 <option key={root} value={root}>
                   {root}
@@ -161,40 +169,44 @@ export default function RootFlowSankey({
         </label>
 
         <div className="sankey-meta-row">
-          <span className="sankey-meta-key">Scope</span>
+          <span className="sankey-meta-key">{ts("scope")}</span>
           <span className="sankey-meta-value">{scopeLabel}</span>
         </div>
         <div className="sankey-meta-row">
-          <span className="sankey-meta-key">Active root</span>
+          <span className="sankey-meta-key">{ts("activeRoot")}</span>
           <span className="sankey-meta-value sankey-meta-arabic">{selectedRootLabel}</span>
         </div>
 
         <div className="sankey-stats-row">
           <div className="sankey-stat-item">
             <span className="sankey-stat-value">{visibleFlows.length}</span>
-            <span className="sankey-stat-key">Shown</span>
+            <span className="sankey-stat-key">{ts("shown")}</span>
           </div>
           <div className="sankey-stat-item">
             <span className="sankey-stat-value">{totalFlows}</span>
-            <span className="sankey-stat-key">Total</span>
+            <span className="sankey-stat-key">{ts("total")}</span>
           </div>
           <div className="sankey-stat-item">
             <span className="sankey-stat-value">{visibleRatio}%</span>
-            <span className="sankey-stat-key">Coverage</span>
+            <span className="sankey-stat-key">{ts("coverage")}</span>
           </div>
         </div>
       </div>
 
-      <div className="viz-left-panel sankey-help-card">
-        <div className="sankey-help-title">How to read this</div>
-        <ul className="sankey-help-list">
-          <li>Left column lists roots and right column lists lemmas.</li>
-          <li>Each curved band maps one root to one lemma.</li>
-          <li>Thicker bands mean higher frequency in the <b>current scope</b>.</li>
-          <li>Hover a band to preview a sample token, click to inspect it.</li>
-        </ul>
-      </div>
-    </div>
+      <VizExplainerDialog
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        content={{
+          title: t("Help.title"),
+          description: t("Help.description"),
+          sections: [
+            { label: t("Help.widthLabel"), text: t("Help.widthText") },
+            { label: t("Help.leftRightLabel"), text: t("Help.leftRightText") },
+            { label: t("Help.scopeLabel"), text: t("Help.scopeText") },
+          ]
+        }}
+      />
+    </div >
   );
 
   return (
@@ -204,10 +216,10 @@ export default function RootFlowSankey({
         : sidebarCards}
 
       <div className="sankey-context-bar">
-        <span className="sankey-pill">Scope: {scopeLabel}</span>
-        <span className="sankey-pill">Root: {selectedRootLabel}</span>
+        <span className="sankey-pill">{ts("scope")}: {scopeLabel}</span>
+        <span className="sankey-pill">{ts("activeRoot")}: {selectedRootLabel}</span>
         <span className="sankey-pill">
-          Showing {visibleFlows.length} of {totalFlows} flows
+          {ts("showing")} {visibleFlows.length} {ts("of")} {totalFlows} {ts("flows")}
         </span>
       </div>
 
@@ -239,10 +251,10 @@ export default function RootFlowSankey({
               <rect x={ROOT_COLUMN_X} y="26" width={COLUMN_WIDTH} height={height - 56} rx="20" className="column root-column" />
               <rect x={LEMMA_COLUMN_X} y="26" width={COLUMN_WIDTH} height={height - 56} rx="20" className="column lemma-column" />
               <text x={ROOT_COLUMN_X + COLUMN_WIDTH / 2} y="58" className="column-title">
-                Roots
+                {t("rootNode")}
               </text>
               <text x={LEMMA_COLUMN_X + COLUMN_WIDTH / 2} y="58" className="column-title">
-                Lemmas
+                {t("lemmaNode")}
               </text>
 
               {visibleFlows.map((flow, index) => {
@@ -285,8 +297,8 @@ export default function RootFlowSankey({
         ) : (
           <div className="sankey-empty">
             {selectedRoot !== "all"
-              ? `Root '${selectedRoot}' not found in ${scopeLabel}. Try selecting 'All roots'.`
-              : `No flows found for ${scopeLabel}.`}
+              ? t('notFound', { root: selectedRoot, scope: scopeLabel })
+              : t('noFlows', { scope: scopeLabel })}
           </div>
         )}
       </div>
@@ -294,7 +306,7 @@ export default function RootFlowSankey({
       {hasMore && (
         <div className="load-more-container">
           <button type="button" onClick={handleLoadMore} className="load-more-btn">
-            Load {Math.min(LOAD_MORE_COUNT, totalFlows - visibleCount)} more flows
+            {t("showMore")} ({totalFlows - visibleCount} {ts("remaining")})
           </button>
         </div>
       )}

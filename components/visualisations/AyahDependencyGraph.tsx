@@ -2,10 +2,13 @@
 
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+
 import * as d3 from "d3";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
+import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
 interface AyahDependencyGraphProps {
   tokens: CorpusToken[];
@@ -87,6 +90,8 @@ export default function AyahDependencyGraph({
   onSurahChange,
   theme = "dark",
 }: AyahDependencyGraphProps) {
+  const t = useTranslations("Visualizations.AyahDependency");
+  const ts = useTranslations("Visualizations.Shared");
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomLayerRef = useRef<SVGGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +99,7 @@ export default function AyahDependencyGraph({
 
   const [activeSurah, setActiveSurah] = useState<number>(selectedSurahId);
   const [activeAyah, setActiveAyah] = useState<number | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
@@ -351,15 +357,15 @@ export default function AyahDependencyGraph({
     <div className="viz-left-stack dep-sidebar-stack">
       <div className="viz-left-panel dep-control-card">
         <div className="dep-card-head">
-          <p className="eyebrow">Dependency Controls</p>
-          <h3>Ayah Dependency</h3>
+          <p className="eyebrow">{ts("advancedViz")}</p>
+          <h3>{t("title")}</h3>
         </div>
 
         <div className="dep-control-grid">
           <label className="dep-field dep-field-full">
             <div className="dep-field-head">
-              <span className="dep-label">Surah</span>
-              <span className="dep-field-hint">{allSurahs.length} total</span>
+              <span className="dep-label">{ts("surah")}</span>
+              <span className="dep-field-hint">{allSurahs.length} {ts("total")}</span>
             </div>
             <div className="dep-select-shell dep-select-shell-surah">
               <select
@@ -378,7 +384,7 @@ export default function AyahDependencyGraph({
 
           <div className="dep-ayah-field">
             <div className="dep-field-head">
-              <span className="dep-label">Ayah</span>
+              <span className="dep-label">{ts("ayah")}</span>
               <span className="dep-ayah-range">
                 {activeAyah ?? "-"} / {maxAyah}
               </span>
@@ -389,7 +395,7 @@ export default function AyahDependencyGraph({
                 className="dep-nav-btn"
                 onClick={handlePrevAyah}
                 disabled={!canGoPrevAyah}
-                aria-label="Previous ayah"
+                aria-label={t("prevAyah")}
               >
                 {"\u2190"}
               </button>
@@ -411,7 +417,7 @@ export default function AyahDependencyGraph({
                 className="dep-nav-btn"
                 onClick={handleNextAyah}
                 disabled={!canGoNextAyah}
-                aria-label="Next ayah"
+                aria-label={t("nextAyah")}
               >
                 {"\u2192"}
               </button>
@@ -428,20 +434,20 @@ export default function AyahDependencyGraph({
         <div className="dep-stats-row">
           <div className="dep-stat-item">
             <span className="dep-stat-value">{sortedTokens.length}</span>
-            <span className="dep-stat-key">Tokens</span>
+            <span className="dep-stat-key">{ts("occurrences")}</span>
           </div>
           <div className="dep-stat-item">
             <span className="dep-stat-value">{edgeLayouts.length}</span>
-            <span className="dep-stat-key">Links</span>
+            <span className="dep-stat-key">{ts("total")}</span>
           </div>
           <div className="dep-stat-item">
             <span className="dep-stat-value">{Math.round(zoomScale * 100)}%</span>
-            <span className="dep-stat-key">Zoom</span>
+            <span className="dep-stat-key">{ts("zoom")}</span>
           </div>
         </div>
 
         <div className="dep-view-row">
-          <span className="dep-label">Canvas</span>
+          <span className="dep-label">{ts("zoom")}</span>
           <div className="dep-zoom-row">
             <button
               type="button"
@@ -450,7 +456,7 @@ export default function AyahDependencyGraph({
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
                 d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 1.2);
               }}
-              aria-label="Zoom in"
+              aria-label={ts("zoomIn")}
             >
               +
             </button>
@@ -461,19 +467,35 @@ export default function AyahDependencyGraph({
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
                 d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 0.85);
               }}
-              aria-label="Zoom out"
+              aria-label={ts("zoomOut")}
             >
               -
             </button>
             <button type="button" className="dep-fit-btn" onClick={handleResetZoom}>
-              Fit to View
+              {ts("reset")}
             </button>
           </div>
         </div>
       </div>
 
+      <VizExplainerDialog
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        content={{
+          title: t("Help.title"),
+          description: t("Help.description"),
+          sections: [
+            { label: t("Help.treeLabel"), text: t("Help.treeText") },
+            { label: t("Help.linksLabel"), text: t("Help.linksText") },
+          ]
+        }}
+      />
+
       <div className="viz-left-panel dep-legend-card">
-        <div className="dep-legend-title">Relation Labels</div>
+        <div className="dep-legend-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {ts("legend")}
+          <HelpIcon onClick={() => setShowHelp(true)} />
+        </div>
         {Object.entries(RELATION_META).map(([key, meta]) => (
           <div key={key} className="dep-legend-row">
             <span className="dep-legend-key">{meta.short}</span>
@@ -486,12 +508,12 @@ export default function AyahDependencyGraph({
         <div className="dep-token-head">
           <div>
             <div className="dep-legend-title">
-              {selectedToken ? "Selected Token" : hoveredToken ? "Hovered Token" : "Token Details"}
+              {selectedToken ? ts("selectedToken") : hoveredToken ? ts("hoveredToken") : t("analysisSummary")}
             </div>
             {inspectorToken ? (
               <div className="dep-token-id">{inspectorToken.id}</div>
             ) : (
-              <div className="dep-token-id">Hover or click a token rectangle</div>
+              <div className="dep-token-id">{t("hoverToken")}</div>
             )}
           </div>
           {selectedToken && (
@@ -500,7 +522,7 @@ export default function AyahDependencyGraph({
               className="dep-clear-btn"
               onClick={() => setSelectedTokenId(null)}
             >
-              Clear
+              {ts("clear")}
             </button>
           )}
         </div>
@@ -513,15 +535,15 @@ export default function AyahDependencyGraph({
               <span className="dep-meta-v">{inspectorToken.pos}</span>
             </div>
             <div className="dep-token-meta">
-              <span className="dep-meta-k">Root</span>
+              <span className="dep-meta-k">{ts("root")}</span>
               <span className="dep-meta-v arabic-font">{inspectorToken.root || "-"}</span>
             </div>
             <div className="dep-token-meta">
-              <span className="dep-meta-k">Lemma</span>
+              <span className="dep-meta-k">{ts("lemma")}</span>
               <span className="dep-meta-v arabic-font">{inspectorToken.lemma || "-"}</span>
             </div>
             <div className="dep-token-meta">
-              <span className="dep-meta-k">Gloss</span>
+              <span className="dep-meta-k">{ts("gloss")}</span>
               <span className="dep-meta-v">{inspectorToken.morphology?.gloss || "-"}</span>
             </div>
           </div>
@@ -536,7 +558,7 @@ export default function AyahDependencyGraph({
         {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
           ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
           : sidebarCards}
-        <div className="dep-empty-msg">No tokens available for {surahName} in current dataset.</div>
+        <div className="dep-empty-msg">{ts("noData")} {surahName}</div>
         <style jsx>{`
           .dep-graph-wrapper {
             position: relative;

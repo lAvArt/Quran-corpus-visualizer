@@ -8,8 +8,8 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
-import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface SurahDistributionGraphProps {
     tokens: CorpusToken[];
@@ -41,6 +41,8 @@ export default function SurahDistributionGraph({
     highlightRoot,
     theme = "dark",
 }: SurahDistributionGraphProps) {
+    const t = useTranslations("Visualizations.SurahDistribution");
+    const ts = useTranslations("Visualizations.Shared");
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoomLevel, setZoomLevel] = useState(0.8);
     const { svgRef, gRef } = useZoom<SVGSVGElement>({
@@ -296,7 +298,7 @@ export default function SurahDistributionGraph({
                                 fill={themeColors.textColors.secondary}
                                 letterSpacing="0.12em"
                             >
-                                SURAH INDEX
+                                {t("xAxis")}
                             </text>
                             <text
                                 x={padding - 52}
@@ -307,7 +309,7 @@ export default function SurahDistributionGraph({
                                 letterSpacing="0.12em"
                                 transform={`rotate(-90 ${padding - 52} ${dimensions.height / 2})`}
                             >
-                                TOKEN COUNT
+                                {t("yAxis")}
                             </text>
                         </g>
 
@@ -435,19 +437,19 @@ export default function SurahDistributionGraph({
                                                 {node.name}
                                             </div>
                                             <div className="viz-tooltip-subtitle">
-                                                Surah {node.id}
+                                                {t("surah")} {node.id}
                                             </div>
                                             <div className="viz-tooltip-row">
-                                                <span className="viz-tooltip-label">Words</span>
+                                                <span className="viz-tooltip-label">{t("words")}</span>
                                                 <span className="viz-tooltip-value">{node.tokenCount.toLocaleString()}</span>
                                             </div>
                                             <div className="viz-tooltip-row">
-                                                <span className="viz-tooltip-label">Ayahs</span>
+                                                <span className="viz-tooltip-label">{ts("ayah")}</span>
                                                 <span className="viz-tooltip-value">{node.ayahCount}</span>
                                             </div>
                                             {node.tokens[0] && (
                                                 <div className="viz-tooltip-row">
-                                                    <span className="viz-tooltip-label">First word</span>
+                                                    <span className="viz-tooltip-label">{ts("lemma")}</span>
                                                     <span className="viz-tooltip-value arabic-text">
                                                         {node.tokens[0].text}
                                                     </span>
@@ -462,7 +464,7 @@ export default function SurahDistributionGraph({
 
                     <div className="viz-legend" style={{ marginTop: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
-                            <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+                            <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
                             <HelpIcon onClick={() => setShowHelp(true)} />
                         </div>
                         <div className="viz-legend-item">
@@ -470,28 +472,28 @@ export default function SurahDistributionGraph({
                                 className="viz-legend-dot"
                                 style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
                             />
-                            <span>Fewer ayahs</span>
+                            <span>{t("fewerAyahs")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
                             />
-                            <span>Moderate ayahs</span>
+                            <span>{t("moderateAyahs")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
                             />
-                            <span>More ayahs</span>
+                            <span>{t("moreAyahs")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: themeColors.accent, width: 14, height: 14 }}
                             />
-                            <span>Selected / Root match</span>
+                            <span>{t("selectedRoot")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
@@ -502,7 +504,7 @@ export default function SurahDistributionGraph({
                                     height: 8
                                 }}
                             />
-                            <span>Size = token count</span>
+                            <span>{t("tokenCountSize")}</span>
                         </div>
                     </div>
                 </div>,
@@ -512,7 +514,15 @@ export default function SurahDistributionGraph({
             <VizExplainerDialog
                 isOpen={showHelp}
                 onClose={() => setShowHelp(false)}
-                content={VIZ_HELP_CONTENT["surah-distribution"]}
+                content={{
+                    title: t("Help.title"),
+                    description: t("Help.description"),
+                    sections: [
+                        { label: t("Help.yAxisLabel"), text: t("Help.yAxisText") },
+                        { label: t("Help.xAxisLabel"), text: t("Help.xAxisText") },
+                        { label: t("Help.highlightsLabel"), text: t("Help.highlightsText") },
+                    ]
+                }}
                 theme={theme}
             />
         </section>

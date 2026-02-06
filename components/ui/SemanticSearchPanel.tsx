@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { useTranslations } from "next-intl";
 
 interface SemanticSearchPanelProps {
   tokens: CorpusToken[];
@@ -24,6 +25,7 @@ export default function SemanticSearchPanel({
   const [lemma, setLemma] = useState("");
   const [pos, setPos] = useState<PartOfSpeech | "">("");
   const [ayah, setAyah] = useState("");
+  const t = useTranslations('SemanticSearchPanel');
 
   const scopedTokens = useMemo(() => {
     if (scope.type === "surah") {
@@ -58,12 +60,12 @@ export default function SemanticSearchPanel({
 
   const scopeLabel = useMemo(() => {
     if (scope.type === "surah") {
-      const info = SURAH_NAMES[scope.surahId];
-      const name = info?.name ? ` · ${info.name}` : "";
-      return `Surah ${scope.surahId}${name}`;
+      // const info = SURAH_NAMES[scope.surahId];
+      // const name = info?.name ? ` · ${info.name}` : "";
+      return t('surah', { id: scope.surahId });
     }
-    return "Global";
-  }, [scope]);
+    return t('global');
+  }, [scope, t]);
 
   return (
     <div className="search-panel">
@@ -81,13 +83,13 @@ export default function SemanticSearchPanel({
         <input
           value={root}
           onChange={(e) => setRoot(e.target.value)}
-          placeholder="Root (e.g., \u0647\u062F\u064A)"
+          placeholder={t('placeholders.root')}
           className="search-input"
         />
         <input
           value={lemma}
           onChange={(e) => setLemma(e.target.value)}
-          placeholder="Lemma (e.g., \u0647\u064F\u062F\u064B\u0649)"
+          placeholder={t('placeholders.lemma')}
           className="search-input"
         />
         <select
@@ -95,35 +97,35 @@ export default function SemanticSearchPanel({
           onChange={(e) => setPos(e.target.value as PartOfSpeech | "")}
           className="search-select"
         >
-          <option value="">All POS</option>
-          <option value="N">Noun (N)</option>
-          <option value="V">Verb (V)</option>
-          <option value="P">Particle (P)</option>
-          <option value="ADJ">Adjective</option>
-          <option value="PRON">Pronoun</option>
+          <option value="">{t('pos.all')}</option>
+          <option value="N">{t('pos.noun')}</option>
+          <option value="V">{t('pos.verb')}</option>
+          <option value="P">{t('pos.particle')}</option>
+          <option value="ADJ">{t('pos.adjective')}</option>
+          <option value="PRON">{t('pos.pronoun')}</option>
         </select>
         <input
           value={ayah}
           onChange={(e) => setAyah(e.target.value)}
-          placeholder="Ayah (e.g., 1:5)"
+          placeholder={t('placeholders.ayah')}
           className="search-input"
         />
       </div>
 
       <div className="results-scope">
-        <span>Scope</span>
+        <span>{t('scope')}</span>
         <span className="scope-pill">{scopeLabel}</span>
       </div>
 
       <div className="results-header">
-        <span>Found {results.length} tokens</span>
-        <span className="results-sub">Click a row to focus</span>
+        <span>{t('found', { count: results.length })}</span>
+        <span className="results-sub">{t('clickToFocus')}</span>
       </div>
 
       <div className="search-results-list">
         {results.length === 0 ? (
           <div className="empty-search">
-            <p>Enter criteria to find tokens.</p>
+            <p>{t('empty')}</p>
           </div>
         ) : (
           results.slice(0, 50).map((token) => (
@@ -142,7 +144,7 @@ export default function SemanticSearchPanel({
             >
               <span className="res-arabic" lang="ar" dir="rtl">{token.text}</span>
               <span className="res-meta">
-                 {token.sura}:{token.ayah} - {token.pos}
+                {token.sura}:{token.ayah} - {token.pos}
               </span>
             </button>
           ))

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import CorpusIndex from "@/components/ui/CorpusIndex";
 import MorphologyInspector from "@/components/inspectors/MorphologyInspector";
 import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
@@ -34,6 +35,7 @@ export default function AppSidebar({
   selectedSurahId,
   vizMode,
 }: AppSidebarProps) {
+  const t = useTranslations('AppSidebar');
   const [activeTab, setActiveTab] = useState<"inspector" | "search" | "index">("index");
   const searchScope = useMemo(() => {
     const surahScoped = vizMode === "radial-sura" || vizMode === "root-network";
@@ -50,21 +52,21 @@ export default function AppSidebar({
           className={`sidebar-tab ${activeTab === "index" ? "active" : ""}`}
           onClick={() => setActiveTab("index")}
         >
-          Index
+          {t('index')}
         </button>
         <button
           type="button"
           className={`sidebar-tab ${activeTab === "search" ? "active" : ""}`}
           onClick={() => setActiveTab("search")}
         >
-          Search
+          {t('search')}
         </button>
         <button
           type="button"
           className={`sidebar-tab ${activeTab === "inspector" ? "active" : ""}`}
           onClick={() => setActiveTab("inspector")}
         >
-          Inspector
+          {t('inspector')}
         </button>
       </div>
 
@@ -98,7 +100,7 @@ export default function AppSidebar({
 
       <div className="sidebar-footer">
         <span className="data-attribution">
-          Morphology source:{" "}
+          {t('attribution')}{" "}
           <a href="https://corpus.quran.com" target="_blank" rel="noreferrer">
             Quranic Arabic Corpus
           </a>

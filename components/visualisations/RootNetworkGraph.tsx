@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
-import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -48,6 +49,8 @@ export default function RootNetworkGraph({
   highlightRoot,
   filterBySurahId,
 }: RootNetworkGraphProps) {
+  const t = useTranslations("Visualizations.RootNetwork");
+  const ts = useTranslations("Visualizations.Shared");
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomLayerRef = useRef<SVGGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -472,13 +475,13 @@ export default function RootNetworkGraph({
     <div className="viz-left-stack">
       <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
         <div>
-          {rootCount} roots - {lemmaCount} lemmas -{" "}
-          {initialLinks.length} connections
+          {rootCount} {ts("roots")} - {lemmaCount} {ts("lemmas")} -{" "}
+          {initialLinks.length} {ts("connections")}
         </div>
         <div style={{ display: "grid", gap: "6px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="eyebrow" style={{ fontSize: "0.75rem", opacity: 0.8 }}>Root limit</span>
+              <span className="eyebrow" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{t("complexity")}</span>
             </div>
             <HelpIcon onClick={() => setShowHelp(true)} />
           </div>
@@ -486,7 +489,7 @@ export default function RootNetworkGraph({
             <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{rootLimit}</span>
             {filterBySurahId ? (
               <span style={{ fontSize: "0.72rem", opacity: 0.76 }}>
-                Total Available roots: {totalAvailableRoots}
+                {t("totalAvailable")}: {totalAvailableRoots}
               </span>
             ) : null}
           </div>
@@ -503,11 +506,11 @@ export default function RootNetworkGraph({
         </div>
         <div style={{ display: "grid", gap: "6px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-            <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>Zoom</span>
+            <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{ts("zoom")}</span>
             <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{Math.round(zoomScale * 100)}%</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>Drag to pan - wheel to zoom</span>
+            <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>{ts("panAndZoom")}</span>
             <button
               type="button"
               className="clear-focus"
@@ -542,22 +545,22 @@ export default function RootNetworkGraph({
               {activeNode.label}
             </div>
             <div className="viz-tooltip-subtitle">
-              {activeNode.type === "root" ? "Root" : "Lemma"}
+              {activeNode.type === "root" ? ts("root") : ts("lemma")}
             </div>
             <div className="viz-tooltip-row">
-              <span className="viz-tooltip-label">Occurrences</span>
+              <span className="viz-tooltip-label">{ts("occurrences")}</span>
               <span className="viz-tooltip-value">{activeNode.frequency}</span>
             </div>
             {activeNode.tokens[0] && (
               <>
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Example</span>
+                  <span className="viz-tooltip-label">{ts("example")}</span>
                   <span className="viz-tooltip-value arabic-text">
                     {activeNode.tokens[0].text}
                   </span>
                 </div>
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Gloss</span>
+                  <span className="viz-tooltip-label">{ts("gloss")}</span>
                   <span className="viz-tooltip-value">
                     {activeNode.tokens[0].morphology.gloss ?? "-"}
                   </span>
@@ -578,35 +581,35 @@ export default function RootNetworkGraph({
               height: 16,
             }}
           />
-          <span>Root (trilateral)</span>
+          <span>{t("rootNodes")}</span>
         </div>
         <div className="viz-legend-item">
           <div
             className="viz-legend-dot"
             style={{ background: getNodeColor("N"), width: 10, height: 10 }}
           />
-          <span>Noun lemma</span>
+          <span>{t("lemmaNodes")}</span>
         </div>
         <div className="viz-legend-item">
           <div
             className="viz-legend-dot"
             style={{ background: getNodeColor("V"), width: 10, height: 10 }}
           />
-          <span>Verb lemma</span>
+          <span>{t("tokenNodes")}</span>
         </div>
         <div className="viz-legend-item">
           <div
             className="viz-legend-dot"
             style={{ background: themeColors.nodeColors.selected, width: 12, height: 12 }}
           />
-          <span>Selected node</span>
+          <span>{ts("selectedNode")}</span>
         </div>
         <div className="viz-legend-item">
           <div
             className="viz-legend-dot"
             style={{ background: themeColors.accentSecondary, width: 12, height: 12 }}
           />
-          <span>Directly connected</span>
+          <span>{ts("directlyConnected")}</span>
         </div>
       </div>
     </div>
@@ -664,7 +667,15 @@ export default function RootNetworkGraph({
             <VizExplainerDialog
               isOpen={showHelp}
               onClose={() => setShowHelp(false)}
-              content={VIZ_HELP_CONTENT["root-network"]}
+              content={{
+                title: t("Help.title"),
+                description: t("Help.description"),
+                sections: [
+                  { label: t("Help.rootsLabel"), text: t("Help.rootsText") },
+                  { label: t("Help.distanceLabel"), text: t("Help.distanceText") },
+                  { label: t("Help.sizeLabel"), text: t("Help.sizeText") },
+                ]
+              }}
             />
 
             <g ref={zoomLayerRef}>

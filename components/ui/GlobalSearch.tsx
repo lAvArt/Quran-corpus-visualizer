@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import type { CorpusToken } from "@/lib/schema/types";
 
 interface GlobalSearchProps {
@@ -22,6 +23,7 @@ export default function GlobalSearch({
     onTokenHover,
     theme: _theme,
 }: GlobalSearchProps) {
+    const t = useTranslations('GlobalSearch');
     const [query, setQuery] = useState("");
     const [isOpen, setIsOpen] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -158,7 +160,7 @@ export default function GlobalSearch({
                     ref={inputRef}
                     type="text"
                     className="search-input"
-                    placeholder="Search roots, words, meanings..."
+                    placeholder={t('placeholder')}
                     value={query}
                     onChange={(e) => {
                         setQuery(e.target.value);
@@ -214,7 +216,7 @@ export default function GlobalSearch({
 
             {isOpen && query.length >= 2 && results.length === 0 && (
                 <div className="search-results-dropdown">
-                    <div className="search-no-results">No results found</div>
+                    <div className="search-no-results">{t('noResults')}</div>
                 </div>
             )}
 

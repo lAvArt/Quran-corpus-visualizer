@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useId, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 interface VisualizationSwitcherProps {
@@ -66,6 +67,7 @@ export default function VisualizationSwitcher({
   theme,
   onThemeChange,
 }: VisualizationSwitcherProps) {
+  const t = useTranslations('VisualizationSwitcher');
   const [isExpanded, setIsExpanded] = useState(false);
   const dropdownId = useId();
 
@@ -91,53 +93,34 @@ export default function VisualizationSwitcher({
         >
           <span className="viz-switcher-icon">{currentOption?.icon ?? "\u25C9"}</span>
           <div className="viz-switcher-info">
-            <span className="viz-switcher-label">{currentOption?.label ?? "Select"}</span>
-            <span className="viz-switcher-desc">{currentOption?.description ?? ""}</span>
+            <span className="viz-switcher-label">{t(`modes.${currentMode}.label`)}</span>
+            <span className="viz-switcher-desc">{t(`modes.${currentMode}.description`)}</span>
           </div>
           <span className={`viz-switcher-arrow ${isExpanded ? "expanded" : ""}`}>{"\u25BE"}</span>
         </button>
-
-        <div className="viz-theme-toggle">
-          <button
-            type="button"
-            className={`theme-btn ${theme === "light" ? "active" : ""}`}
-            onClick={() => onThemeChange("light")}
-            title="Light theme"
-            aria-pressed={theme === "light"}
-          >
-            {"\u2600"}
-          </button>
-          <button
-            type="button"
-            className={`theme-btn ${theme === "dark" ? "active" : ""}`}
-            onClick={() => onThemeChange("dark")}
-            title="Dark theme"
-            aria-pressed={theme === "dark"}
-          >
-            {"\u263E"}
-          </button>
-        </div>
       </div>
 
-      {isExpanded && (
-        <div className="viz-switcher-dropdown" id={dropdownId}>
-          {VISUALIZATION_OPTIONS.map((option) => (
-            <button
-              type="button"
-              key={option.mode}
-              className={`viz-switcher-option ${currentMode === option.mode ? "active" : ""}`}
-              onClick={() => handleModeSelect(option.mode)}
-            >
-              <span className="viz-switcher-icon">{option.icon}</span>
-              <div className="viz-switcher-info">
-                <span className="viz-switcher-label">{option.label}</span>
-                <span className="viz-switcher-desc">{option.description}</span>
-              </div>
+      {
+        isExpanded && (
+          <div className="viz-switcher-dropdown" id={dropdownId}>
+            {VISUALIZATION_OPTIONS.map((option) => (
+              <button
+                type="button"
+                key={option.mode}
+                className={`viz-switcher-option ${currentMode === option.mode ? "active" : ""}`}
+                onClick={() => handleModeSelect(option.mode)}
+              >
+                <span className="viz-switcher-icon">{option.icon}</span>
+                <div className="viz-switcher-info">
+                  <span className="viz-switcher-label">{t(`modes.${option.mode}.label`)}</span>
+                  <span className="viz-switcher-desc">{t(`modes.${option.mode}.description`)}</span>
+                </div>
 
-            </button>
-          ))}
-        </div>
-      )}
+              </button>
+            ))}
+          </div>
+        )
+      }
 
       <style jsx>{`
         .viz-switcher-container {
@@ -226,41 +209,6 @@ export default function VisualizationSwitcher({
           transform: rotate(180deg);
         }
 
-        .viz-theme-toggle {
-          display: flex;
-          gap: 4px;
-          padding: 3px;
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.75);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-        }
-
-        .theme-btn {
-          width: 28px;
-          height: 28px;
-          border: 1px solid transparent;
-          border-radius: 8px;
-          background: transparent;
-          font-size: 1rem;
-          color: var(--ink-muted);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          opacity: 0.5;
-        }
-
-        .theme-btn:hover {
-          opacity: 0.8;
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .theme-btn.active {
-          opacity: 1;
-          background: var(--accent);
-          border-color: var(--accent);
-          color: white;
-          box-shadow: 0 6px 16px var(--accent-glow);
-        }
 
         .viz-switcher-dropdown {
           position: absolute;
@@ -333,15 +281,11 @@ export default function VisualizationSwitcher({
           color: var(--accent);
         }
 
-        :global([data-theme="dark"]) .viz-theme-toggle {
-          background: rgba(18, 18, 26, 0.75);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        }
 
         :global([data-theme="dark"]) .viz-switcher-dropdown {
           background: rgba(18, 18, 26, 0.92);
         }
       `}</style>
-    </div>
+    </div >
   );
 }

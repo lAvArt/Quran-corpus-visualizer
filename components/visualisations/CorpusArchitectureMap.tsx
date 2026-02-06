@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
@@ -9,7 +11,6 @@ import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
-import { VIZ_HELP_CONTENT } from "@/lib/data/vizHelpContent";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -35,6 +36,8 @@ export default function CorpusArchitectureMap({
     selectedSurahId,
     theme = "dark"
 }: CorpusArchitectureMapProps) {
+    const t = useTranslations("Visualizations.CorpusArchitecture");
+    const ts = useTranslations("Visualizations.Shared");
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
@@ -452,9 +455,9 @@ export default function CorpusArchitectureMap({
                 isMounted && (typeof document !== 'undefined') && document.getElementById('viz-sidebar-portal') && createPortal(
                     <div className="viz-left-stack">
                         <div className="viz-left-panel">
-                            <strong style={{ fontSize: '0.95em' }}>Corpus Architecture</strong><br />
+                            <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong><br />
                             <span style={{ fontSize: '0.72em', opacity: 0.6, lineHeight: 1.4 }}>
-                                Center → Surahs → Top Roots
+                                {t("structuralView")}
                             </span>
                         </div>
 
@@ -468,15 +471,15 @@ export default function CorpusArchitectureMap({
                                 >
                                     <div className="viz-tooltip-title arabic-text" style={{ fontSize: '1.3em' }}>{selectedRootInfo.root}</div>
                                     <div className="viz-tooltip-subtitle" style={{ fontSize: '0.8em', marginTop: 4 }}>
-                                        {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : "Root"} {" "}
+                                        {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : ts("root")} {" "}
                                         {selectedRootInfo.surahArabic ? `| ${selectedRootInfo.surahArabic}` : ""}
                                     </div>
                                     <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
-                                        <span className="viz-tooltip-label">In this Surah</span>
+                                        <span className="viz-tooltip-label">{ts("inThisSurah")}</span>
                                         <span className="viz-tooltip-value">{selectedRootInfo.count}</span>
                                     </div>
                                     <div className="viz-tooltip-row">
-                                        <span className="viz-tooltip-label">Total in Quran</span>
+                                        <span className="viz-tooltip-label">{ts("totalInQuran")}</span>
                                         {/* We can calculate total from tokens if available in scope, or just show what we have */}
                                         <span className="viz-tooltip-value">
                                             {tokens.filter(t => t.root === selectedRootInfo.root).length}
@@ -488,7 +491,7 @@ export default function CorpusArchitectureMap({
 
                         <div className="viz-legend" style={{ marginTop: 'auto' }}>
                             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
-                                <span className="eyebrow" style={{ fontSize: '0.7em' }}>LEGEND</span>
+                                <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
                                 <HelpIcon onClick={() => setShowHelp(true)} />
                             </div>
                             <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
@@ -496,21 +499,21 @@ export default function CorpusArchitectureMap({
                                     className="viz-legend-dot"
                                     style={{ background: themeColors.accent, width: 10, height: 10 }}
                                 />
-                                <span style={{ fontSize: '0.75em' }}>Surah</span>
+                                <span style={{ fontSize: '0.75em' }}>{ts("surah")}</span>
                             </div>
                             <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
                                 <div
                                     className="viz-legend-dot"
                                     style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
                                 />
-                                <span style={{ fontSize: '0.75em' }}>Root</span>
+                                <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
                             </div>
                             <div className="viz-legend-item">
                                 <div
                                     className="viz-legend-line"
                                     style={{ background: themeColors.edgeColors.default }}
                                 />
-                                <span style={{ fontSize: '0.75em' }}>Link</span>
+                                <span style={{ fontSize: '0.75em' }}>{ts("link")}</span>
                             </div>
                         </div>
                     </div>,
@@ -520,7 +523,15 @@ export default function CorpusArchitectureMap({
             <VizExplainerDialog
                 isOpen={showHelp}
                 onClose={() => setShowHelp(false)}
-                content={VIZ_HELP_CONTENT["corpus-architecture"]}
+                content={{
+                    title: t("Help.title"),
+                    description: t("Help.description"),
+                    sections: [
+                        { label: t("Help.hierarchyLabel"), text: t("Help.hierarchyText") },
+                        { label: t("Help.nodesLabel"), text: t("Help.nodesText") },
+                        { label: t("Help.interactLabel"), text: t("Help.interactText") },
+                    ]
+                }}
             />
 
             <div ref={containerRef} className="viz-container-full">
@@ -710,7 +721,7 @@ export default function CorpusArchitectureMap({
                                     textTransform: 'uppercase'
                                 }}
                             >
-                                {focusedSurahId ? `SURAH ${focusedSurahId}` : (internalSelectedRoot ? "Selected Root" : "Corpus")}
+                                {focusedSurahId ? `${ts("surahCaps")} ${focusedSurahId}` : (internalSelectedRoot ? t("selectedRoot") : t("corpus"))}
                             </text>
                             <text
                                 y={10}
@@ -749,7 +760,7 @@ export default function CorpusArchitectureMap({
                                         fill: themeColors.textColors.secondary
                                     }}
                                 >
-                                    {focusedSurahStats.rootsCount} Roots • {focusedSurahStats.ayahsCount} Ayahs
+                                    {focusedSurahStats.rootsCount} {ts("roots")} • {focusedSurahStats.ayahsCount} {ts("ayahs")}
                                 </text>
                             )}
                             {internalSelectedRoot && !focusedSurahId && (
@@ -761,7 +772,7 @@ export default function CorpusArchitectureMap({
                                         fill: themeColors.textColors.secondary
                                     }}
                                 >
-                                    {selectedRootInfo?.count ? `${selectedRootInfo.count} occurrences` : ""}
+                                    {selectedRootInfo?.count ? `${selectedRootInfo.count} ${ts("occurrences")}` : ""}
                                 </text>
                             )}
                         </g>
