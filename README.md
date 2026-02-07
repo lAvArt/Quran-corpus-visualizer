@@ -1,5 +1,7 @@
 # Quran Corpus Visualizer
 
+<img width="2558" height="1266" alt="Image" src="https://github.com/user-attachments/assets/6127e2ef-69e2-43ba-9ade-4a9a160f257a" />
+
 A sophisticated interactive tool for exploring the linguistic and morphological structure of the Quran. Built upon the [Quranic Arabic Corpus](https://corpus.quran.com) API, this project transforms linear text into dynamic, explorable graphs.
 
 ## Key Features
@@ -23,6 +25,22 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 - **Immersive Design**: A "neural" dark mode interface designed for deep focus.
 - **Responsive**: Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
 - **Internationalization**: Full support for English and Arabic interfaces (RTL).
+
+<img width="2553" height="1258" alt="Image" src="https://github.com/user-attachments/assets/fab1fc07-f131-4f7b-8816-d30030b8cb93" />
+
+<img width="2552" height="1246" alt="Image" src="https://github.com/user-attachments/assets/2f89bef1-86b3-4b7b-ad9f-8570b6d6cea3" />
+
+<img width="2559" height="1260" alt="Image" src="https://github.com/user-attachments/assets/40970f66-0c43-4532-a37f-d656a2ef9783" />
+
+<img width="2554" height="1253" alt="Image" src="https://github.com/user-attachments/assets/14579b20-74d4-47ce-9e65-8352d9791099" />
+
+<img width="2558" height="1260" alt="Image" src="https://github.com/user-attachments/assets/06ea15df-22d7-441f-9669-e171cb8d7b3e" />
+
+<img width="2553" height="1269" alt="Image" src="https://github.com/user-attachments/assets/09f0d47c-b574-45ec-b664-7105275c8cb3" />
+
+<img width="2556" height="1263" alt="Image" src="https://github.com/user-attachments/assets/69d89927-4500-426b-b9e0-a68b3f3035c4" />
+
+<img width="2557" height="1260" alt="Image" src="https://github.com/user-attachments/assets/ab32616d-0ed1-446d-82ae-43c0d45d10d5" />
 
 ## Getting Started
 
