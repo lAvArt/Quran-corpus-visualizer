@@ -639,7 +639,7 @@ export default function RootNetworkGraph({
         ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
         : sidebarCards}
 
-      <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
+      <div ref={containerRef} className="viz-container" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
         {!isMounted ? null : (
           <svg
             ref={svgRef}

@@ -64,13 +64,24 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
     npm install
     ```
 
-3. **Fetch Cache Data** (Optional but recommended for offline dev)
+3. **Configure feedback email (optional)**
+
+    ```bash
+    BREVO_API_KEY=your_brevo_api_key_here
+    FEEDBACK_TO_EMAIL=info@pluragate.org
+    FEEDBACK_FROM_EMAIL=info@pluragate.org
+    FEEDBACK_FROM_NAME=Quran Corpus Visualizer
+    ```
+
+    `FEEDBACK_TO_EMAIL` can be replaced with `NEXT_PUBLIC_FEEDBACK_EMAIL` for backward compatibility, but server-side `FEEDBACK_TO_EMAIL` is preferred.
+
+4. **Fetch Cache Data** (Optional but recommended for offline dev)
 
     ```bash
     npm run fetch:morphology
     ```
 
-4. **Run the development server**
+5. **Run the development server**
 
     ```bash
     npm run dev

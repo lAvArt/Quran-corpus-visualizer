@@ -1,4 +1,26 @@
 {
+    "Footer": {
+        "github": "GitHub",
+        "source": "Source",
+        "about": "About",
+        "feedback": "Feedback"
+    },
+    "About": {
+        "title": "About Quran Corpus Visualizer",
+        "description": "An interactive exploration of the Quran through advanced linguistic visualization. This project aims to make the intricate morphological structure of the Quran accessible and engaging for everyone.",
+        "version": "Version",
+        "copyright": "© 2026 Pluragate. Licensed under GPL-3.0."
+    },
+    "Feedback": {
+        "title": "Send Feedback",
+        "nameLabel": "Name (Optional)",
+        "emailLabel": "Email (Optional)",
+        "messageLabel": "Message",
+        "send": "Send Message",
+        "sending": "Sending...",
+        "success": "Thank you! Your feedback has been sent.",
+        "error": "Something went wrong. Please try again."
+    },
     "Index": {
         "title": "Quran Corpus Visualizer",
         "eyebrow": "Quran Corpus Visualizer",

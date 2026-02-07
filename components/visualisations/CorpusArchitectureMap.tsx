@@ -472,7 +472,7 @@ export default function CorpusArchitectureMap({
             data-theme={theme}
             style={{
                 width: '100%',
-                height: '100vh',
+                height: '100%',
                 position: 'relative',
                 overflow: 'hidden',
                 background: theme === "dark"
@@ -797,8 +797,12 @@ export default function CorpusArchitectureMap({
                                         fontSize: '15px',
                                         fill: themeColors.textColors.secondary
                                     }}
+                                    direction={isArabicLocale ? "rtl" : "ltr"}
                                 >
-                                    {focusedSurahStats.rootsCount} {ts("roots")} • {focusedSurahStats.ayahsCount} {ts("ayahs")}
+                                    {t("stats", {
+                                        rootCount: focusedSurahStats.rootsCount,
+                                        ayahCount: focusedSurahStats.ayahsCount
+                                    })}
                                 </text>
                             )}
                             {internalSelectedRoot && !focusedSurahId && (

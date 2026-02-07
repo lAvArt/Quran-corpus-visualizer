@@ -11,7 +11,13 @@ This project is a Next.js application designed to be deployed on Vercel with min
 
 This application performs client-side data fetching from the public `api.quran.com` and caches it using IndexedDB.
 
-**No server-side environment variables are required** for the core functionality.
+Core visualization features run without server-side variables, but the feedback form email delivery requires Brevo configuration:
+
+- `BREVO_API_KEY`: Brevo API key with transactional email access.
+- `FEEDBACK_TO_EMAIL`: Recipient address for feedback submissions.
+- `FEEDBACK_FROM_EMAIL`: Verified sender address in Brevo.
+- `FEEDBACK_FROM_NAME` (optional): Sender display name. Defaults to `Quran Corpus Visualizer`.
+- `NEXT_PUBLIC_FEEDBACK_EMAIL` (optional fallback): Used only if `FEEDBACK_TO_EMAIL` is not set.
 
 ## Deployment Steps
 

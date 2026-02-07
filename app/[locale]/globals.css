@@ -15,9 +15,12 @@
   --accent-3: #1d4ed8;
   --accent-glow: rgba(15, 118, 110, 0.4);
   --accent-2-glow: rgba(245, 158, 11, 0.45);
+  --toolbar-bg: rgba(255, 255, 255, 0.85);
+  --footer-glass-bg: rgba(255, 255, 255, 0.56);
   --header-dock-height: 42px;
   --header-gap: 28px;
   --header-clearance: calc(var(--header-dock-height) + var(--header-gap));
+  --footer-height: 42px;
   --sidebar-slide-out: 120%;
 }
 
@@ -33,15 +36,198 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--ink);
   font-family: var(--font-sans, "Space Grotesk"), "Segoe UI", "Trebuchet MS", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 12% 16%, rgba(15, 118, 110, 0.16), transparent 40%),
     radial-gradient(circle at 82% 12%, rgba(245, 158, 11, 0.2), transparent 35%),
     radial-gradient(circle at 50% 120%, rgba(29, 78, 216, 0.1), transparent 42%),
     linear-gradient(160deg, var(--bg-0), var(--bg-1));
+}
+
+.body-root {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.site-footer {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  width: 100%;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--footer-glass-bg);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  box-shadow: none;
+  z-index: 80;
+}
+
+[data-theme='dark'] .site-footer {
+  background: rgba(10, 12, 20, 0.56);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+.site-footer-inner {
+  width: 100%;
+  min-height: calc(var(--footer-height, var(--header-dock-height)) + env(safe-area-inset-bottom));
+  height: calc(var(--footer-height, var(--header-dock-height)) + env(safe-area-inset-bottom));
+  margin: 0 auto;
+  padding: 0.36rem 1rem calc(0.36rem + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.site-footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.site-footer-link,
+.site-footer-link:visited,
+a.site-footer-link,
+button.site-footer-link {
+  color: var(--ink-secondary);
+  font-size: 0.8rem;
+  line-height: 1;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.site-footer-link:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--line);
+}
+
+[data-theme='dark'] .site-footer-link,
+[data-theme='dark'] .site-footer-link:visited,
+[data-theme='dark'] a.site-footer-link,
+[data-theme='dark'] button.site-footer-link {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme='dark'] .site-footer-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.site-footer-feedback {
+  flex-shrink: 0;
+}
+
+@media (max-width: 680px) {
+  .site-footer-inner {
+    padding: 0.3rem 0.5rem;
+    gap: 6px;
+  }
+
+  .site-footer .about-link {
+    display: none;
+  }
+
+  .site-footer-link {
+    font-size: 0.8rem;
+    padding: 6px 8px;
+  }
+}
+
+/* ============================================================================
+   Dialog Styles
+   ============================================================================ */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.dialog-panel {
+  margin: 0;
+  max-width: 500px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 32px;
+  background: var(--footer-glass-bg);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+[data-theme='dark'] .dialog-panel {
+  background: rgba(10, 12, 20, 0.56);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+/* ============================================================================
+   Dialog Form Inputs
+   ============================================================================ */
+
+.dialog-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--ink);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  outline: none;
+}
+
+.dialog-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-2);
+}
+
+.dialog-input::placeholder {
+  color: var(--ink-muted);
+}
+
+[data-theme='dark'] .dialog-input {
+  background: var(--bg-2);
+  border-color: var(--panel-border);
+}
+
+[data-theme='dark'] .dialog-input:focus {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent);
 }
 
 .page-shell {
@@ -472,8 +658,13 @@ body {
 /* Immersive Dashboard Layout */
 .immersive-dashboard {
   position: relative;
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex: 1 1 auto;
   overflow: hidden;
   background: transparent;
   isolation: isolate;
@@ -509,7 +700,7 @@ body {
   width: 100%;
   min-height: var(--header-dock-height);
   padding: 0.36rem 1rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--toolbar-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -592,7 +783,7 @@ body {
   position: absolute;
   top: var(--header-clearance);
   inset-inline-end: 1rem;
-  bottom: 1rem;
+  bottom: calc(var(--footer-height) + 0.5rem);
   width: min(380px, 92vw);
   z-index: 40;
   transform: translateX(var(--sidebar-slide-out));
@@ -608,7 +799,6 @@ body {
 
 /* Dark Mode Header adjustments */
 [data-theme='dark'] .header-dock {
-  background: rgba(18, 18, 26, 0.85);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
@@ -733,7 +923,7 @@ body {
 
 .floating-controls {
   position: absolute;
-  bottom: 2rem;
+  bottom: calc(var(--footer-height) + 1rem);
   left: 2rem;
   z-index: 10;
   pointer-events: none;
@@ -893,6 +1083,21 @@ body {
 
 /* Dark mode: light text */
 [data-theme="dark"] {
+  --bg-0: #0c0b0d;
+  --bg-1: #15151b;
+  --bg-2: #1e1e28;
+  --ink: #f3f1e8;
+  --ink-secondary: rgba(243, 241, 232, 0.85);
+  --ink-muted: rgba(243, 241, 232, 0.65);
+  --panel: rgba(20, 20, 28, 0.92);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --line: rgba(255, 255, 255, 0.14);
+  --accent: #f97316;
+  --accent-2: #22d3ee;
+  --accent-glow: rgba(249, 115, 22, 0.5);
+  --accent-2-glow: rgba(34, 211, 238, 0.5);
+  --toolbar-bg: rgba(18, 18, 26, 0.85);
+  --footer-glass-bg: rgba(10, 12, 20, 0.56);
   color: var(--ink);
 }
 
@@ -937,7 +1142,7 @@ body {
   position: fixed;
   top: var(--header-clearance);
   inset-inline-start: 1rem;
-  bottom: 1rem;
+  bottom: calc(var(--footer-height) + 0.75rem);
   z-index: 40;
   width: min(280px, calc(100vw - 2rem));
   display: flex;
@@ -1065,7 +1270,7 @@ body {
 /* Legend container (shared) */
 .viz-legend {
   position: fixed;
-  bottom: 1rem;
+  bottom: calc(var(--footer-height) + 0.75rem);
   inset-inline-start: 1rem;
   z-index: 35;
   display: flex;
@@ -1116,12 +1321,12 @@ body {
 
   .viz-left-stack {
     top: var(--header-clearance);
-    max-height: calc(100vh - var(--header-clearance) - 1rem);
+    max-height: calc(100vh - var(--header-clearance) - var(--footer-height) - 1rem);
   }
 
   .viz-legend {
     top: var(--header-clearance);
-    max-height: calc(100vh - var(--header-clearance) - 1rem);
+    max-height: calc(100vh - var(--header-clearance) - var(--footer-height) - 1rem);
   }
 }
 
@@ -1138,7 +1343,7 @@ body {
   .viz-left-stack {
     top: auto;
     inset-inline-end: 1rem;
-    bottom: 1rem;
+    bottom: calc(var(--footer-height) + 0.75rem);
     inset-inline-start: 1rem;
     width: 100%;
     max-width: none;
@@ -1148,7 +1353,7 @@ body {
   .viz-legend {
     top: auto;
     right: 1rem;
-    bottom: 1rem;
+    bottom: calc(var(--footer-height) + 0.75rem);
     width: auto;
     max-height: 38vh;
   }
