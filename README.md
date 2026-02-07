@@ -2,9 +2,7 @@
 
 A sophisticated interactive tool for exploring the linguistic and morphological structure of the Quran. Built upon the [Quranic Arabic Corpus](https://corpus.quran.com) API, this project transforms linear text into dynamic, explorable graphs.
 
-![Quran Corpus Visualizer Preview](/public/og-image.jpg)
-
-## 🌟 Key Features
+## Key Features
 
 ### Interactive Visualizations
 
@@ -26,7 +24,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 - **Responsive**: Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
 - **Internationalization**: Full support for English and Arabic interfaces (RTL).
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -71,7 +69,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 - **Styling**: Tailwind CSS / CSS Modules
 - **Internationalization**: next-intl
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 ├── app/                  # Next.js App Router pages and layouts
@@ -86,7 +84,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 └── ...
 ```
 
-## 📜 Attribution & Data Sources
+## Attribution & Data Sources
 
 This project uses data and APIs from the **Quranic Arabic Corpus**, an open-source project created by **Kais Dukes** (Rahimahullah) and maintained by the community.
 
@@ -95,7 +93,7 @@ This project uses data and APIs from the **Quranic Arabic Corpus**, an open-sour
 
 We explicitly acknowledge and thank the original authors for their monumental work in digitizing and annotating the linguistic structure of the Quran.
 
-## ⚖️ License
+## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** - see the [LICENSE](LICENSE) file for details.
 
