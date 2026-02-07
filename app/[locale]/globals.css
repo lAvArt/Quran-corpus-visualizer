@@ -709,9 +709,22 @@ button.site-footer-link {
 
 .brand-block {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.brand-logo {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+}
+
+.brand-text {
+  display: flex;
   flex-direction: column;
   gap: 0px;
-  min-width: 160px;
 }
 
 .header-dock .eyebrow {

@@ -79,6 +79,11 @@ export const metadata: Metadata = {
       'ar-SA': '/ar',
     },
   },
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default async function RootLayout({

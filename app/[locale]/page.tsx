@@ -288,9 +288,12 @@ function HomePageContent() {
       <header className="floating-header">
         <div className="header-dock">
           <div className="brand-block">
-            <p className="eyebrow">{t('eyebrow')}</p>
-            <div className="brand-title-row">
-              <h1 className="brand-title">{t('brand')}</h1>
+            <img src="/favicon.svg" alt="" className="brand-logo" width={28} height={28} />
+            <div className="brand-text">
+              <p className="eyebrow">{t('eyebrow')}</p>
+              <div className="brand-title-row">
+                <h1 className="brand-title">{t('brand')}</h1>
+              </div>
             </div>
           </div>
 
