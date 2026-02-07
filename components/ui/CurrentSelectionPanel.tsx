@@ -16,8 +16,10 @@ interface CurrentSelectionPanelProps {
 }
 
 // Note: modeLabel was removed as translations are now handled by useTranslations
+// Note: modeLabel was removed as translations are now handled by useTranslations
 
 import { useTranslations } from "next-intl";
+import { useState } from "react"; // Added useState
 
 export default function CurrentSelectionPanel({
   vizMode,
@@ -30,6 +32,7 @@ export default function CurrentSelectionPanel({
 }: CurrentSelectionPanelProps) {
   const t = useTranslations('CurrentSelectionPanel');
   const surah = SURAH_NAMES[selectedSurahId];
+  const [isCollapsed, setIsCollapsed] = useState(false); // Default expanded
 
   // Map modes to translation keys, or just use the raw key if we added them to messages
   // We added keys to messages/en.json under "VisualizationSwitcher.modes" but also need generic labels here?
@@ -52,52 +55,127 @@ export default function CurrentSelectionPanel({
   }, [allTokens, selectedSurahId, selectedAyah]);
 
   return (
-    <aside className="current-selection-panel">
-      <p className="eyebrow">{t('title')}</p>
-      <div className="selection-grid">
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.view')}</span>
-          <span className="selection-value">{tViz(`${vizMode}.label`)}</span>
-        </div>
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.surah')}</span>
-          <span className="selection-value">
-            <span className="surah-bilingual">
-              <span className="surah-number">{selectedSurahId}.</span>
-              <span className="surah-arabic">{surah?.arabic ?? ""}</span>
-              <span className="surah-english">{surah?.name ?? ""}</span>
-            </span>
-          </span>
-        </div>
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.ayah')}</span>
-          <span className="selection-value">{selectedAyah ?? "-"}</span>
-        </div>
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.root')}</span>
-          <span className="selection-value arabic-text">{selectedRoot ?? "-"}</span>
-        </div>
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.lemma')}</span>
-          <span className="selection-value arabic-text">{selectedLemma ?? "-"}</span>
-        </div>
-        <div className="selection-row">
-          <span className="selection-label">{t('labels.token')}</span>
-          <span className="selection-value arabic-text">{activeToken?.text ?? "-"}</span>
+    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`}>
+      <div
+        className="panel-header"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ cursor: 'pointer' }}
+      >
+        <p className="eyebrow panel-title" style={{ margin: 0 }}>{t('title')}</p>
+        <div className="panel-toggle-icon" style={{ transition: 'opacity 0.2s', opacity: 0.6 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points={isCollapsed ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}></polyline>
+          </svg>
         </div>
       </div>
 
-      {/* Ayah Tokens Display */}
-      {ayahTokensText && (
-        <div className="ayah-display">
-          <p className="eyebrow">{t('ayahTokens')}</p>
-          <div className="ayah-scroll-shell">
-            <p className="ayah-text-content arabic-text">{ayahTokensText}</p>
+      {!isCollapsed && (
+        <div className="panel-content">
+          <div className="selection-grid">
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.view')}</span>
+              <span className="selection-value">{tViz(`${vizMode}.label`)}</span>
+            </div>
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.surah')}</span>
+              <span className="selection-value">
+                <span className="surah-bilingual">
+                  <span className="surah-number">{selectedSurahId}.</span>
+                  <span className="surah-arabic">{surah?.arabic ?? ""}</span>
+                  <span className="surah-english">{surah?.name ?? ""}</span>
+                </span>
+              </span>
+            </div>
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.ayah')}</span>
+              <span className="selection-value">{selectedAyah ?? "-"}</span>
+            </div>
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.root')}</span>
+              <span className="selection-value arabic-text">{selectedRoot ?? "-"}</span>
+            </div>
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.lemma')}</span>
+              <span className="selection-value arabic-text">{selectedLemma ?? "-"}</span>
+            </div>
+            <div className="selection-row">
+              <span className="selection-label">{t('labels.token')}</span>
+              <span className="selection-value arabic-text">{activeToken?.text ?? "-"}</span>
+            </div>
           </div>
+
+          {/* Ayah Tokens Display */}
+          {ayahTokensText && (
+            <div className="ayah-display">
+              <p className="eyebrow">{t('ayahTokens')}</p>
+              <div className="ayah-scroll-shell">
+                <p className="ayah-text-content arabic-text">{ayahTokensText}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <style jsx>{`
+        .current-selection-panel {
+          transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: transform;
+        }
+
+        .current-selection-panel.collapsed {
+          transform: translateX(calc(-100% + 42px));
+          overflow: hidden;
+        }
+
+        :global(html[dir="rtl"]) .current-selection-panel.collapsed,
+        :global(body[dir="rtl"]) .current-selection-panel.collapsed,
+        :global([dir="rtl"]) .current-selection-panel.collapsed {
+          transform: translateX(calc(100% - 42px)) !important;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 8px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid transparent;
+            transition: border-bottom-color 0.2s;
+        }
+
+        :global(:root[dir="rtl"]) .panel-header {
+            flex-direction: row-reverse;
+        }
+
+        .current-selection-panel.collapsed .panel-title {
+            display: none;
+        }
+
+        .current-selection-panel.collapsed .panel-header {
+            justify-content: flex-end;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        :global(html[dir="rtl"]) .current-selection-panel.collapsed .panel-header,
+        :global(body[dir="rtl"]) .current-selection-panel.collapsed .panel-header,
+        :global([dir="rtl"]) .current-selection-panel.collapsed .panel-header {
+            justify-content: flex-start;
+        }
+        
+        .panel-header:hover {
+            opacity: 0.8;
+        }
+
+        .panel-content {
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         .surah-bilingual {
           display: flex;
           flex-wrap: wrap;

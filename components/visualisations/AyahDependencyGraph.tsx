@@ -8,6 +8,7 @@ import * as d3 from "d3";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
 interface AyahDependencyGraphProps {
@@ -106,6 +107,7 @@ export default function AyahDependencyGraph({
   const [zoomScale, setZoomScale] = useState(1);
   const [dimensions, setDimensions] = useState({ width: 1200, height: 620 });
   const [isMounted, setIsMounted] = useState(false);
+  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
 
   useEffect(() => {
     setActiveSurah(selectedSurahId);
@@ -354,7 +356,8 @@ export default function AyahDependencyGraph({
   const canGoNextAyah = Boolean(activeAyah && activeAyah < maxAyah);
 
   const sidebarCards = (
-    <div className="viz-left-stack dep-sidebar-stack">
+    <div className={`viz-left-stack dep-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+
       <div className="viz-left-panel dep-control-card">
         <div className="dep-card-head">
           <p className="eyebrow">{ts("advancedViz")}</p>

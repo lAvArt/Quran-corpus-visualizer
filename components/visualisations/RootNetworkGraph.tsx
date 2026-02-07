@@ -3,6 +3,8 @@
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
+
 
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,6 +71,12 @@ export default function RootNetworkGraph({
   const rafRef = useRef<number | null>(null);
   const pendingFrameRef = useRef(false);
   const latestNodesRef = useRef<NetworkNode[]>([]);
+
+  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
@@ -472,147 +480,151 @@ export default function RootNetworkGraph({
   }, [hoveredNode, selectedNode, nodes]);
 
   const sidebarCards = (
-    <div className="viz-left-stack">
-      <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
-        <div>
-          {rootCount} {ts("roots")} - {lemmaCount} {ts("lemmas")} -{" "}
-          {initialLinks.length} {ts("connections")}
-        </div>
-        <div style={{ display: "grid", gap: "6px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="eyebrow" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{t("complexity")}</span>
+    <>
+
+
+      <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
+          <div>
+            {rootCount} {ts("roots")} - {lemmaCount} {ts("lemmas")} -{" "}
+            {initialLinks.length} {ts("connections")}
+          </div>
+          <div style={{ display: "grid", gap: "6px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="eyebrow" style={{ fontSize: "0.75rem", opacity: 0.8 }}>{t("complexity")}</span>
+              </div>
+              <HelpIcon onClick={() => setShowHelp(true)} />
             </div>
-            <HelpIcon onClick={() => setShowHelp(true)} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{rootLimit}</span>
+              {filterBySurahId ? (
+                <span style={{ fontSize: "0.72rem", opacity: 0.76 }}>
+                  {t("totalAvailable")}: {totalAvailableRoots}
+                </span>
+              ) : null}
+            </div>
+            <input
+              type="range"
+              min={minRootLimit}
+              max={maxRootLimit}
+              step={rootLimitStep}
+              value={rootLimit}
+              onChange={(event) => setRootLimit(Number(event.target.value))}
+              aria-label="Root limit"
+              className="root-limit-slider"
+            />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-            <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{rootLimit}</span>
-            {filterBySurahId ? (
-              <span style={{ fontSize: "0.72rem", opacity: 0.76 }}>
-                {t("totalAvailable")}: {totalAvailableRoots}
-              </span>
-            ) : null}
+          <div style={{ display: "grid", gap: "6px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{ts("zoom")}</span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{Math.round(zoomScale * 100)}%</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>{ts("panAndZoom")}</span>
+              <button
+                type="button"
+                className="clear-focus"
+                style={{ padding: "4px 9px", fontSize: "0.72rem" }}
+                onClick={handleResetZoom}
+              >
+                Reset
+              </button>
+            </div>
           </div>
-          <input
-            type="range"
-            min={minRootLimit}
-            max={maxRootLimit}
-            step={rootLimitStep}
-            value={rootLimit}
-            onChange={(event) => setRootLimit(Number(event.target.value))}
-            aria-label="Root limit"
-            className="root-limit-slider"
-          />
+          {!hasScopeTokens && filterBySurahId && (
+            <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+              No token data loaded for this surah yet. Keep corpus loading, then retry this surah.
+            </span>
+          )}
+          {hasScopeTokens && !hasMorphology && filterBySurahId && (
+            <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+              Morphology data unavailable for this surah. Roots/lemmas require a full morphology dataset.
+            </span>
+          )}
         </div>
-        <div style={{ display: "grid", gap: "6px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-            <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{ts("zoom")}</span>
-            <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{Math.round(zoomScale * 100)}%</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "0.72rem", opacity: 0.72 }}>{ts("panAndZoom")}</span>
-            <button
-              type="button"
-              className="clear-focus"
-              style={{ padding: "4px 9px", fontSize: "0.72rem" }}
-              onClick={handleResetZoom}
+
+        <AnimatePresence>
+          {activeNode && (
+            <motion.div
+              className="viz-left-panel"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
             >
-              Reset
-            </button>
+              <div className="viz-tooltip-title arabic-text">
+                {activeNode.label}
+              </div>
+              <div className="viz-tooltip-subtitle">
+                {activeNode.type === "root" ? ts("root") : ts("lemma")}
+              </div>
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">{ts("occurrences")}</span>
+                <span className="viz-tooltip-value">{activeNode.frequency}</span>
+              </div>
+              {activeNode.tokens[0] && (
+                <>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("example")}</span>
+                    <span className="viz-tooltip-value arabic-text">
+                      {activeNode.tokens[0].text}
+                    </span>
+                  </div>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("gloss")}</span>
+                    <span className="viz-tooltip-value">
+                      {activeNode.tokens[0].morphology.gloss ?? "-"}
+                    </span>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="viz-legend">
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{
+                background: themeColors.nodeColors.default,
+                width: 16,
+                height: 16,
+              }}
+            />
+            <span>{t("rootNodes")}</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+            />
+            <span>{t("lemmaNodes")}</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+            />
+            <span>{t("tokenNodes")}</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: themeColors.nodeColors.selected, width: 12, height: 12 }}
+            />
+            <span>{ts("selectedNode")}</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: themeColors.accentSecondary, width: 12, height: 12 }}
+            />
+            <span>{ts("directlyConnected")}</span>
           </div>
         </div>
-        {!hasScopeTokens && filterBySurahId && (
-          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
-            No token data loaded for this surah yet. Keep corpus loading, then retry this surah.
-          </span>
-        )}
-        {hasScopeTokens && !hasMorphology && filterBySurahId && (
-          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
-            Morphology data unavailable for this surah. Roots/lemmas require a full morphology dataset.
-          </span>
-        )}
       </div>
-
-      <AnimatePresence>
-        {activeNode && (
-          <motion.div
-            className="viz-left-panel"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-          >
-            <div className="viz-tooltip-title arabic-text">
-              {activeNode.label}
-            </div>
-            <div className="viz-tooltip-subtitle">
-              {activeNode.type === "root" ? ts("root") : ts("lemma")}
-            </div>
-            <div className="viz-tooltip-row">
-              <span className="viz-tooltip-label">{ts("occurrences")}</span>
-              <span className="viz-tooltip-value">{activeNode.frequency}</span>
-            </div>
-            {activeNode.tokens[0] && (
-              <>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("example")}</span>
-                  <span className="viz-tooltip-value arabic-text">
-                    {activeNode.tokens[0].text}
-                  </span>
-                </div>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("gloss")}</span>
-                  <span className="viz-tooltip-value">
-                    {activeNode.tokens[0].morphology.gloss ?? "-"}
-                  </span>
-                </div>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="viz-legend">
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{
-              background: themeColors.nodeColors.default,
-              width: 16,
-              height: 16,
-            }}
-          />
-          <span>{t("rootNodes")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-          />
-          <span>{t("lemmaNodes")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-          />
-          <span>{t("tokenNodes")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: themeColors.nodeColors.selected, width: 12, height: 12 }}
-          />
-          <span>{ts("selectedNode")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: themeColors.accentSecondary, width: 12, height: 12 }}
-          />
-          <span>{ts("directlyConnected")}</span>
-        </div>
-      </div>
-    </div>
+    </>
   );
 
   return (

@@ -2,6 +2,10 @@
 
 Thanks for contributing to Quran Corpus Visualizer.
 
+## License
+
+By contributing to this repository, you agree that your contributions will be licensed under its **GNU General Public License v3.0 (GPL-3.0)**.
+
 ## Principles
 
 - Accuracy over novelty.

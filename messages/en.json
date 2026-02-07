@@ -12,6 +12,12 @@
         "inspector": "Inspector",
         "attribution": "Morphology source:"
     },
+    "MobileBottomBar": {
+        "showLegend": "Show Legend",
+        "hideLegend": "Hide Legend",
+        "showTools": "Show Tools",
+        "hideTools": "Hide Tools"
+    },
     "GlobalSearch": {
         "placeholder": "Search roots, words, meanings...",
         "noResults": "No results found"
@@ -27,7 +33,7 @@
             },
             "surah-distribution": {
                 "label": "Surah Distribution",
-                "description": "Spiral visualization of all 114 Surahs and their sizes"
+                "description": "Linear distribution plot of all 114 Surahs and their sizes"
             },
             "radial-sura": {
                 "label": "Radial Sura",

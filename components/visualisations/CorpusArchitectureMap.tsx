@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -36,6 +37,8 @@ export default function CorpusArchitectureMap({
     selectedSurahId,
     theme = "dark"
 }: CorpusArchitectureMapProps) {
+    const locale = useLocale();
+    const isArabicLocale = locale.startsWith("ar");
     const t = useTranslations("Visualizations.CorpusArchitecture");
     const ts = useTranslations("Visualizations.Shared");
     const containerRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,7 @@ export default function CorpusArchitectureMap({
     const [showHelp, setShowHelp] = useState(false);
 
     const [isMounted, setIsMounted] = useState(false);
+    const { isLeftSidebarOpen } = useVizControl();
     useEffect(() => { setIsMounted(true); }, []);
 
     useEffect(() => {
@@ -261,6 +265,32 @@ export default function CorpusArchitectureMap({
         return { rankById, indexById, countBySurah };
     }, [nodes]);
     const { rankById: rootRankById, indexById: rootIndexById, countBySurah: rootCountBySurah } = rootMeta;
+
+    const rootGlobalStats = useMemo(() => {
+        const stats = new Map<string, { total: number; gloss: string }>();
+        tokens.forEach((t) => {
+            if (!t.root) return;
+            if (!stats.has(t.root)) {
+                stats.set(t.root, { total: 0, gloss: t.morphology?.gloss ?? "" });
+            }
+            const entry = stats.get(t.root)!;
+            entry.total++;
+        });
+        return stats;
+    }, [tokens]);
+
+    const selectedRootGlobalStats = internalSelectedRoot
+        ? rootGlobalStats.get(internalSelectedRoot) ?? null
+        : null;
+    const selectedRootOccurrencesLabel = selectedRootInfo?.count
+        ? t("occurrences", { count: selectedRootInfo.count })
+        : "";
+    const selectedRootTotalLabel = selectedRootGlobalStats
+        ? isArabicLocale
+            ? `${ts("totalInQuran")} ${selectedRootGlobalStats.total.toLocaleString(locale)}`
+            : `${selectedRootGlobalStats.total.toLocaleString(locale)} ${ts("totalInQuran")}`
+        : "";
+    const selectedRootGlossLabel = selectedRootGlobalStats?.gloss?.trim() ?? "";
 
     const rootVisibilityLimit = useMemo(() => {
         if (focusSurahNodeId) {
@@ -453,70 +483,78 @@ export default function CorpusArchitectureMap({
 
             {/* Portal controls to sidebar stack */
                 isMounted && (typeof document !== 'undefined') && document.getElementById('viz-sidebar-portal') && createPortal(
-                    <div className="viz-left-stack">
-                        <div className="viz-left-panel">
-                            <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong><br />
-                            <span style={{ fontSize: '0.72em', opacity: 0.6, lineHeight: 1.4 }}>
-                                {t("structuralView")}
-                            </span>
-                        </div>
+                    <>
 
-                        <AnimatePresence>
-                            {selectedRootInfo && (
-                                <motion.div
-                                    className="viz-left-panel"
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                >
-                                    <div className="viz-tooltip-title arabic-text" style={{ fontSize: '1.3em' }}>{selectedRootInfo.root}</div>
-                                    <div className="viz-tooltip-subtitle" style={{ fontSize: '0.8em', marginTop: 4 }}>
-                                        {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : ts("root")} {" "}
-                                        {selectedRootInfo.surahArabic ? `| ${selectedRootInfo.surahArabic}` : ""}
-                                    </div>
-                                    <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
-                                        <span className="viz-tooltip-label">{ts("inThisSurah")}</span>
-                                        <span className="viz-tooltip-value">{selectedRootInfo.count}</span>
-                                    </div>
-                                    <div className="viz-tooltip-row">
-                                        <span className="viz-tooltip-label">{ts("totalInQuran")}</span>
-                                        {/* We can calculate total from tokens if available in scope, or just show what we have */}
-                                        <span className="viz-tooltip-value">
-                                            {tokens.filter(t => t.root === selectedRootInfo.root).length}
+
+                        <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+                            <div className="viz-left-panel">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong><br />
+                                        <span style={{ fontSize: '0.72em', opacity: 0.6, lineHeight: 1.4 }}>
+                                            {t("structuralView")}
                                         </span>
                                     </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                </div>
+                            </div>
 
-                        <div className="viz-legend" style={{ marginTop: 'auto' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
-                                <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
-                                <HelpIcon onClick={() => setShowHelp(true)} />
-                            </div>
-                            <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{ background: themeColors.accent, width: 10, height: 10 }}
-                                />
-                                <span style={{ fontSize: '0.75em' }}>{ts("surah")}</span>
-                            </div>
-                            <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
-                                />
-                                <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
-                            </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-line"
-                                    style={{ background: themeColors.edgeColors.default }}
-                                />
-                                <span style={{ fontSize: '0.75em' }}>{ts("link")}</span>
+                            <AnimatePresence>
+                                {selectedRootInfo && (
+                                    <motion.div
+                                        className="viz-left-panel"
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                    >
+                                        <div className="viz-tooltip-title arabic-text" style={{ fontSize: '1.3em' }}>{selectedRootInfo.root}</div>
+                                        <div className="viz-tooltip-subtitle" style={{ fontSize: '0.8em', marginTop: 4 }}>
+                                            {selectedRootInfo.surahName ? `${selectedRootInfo.surahName}` : ts("root")} {" "}
+                                            {selectedRootInfo.surahArabic ? `| ${selectedRootInfo.surahArabic}` : ""}
+                                        </div>
+                                        <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
+                                            <span className="viz-tooltip-label">{ts("inThisSurah")}</span>
+                                            <span className="viz-tooltip-value">{selectedRootInfo.count}</span>
+                                        </div>
+                                        <div className="viz-tooltip-row">
+                                            <span className="viz-tooltip-label">{ts("totalInQuran")}</span>
+                                            {/* We can calculate total from tokens if available in scope, or just show what we have */}
+                                            <span className="viz-tooltip-value">
+                                                {tokens.filter(t => t.root === selectedRootInfo.root).length}
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className="viz-legend" style={{ marginTop: 'auto' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
+                                    <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
+                                    <HelpIcon onClick={() => setShowHelp(true)} />
+                                </div>
+                                <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: themeColors.accent, width: 10, height: 10 }}
+                                    />
+                                    <span style={{ fontSize: '0.75em' }}>{ts("surah")}</span>
+                                </div>
+                                <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
+                                    />
+                                    <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
+                                </div>
+                                <div className="viz-legend-item">
+                                    <div
+                                        className="viz-legend-line"
+                                        style={{ background: themeColors.edgeColors.default }}
+                                    />
+                                    <span style={{ fontSize: '0.75em' }}>{ts("link")}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>,
+                    </>,
                     document.getElementById('viz-sidebar-portal')!
                 )}
 
@@ -721,7 +759,7 @@ export default function CorpusArchitectureMap({
                                     textTransform: 'uppercase'
                                 }}
                             >
-                                {focusedSurahId ? `${ts("surahCaps")} ${focusedSurahId}` : (internalSelectedRoot ? t("selectedRoot") : t("corpus"))}
+                                {focusedSurahId ? `${ts("surahCaps")} ${focusedSurahId}` : (internalSelectedRoot ? "" : t("corpus"))}
                             </text>
                             <text
                                 y={10}
@@ -767,18 +805,40 @@ export default function CorpusArchitectureMap({
                                 <text
                                     y={40}
                                     textAnchor="middle"
+                                    direction={isArabicLocale ? "rtl" : "ltr"}
                                     style={{
                                         fontSize: '14px',
-                                        fill: themeColors.textColors.secondary
+                                        fill: themeColors.textColors.secondary,
+                                        unicodeBidi: "plaintext"
                                     }}
                                 >
-                                    {selectedRootInfo?.count ? t("occurrences", { count: selectedRootInfo.count }) : ""}
+                                    {selectedRootOccurrencesLabel && (
+                                        <tspan direction={isArabicLocale ? "rtl" : "ltr"} style={{ unicodeBidi: "isolate" }}>
+                                            {selectedRootOccurrencesLabel}
+                                        </tspan>
+                                    )}
+                                    {selectedRootOccurrencesLabel && selectedRootTotalLabel && (
+                                        <tspan direction="ltr" style={{ unicodeBidi: "isolate" }}>{" | "}</tspan>
+                                    )}
+                                    {selectedRootTotalLabel && (
+                                        <tspan direction={isArabicLocale ? "rtl" : "ltr"} style={{ unicodeBidi: "isolate" }}>
+                                            {selectedRootTotalLabel}
+                                        </tspan>
+                                    )}
+                                    {(selectedRootOccurrencesLabel || selectedRootTotalLabel) && selectedRootGlossLabel && (
+                                        <tspan direction="ltr" style={{ unicodeBidi: "isolate" }}>{" | "}</tspan>
+                                    )}
+                                    {selectedRootGlossLabel && (
+                                        <tspan direction="ltr" style={{ unicodeBidi: "isolate" }}>
+                                            {selectedRootGlossLabel}
+                                        </tspan>
+                                    )}
                                 </text>
                             )}
                         </g>
                     </g>
                 </svg>
             </div>
-        </section>
+        </section >
     );
 }

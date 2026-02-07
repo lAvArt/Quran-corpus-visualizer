@@ -1,112 +1,102 @@
 # Quran Corpus Visualizer
 
-Interactive semantic and linguistic visualisations of the Quran based on the Quranic Arabic Corpus.
+A sophisticated interactive tool for exploring the linguistic and morphological structure of the Quran. Built upon the [Quranic Arabic Corpus](https://corpus.quran.com) API, this project transforms linear text into dynamic, explorable graphs.
 
-## What This Is
+![Quran Corpus Visualizer Preview](/public/og-image.jpg)
 
-Quran Corpus Visualizer treats the Quran as a structured semantic graph, not as a flat text surface.
+## 🌟 Key Features
 
-Core model:
+### Interactive Visualizations
 
-- `Sura -> Ayah -> Token`
-- `Token -> Root / Lemma / Morphology`
-- `Token -> Dependency (head / relation)`
-- Later: `Ayah -> Claim -> Source -> Confidence`
+- **Radial Surah Map**: Visualize the entire Quran or specific Surahs as a radial tree, highlighting relationships between Ayahs and roots.
+- **Root Network Graph**: Explore the connectivity of Arabic roots across the corpus using force-directed graphs.
+- **Surah Distribution**: Analyze the distribution of specific roots or lemmas across all Surahs.
+- **Arc Flow Diagram**: Trace the flow of roots and grammatical connections within an Ayah.
+- **Ayah Dependency Graph**: Deep dive into the syntactic dependency structure of individual Ayahs.
 
-## What This Is Not
+### Advanced Search & Analysis
 
-- Not a tafsir replacement.
-- Not a generative AI explanation engine.
-- Not a source of uncited historical or spatial claims.
+- **Morphological Search**: Filter by Root, Lemma, Part-of-Speech (POS), or specific Ayah.
+- **Cross-Reference**: Instantly see where else a root or word appears in the Quran.
+- **Full-Text Search**: Search both Arabic text and English translations.
 
-## Data Sources and Attribution
+### Modern UX/UI
 
-Primary source:
+- **Immersive Design**: A "neural" dark mode interface designed for deep focus.
+- **Responsive**: Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
+- **Internationalization**: Full support for English and Arabic interfaces (RTL).
 
-- Quranic Arabic Corpus (University of Leeds): morphological and syntactic annotation.
+## 🚀 Getting Started
 
-This project centers attribution and source traceability. See `docs/DATA_SOURCES.md` for source policy, usage notes, and redistribution constraints.
+### Prerequisites
 
-## Visualisations Overview
+- Node.js 18+
+- npm or yarn
 
-MVP (`v0.1`):
+### Installation
 
-- `RootFlowSankey`: root-to-word flow exploration.
-- `AyahDependencyGraph`: single-ayah dependency structure.
-- `MorphologyInspector`: hover and focus morphology panel.
+1. **Clone the repository**
 
-Planned:
+    ```bash
+    git clone https://github.com/yourusername/quran-corpus-visualizer.git
+    cd quran-corpus-visualizer
+    ```
 
-- Radial sura morphology maps.
-- Root dispersion views across the Quran.
-- Comparative root-context views.
+2. **Install dependencies**
 
-## Semantic Search Philosophy
+    ```bash
+    npm install
+    ```
 
-Phase 1 uses transparent lexical and linguistic filters (root, lemma, POS, exact ayah).
+3. **Fetch Cache Data** (Optional but recommended for offline dev)
 
-Any later semantic ranking must remain explainable:
+    ```bash
+    npm run fetch:morphology
+    ```
 
-- show why a match appears,
-- expose matched roots/morphology,
-- avoid black-box claims.
+4. **Run the development server**
 
-## Roadmap
+    ```bash
+    npm run dev
+    ```
 
-- `v0.1`: root flow + ayah dependency + morphology inspector.
-- `v0.2`: stronger indexing and comparative views.
-- `v0.3+`: optional semantic vectors with explainability.
-- Spatial overlays only after confidence modeling and citation workflow are stable.
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-See `docs/ROADMAP.md` for milestone detail.
+## 🛠️ Tech Stack
 
-## Current Implementation Status
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Language**: TypeScript
+- **Visualization**: [D3.js](https://d3js.org/) for complex graphs
+- **Animation**: Framer Motion
+- **Styling**: Tailwind CSS / CSS Modules
+- **Internationalization**: next-intl
 
-Initial `v0.1` slice is live in code:
-
-- App shell + TypeScript data contracts.
-- Sample corpus tokens for development.
-- `RootFlowSankey` prototype with root filter and count labels.
-- `AyahDependencyGraph` prototype for single-ayah dependency arcs.
-- `MorphologyInspector` with hover/focus token inspection.
-- `SemanticSearchPanel` with phase-1 filters (root, lemma, POS, ayah).
-
-## Local Development
-
-```bash
-npm install
-npm run fetch:morphology
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## Academic and Educational Intent
-
-This project is built as a research and learning instrument. The goal is clarity, source discipline, and reproducible interpretation support.
-
-## Repository Layout
+## 📂 Project Structure
 
 ```text
-Quran-corpus-visualizer/
-├─ app/
-├─ components/
-│  ├─ visualisations/
-│  ├─ inspectors/
-│  └─ ui/
-├─ lib/
-│  ├─ corpus/
-│  ├─ schema/
-│  ├─ search/
-│  └─ cache/
-├─ public/
-├─ styles/
-├─ docs/
-│  ├─ SCHEMA.md
-│  ├─ DATA_SOURCES.md
-│  ├─ ROADMAP.md
-│  ├─ CONTRIBUTING.md
-│  └─ CONFIDENCE_MODEL.md
-├─ README.md
-└─ LICENSE
+├── app/                  # Next.js App Router pages and layouts
+├── components/
+│   ├── visualisations/   # D3.js visualization components
+│   ├── ui/               # Reusable UI elements (Sidebar, Search, etc.)
+├── lib/
+│   ├── corpus/           # Data loaders and types for Quranic data
+│   ├── data/             # Static data (Surah names, help text)
+│   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)
+├── public/               # Static assets
+└── ...
 ```
+
+## 📜 Attribution & Data Sources
+
+This project uses data and APIs from the **Quranic Arabic Corpus**, an open-source project created by **Kais Dukes** (Rahimahullah) and maintained by the community.
+
+- **Source**: [github.com/kaisdukes/quranic-corpus](https://github.com/kaisdukes/quranic-corpus)
+- **Website**: [corpus.quran.com](https://corpus.quran.com)
+
+We explicitly acknowledge and thank the original authors for their monumental work in digitizing and annotating the linguistic structure of the Quran.
+
+## ⚖️ License
+
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** - see the [LICENSE](LICENSE) file for details.
+
+This ensures that this project and any derivatives remain free and open for the benefit of the community, consistent with the upstream corpus license.

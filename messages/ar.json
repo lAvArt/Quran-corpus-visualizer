@@ -12,6 +12,12 @@
         "inspector": "الفحص",
         "attribution": "مصدر الصرف:"
     },
+    "MobileBottomBar": {
+        "showLegend": "عرض وسيلة الإيضاح",
+        "hideLegend": "إخفاء وسيلة الإيضاح",
+        "showTools": "عرض الأدوات",
+        "hideTools": "إخفاء الأدوات"
+    },
     "GlobalSearch": {
         "placeholder": "بحث عن جذور، كلمات، معاني...",
         "noResults": "لم توجد نتائج"
@@ -27,7 +33,7 @@
             },
             "surah-distribution": {
                 "label": "توزيع السور",
-                "description": "تصور حلزوني لجميع السور الـ 114 وأحجامها"
+                "description": "مخطط توزيع خطي لجميع السور الـ 114 وأحجامها"
             },
             "radial-sura": {
                 "label": "السورة الدائرية",

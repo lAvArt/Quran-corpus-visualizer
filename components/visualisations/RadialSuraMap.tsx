@@ -10,6 +10,7 @@ import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizatio
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 
 interface RadialSuraMapProps {
   tokens: CorpusToken[];
@@ -70,6 +71,14 @@ export default function RadialSuraMap({
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
+
+
+
+  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -441,117 +450,121 @@ export default function RadialSuraMap({
       </div>
 
       {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
-        <div className="viz-left-stack">
-          {highlightRoot && (
-            <div className="viz-left-panel">
-              <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
-              <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
-              {highlightAyahs.length > 0 && (
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("linkedAyahs")}</span>
-                  <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
-                </div>
-              )}
-            </div>
-          )}
+        <>
 
-          <AnimatePresence>
-            {selectedAyahData && (
-              <motion.div
-                className="viz-left-panel"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-              >
-                <div className="viz-tooltip-title">{ts("ayahCaps")} {selectedAyah}</div>
-                <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
 
-                {fullAyahText && (
-                  <div className="viz-tooltip-subtitle arabic-text" style={{
-                    marginTop: '0.5rem',
-                    fontSize: '1.4rem',
-                    lineHeight: '1.6',
-                    textAlign: 'right',
-                    direction: 'rtl',
-                    width: '100%',
-                    color: 'var(--ink)',
-                    paddingBottom: '0.5rem',
-                    borderBottom: '1px solid var(--line)'
-                  }}>
-                    {fullAyahText}
+          <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+            {highlightRoot && (
+              <div className="viz-left-panel">
+                <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
+                <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+                {highlightAyahs.length > 0 && (
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("linkedAyahs")}</span>
+                    <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
                   </div>
                 )}
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("occurrences")}</span>
-                  <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
-                </div>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("dominantPOS")}</span>
-                  <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
-                </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
 
-          <AnimatePresence>
-            {(selectedConnection || hoveredConnection) && (
-              <motion.div
-                className="viz-left-panel"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-              >
-                <div className="viz-tooltip-title">{t("rootConnection")}</div>
-                <div className="viz-tooltip-subtitle arabic-text">
-                  {(selectedConnection ?? hoveredConnection)?.root}
-                </div>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{t("from")}</span>
-                  <span className="viz-tooltip-value">
-                    {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.sourceAyah}
-                  </span>
-                </div>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{t("to")}</span>
-                  <span className="viz-tooltip-value">
-                    {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.targetAyah}
-                  </span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <AnimatePresence>
+              {selectedAyahData && (
+                <motion.div
+                  className="viz-left-panel"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                >
+                  <div className="viz-tooltip-title">{ts("ayahCaps")} {selectedAyah}</div>
+                  <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
 
-          <div className="viz-legend" style={{ marginTop: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
-              <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
-              <HelpIcon onClick={() => setShowHelp(true)} />
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
-              <span>{ts("noun")}</span>
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
-              <span>{ts("verb")}</span>
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
-              <span>{ts("adjective")}</span>
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
-              <span>{ts("preposition")}</span>
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
-              <span>{t("rootConnection")}</span>
-            </div>
-            <div className="viz-legend-item">
-              <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
-              <span>{t("ayahBar")}</span>
+                  {fullAyahText && (
+                    <div className="viz-tooltip-subtitle arabic-text" style={{
+                      marginTop: '0.5rem',
+                      fontSize: '1.4rem',
+                      lineHeight: '1.6',
+                      textAlign: 'right',
+                      direction: 'rtl',
+                      width: '100%',
+                      color: 'var(--ink)',
+                      paddingBottom: '0.5rem',
+                      borderBottom: '1px solid var(--line)'
+                    }}>
+                      {fullAyahText}
+                    </div>
+                  )}
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("occurrences")}</span>
+                    <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
+                  </div>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("dominantPOS")}</span>
+                    <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {(selectedConnection || hoveredConnection) && (
+                <motion.div
+                  className="viz-left-panel"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                >
+                  <div className="viz-tooltip-title">{t("rootConnection")}</div>
+                  <div className="viz-tooltip-subtitle arabic-text">
+                    {(selectedConnection ?? hoveredConnection)?.root}
+                  </div>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{t("from")}</span>
+                    <span className="viz-tooltip-value">
+                      {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.sourceAyah}
+                    </span>
+                  </div>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{t("to")}</span>
+                    <span className="viz-tooltip-value">
+                      {ts("ayah")} {(selectedConnection ?? hoveredConnection)?.targetAyah}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="viz-legend" style={{ marginTop: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
+                <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
+                <HelpIcon onClick={() => setShowHelp(true)} />
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
+                <span>{ts("noun")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
+                <span>{ts("verb")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
+                <span>{ts("adjective")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
+                <span>{ts("preposition")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
+                <span>{t("rootConnection")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div className="viz-legend-line" style={{ background: themeColors.accent, height: 6 }} />
+                <span>{t("ayahBar")}</span>
+              </div>
             </div>
           </div>
-        </div>,
+        </>,
         document.getElementById('viz-sidebar-portal')!
       )}
 
@@ -810,6 +823,6 @@ export default function RadialSuraMap({
         )}
 
       </div>
-    </section>
+    </section >
   );
 }

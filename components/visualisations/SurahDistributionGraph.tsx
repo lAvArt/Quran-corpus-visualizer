@@ -9,6 +9,7 @@ import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
 interface SurahDistributionGraphProps {
@@ -61,9 +62,14 @@ export default function SurahDistributionGraph({
     const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
     const [isMounted, setIsMounted] = useState(false);
 
+
+    const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+
 
     const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
 
@@ -418,96 +424,100 @@ export default function SurahDistributionGraph({
             </div>
 
             {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
-                <div className="viz-left-stack">
-                    <AnimatePresence>
-                        {(hoveredSurah || selectedSurah) && (
-                            <motion.div
-                                className="viz-left-panel"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 10 }}
-                            >
-                                {(() => {
-                                    const node = surahNodes.find(n => n.id === (hoveredSurah ?? selectedSurah));
-                                    if (!node) return null;
+                <>
 
-                                    return (
-                                        <>
-                                            <div className="viz-tooltip-title">
-                                                {node.name}
-                                            </div>
-                                            <div className="viz-tooltip-subtitle">
-                                                {t("surah")} {node.id}
-                                            </div>
-                                            <div className="viz-tooltip-row">
-                                                <span className="viz-tooltip-label">{t("words")}</span>
-                                                <span className="viz-tooltip-value">{node.tokenCount.toLocaleString()}</span>
-                                            </div>
-                                            <div className="viz-tooltip-row">
-                                                <span className="viz-tooltip-label">{ts("ayah")}</span>
-                                                <span className="viz-tooltip-value">{node.ayahCount}</span>
-                                            </div>
-                                            {node.tokens[0] && (
-                                                <div className="viz-tooltip-row">
-                                                    <span className="viz-tooltip-label">{ts("lemma")}</span>
-                                                    <span className="viz-tooltip-value arabic-text">
-                                                        {node.tokens[0].text}
-                                                    </span>
+
+                    <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+                        <AnimatePresence>
+                            {(hoveredSurah || selectedSurah) && (
+                                <motion.div
+                                    className="viz-left-panel"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                >
+                                    {(() => {
+                                        const node = surahNodes.find(n => n.id === (hoveredSurah ?? selectedSurah));
+                                        if (!node) return null;
+
+                                        return (
+                                            <>
+                                                <div className="viz-tooltip-title">
+                                                    {node.name}
                                                 </div>
-                                            )}
-                                        </>
-                                    );
-                                })()}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                                <div className="viz-tooltip-subtitle">
+                                                    {t("surah")} {node.id}
+                                                </div>
+                                                <div className="viz-tooltip-row">
+                                                    <span className="viz-tooltip-label">{t("words")}</span>
+                                                    <span className="viz-tooltip-value">{node.tokenCount.toLocaleString()}</span>
+                                                </div>
+                                                <div className="viz-tooltip-row">
+                                                    <span className="viz-tooltip-label">{ts("ayah")}</span>
+                                                    <span className="viz-tooltip-value">{node.ayahCount}</span>
+                                                </div>
+                                                {node.tokens[0] && (
+                                                    <div className="viz-tooltip-row">
+                                                        <span className="viz-tooltip-label">{ts("lemma")}</span>
+                                                        <span className="viz-tooltip-value arabic-text">
+                                                            {node.tokens[0].text}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                    <div className="viz-legend" style={{ marginTop: 'auto' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
-                            <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
-                            <HelpIcon onClick={() => setShowHelp(true)} />
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
-                            />
-                            <span>{t("fewerAyahs")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
-                            />
-                            <span>{t("moderateAyahs")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
-                            />
-                            <span>{t("moreAyahs")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: themeColors.accent, width: 14, height: 14 }}
-                            />
-                            <span>{t("selectedRoot")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{
-                                    background: theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(31, 28, 25, 0.35)",
-                                    width: 8,
-                                    height: 8
-                                }}
-                            />
-                            <span>{t("tokenCountSize")}</span>
+                        <div className="viz-legend" style={{ marginTop: 'auto' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between', width: '100%' }}>
+                                <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
+                                <HelpIcon onClick={() => setShowHelp(true)} />
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
+                                />
+                                <span>{t("fewerAyahs")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
+                                />
+                                <span>{t("moderateAyahs")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
+                                />
+                                <span>{t("moreAyahs")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: themeColors.accent, width: 14, height: 14 }}
+                                />
+                                <span>{t("selectedRoot")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{
+                                        background: theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(31, 28, 25, 0.35)",
+                                        width: 8,
+                                        height: 8
+                                    }}
+                                />
+                                <span>{t("tokenCountSize")}</span>
+                            </div>
                         </div>
                     </div>
-                </div>,
+                </>,
                 document.getElementById('viz-sidebar-portal')!
             )}
 
@@ -525,6 +535,6 @@ export default function SurahDistributionGraph({
                 }}
                 theme={theme}
             />
-        </section>
+        </section >
     );
 }

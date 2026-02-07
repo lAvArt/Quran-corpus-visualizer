@@ -8,6 +8,7 @@ import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog
 import type { ChangeEvent } from "react";
 import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
 import { useZoom } from "@/lib/hooks/useZoom";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 
 interface RootFlowSankeyProps {
   flows: RootWordFlow[];
@@ -48,6 +49,7 @@ export default function RootFlowSankey({
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
 
   const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
     minScale: 0.2,
@@ -135,7 +137,8 @@ export default function RootFlowSankey({
   }, []);
 
   const sidebarCards = (
-    <div className="viz-left-stack sankey-sidebar-stack">
+    <div className={`viz-left-stack sankey-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+
       <div className="viz-left-panel sankey-control-card">
         <div className="sankey-card-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "8px" }}>

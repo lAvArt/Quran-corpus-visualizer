@@ -8,6 +8,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
 import { useTranslations } from "next-intl";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
 interface ArcFlowDiagramProps {
@@ -77,6 +78,7 @@ export default function ArcFlowDiagram({
   const gRef = useRef<SVGGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [zoomLevel, setZoomLevel] = useState(0.92);
+  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);
@@ -616,7 +618,8 @@ export default function ArcFlowDiagram({
         : t("linksAyah");
 
   const sidebarCards = (
-    <div className="viz-left-stack arcflow-sidebar-stack">
+    <div className={`viz-left-stack arcflow-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+
       <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }}>
         <div>
           <p className="eyebrow" style={{ marginBottom: 4 }}>{t("title")}</p>

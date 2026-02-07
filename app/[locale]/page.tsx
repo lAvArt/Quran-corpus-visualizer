@@ -21,17 +21,26 @@ import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
+import MobileNavMenu from "@/components/ui/MobileNavMenu";
+import MobileBottomBar from "@/components/ui/MobileBottomBar";
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 
-export default function HomePage() {
+function HomePageContent() {
   const t = useTranslations('Index');
+  const { isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   // Initialize with defaults to avoid hydration mismatch
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Use context now
+  // const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isSidebarOpen = isRightSidebarOpen;
+  const setIsSidebarOpen = setRightSidebarOpen;
+
   const [selectedSurahId, setSelectedSurahId] = useState<number>(1);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
@@ -149,7 +158,7 @@ export default function HomePage() {
       setSelectedSurahId(token.sura);
     }
     setIsSidebarOpen(true);
-  }, [tokenById]);
+  }, [tokenById, setIsSidebarOpen]);
 
   const handleSurahSelect = useCallback(
     (suraId: number, preferredView?: "root-network" | "radial-sura") => {
@@ -293,9 +302,13 @@ export default function HomePage() {
           />
 
           <div className="header-controls">
-            <div className="header-button-group">
-              <LanguageSwitcher />
-              <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
+            {/* Desktop Only: Inline Controls */}
+            {/* Desktop Only: Inline Controls */}
+            <div className="desktop-only" style={{ display: 'contents' }}>
+              <div className="header-button-group">
+                <LanguageSwitcher />
+                <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
+              </div>
             </div>
 
             <VisualizationSwitcher
@@ -305,12 +318,17 @@ export default function HomePage() {
               onThemeChange={setTheme}
             />
 
-            <button
-              className={`sidebar-toggle-btn ${isSidebarOpen ? "active" : ""}`}
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              {isSidebarOpen ? t('hideTools') : t('showTools')}
-            </button>
+            <div className="desktop-only" style={{ display: 'contents' }}>
+              <button
+                className={`sidebar-toggle-btn ${isSidebarOpen ? "active" : ""}`}
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              >
+                {isSidebarOpen ? t('hideTools') : t('showTools')}
+              </button>
+            </div>
+
+            {/* Mobile Only: Menu */}
+            <MobileNavMenu theme={theme} onThemeChange={setTheme} />
           </div>
         </div>
       </header>
@@ -366,6 +384,8 @@ export default function HomePage() {
         />
       </div>
 
+      <MobileBottomBar />
+
       <style jsx>{`
         .loading-indicator {
           position: fixed;
@@ -402,6 +422,14 @@ export default function HomePage() {
           color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-    </div >
+    </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <VizControlProvider>
+      <HomePageContent />
+    </VizControlProvider>
   );
 }

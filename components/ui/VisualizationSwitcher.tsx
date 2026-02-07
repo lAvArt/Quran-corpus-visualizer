@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
@@ -26,7 +26,7 @@ const VISUALIZATION_OPTIONS: Array<{
     {
       mode: "surah-distribution",
       label: "Surah Distribution",
-      description: "Spiral visualization of all 114 Surahs and their sizes",
+      description: "Linear distribution plot of all 114 Surahs and their sizes",
       icon: "◎",
     },
     {
@@ -64,12 +64,39 @@ const VISUALIZATION_OPTIONS: Array<{
 export default function VisualizationSwitcher({
   currentMode,
   onModeChange,
-  theme,
-  onThemeChange,
+  theme: _theme,
+  onThemeChange: _onThemeChange,
 }: VisualizationSwitcherProps) {
   const t = useTranslations('VisualizationSwitcher');
   const [isExpanded, setIsExpanded] = useState(false);
   const dropdownId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isExpanded]);
 
   const handleModeSelect = useCallback(
     (mode: VisualizationMode) => {
@@ -82,7 +109,7 @@ export default function VisualizationSwitcher({
   const currentOption = VISUALIZATION_OPTIONS.find((opt) => opt.mode === currentMode);
 
   return (
-    <div className="viz-switcher-container">
+    <div className="viz-switcher-container" ref={containerRef}>
       <div className="viz-switcher-header">
         <button
           type="button"
@@ -256,18 +283,39 @@ export default function VisualizationSwitcher({
           color: rgba(255, 255, 255, 0.8);
         }
 
-        @media (max-width: 640px) {
+@media (max-width: 640px) {
           .viz-switcher-container {
-            width: 100%;
+            width: auto;
             min-width: 0;
+            position: static; /* Allow dropdown to be fixed relative to viewport */
           }
 
-          .viz-switcher-desc {
+          .viz-switcher-info {
             display: none;
           }
 
+          .viz-switcher-current {
+            padding: 8px;
+            gap: 4px;
+            justify-content: center;
+          }
+          
           .viz-switcher-dropdown {
-            right: 0;
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 94vw;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 100;
+            right: auto;
+            box-shadow: 0 0 0 100vh rgba(0,0,0,0.5); /* Dim background */
+          }
+
+          .viz-switcher-option .viz-switcher-info {
+             display: flex; /* Keep info visible in dropdown */
           }
         }
 
