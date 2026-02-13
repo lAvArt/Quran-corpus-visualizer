@@ -147,8 +147,28 @@ function HomePageContent() {
   const inspectorMode = focusedTokenId ? "focus" : hoverTokenId ? "hover" : "idle";
   const selectedAyahInSurah =
     focusedToken && focusedToken.sura === selectedSurahId ? focusedToken.ayah : null;
-  const selectedRootValue = selectedRoot ?? focusedToken?.root ?? null;
-  const selectedLemmaValue = selectedLemma ?? focusedToken?.lemma ?? null;
+  // Focused token's root/lemma takes priority — it reflects the current interaction.
+  // Fall back to explicitly selected root/lemma only when no token is focused.
+  const selectedRootValue = focusedToken?.root || selectedRoot || null;
+  const selectedLemmaValue = focusedToken?.lemma || selectedLemma || null;
+
+  // When a root is selected but no specific token is focused, find a representative token
+  // so the inspector can display meaningful morphology data.
+  const representativeToken = useMemo(() => {
+    if (focusedToken) return null; // Already have a focused token
+    if (!selectedRoot) return null;
+    // Find first token matching the selected root, preferring the currently selected surah
+    const inSurah = allTokens.find(t => t.root === selectedRoot && t.sura === selectedSurahId);
+    if (inSurah) return inSurah;
+    return allTokens.find(t => t.root === selectedRoot) ?? null;
+  }, [focusedToken, selectedRoot, allTokens, selectedSurahId]);
+
+  const inspectorTokenFinal = inspectorToken || representativeToken;
+  const inspectorModeFinal: "hover" | "focus" | "idle" = inspectorToken
+    ? inspectorMode
+    : representativeToken
+      ? "focus"
+      : "idle";
 
   // Handle search selection
   const handleTokenSelect = useCallback((tokenId: string) => {
@@ -159,6 +179,16 @@ function HomePageContent() {
     }
     setIsSidebarOpen(true);
   }, [tokenById, setIsSidebarOpen]);
+
+  // Clear stale selection context when switching visualization modes
+  const handleVizModeChange = useCallback((newMode: VisualizationMode) => {
+    setVizMode(newMode);
+    // Clear selection state that is contextual to the previous graph
+    setSelectedRoot(null);
+    setSelectedLemma(null);
+    setFocusedTokenId(null);
+    setHoverTokenId(null);
+  }, []);
 
   const handleSurahSelect = useCallback(
     (suraId: number, preferredView?: "root-network" | "radial-sura") => {
@@ -172,6 +202,12 @@ function HomePageContent() {
 
   const handleRootSelect = useCallback((root: string | null) => {
     setSelectedRoot(root);
+    // When a root is explicitly selected from a visualization, clear the
+    // previously focused token so the inspector shows the new root's data
+    if (root) {
+      setFocusedTokenId(null);
+      setSelectedLemma(null);
+    }
   }, []);
 
   const handleLemmaSelect = useCallback((lemma: string) => {
@@ -204,8 +240,6 @@ function HomePageContent() {
             onTokenFocus={setFocusedTokenId}
             theme={theme}
             showLabels={true}
-            filterBySurahId={selectedSurahId}
-            highlightRoot={selectedRoot}
           />
         );
 
@@ -316,7 +350,7 @@ function HomePageContent() {
 
             <VisualizationSwitcher
               currentMode={vizMode}
-              onModeChange={setVizMode}
+              onModeChange={handleVizModeChange}
               theme={theme}
               onThemeChange={setTheme}
             />
@@ -374,16 +408,15 @@ function HomePageContent() {
       <div className={`floating-sidebar ${isSidebarOpen ? "open" : ""}`}>
         <AppSidebar
           allTokens={allTokens}
-          inspectorToken={inspectorToken}
-          inspectorMode={inspectorMode}
-          onClearFocus={() => setFocusedTokenId(null)}
+          inspectorToken={inspectorTokenFinal}
+          inspectorMode={inspectorModeFinal}
+          onClearFocus={() => {
+            setFocusedTokenId(null);
+            setSelectedRoot(null);
+            setSelectedLemma(null);
+          }}
           onTokenHover={setHoverTokenId}
           onTokenFocus={setFocusedTokenId}
-          onSelectSurah={handleSurahSelect}
-          onSelectRoot={handleRootSelect}
-          onSelectLemma={handleLemmaSelect}
-          selectedSurahId={selectedSurahId}
-          vizMode={vizMode}
         />
       </div>
 

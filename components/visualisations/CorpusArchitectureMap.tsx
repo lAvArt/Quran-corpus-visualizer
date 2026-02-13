@@ -150,10 +150,12 @@ export default function CorpusArchitectureMap({
             .forEach(([suraId, data]) => {
                 const surahName = SURAH_NAMES[suraId]?.name || `Surah ${suraId}`;
 
-                // Get top roots for this surah - limit for performance
+                // Get top roots for this surah
+                // Show more roots to give a fuller picture of root distribution
+                // (visibility is controlled by LOD/zoom level separately)
                 const topRoots = Array.from(data.rootCounts.entries())
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 6) // Limit to 6 roots per Surah for performance
+                    .slice(0, 20) // Show top 20 roots per Surah (LOD controls visibility at zoom levels)
                     .map(([rootTxt, count]) => ({
                         id: `s${suraId}-r${rootTxt}`,
                         name: rootTxt,
@@ -292,6 +294,21 @@ export default function CorpusArchitectureMap({
         : "";
     const selectedRootGlossLabel = selectedRootGlobalStats?.gloss?.trim() ?? "";
 
+    // Corpus coverage stats: how much of the data is shown in the visualization  
+    const corpusCoverage = useMemo(() => {
+        const totalUniqueRoots = rootGlobalStats.size;
+        const displayedRootIds = new Set<string>();
+        nodes.forEach(n => {
+            if (n.data.type === "word_root" && n.data.originalId) {
+                displayedRootIds.add(n.data.originalId as string);
+            }
+        });
+        const displayedUniqueRoots = displayedRootIds.size;
+        const totalTokens = tokens.length;
+        const totalSurahs = new Set(tokens.map(t => t.sura)).size;
+        return { totalUniqueRoots, displayedUniqueRoots, totalTokens, totalSurahs };
+    }, [rootGlobalStats, nodes, tokens]);
+
     const rootVisibilityLimit = useMemo(() => {
         if (focusSurahNodeId) {
             if (zoomLevel < 0.9) return 18;
@@ -299,9 +316,11 @@ export default function CorpusArchitectureMap({
             if (zoomLevel < 1.6) return 50;
             return Infinity;
         }
-        if (zoomLevel < 0.75) return 4;
-        if (zoomLevel < 1.1) return 8;
-        return 12;
+        if (zoomLevel < 0.5) return 3;
+        if (zoomLevel < 0.75) return 6;
+        if (zoomLevel < 1.1) return 10;
+        if (zoomLevel < 1.6) return 15;
+        return 20;
     }, [focusSurahNodeId, zoomLevel]);
 
     const rootOffsetById = useMemo(() => {
@@ -323,9 +342,9 @@ export default function CorpusArchitectureMap({
             const max = maxBySurah.get(parentId ?? "") ?? 1;
             const ratio = Math.log1p(node.data.value) / Math.log1p(max);
             const rank = rootRankById.get(node.data.id) ?? 1;
-            // More aggressive spacing by rank to avoid overlap
-            const rankNudge = Math.min(80, rank * 12);
-            const offset = 30 + ratio * 60 + rankNudge;
+            // Progressive spacing by rank — compress as rank grows to fit more roots
+            const rankNudge = Math.min(140, rank * 8 + Math.sqrt(rank) * 4);
+            const offset = 30 + ratio * 50 + rankNudge;
             offsets.set(node.data.id, offset);
         });
         return offsets;
@@ -340,11 +359,11 @@ export default function CorpusArchitectureMap({
             const total = rootCountBySurah.get(parentId) ?? 1;
             const index = rootIndexById.get(node.data.id) ?? 0;
             const centered = index - (total - 1) / 2;
-            // Increased spread to avoid collision
-            const step = focusSurahNodeId ? 5.0 : 3.5;
-            const spread = Math.min(65, total * step);
+            // Wider spread for more roots, compressed at higher counts
+            const step = focusSurahNodeId ? 4.0 : 2.5;
+            const spread = Math.min(80, total * step);
             const baseOffset = centered * (spread / Math.max(1, total - 1));
-            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(4, 0.5 * Math.max(1, index));
+            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(3, 0.4 * Math.max(1, index));
             offsets.set(node.data.id, baseOffset + forkNudge);
         });
         return offsets;
@@ -495,6 +514,9 @@ export default function CorpusArchitectureMap({
                                             {t("structuralView")}
                                         </span>
                                     </div>
+                                </div>
+                                <div style={{ marginTop: 8, fontSize: '0.7em', opacity: 0.5, lineHeight: 1.6 }}>
+                                    {corpusCoverage.totalSurahs} {ts("surah")}s &middot; {corpusCoverage.totalTokens.toLocaleString(locale)} tokens &middot; {corpusCoverage.displayedUniqueRoots}/{corpusCoverage.totalUniqueRoots} {ts("root")}s shown
                                 </div>
                             </div>
 
