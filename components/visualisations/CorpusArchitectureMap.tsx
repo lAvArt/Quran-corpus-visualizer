@@ -91,16 +91,6 @@ export default function CorpusArchitectureMap({
         }
     }, [selectedSurahId]);
 
-    const focusedSurahStats = useMemo(() => {
-        if (!focusedSurahId) return null;
-        const surahTokens = tokens.filter(t => t.sura === focusedSurahId);
-        const uniqueRoots = new Set(surahTokens.map(t => t.root).filter(Boolean)).size;
-        return {
-            rootsCount: uniqueRoots,
-            ayahsCount: SURAH_NAMES[focusedSurahId]?.verses || 0
-        };
-    }, [focusedSurahId, tokens]);
-
     useEffect(() => {
         return () => {
             if (zoomRafRef.current) {
@@ -109,10 +99,40 @@ export default function CorpusArchitectureMap({
         };
     }, []);
 
+    // Pre-compute surah root counts (stable across focus changes)
+    const surahRootData = useMemo(() => {
+        const surahMap = new Map<number, {
+            id: number,
+            tokenCount: number,
+            rootCounts: Map<string, number>
+        }>();
+
+        tokens.forEach(t => {
+            if (!surahMap.has(t.sura)) {
+                surahMap.set(t.sura, { id: t.sura, tokenCount: 0, rootCounts: new Map() });
+            }
+            const entry = surahMap.get(t.sura)!;
+            entry.tokenCount++;
+            if (t.root) {
+                entry.rootCounts.set(t.root, (entry.rootCounts.get(t.root) || 0) + 1);
+            }
+        });
+        return surahMap;
+    }, [tokens]);
+
+    const focusedSurahStats = useMemo(() => {
+        if (!focusedSurahId) return null;
+        const data = surahRootData.get(focusedSurahId);
+        return {
+            rootsCount: data?.rootCounts.size ?? 0,
+            ayahsCount: SURAH_NAMES[focusedSurahId]?.verses || 0
+        };
+    }, [focusedSurahId, surahRootData]);
+
     // Build Hierarchy Data
     // Level 0: Corpus
     // Level 1: Surahs
-    // Level 2: Component Roots (Top 10 per Surah to keep performance manageable initially)
+    // Level 2: Roots — ALL roots for focused surah, top N for others
     const hierarchyData = useMemo(() => {
         const root: HierarchyNode = {
             id: "corpus",
@@ -122,60 +142,41 @@ export default function CorpusArchitectureMap({
             children: []
         };
 
-        // 1. Group by Surah
-        const surahMap = new Map<number, {
-            id: number,
-            tokens: CorpusToken[],
-            rootCounts: Map<string, number>
-        }>();
+        const UNFOCUSED_LIMIT = 10; // compact summary for unfocused surahs
 
-        tokens.forEach(t => {
-            if (!surahMap.has(t.sura)) {
-                surahMap.set(t.sura, {
-                    id: t.sura,
-                    tokens: [],
-                    rootCounts: new Map()
-                });
-            }
-            const entry = surahMap.get(t.sura)!;
-            entry.tokens.push(t);
-            if (t.root) {
-                entry.rootCounts.set(t.root, (entry.rootCounts.get(t.root) || 0) + 1);
-            }
-        });
-
-        // 2. Build Tree
-        Array.from(surahMap.entries())
+        Array.from(surahRootData.entries())
             .sort((a, b) => a[0] - b[0])
             .forEach(([suraId, data]) => {
                 const surahName = SURAH_NAMES[suraId]?.name || `Surah ${suraId}`;
+                const isFocused = suraId === focusedSurahId;
 
-                // Get top roots for this surah
-                // Show more roots to give a fuller picture of root distribution
-                // (visibility is controlled by LOD/zoom level separately)
-                const topRoots = Array.from(data.rootCounts.entries())
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 20) // Show top 20 roots per Surah (LOD controls visibility at zoom levels)
-                    .map(([rootTxt, count]) => ({
-                        id: `s${suraId}-r${rootTxt}`,
-                        name: rootTxt,
-                        type: "word_root" as const,
-                        value: count,
-                        originalId: rootTxt
-                    }));
+                // Sort roots by frequency (descending)
+                const sortedRoots = Array.from(data.rootCounts.entries())
+                    .sort((a, b) => b[1] - a[1]);
+
+                // Focused surah: include ALL roots; unfocused: top N only
+                const rootsToShow = isFocused ? sortedRoots : sortedRoots.slice(0, UNFOCUSED_LIMIT);
+
+                const rootNodes = rootsToShow.map(([rootTxt, count]) => ({
+                    id: `s${suraId}-r${rootTxt}`,
+                    name: rootTxt,
+                    type: "word_root" as const,
+                    value: count,
+                    originalId: rootTxt
+                }));
 
                 root.children!.push({
                     id: `s-${suraId}`,
                     name: surahName,
                     type: "surah",
-                    value: data.tokens.length,
+                    value: data.tokenCount,
                     originalId: suraId,
-                    children: topRoots
+                    children: rootNodes
                 });
             });
 
         return root;
-    }, [tokens]);
+    }, [surahRootData, focusedSurahId]);
 
     // Layout Calculation
     const { nodes, links } = useMemo(() => {
@@ -311,16 +312,17 @@ export default function CorpusArchitectureMap({
 
     const rootVisibilityLimit = useMemo(() => {
         if (focusSurahNodeId) {
-            if (zoomLevel < 0.9) return 18;
-            if (zoomLevel < 1.2) return 30;
-            if (zoomLevel < 1.6) return 50;
-            return Infinity;
+            // When a surah is focused, show all roots progressively as user zooms in
+            if (zoomLevel < 0.6) return 30;
+            if (zoomLevel < 0.9) return 80;
+            if (zoomLevel < 1.3) return 200;
+            return Infinity; // Show all roots at high zoom
         }
+        // Overview mode: keep it compact
         if (zoomLevel < 0.5) return 3;
-        if (zoomLevel < 0.75) return 6;
-        if (zoomLevel < 1.1) return 10;
-        if (zoomLevel < 1.6) return 15;
-        return 20;
+        if (zoomLevel < 0.75) return 5;
+        if (zoomLevel < 1.1) return 8;
+        return 10;
     }, [focusSurahNodeId, zoomLevel]);
 
     const rootOffsetById = useMemo(() => {
@@ -342,13 +344,23 @@ export default function CorpusArchitectureMap({
             const max = maxBySurah.get(parentId ?? "") ?? 1;
             const ratio = Math.log1p(node.data.value) / Math.log1p(max);
             const rank = rootRankById.get(node.data.id) ?? 1;
-            // Progressive spacing by rank — compress as rank grows to fit more roots
-            const rankNudge = Math.min(140, rank * 8 + Math.sqrt(rank) * 4);
-            const offset = 30 + ratio * 50 + rankNudge;
+            const total = rootCountBySurah.get(parentId ?? "") ?? 1;
+
+            // Adaptive spacing: use logarithmic compression when a surah has many roots
+            // so hundreds of roots spread out without flying off-screen
+            let rankNudge: number;
+            if (total > 50) {
+                // Large root set (focused surah): logarithmic spiral-like spacing
+                rankNudge = 20 + Math.log(rank + 1) * 40 + Math.sqrt(rank) * 3;
+            } else {
+                // Small root set (unfocused overview): linear spacing
+                rankNudge = Math.min(120, rank * 8 + Math.sqrt(rank) * 4);
+            }
+            const offset = 25 + ratio * 40 + rankNudge;
             offsets.set(node.data.id, offset);
         });
         return offsets;
-    }, [nodes, rootRankById]);
+    }, [nodes, rootRankById, rootCountBySurah]);
 
     const rootAngleOffsetById = useMemo(() => {
         const offsets = new Map<string, number>();
@@ -359,11 +371,21 @@ export default function CorpusArchitectureMap({
             const total = rootCountBySurah.get(parentId) ?? 1;
             const index = rootIndexById.get(node.data.id) ?? 0;
             const centered = index - (total - 1) / 2;
-            // Wider spread for more roots, compressed at higher counts
-            const step = focusSurahNodeId ? 4.0 : 2.5;
-            const spread = Math.min(80, total * step);
-            const baseOffset = centered * (spread / Math.max(1, total - 1));
-            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(3, 0.4 * Math.max(1, index));
+            // Adaptive angle spread:
+            // - For large root sets (focused surah with 100+ roots), use wider arc
+            // - Keep individual spread per-root smaller to avoid global overlap
+            let spread: number;
+            if (total > 100) {
+                // Very large: cover up to 160° of arc, with sub-linear growth
+                spread = Math.min(160, 60 + Math.sqrt(total) * 8);
+            } else if (total > 30) {
+                spread = Math.min(120, total * 2.5);
+            } else {
+                const step = focusSurahNodeId ? 4.0 : 2.5;
+                spread = Math.min(80, total * step);
+            }
+            const baseOffset = total > 1 ? centered * (spread / (total - 1)) : 0;
+            const forkNudge = (index % 2 === 0 ? 1 : -1) * Math.min(2, 0.3 * Math.max(1, index));
             offsets.set(node.data.id, baseOffset + forkNudge);
         });
         return offsets;

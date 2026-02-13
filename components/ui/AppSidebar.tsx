@@ -13,6 +13,7 @@ interface AppSidebarProps {
   onClearFocus: () => void;
   onTokenHover: (id: string | null) => void;
   onTokenFocus: (id: string | null) => void;
+  onRootSelect?: (root: string | null) => void;
 }
 
 export default function AppSidebar({
@@ -22,6 +23,7 @@ export default function AppSidebar({
   onClearFocus,
   onTokenHover,
   onTokenFocus,
+  onRootSelect,
 }: AppSidebarProps) {
   const [activeTab, setActiveTab] = useState<"inspector" | "search">("inspector");
 
@@ -55,6 +57,7 @@ export default function AppSidebar({
             tokens={allTokens}
             onTokenHover={onTokenHover}
             onTokenFocus={onTokenFocus}
+            onRootSelect={onRootSelect}
           />
         )}
       </div>

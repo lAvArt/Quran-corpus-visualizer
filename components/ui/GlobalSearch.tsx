@@ -8,6 +8,7 @@ interface GlobalSearchProps {
   tokens: CorpusToken[];
   onTokenSelect: (tokenId: string) => void;
   onTokenHover: (tokenId: string | null) => void;
+  onRootSelect?: (root: string | null) => void;
   theme: "light" | "dark";
 }
 
@@ -21,6 +22,7 @@ export default function GlobalSearch({
   tokens,
   onTokenSelect,
   onTokenHover,
+  onRootSelect,
   theme: _theme,
 }: GlobalSearchProps) {
   const t = useTranslations('GlobalSearch');
@@ -126,7 +128,11 @@ export default function GlobalSearch({
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter" && results[selectedIndex]) {
         e.preventDefault();
-        onTokenSelect(results[selectedIndex].token.id);
+        const r = results[selectedIndex];
+        onTokenSelect(r.token.id);
+        if (r.matchType === "root" && r.token.root && onRootSelect) {
+          onRootSelect(r.token.root);
+        }
         setIsOpen(false);
       } else if (e.key === "Escape") {
         setIsOpen(false);
@@ -200,6 +206,9 @@ export default function GlobalSearch({
               onMouseLeave={() => onTokenHover(null)}
               onClick={() => {
                 onTokenSelect(result.token.id);
+                if (result.matchType === "root" && result.token.root && onRootSelect) {
+                  onRootSelect(result.token.root);
+                }
                 setIsOpen(false);
               }}
             >

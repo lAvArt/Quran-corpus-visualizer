@@ -10,6 +10,7 @@ interface SemanticSearchPanelProps {
   tokens: CorpusToken[];
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
+  onRootSelect?: (root: string | null) => void;
   onSelectSurah?: (surahId: number) => void;
   scope?: { type: "global" } | { type: "surah"; surahId: number };
 }
@@ -18,6 +19,7 @@ export default function SemanticSearchPanel({
   tokens,
   onTokenHover,
   onTokenFocus,
+  onRootSelect,
   onSelectSurah,
   scope = { type: "global" },
 }: SemanticSearchPanelProps) {
@@ -138,6 +140,9 @@ export default function SemanticSearchPanel({
               onClick={() => {
                 if (scope.type === "global" && onSelectSurah) {
                   onSelectSurah(token.sura);
+                }
+                if (root && token.root && onRootSelect) {
+                  onRootSelect(token.root);
                 }
                 onTokenFocus(token.id);
               }}

@@ -238,6 +238,8 @@ function HomePageContent() {
             tokens={allTokens}
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
+            onRootSelect={handleRootSelect}
+            highlightRoot={selectedRoot}
             theme={theme}
             showLabels={true}
           />
@@ -335,6 +337,7 @@ function HomePageContent() {
             tokens={allTokens}
             onTokenSelect={handleTokenSelect}
             onTokenHover={setHoverTokenId}
+            onRootSelect={handleRootSelect}
             theme={theme}
           />
 
@@ -417,6 +420,7 @@ function HomePageContent() {
           }}
           onTokenHover={setHoverTokenId}
           onTokenFocus={setFocusedTokenId}
+          onRootSelect={handleRootSelect}
         />
       </div>
 

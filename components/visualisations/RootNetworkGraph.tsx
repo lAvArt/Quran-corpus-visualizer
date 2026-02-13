@@ -10,6 +10,8 @@ interface RootNetworkGraphProps {
   tokens: CorpusToken[];
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
+  onRootSelect?: (root: string | null) => void;
+  highlightRoot?: string | null;
   theme?: "light" | "dark";
   showLabels?: boolean;
 }
@@ -38,16 +40,20 @@ export default function RootNetworkGraph({
   tokens,
   onTokenHover,
   onTokenFocus,
+  onRootSelect,
+  highlightRoot,
   theme = "dark",
   showLabels = true,
 }: RootNetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
+  const gRef = useRef<SVGGElement>(null);
 
   const [dimensions, setDimensions] = useState({ width: 900, height: 650 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [rootLimit, setRootLimit] = useState(30);
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
@@ -79,10 +85,10 @@ export default function RootNetworkGraph({
       lemmaData.tokens.push(token);
     }
 
-    // Create nodes - limit to top roots for performance
+    // Create nodes - limit controlled by slider
     const sortedRoots = [...rootMap.entries()]
       .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 20);
+      .slice(0, rootLimit);
 
     const maxFreq = Math.max(...sortedRoots.map(([, d]) => d.count), 1);
     const nodesResult: NetworkNode[] = [];
@@ -133,7 +139,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [tokens, themeColors]);
+  }, [tokens, themeColors, rootLimit]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -213,6 +219,26 @@ export default function RootNetworkGraph({
     };
   }, [initialNodes, initialLinks, dimensions]);
 
+  // Set up zoom/pan behavior
+  useEffect(() => {
+    if (!svgRef.current || !gRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    const g = d3.select(gRef.current);
+
+    const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.2, 5])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform.toString());
+      });
+
+    svg.call(zoomBehavior);
+
+    return () => {
+      svg.on(".zoom", null);
+    };
+  }, [isMounted, dimensions]);
+
   const handleNodeHover = useCallback(
     (node: NetworkNode | null) => {
       setHoveredNode(node?.id ?? null);
@@ -235,10 +261,13 @@ export default function RootNetworkGraph({
     [selectedNode, onTokenFocus]
   );
 
-  // Check if a link is connected to hovered/selected node
+  // Derive the highlight node id from the highlightRoot prop
+  const highlightRootNodeId = highlightRoot ? `root-${highlightRoot}` : null;
+
+  // Check if a link is connected to hovered/selected/highlighted node
   const isLinkHighlighted = useCallback(
     (link: NetworkLink) => {
-      const highlightId = hoveredNode ?? selectedNode;
+      const highlightId = hoveredNode ?? selectedNode ?? highlightRootNodeId;
       if (!highlightId) return false;
 
       const sourceId = typeof link.source === "string" ? link.source : link.source.id;
@@ -246,7 +275,7 @@ export default function RootNetworkGraph({
 
       return sourceId === highlightId || targetId === highlightId;
     },
-    [hoveredNode, selectedNode]
+    [hoveredNode, selectedNode, highlightRootNodeId]
   );
 
   return (
@@ -263,6 +292,19 @@ export default function RootNetworkGraph({
             {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
             {initialLinks.length} connections
         </p>
+        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
+          <input
+            type="range"
+            min={5}
+            max={100}
+            step={5}
+            value={rootLimit}
+            onChange={(e) => setRootLimit(Number(e.target.value))}
+            style={{ width: 100, accentColor: 'var(--accent)' }}
+          />
+          <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 24, textAlign: 'right' }}>{rootLimit}</span>
+        </div>
       </div>
 
       <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
@@ -271,8 +313,9 @@ export default function RootNetworkGraph({
           ref={svgRef}
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
           className="network-graph viz-canvas"
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', cursor: 'grab' }}
         >
+          <g ref={gRef}>
           <defs>
             {/* Radial gradient for background glow */}
             <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
@@ -369,7 +412,8 @@ export default function RootNetworkGraph({
 
               const isHovered = hoveredNode === node.id;
               const isSelected = selectedNode === node.id;
-              const isHighlighted = isHovered || isSelected;
+              const isSearchHighlighted = highlightRootNodeId === node.id;
+              const isHighlighted = isHovered || isSelected || isSearchHighlighted;
               const isRoot = node.type === "root";
 
               return (
@@ -391,7 +435,12 @@ export default function RootNetworkGraph({
                   style={{ cursor: "pointer" }}
                   onMouseEnter={() => handleNodeHover(node)}
                   onMouseLeave={() => handleNodeHover(null)}
-                  onClick={() => handleNodeClick(node)}
+                  onClick={() => {
+                    handleNodeClick(node);
+                    if (node.type === "root" && onRootSelect) {
+                      onRootSelect(node.label);
+                    }
+                  }}
                 >
                   {/* Outer glow ring for highlighted root nodes */}
                   {isRoot && isHighlighted && (
@@ -456,6 +505,7 @@ export default function RootNetworkGraph({
                 </motion.g>
               );
             })}
+          </g>
           </g>
         </svg>
         )}
