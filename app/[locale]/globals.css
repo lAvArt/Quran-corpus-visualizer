@@ -1753,6 +1753,60 @@ button.site-footer-link {
   gap: 8px;
 }
 
+/* Generic viz zoom controls (shared across visualizations) */
+.viz-zoom-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.viz-zoom-btn,
+.viz-zoom-reset-btn {
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0 10px;
+  transition: all 0.18s;
+}
+
+.viz-zoom-btn {
+  width: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+}
+
+.viz-zoom-reset-btn {
+  flex: 1;
+  font-size: 0.75rem;
+}
+
+.viz-zoom-btn:hover,
+.viz-zoom-reset-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--accent, #fcb);
+}
+
+[data-theme="light"] .viz-zoom-btn,
+[data-theme="light"] .viz-zoom-reset-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: var(--ink);
+}
+
+[data-theme="light"] .viz-zoom-btn:hover,
+[data-theme="light"] .viz-zoom-reset-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: var(--accent);
+}
+
+/* Dependency-graph specific zoom controls */
 .dep-zoom-row {
   display: flex;
   gap: 8px;
@@ -2097,7 +2151,7 @@ button.site-footer-link {
    ============================================================================ */
 .dep-ayah-strip {
   position: absolute;
-  bottom: 0;
+  bottom: var(--footer-height, 42px);
   left: 0;
   right: 0;
   z-index: 10;

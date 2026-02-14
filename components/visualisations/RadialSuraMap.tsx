@@ -477,6 +477,38 @@ export default function RadialSuraMap({
 
 
           <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+            {/* Zoom controls */}
+            <div className="viz-left-panel">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts('zoom')}</span>
+                <span style={{ fontSize: '0.72em', opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}>{Math.round(zoomScale * 100)}%</span>
+              </div>
+              <div className="viz-zoom-row">
+                <button
+                  type="button"
+                  className="viz-zoom-btn"
+                  onClick={() => handleZoomStep(1.3)}
+                  aria-label={t('zoomIn')}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="viz-zoom-btn"
+                  onClick={() => handleZoomStep(0.75)}
+                  aria-label={t('zoomOut')}
+                >
+                  &minus;
+                </button>
+                <button type="button" className="viz-zoom-reset-btn" onClick={resetZoom}>
+                  {ts('reset')}
+                </button>
+              </div>
+              <span style={{ fontSize: '0.65em', opacity: 0.45, marginTop: 4, display: 'block' }}>
+                {t('dragPan')}
+              </span>
+            </div>
+
             {highlightRoot && (
               <div className="viz-left-panel">
                 <div className="viz-tooltip-title">{ts("selectedRoot")}</div>

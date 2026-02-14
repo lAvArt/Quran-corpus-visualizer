@@ -316,6 +316,9 @@
             "legendPrep": "Preposition",
             "legendRoot": "Root Connection",
             "legendBar": "Ayah Bar",
+            "zoomIn": "Zoom In",
+            "zoomOut": "Zoom Out",
+            "dragPan": "Drag to pan · scroll to zoom",
             "Help": {
                 "title": "Radial Surah Map",
                 "description": "A compact circular visualization of a single Surah's composition, plotting every Ayah (verse) and its constituent tokens.",
