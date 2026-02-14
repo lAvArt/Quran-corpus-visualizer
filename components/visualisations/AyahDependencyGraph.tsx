@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import * as d3 from "d3";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { getAyah } from "@/lib/corpus/corpusLoader";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
@@ -107,11 +108,23 @@ export default function AyahDependencyGraph({
   const [zoomScale, setZoomScale] = useState(1);
   const [dimensions, setDimensions] = useState({ width: 1200, height: 620 });
   const [isMounted, setIsMounted] = useState(false);
+  const [fullAyahText, setFullAyahText] = useState<string | null>(null);
   const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
 
   useEffect(() => {
     setActiveSurah(selectedSurahId);
   }, [selectedSurahId]);
+
+  // Fetch the real Uthmani ayah text (with tashkeel) from the API
+  useEffect(() => {
+    if (activeSurah && activeAyah) {
+      getAyah(activeSurah, activeAyah).then(record => {
+        setFullAyahText(record ? record.textUthmani : null);
+      });
+    } else {
+      setFullAyahText(null);
+    }
+  }, [activeSurah, activeAyah]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -428,9 +441,21 @@ export default function AyahDependencyGraph({
           </div>
         </div>
 
-        {data && (
-          <p className="dep-ayah-preview arabic-font" lang="ar">
-            {data.ayah.textUthmani}
+        {(fullAyahText || data) && (
+          <p
+            className="dep-ayah-preview arabic-font"
+            lang="ar"
+            style={{
+              fontSize: "1.4rem",
+              lineHeight: "1.6",
+              textAlign: "right",
+              direction: "rtl",
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: "0.75rem",
+              marginBottom: "0.75rem",
+            }}
+          >
+            {fullAyahText ?? data?.ayah.textUthmani}
           </p>
         )}
 
