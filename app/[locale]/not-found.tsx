@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
 export default function NotFound() {
   const t = useTranslations("NotFound");
@@ -11,9 +12,9 @@ export default function NotFound() {
         </div>
         <h1 className="notfound-title">{t("title")}</h1>
         <p className="notfound-message">{t("message")}</p>
-        <a href="/" className="notfound-btn">
+        <Link href="/" className="notfound-btn">
           {t("goHome")}
-        </a>
+        </Link>
       </div>
 
       <style>{`
