@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import MorphologyInspector from "@/components/inspectors/MorphologyInspector";
 import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
 import CorpusIndex from "@/components/ui/CorpusIndex";
@@ -33,31 +34,44 @@ export default function AppSidebar({
   selectedSurahId,
 }: AppSidebarProps) {
   const [activeTab, setActiveTab] = useState<"inspector" | "search" | "index">("inspector");
+  const t = useTranslations('AppSidebar');
 
   return (
-    <aside className="app-sidebar">
-      <div className="sidebar-tabs">
+    <aside className="app-sidebar" aria-label={t('label')}>
+      <div className="sidebar-tabs" role="tablist" aria-label={t('panelLabel')}>
         <button
           className={`sidebar-tab ${activeTab === "inspector" ? "active" : ""}`}
           onClick={() => setActiveTab("inspector")}
+          role="tab"
+          aria-selected={activeTab === "inspector"}
+          aria-controls="sidebar-tabpanel-inspector"
+          id="sidebar-tab-inspector"
         >
-          Inspector
+          {t('inspector')}
         </button>
         <button
           className={`sidebar-tab ${activeTab === "search" ? "active" : ""}`}
           onClick={() => setActiveTab("search")}
+          role="tab"
+          aria-selected={activeTab === "search"}
+          aria-controls="sidebar-tabpanel-search"
+          id="sidebar-tab-search"
         >
-          Search
+          {t('search')}
         </button>
         <button
           className={`sidebar-tab ${activeTab === "index" ? "active" : ""}`}
           onClick={() => setActiveTab("index")}
+          role="tab"
+          aria-selected={activeTab === "index"}
+          aria-controls="sidebar-tabpanel-index"
+          id="sidebar-tab-index"
         >
-          Index
+          {t('index')}
         </button>
       </div>
 
-      <div className="sidebar-content">
+      <div className="sidebar-content" role="tabpanel" id={`sidebar-tabpanel-${activeTab}`} aria-labelledby={`sidebar-tab-${activeTab}`}>
         {activeTab === "inspector" && (
           <MorphologyInspector
             token={inspectorToken}
@@ -129,6 +143,12 @@ export default function AppSidebar({
             color: var(--accent);
             border-bottom-color: var(--accent);
             font-weight: 600;
+        }
+
+        .sidebar-tab:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+            border-radius: 4px;
         }
 
         .sidebar-content {

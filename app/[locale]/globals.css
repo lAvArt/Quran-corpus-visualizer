@@ -230,6 +230,82 @@ button.site-footer-link {
   border-color: var(--accent);
 }
 
+/* ============================================================================
+   Accessible Dialog Close Button
+   ============================================================================ */
+
+.dialog-close-btn {
+  position: absolute;
+  top: 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: var(--ink-muted);
+  transition: color 0.2s ease, background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.dialog-close-btn:hover,
+.dialog-close-btn:focus-visible {
+  color: var(--ink);
+  background: var(--bg-2);
+  outline: none;
+}
+
+.dialog-close-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* VizExplainer close button variant */
+.dialog-close-btn--round {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.dialog-close-btn--round:hover,
+.dialog-close-btn--round:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink-secondary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dialog-close-btn--round:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Submit button hover/focus */
+.dialog-submit-btn:hover:not(:disabled),
+.dialog-submit-btn:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.dialog-submit-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Help icon button */
+.viz-help-btn:hover,
+.viz-help-btn:focus-visible {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.viz-help-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+  outline: none;
+}
+
 .page-shell {
   position: relative;
   max-width: 1060px;
@@ -1430,4 +1506,18 @@ button.site-footer-link {
   transform: translateX(-120%);
   opacity: 0;
   pointer-events: none;
+}
+
+/* ============================================================================
+   Reduced Motion: Disable or simplify animations for users who prefer it
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

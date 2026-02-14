@@ -9,6 +9,9 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "i18n:check": "node scripts/check-i18n.js",
     "i18n:pseudo": "node scripts/pseudo-localize.js",
     "fetch:morphology": "node scripts/fetch-morphology.js"
@@ -27,13 +30,18 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@next/eslint-plugin-next": "^16.1.6",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "22.10.5",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
     "eslint": "9.39.2",
     "eslint-config-next": "16.1.6",
     "globals": "^17.3.0",
+    "jsdom": "^28.0.0",
     "typescript": "5.7.2",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^4.0.18"
   }
 }

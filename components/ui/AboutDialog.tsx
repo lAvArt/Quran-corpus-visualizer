@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useTranslations, useLocale } from "next-intl";
 import { useEffect, useState } from "react";
+import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
 
 interface AboutDialogProps {
     isOpen: boolean;
@@ -15,12 +16,15 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
     const locale = useLocale();
     const isRtl = locale === 'ar';
     const [mounted, setMounted] = useState(false);
+    const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onClose);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
     if (!mounted || !isOpen) return null;
+
+    const titleId = "about-dialog-title";
 
     return createPortal(
         <AnimatePresence>
@@ -30,10 +34,15 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={onClose}
+                    onClick={handleOverlayClick}
                 >
                     <motion.div
                         className="dialog-panel"
+                        ref={dialogRef as React.Ref<HTMLDivElement>}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={titleId}
+                        tabIndex={-1}
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -45,28 +54,10 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                     >
                         <button
                             onClick={onClose}
+                            className="dialog-close-btn"
+                            aria-label={t("title") + " — close"}
                             style={{
-                                position: "absolute",
-                                top: "20px",
                                 [isRtl ? 'left' : 'right']: "20px",
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                padding: "8px",
-                                color: "var(--ink-muted)",
-                                transition: "color 0.2s ease, background 0.2s ease",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: "6px",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = "var(--ink)";
-                                e.currentTarget.style.background = "var(--bg-2)";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = "var(--ink-muted)";
-                                e.currentTarget.style.background = "transparent";
                             }}
                         >
                             <svg
@@ -78,13 +69,14 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                aria-hidden="true"
                             >
                                 <line x1="18" y1="6" x2="6" y2="18" />
                                 <line x1="6" y1="6" x2="18" y2="18" />
                             </svg>
                         </button>
 
-                        <h2 style={{
+                        <h2 id={titleId} style={{
                             margin: "0 0 16px 0",
                             fontSize: "1.5rem",
                             fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-display, serif)",

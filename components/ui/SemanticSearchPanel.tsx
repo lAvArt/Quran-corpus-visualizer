@@ -5,6 +5,7 @@ import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 interface SemanticSearchPanelProps {
   tokens: CorpusToken[];
@@ -29,6 +30,10 @@ export default function SemanticSearchPanel({
   const [ayah, setAyah] = useState("");
   const t = useTranslations('SemanticSearchPanel');
 
+  const debouncedRoot = useDebounce(root, 250);
+  const debouncedLemma = useDebounce(lemma, 250);
+  const debouncedAyah = useDebounce(ayah, 250);
+
   const scopedTokens = useMemo(() => {
     if (scope.type === "surah") {
       return tokens.filter((token) => token.sura === scope.surahId);
@@ -43,22 +48,22 @@ export default function SemanticSearchPanel({
   const index = useMemo(() => buildPhaseOneIndexes(scopedTokens), [scopedTokens]);
 
   const normalizedAyahQuery = useMemo(() => {
-    if (!ayah) return "";
-    if (scope.type === "surah" && !ayah.includes(":")) {
-      return `${scope.surahId}:${ayah}`;
+    if (!debouncedAyah) return "";
+    if (scope.type === "surah" && !debouncedAyah.includes(":")) {
+      return `${scope.surahId}:${debouncedAyah}`;
     }
-    return ayah;
-  }, [ayah, scope]);
+    return debouncedAyah;
+  }, [debouncedAyah, scope]);
 
   const results = useMemo(() => {
     const ids = queryPhaseOne(index, {
-      root: root || undefined,
-      lemma: lemma || undefined,
+      root: debouncedRoot || undefined,
+      lemma: debouncedLemma || undefined,
       pos: pos || undefined,
       ayah: normalizedAyahQuery || undefined
     });
     return [...ids].map((id) => tokenById.get(id)).filter((token): token is CorpusToken => !!token);
-  }, [index, lemma, pos, root, tokenById, normalizedAyahQuery]);
+  }, [index, debouncedLemma, pos, debouncedRoot, tokenById, normalizedAyahQuery]);
 
   const scopeLabel = useMemo(() => {
     if (scope.type === "surah") {
@@ -69,10 +74,10 @@ export default function SemanticSearchPanel({
 
   // Root info: when searching by root, compute aggregated stats
   const rootInfo = useMemo(() => {
-    if (!root.trim()) return null;
+    if (!debouncedRoot.trim()) return null;
 
     // Find all tokens with this exact root across the entire corpus
-    const matchingTokens = tokens.filter(tk => tk.root === root.trim());
+    const matchingTokens = tokens.filter(tk => tk.root === debouncedRoot.trim());
     if (matchingTokens.length === 0) return null;
 
     // Surah distribution

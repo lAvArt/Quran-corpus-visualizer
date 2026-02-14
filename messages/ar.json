@@ -1,4 +1,20 @@
 {
+    "Error": {
+        "title": "حدث خطأ ما",
+        "message": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى أو العودة إلى الصفحة الرئيسية.",
+        "tryAgain": "حاول مرة أخرى",
+        "goHome": "العودة للرئيسية",
+        "reference": "مرجع الخطأ"
+    },
+    "NotFound": {
+        "title": "الصفحة غير موجودة",
+        "message": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+        "goHome": "العودة للرئيسية"
+    },
+    "MobileNavMenu": {
+        "theme": "المظهر",
+        "language": "اللغة"
+    },
     "Footer": {
         "github": "جيت هب",
         "source": "المصدر",
@@ -42,7 +58,16 @@
     },
     "GlobalSearch": {
         "placeholder": "بحث عن جذور، كلمات، معاني...",
-        "noResults": "لم توجد نتائج"
+        "noResults": "لم توجد نتائج",
+        "matchRoot": "جذر: {root} ({count} مرة)",
+        "matchLemma": "ليما: {lemma}"
+    },
+    "AppSidebar": {
+        "inspector": "المفتش",
+        "search": "بحث",
+        "index": "فهرس",
+        "label": "الشريط الجانبي",
+        "panelLabel": "لوحات الشريط الجانبي"
     },
     "VisualizationSwitcher": {
         "select": "اختر",

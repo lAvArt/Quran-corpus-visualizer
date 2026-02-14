@@ -1,4 +1,20 @@
 {
+    "Error": {
+        "title": "Something went wrong",
+        "message": "An unexpected error occurred. Please try again or return to the home page.",
+        "tryAgain": "Try Again",
+        "goHome": "Go Home",
+        "reference": "Error reference"
+    },
+    "NotFound": {
+        "title": "Page not found",
+        "message": "The page you are looking for does not exist or has been moved.",
+        "goHome": "Go Home"
+    },
+    "MobileNavMenu": {
+        "theme": "Theme",
+        "language": "Language"
+    },
     "Footer": {
         "github": "GitHub",
         "source": "Source",
@@ -42,7 +58,16 @@
     },
     "GlobalSearch": {
         "placeholder": "Search roots, words, meanings...",
-        "noResults": "No results found"
+        "noResults": "No results found",
+        "matchRoot": "Root: {root} ({count} occurrences)",
+        "matchLemma": "Lemma: {lemma}"
+    },
+    "AppSidebar": {
+        "inspector": "Inspector",
+        "search": "Search",
+        "index": "Index",
+        "label": "Sidebar",
+        "panelLabel": "Sidebar panels"
     },
     "VisualizationSwitcher": {
         "select": "Select",
