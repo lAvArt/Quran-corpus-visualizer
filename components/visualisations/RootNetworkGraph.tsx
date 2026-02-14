@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
@@ -103,9 +104,10 @@ export default function RootNetworkGraph({
     const linksResult: NetworkLink[] = [];
     const includedLemmas = new Set<string>();
 
-    // Add root nodes
+    // Add root nodes — scale radius based on how many roots are shown
+    const scaleFactor = rootLimit <= 20 ? 1 : rootLimit <= 50 ? 0.7 : 0.45;
     for (const [root, data] of sortedRoots) {
-      const radius = 12 + (data.count / maxFreq) * 28;
+      const radius = (8 + (data.count / maxFreq) * 20) * scaleFactor;
       nodesResult.push({
         id: `root-${root}`,
         label: root,
@@ -125,7 +127,7 @@ export default function RootNetworkGraph({
       for (const { lemma, data: lemmaData } of rootLemmas) {
         if (!includedLemmas.has(lemma)) {
           includedLemmas.add(lemma);
-          const lemmaRadius = 6 + (lemmaData.count / maxFreq) * 14;
+          const lemmaRadius = (4 + (lemmaData.count / maxFreq) * 10) * scaleFactor;
           nodesResult.push({
             id: `lemma-${lemma}`,
             label: lemma,
@@ -185,6 +187,12 @@ export default function RootNetworkGraph({
     const centerX = dimensions.width / 2;
     const centerY = dimensions.height / 2;
 
+    // Scale forces based on node count for better layout
+    const nodeCount = initialNodes.length;
+    const spread = Math.sqrt(nodeCount) * 18;  // grows with node count
+    const rootRadius = Math.max(80, spread * 0.5);
+    const lemmaRadius = Math.max(150, spread * 0.9);
+
     // Clone nodes to avoid mutating original
     const nodesCopy = initialNodes.map((n) => ({ ...n }));
     const linksCopy = initialLinks.map((l) => ({ ...l }));
@@ -197,20 +205,20 @@ export default function RootNetworkGraph({
         d3
           .forceLink<NetworkNode, NetworkLink>(linksCopy)
           .id((d) => d.id)
-          .distance((d) => 35 + Math.min((d.weight ?? 1) * 2, 30))
-          .strength(0.7)
+          .distance((d) => 20 + Math.min((d.weight ?? 1) * 1.5, 20))
+          .strength(0.6)
       )
-      .force("charge", d3.forceManyBody().strength(-80).distanceMax(250))
+      .force("charge", d3.forceManyBody().strength(-50 - nodeCount * 0.3).distanceMax(spread * 1.5))
       .force("center", d3.forceCenter(centerX, centerY))
       .force(
         "collision",
-        d3.forceCollide<NetworkNode>().radius((d) => d.radius + 4)
+        d3.forceCollide<NetworkNode>().radius((d) => d.radius + 2)
       )
       .force("radial", d3.forceRadial<NetworkNode>(
-        (d) => d.type === "root" ? 80 : 150,
+        (d) => d.type === "root" ? rootRadius : lemmaRadius,
         centerX,
         centerY
-      ).strength(0.35));
+      ).strength(0.4));
 
     simulationRef.current = simulation;
 
@@ -576,40 +584,43 @@ export default function RootNetworkGraph({
         </AnimatePresence>
       </div>
 
-      <div className="viz-legend" style={{ position: 'fixed', bottom: 'calc(var(--footer-height, 2.5rem) + 4rem)', insetInlineStart: '1rem', zIndex: 35 }}>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{
-              background: themeColors.nodeColors.default,
-              width: 16,
-              height: 16,
-            }}
-          />
-          <span>Root (trilateral)</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-          />
-          <span>Noun lemma</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-          />
-          <span>Verb lemma</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{ background: themeColors.accent, width: 12, height: 12 }}
-          />
-          <span>Highlighted</span>
-        </div>
-      </div>
+      {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
+        <div className="viz-legend">
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{
+                background: themeColors.nodeColors.default,
+                width: 16,
+                height: 16,
+              }}
+            />
+            <span>Root (trilateral)</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+            />
+            <span>Noun lemma</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+            />
+            <span>Verb lemma</span>
+          </div>
+          <div className="viz-legend-item">
+            <div
+              className="viz-legend-dot"
+              style={{ background: themeColors.accent, width: 12, height: 12 }}
+            />
+            <span>Highlighted</span>
+          </div>
+        </div>,
+        document.getElementById('viz-sidebar-portal')!
+      )}
     </section>
   );
 }
