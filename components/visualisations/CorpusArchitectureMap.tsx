@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -318,6 +318,43 @@ export default function CorpusArchitectureMap({
         return count;
     }, [internalSelectedRoot, highlightRoot, surahRootData]);
 
+    // Root search state
+    const [rootSearchQuery, setRootSearchQuery] = useState("");
+    const deferredRootSearch = useDeferredValue(rootSearchQuery);
+
+    // Build sorted list of all roots with their global counts
+    const allRootsSorted = useMemo(() => {
+        return Array.from(rootGlobalStats.entries())
+            .map(([root, stats]) => ({ root, total: stats.total, gloss: stats.gloss }))
+            .sort((a, b) => b.total - a.total);
+    }, [rootGlobalStats]);
+
+    // Filter roots by search query
+    const filteredRoots = useMemo(() => {
+        if (!deferredRootSearch.trim()) return [];
+        const q = deferredRootSearch.trim();
+        return allRootsSorted
+            .filter(r => r.root.includes(q) || r.gloss.toLowerCase().includes(q.toLowerCase()))
+            .slice(0, 20);
+    }, [deferredRootSearch, allRootsSorted]);
+
+    const handleRootSearchSelect = useCallback((root: string) => {
+        setInternalSelectedRoot(prev => prev === root ? null : root);
+        // Populate root info
+        const globalStats = rootGlobalStats.get(root);
+        if (globalStats) {
+            setSelectedRootInfo({
+                root,
+                count: globalStats.total,
+                surahId: null,
+                surahName: null,
+                surahArabic: null,
+            });
+        }
+        onNodeSelect?.("root", root);
+        setRootSearchQuery("");
+    }, [rootGlobalStats, onNodeSelect]);
+
     // Corpus coverage stats: how much of the data is shown in the visualization  
     const corpusCoverage = useMemo(() => {
         const totalUniqueRoots = rootGlobalStats.size;
@@ -593,6 +630,58 @@ export default function CorpusArchitectureMap({
                                 )}
                             </AnimatePresence>
 
+                            {/* Root Search */}
+                            <div className="viz-left-panel">
+                                <div className="viz-root-search">
+                                    <span className="viz-root-search-label">{t("searchRoot")}</span>
+                                    <input
+                                        type="text"
+                                        className="viz-root-search-input"
+                                        placeholder={t("searchRootPlaceholder")}
+                                        value={rootSearchQuery}
+                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setRootSearchQuery(e.target.value)}
+                                        aria-label={t("searchRoot")}
+                                    />
+                                    {filteredRoots.length > 0 && (
+                                        <div className="viz-root-search-results" role="listbox" aria-label={t("searchRoot")}>
+                                            {filteredRoots.map(r => (
+                                                <button
+                                                    key={r.root}
+                                                    className={`viz-root-search-item ${internalSelectedRoot === r.root ? 'active' : ''}`}
+                                                    role="option"
+                                                    aria-selected={internalSelectedRoot === r.root}
+                                                    onClick={() => handleRootSearchSelect(r.root)}
+                                                >
+                                                    <span className="root-name">{r.root}</span>
+                                                    <span className="root-count">{r.total.toLocaleString(locale)}{r.gloss ? ` · ${r.gloss}` : ''}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {rootSearchQuery.trim() && filteredRoots.length === 0 && (
+                                        <span className="viz-root-search-hint">{t("noRootFound")}</span>
+                                    )}
+                                    {!rootSearchQuery.trim() && (
+                                        <span className="viz-root-search-hint">
+                                            {t("searchRootHint", { count: allRootsSorted.length })}
+                                        </span>
+                                    )}
+                                    {internalSelectedRoot && (
+                                        <button
+                                            className="viz-root-search-item active"
+                                            style={{ marginTop: 4 }}
+                                            onClick={() => {
+                                                setInternalSelectedRoot(null);
+                                                setSelectedRootInfo(null);
+                                            }}
+                                        >
+                                            <span className="root-name">{internalSelectedRoot}</span>
+                                            <span className="root-count">{ts("clear")}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="viz-legend" style={{ marginTop: 'auto' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', justifyContent: 'space-between' }}>
                                     <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
@@ -635,6 +724,7 @@ export default function CorpusArchitectureMap({
                         { label: t("Help.hierarchyLabel"), text: t("Help.hierarchyText") },
                         { label: t("Help.nodesLabel"), text: t("Help.nodesText") },
                         { label: t("Help.interactLabel"), text: t("Help.interactText") },
+                        { label: t("Help.tipsLabel"), text: t("Help.tipsText") },
                     ]
                 }}
             />
