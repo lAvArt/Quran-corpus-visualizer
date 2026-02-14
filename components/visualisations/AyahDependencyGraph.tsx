@@ -126,7 +126,7 @@ export default function AyahDependencyGraph({
       });
       // Fetch per-word Arabic text from Quran.com API
       const verseKey = `${activeSurah}:${activeAyah}`;
-      quranApi.getVerse(verseKey, { words: true }).then(verse => {
+      quranApi.getVerse(verseKey, { words: true, wordFields: ["text_uthmani"] }).then(verse => {
         const wordMap = new Map<number, QuranWord>();
         if (verse.words) {
           for (const w of verse.words) {
@@ -802,7 +802,7 @@ export default function AyahDependencyGraph({
                 }}
                 title={token.morphology?.gloss || token.root || ""}
               >
-                <span className="dep-ayah-word-text">{ayahWords.get(token.position)?.text ?? token.text}</span>
+                <span className="dep-ayah-word-text">{ayahWords.get(token.position)?.text_uthmani ?? ayahWords.get(token.position)?.text ?? token.text}</span>
                 <span className="dep-ayah-word-token">{token.text}</span>
                 <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || ayahWords.get(token.position)?.translation?.text || token.root || "-").slice(0, 18)}</span>
               </button>

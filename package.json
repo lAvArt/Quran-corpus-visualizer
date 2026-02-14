@@ -1,8 +1,33 @@
 {
   "name": "quran-corpus-visualizer",
   "version": "0.3.0",
+  "description": "Interactive exploration of Quranic linguistic structure and morphology through dynamic visualizations",
   "license": "GPL-3.0",
-  "private": true,
+  "private": false,
+  "homepage": "https://quran.pluragate.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lAvArt/Quran-corpus-visualizer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lAvArt/Quran-corpus-visualizer/issues"
+  },
+  "author": {
+    "name": "lAvArt",
+    "url": "https://github.com/lAvArt"
+  },
+  "keywords": [
+    "quran",
+    "corpus",
+    "visualization",
+    "arabic",
+    "linguistics",
+    "morphology",
+    "d3",
+    "nextjs",
+    "interactive",
+    "graph"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -33,7 +58,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "22.10.5",
+    "@types/node": "^22.12.0",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
     "eslint": "9.39.2",

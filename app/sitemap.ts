@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { routing } from '../i18n/routing';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-    const baseUrl = 'https://quran-corpus-visualizer.vercel.app';
+    const baseUrl = 'https://quran.pluragate.org';
 
     // Base routes for each locale
     const routes = routing.locales.map((locale) => ({

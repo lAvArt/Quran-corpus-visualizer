@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
             allow: '/',
             disallow: '/private/',
         },
-        sitemap: 'https://quran-corpus-visualizer.vercel.app/sitemap.xml',
+        sitemap: 'https://quran.pluragate.org/sitemap.xml',
     };
 }

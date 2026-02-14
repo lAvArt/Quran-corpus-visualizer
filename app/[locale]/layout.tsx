@@ -29,7 +29,7 @@ const amiri = Amiri({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://quran-corpus-visualizer.vercel.app'), // Replace with actual domain if different
+  metadataBase: new URL('https://quran.pluragate.org'),
   title: {
     default: "Quran Corpus Visualizer",
     template: "%s | Quran Corpus Visualizer"
@@ -53,16 +53,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://quran-corpus-visualizer.vercel.app",
+    url: "https://quran.pluragate.org",
     title: "Quran Corpus Visualizer",
     description: "Interactive exploration of Quranic linguistic structure and morphology.",
     siteName: "Quran Corpus Visualizer",
     images: [
       {
-        url: "/og-image.jpg", // Ensure this image exists in public/
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Quran Corpus Visualizer Preview",
+        alt: "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
       },
     ],
   },
@@ -70,7 +70,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Quran Corpus Visualizer",
     description: "Deep dive into Quranic linguistics with interactive visualizations.",
-    images: ["/og-image.jpg"], // Ensure this image exists in public/
+    images: ["/twitter-image"],
+    creator: "@pluragate",
   },
   alternates: {
     canonical: "/",

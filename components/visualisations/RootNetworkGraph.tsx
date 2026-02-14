@@ -83,7 +83,7 @@ export default function RootNetworkGraph({
     if (totalRoots > 0 && rootLimit > totalRoots) {
       setRootLimit(Math.max(5, Math.min(totalRoots, rootLimit)));
     }
-  }, [totalRoots]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [totalRoots, rootLimit]); // rootLimit intentionally only triggers when totalRoots changes
 
   // Build network data from tokens
   const { initialNodes, initialLinks } = useMemo(() => {

@@ -128,16 +128,29 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 ```text
 ├── app/                  # Next.js App Router pages and layouts
+│   ├── [locale]/         # Localized pages (en, ar)
+│   └── api/              # API routes (feedback)
 ├── components/
 │   ├── visualisations/   # D3.js visualization components
-│   ├── ui/               # Reusable UI elements (Sidebar, Search, etc.)
+│   ├── inspectors/       # Detailed data inspection panels
+│   └── ui/               # Reusable UI elements (Sidebar, Search, etc.)
 ├── lib/
 │   ├── corpus/           # Data loaders and types for Quranic data
 │   ├── data/             # Static data (Surah names, help text)
 │   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)
-├── public/               # Static assets
-└── ...
+│   ├── schema/           # TypeScript types and validation
+│   └── search/           # Search indexing and root flows
+├── messages/             # i18n translation files (en, ar)
+├── public/               # Static assets and corpus data
+├── scripts/              # Build/dev helper scripts
+└── docs/                 # Project documentation
 ```
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a Pull Request.
+
+See the [Roadmap](docs/ROADMAP.md) for planned features and priorities.
 
 ## Attribution & Data Sources
 
@@ -148,8 +161,22 @@ This project uses data and APIs from the **Quranic Arabic Corpus**, an open-sour
 
 We explicitly acknowledge and thank the original authors for their monumental work in digitizing and annotating the linguistic structure of the Quran.
 
+## Security
+
+Please see [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
 ## License
 
-This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** — see the [LICENSE](LICENSE) file for details.
 
 This ensures that this project and any derivatives remain free and open for the benefit of the community, consistent with the upstream corpus license.
+
+---
+
+<div align="center">
+
+**Built with reverence for the Quran and its linguistic heritage.**
+
+[Live Demo](https://quran.pluragate.org) · [Documentation](docs/) · [Report Issue](https://github.com/lAvArt/Quran-corpus-visualizer/issues)
+
+</div>
