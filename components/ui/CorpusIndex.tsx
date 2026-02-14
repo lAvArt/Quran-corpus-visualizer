@@ -103,12 +103,16 @@ export default function CorpusIndex({
 
     return (
         <div className={`corpus-index ${className}`}>
-            <div className="index-tabs">
+            <div className="index-tabs" role="tablist" aria-label="Index categories">
                 {(["surah", "root", "lemma"] as const).map((mode) => (
                     <button
                         key={mode}
                         className={`index-tab-btn ${activeTab === mode ? "active" : ""}`}
                         onClick={() => setActiveTab(mode)}
+                        role="tab"
+                        aria-selected={activeTab === mode}
+                        id={`index-tab-${mode}`}
+                        aria-controls="index-tabpanel"
                     >
                         {t(`tabs.${mode}`)}
                     </button>
@@ -125,9 +129,10 @@ export default function CorpusIndex({
                     placeholder={t('searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label={t('searchPlaceholder')}
                 />
             </div>
-            <div className="index-list custom-scrollbar">
+            <div className="index-list custom-scrollbar" role="tabpanel" id="index-tabpanel" aria-labelledby={`index-tab-${activeTab}`}>
                 {filteredItems.map((item) => (
                     <button
                         key={item.id}

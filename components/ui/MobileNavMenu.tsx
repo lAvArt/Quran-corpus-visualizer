@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import ThemeSwitcher from "./ThemeSwitcher";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 
 export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light" | "dark", onThemeChange: (t: "light" | "dark") => void }) {
     const { isMobileNavOpen, setMobileNavOpen } = useVizControl();
     const menuRef = useRef<HTMLDivElement>(null);
+    const t = useTranslations('MobileNavMenu');
 
     // Close when clicking outside
     useEffect(() => {
@@ -62,11 +64,11 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
                         transition={{ duration: 0.15 }}
                     >
                         <div className="mobile-menu-item">
-                            <span>Theme</span>
+                            <span>{t('theme')}</span>
                             <ThemeSwitcher theme={theme} onThemeChange={onThemeChange} />
                         </div>
                         <div className="mobile-menu-item">
-                            <span>Language</span>
+                            <span>{t('language')}</span>
                             <LanguageSwitcher />
                         </div>
                     </motion.div>

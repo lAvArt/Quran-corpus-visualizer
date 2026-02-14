@@ -1,6 +1,10 @@
+"use client";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useTranslations, useLocale } from "next-intl";
+import { useState, useEffect } from "react";
+import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
 
 export interface VizExplainerContent {
     title: string;
@@ -22,8 +26,16 @@ interface VizExplainerDialogProps {
 export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }: VizExplainerDialogProps) {
     const locale = useLocale();
     const isRtl = locale === 'ar';
+    const [mounted, setMounted] = useState(false);
+    const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onClose);
 
-    if (!isOpen || typeof document === "undefined") return null;
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted || !isOpen) return null;
+
+    const titleId = "viz-explainer-dialog-title";
 
     return createPortal(
         <AnimatePresence>
@@ -33,7 +45,7 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={onClose}
+                onClick={handleOverlayClick}
                 style={{
                     position: "fixed",
                     inset: 0,
@@ -48,6 +60,11 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
             >
                 <motion.div
                     className="viz-dialog-content panel"
+                    ref={dialogRef as React.Ref<HTMLDivElement>}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby={titleId}
+                    tabIndex={-1}
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -67,35 +84,15 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                         backdropFilter: "blur(20px)",
                         direction: isRtl ? "rtl" : "ltr",
                         textAlign: isRtl ? "right" : "left",
+                        outline: "none",
                     }}
                 >
                     <button
                         onClick={onClose}
+                        className="dialog-close-btn dialog-close-btn--round"
+                        aria-label="Close"
                         style={{
-                            position: "absolute",
-                            top: "20px",
                             [isRtl ? 'left' : 'right']: "20px",
-                            background: "rgba(255,255,255,0.03)",
-                            border: "1px solid var(--line)",
-                            borderRadius: "50%",
-                            width: "32px",
-                            height: "32px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "var(--ink-muted)",
-                            cursor: "pointer",
-                            transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.color = "var(--ink)";
-                            e.currentTarget.style.borderColor = "var(--ink-secondary)";
-                            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.color = "var(--ink-muted)";
-                            e.currentTarget.style.borderColor = "var(--line)";
-                            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
                         }}
                     >
                         <svg
@@ -107,13 +104,14 @@ export function VizExplainerDialog({ isOpen, onClose, content, theme = "dark" }:
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
+                            aria-hidden="true"
                         >
                             <line x1="18" y1="6" x2="6" y2="18" />
                             <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
 
-                    <h2 style={{
+                    <h2 id={titleId} style={{
                         margin: "0 0 8px 0",
                         fontSize: "1.75rem",
                         fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-display, serif)",
@@ -193,7 +191,6 @@ export function HelpIcon({ onClick }: { onClick: () => void }) {
             aria-label={t('helpLabel')}
             style={{
                 background: "rgba(255,255,255,0.05)",
-                // ...
                 border: "1px solid var(--line)",
                 borderRadius: "50%",
                 width: "24px",
@@ -205,16 +202,6 @@ export function HelpIcon({ onClick }: { onClick: () => void }) {
                 color: "var(--ink-muted)",
                 transition: "all 0.2s ease",
                 marginLeft: "auto",
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--accent)";
-                e.currentTarget.style.color = "#fff";
-                e.currentTarget.style.borderColor = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                e.currentTarget.style.color = "var(--ink-muted)";
-                e.currentTarget.style.borderColor = "var(--line)";
             }}
         >
             <svg

@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useMemo, useState, useCallback, useEffect } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect, useDeferredValue, type ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
@@ -73,6 +73,7 @@ export default function ArcFlowDiagram({
 }: ArcFlowDiagramProps) {
   const t = useTranslations("Visualizations.ArcFlow");
   const ts = useTranslations("Visualizations.Shared");
+  const locale = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -87,6 +88,9 @@ export default function ArcFlowDiagram({
   const [isMounted, setIsMounted] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
+  const [rootSearchQuery, setRootSearchQuery] = useState("");
+  const deferredRootSearch = useDeferredValue(rootSearchQuery);
+  const [internalSelectedRoot, setInternalSelectedRoot] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedSurahId && selectedAyah) {
@@ -172,6 +176,33 @@ export default function ArcFlowDiagram({
     if (!selectedSurahId) return tokens;
     return tokens.filter((token) => token.sura === selectedSurahId);
   }, [tokens, selectedSurahId]);
+
+  // All available roots with counts for root search
+  const allRootsSorted = useMemo(() => {
+    const rootMap = new Map<string, { total: number; gloss: string }>();
+    scopedTokens.forEach(t => {
+      if (!t.root) return;
+      if (!rootMap.has(t.root)) {
+        rootMap.set(t.root, { total: 0, gloss: t.morphology?.gloss ?? "" });
+      }
+      const entry = rootMap.get(t.root)!;
+      entry.total++;
+    });
+    return Array.from(rootMap.entries())
+      .map(([root, stats]) => ({ root, total: stats.total, gloss: stats.gloss }))
+      .sort((a, b) => b.total - a.total);
+  }, [scopedTokens]);
+
+  const filteredRoots = useMemo(() => {
+    if (!deferredRootSearch.trim()) return [];
+    const q = deferredRootSearch.trim();
+    return allRootsSorted
+      .filter(r => r.root.includes(q) || r.gloss.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 20);
+  }, [deferredRootSearch, allRootsSorted]);
+
+  // The effective root for highlighting: user search selection OR prop
+  const effectiveSelectedRoot = internalSelectedRoot || selectedRoot;
 
   const hasContextSelection = Boolean(selectedAyah || selectedRoot || selectedLemma);
 
@@ -293,12 +324,12 @@ export default function ArcFlowDiagram({
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, maxGroups);
 
-    if (activeGroupBy === "root" && selectedRoot && groups.has(selectedRoot)) {
-      const isIncluded = sortedGroups.some(([key]) => key === selectedRoot);
+    if (activeGroupBy === "root" && effectiveSelectedRoot && groups.has(effectiveSelectedRoot)) {
+      const isIncluded = sortedGroups.some(([key]) => key === effectiveSelectedRoot);
       if (!isIncluded) {
         const selectedEntry: [string, (typeof sortedGroups)[number][1]] = [
-          selectedRoot,
-          groups.get(selectedRoot)!,
+          effectiveSelectedRoot,
+          groups.get(effectiveSelectedRoot)!,
         ];
         sortedGroups = [...sortedGroups.slice(0, Math.max(maxGroups - 1, 0)), selectedEntry]
           .sort((a, b) => b[1].count - a[1].count);
@@ -505,6 +536,7 @@ export default function ArcFlowDiagram({
     themeColors.accent,
     themeColors.accentSecondary,
     selectedRoot,
+    effectiveSelectedRoot,
     selectedAyah,
     selectedSurahId,
     hasContextSelection,
@@ -684,6 +716,60 @@ export default function ArcFlowDiagram({
         </div>
       </div>
 
+      {/* Root Search - only in root mode */}
+      {activeGroupBy === "root" && (
+        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
+          <div className="viz-root-search">
+            <span className="viz-root-search-label">{t("searchRoot")}</span>
+            <input
+              type="text"
+              className="viz-root-search-input"
+              placeholder={t("searchRootPlaceholder")}
+              value={rootSearchQuery}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setRootSearchQuery(e.target.value)}
+              aria-label={t("searchRoot")}
+            />
+            {filteredRoots.length > 0 && (
+              <div className="viz-root-search-results" role="listbox" aria-label={t("searchRoot")}>
+                {filteredRoots.map(r => (
+                  <button
+                    key={r.root}
+                    className={`viz-root-search-item ${internalSelectedRoot === r.root ? 'active' : ''}`}
+                    role="option"
+                    aria-selected={internalSelectedRoot === r.root}
+                    onClick={() => {
+                      setInternalSelectedRoot(prev => prev === r.root ? null : r.root);
+                      setRootSearchQuery("");
+                    }}
+                  >
+                    <span className="root-name">{r.root}</span>
+                    <span className="root-count">{r.total.toLocaleString(locale)}{r.gloss ? ` · ${r.gloss}` : ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {rootSearchQuery.trim() && filteredRoots.length === 0 && (
+              <span className="viz-root-search-hint">{t("noRootFound")}</span>
+            )}
+            {!rootSearchQuery.trim() && (
+              <span className="viz-root-search-hint">
+                {t("searchRootHint", { count: allRootsSorted.length })}
+              </span>
+            )}
+            {internalSelectedRoot && (
+              <button
+                className="viz-root-search-item active"
+                style={{ marginTop: 4 }}
+                onClick={() => setInternalSelectedRoot(null)}
+              >
+                <span className="root-name">{internalSelectedRoot}</span>
+                <span className="root-count">{ts("clear")}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
         <div className="viz-tooltip-title" style={{ fontSize: "0.92rem" }}>{t("linkedSelection")}</div>
         {selectedSummary.length > 0 ? (
@@ -793,6 +879,7 @@ export default function ArcFlowDiagram({
             { label: t("Help.rootLabel"), text: t("Help.rootText") },
             { label: t("Help.posLabel"), text: t("Help.posText") },
             { label: t("Help.ayahLabel"), text: t("Help.ayahText") },
+            { label: t("Help.tipsLabel"), text: t("Help.tipsText") },
           ]
         }}
         theme={theme}

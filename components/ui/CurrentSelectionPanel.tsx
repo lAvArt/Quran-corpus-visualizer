@@ -55,11 +55,13 @@ export default function CurrentSelectionPanel({
   }, [allTokens, selectedSurahId, selectedAyah]);
 
   return (
-    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`}>
-      <div
+    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`} aria-label={t('title')}>
+      <button
         className="panel-header"
         onClick={() => setIsCollapsed(!isCollapsed)}
-        style={{ cursor: 'pointer' }}
+        aria-expanded={!isCollapsed}
+        aria-controls="current-selection-content"
+        type="button"
       >
         <p className="eyebrow panel-title" style={{ margin: 0 }}>{t('title')}</p>
         <div className="panel-toggle-icon" style={{ transition: 'opacity 0.2s', opacity: 0.6 }}>
@@ -67,10 +69,10 @@ export default function CurrentSelectionPanel({
             <polyline points={isCollapsed ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}></polyline>
           </svg>
         </div>
-      </div>
+      </button>
 
       {!isCollapsed && (
-        <div className="panel-content">
+        <div className="panel-content" id="current-selection-content">
           <div className="selection-grid">
             <div className="selection-row">
               <span className="selection-label">{t('labels.view')}</span>
@@ -139,8 +141,21 @@ export default function CurrentSelectionPanel({
             justify-content: space-between;
             padding-bottom: 8px;
             margin-bottom: 4px;
+            border: none;
             border-bottom: 1px solid transparent;
+            background: transparent;
+            width: 100%;
+            cursor: pointer;
+            font: inherit;
+            color: inherit;
+            text-align: inherit;
             transition: border-bottom-color 0.2s;
+        }
+
+        .panel-header:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
         }
 
         :global(:root[dir="rtl"]) .panel-header {

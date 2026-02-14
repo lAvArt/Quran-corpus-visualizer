@@ -57,7 +57,12 @@ export default function RadialSuraMap({
   const t = useTranslations("Visualizations.RadialSura");
   const ts = useTranslations("Visualizations.Shared");
   const containerRef = useRef<HTMLDivElement>(null);
-  const { svgRef, gRef } = useZoom<SVGSVGElement>();
+  const [zoomScale, setZoomScale] = useState(1);
+  const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
+    minScale: 0.3,
+    maxScale: 6,
+    onZoom: (transform) => setZoomScale(transform.k),
+  });
   const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
@@ -402,6 +407,24 @@ export default function RadialSuraMap({
     setSelectedConnection(connection);
     if (onRootSelect) onRootSelect(connection.root);
   };
+
+  const handleZoomStep = useCallback((factor: number) => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const zoom = d3.zoomTransform(svgRef.current);
+    svg.transition().duration(200).call(
+      d3.zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.3, 6])
+        .on("zoom", (event) => {
+          if (gRef.current) {
+            d3.select(gRef.current).attr("transform", event.transform);
+            setZoomScale(event.transform.k);
+          }
+        })
+        .scaleTo,
+      zoom.k * factor
+    );
+  }, [svgRef, gRef]);
 
   return (
     <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>

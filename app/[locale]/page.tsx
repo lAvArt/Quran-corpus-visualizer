@@ -1,20 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useMemo, useState, useEffect, useCallback } from "react";
-import RadialSuraMap from "@/components/visualisations/RadialSuraMap";
-import RootNetworkGraph from "@/components/visualisations/RootNetworkGraph";
-import SurahDistributionGraph from "@/components/visualisations/SurahDistributionGraph";
-import ArcFlowDiagram from "@/components/visualisations/ArcFlowDiagram";
-import AyahDependencyGraph from "@/components/visualisations/AyahDependencyGraph";
-import RootFlowSankey from "@/components/visualisations/RootFlowSankey";
-import CorpusArchitectureMap from "@/components/visualisations/CorpusArchitectureMap";
+import { useMemo, useState, useEffect, useCallback, lazy, Suspense } from "react";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
+import { VizErrorBoundary } from "@/components/ErrorBoundary";
 import { sampleAyahDependency } from "@/lib/corpus/sampleAyahDependency";
 import { getSampleData, loadFullCorpus, type LoadingProgress } from "@/lib/corpus/corpusLoader";
 import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
@@ -25,7 +19,27 @@ import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 
+// Lazy-load heavy visualization components for better initial bundle size
+const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
+const RootNetworkGraph = lazy(() => import("@/components/visualisations/RootNetworkGraph"));
+const SurahDistributionGraph = lazy(() => import("@/components/visualisations/SurahDistributionGraph"));
+const ArcFlowDiagram = lazy(() => import("@/components/visualisations/ArcFlowDiagram"));
+const AyahDependencyGraph = lazy(() => import("@/components/visualisations/AyahDependencyGraph"));
+const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSankey"));
+const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
+
 const STORAGE_KEY = "quran-corpus-viz-state";
+
+function VizFallback() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", minHeight: 200 }}>
+      <div style={{ textAlign: "center", color: "var(--ink-muted)" }}>
+        <div style={{ width: 32, height: 32, border: "3px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 0.5rem" }} />
+        <span style={{ fontSize: "0.85rem" }}>Loading visualization...</span>
+      </div>
+    </div>
+  );
+}
 
 function HomePageContent() {
   const t = useTranslations('Index');
@@ -216,105 +230,115 @@ function HomePageContent() {
 
   // Render the active visualization
   const renderVisualization = () => {
-    switch (vizMode) {
-      case "radial-sura":
-        return (
-          <RadialSuraMap
-            tokens={allTokens}
-            suraId={selectedSurahId}
-            suraName={SURAH_NAMES[selectedSurahId]?.name || `Surah ${selectedSurahId}`}
-            suraNameArabic={SURAH_NAMES[selectedSurahId]?.arabic || ""}
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            onRootSelect={handleRootSelect}
-            highlightRoot={selectedRoot}
-            theme={theme}
-          />
-        );
+    const vizContent = (() => {
+      switch (vizMode) {
+        case "radial-sura":
+          return (
+            <RadialSuraMap
+              tokens={allTokens}
+              suraId={selectedSurahId}
+              suraName={SURAH_NAMES[selectedSurahId]?.name || `Surah ${selectedSurahId}`}
+              suraNameArabic={SURAH_NAMES[selectedSurahId]?.arabic || ""}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              onRootSelect={handleRootSelect}
+              highlightRoot={selectedRoot}
+              theme={theme}
+            />
+          );
 
-      case "root-network":
-        return (
-          <RootNetworkGraph
-            tokens={allTokens}
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            onRootSelect={handleRootSelect}
-            highlightRoot={selectedRoot}
-            selectedSurahId={selectedSurahId}
-            theme={theme}
-            showLabels={true}
-          />
-        );
+        case "root-network":
+          return (
+            <RootNetworkGraph
+              tokens={allTokens}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              onRootSelect={handleRootSelect}
+              highlightRoot={selectedRoot}
+              selectedSurahId={selectedSurahId}
+              theme={theme}
+              showLabels={true}
+            />
+          );
 
-      case "surah-distribution":
-        return (
-          <SurahDistributionGraph
-            tokens={allTokens}
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            onSurahSelect={(suraId) => handleSurahSelect(suraId, "radial-sura")}
-            highlightRoot={selectedRoot}
-            theme={theme}
-          />
-        );
+        case "surah-distribution":
+          return (
+            <SurahDistributionGraph
+              tokens={allTokens}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              onSurahSelect={(suraId) => handleSurahSelect(suraId, "radial-sura")}
+              highlightRoot={selectedRoot}
+              theme={theme}
+            />
+          );
 
-      case "corpus-architecture":
-        return (
-          <CorpusArchitectureMap
-            tokens={allTokens}
-            selectedSurahId={selectedSurahId}
-            highlightRoot={selectedRoot}
-            onNodeSelect={(type, id) => {
-              if (type === "surah") setSelectedSurahId(id as number);
-              if (type === "root") handleRootSelect(id as string);
-            }}
-            theme={theme}
-          />
-        );
+        case "corpus-architecture":
+          return (
+            <CorpusArchitectureMap
+              tokens={allTokens}
+              selectedSurahId={selectedSurahId}
+              highlightRoot={selectedRoot}
+              onNodeSelect={(type, id) => {
+                if (type === "surah") setSelectedSurahId(id as number);
+                if (type === "root") handleRootSelect(id as string);
+              }}
+              theme={theme}
+            />
+          );
 
-      case "arc-flow":
-        return (
-          <ArcFlowDiagram
-            tokens={allTokens}
-            groupBy="root"
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            selectedSurahId={selectedSurahId}
-            selectedAyah={selectedAyahInSurah}
-            selectedRoot={selectedRootValue}
-            selectedLemma={selectedLemmaValue}
-            theme={theme}
-          />
-        );
+        case "arc-flow":
+          return (
+            <ArcFlowDiagram
+              tokens={allTokens}
+              groupBy="root"
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              selectedSurahId={selectedSurahId}
+              selectedAyah={selectedAyahInSurah}
+              selectedRoot={selectedRootValue}
+              selectedLemma={selectedLemmaValue}
+              theme={theme}
+            />
+          );
 
-      case "dependency-tree":
-        return (
-          <AyahDependencyGraph
-            tokens={allTokens}
-            selectedSurahId={selectedSurahId}
-            selectedAyah={selectedAyahInSurah}
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            onSurahChange={setSelectedSurahId}
-            theme={theme}
-          />
-        );
+        case "dependency-tree":
+          return (
+            <AyahDependencyGraph
+              tokens={allTokens}
+              selectedSurahId={selectedSurahId}
+              selectedAyah={selectedAyahInSurah}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              onSurahChange={setSelectedSurahId}
+              theme={theme}
+            />
+          );
 
-      case "sankey-flow":
-        return (
-          <RootFlowSankey
-            flows={flows}
-            roots={roots}
-            tokenById={tokenById}
-            onTokenHover={setHoverTokenId}
-            onTokenFocus={setFocusedTokenId}
-            selectedSurahId={selectedSurahId}
-          />
-        );
+        case "sankey-flow":
+          return (
+            <RootFlowSankey
+              flows={flows}
+              roots={roots}
+              tokenById={tokenById}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              selectedSurahId={selectedSurahId}
+            />
+          );
 
-      default:
-        return null;
-    }
+        default:
+          return null;
+      }
+    })();
+
+    return (
+      <VizErrorBoundary name={vizMode}>
+        <Suspense fallback={<VizFallback />}>
+          {vizContent}
+        </Suspense>
+      </VizErrorBoundary>
+    );
   };
 
   return (
@@ -339,7 +363,6 @@ function HomePageContent() {
             onTokenSelect={handleTokenSelect}
             onTokenHover={setHoverTokenId}
             onRootSelect={handleRootSelect}
-            theme={theme}
           />
 
           <div className="header-controls">

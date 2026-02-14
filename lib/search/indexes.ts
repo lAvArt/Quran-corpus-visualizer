@@ -54,8 +54,9 @@ export function queryPhaseOne(index: PhaseOneIndexes, query: {
   const result = new Set(first);
 
   for (const bucket of rest) {
-    for (const tokenId of [...result]) {
-      if (!bucket.includes(tokenId)) result.delete(tokenId);
+    const bucketSet = new Set(bucket);
+    for (const tokenId of result) {
+      if (!bucketSet.has(tokenId)) result.delete(tokenId);
     }
   }
 

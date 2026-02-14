@@ -3,13 +3,13 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import type { CorpusToken } from "@/lib/schema/types";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 interface GlobalSearchProps {
   tokens: CorpusToken[];
   onTokenSelect: (tokenId: string) => void;
   onTokenHover: (tokenId: string | null) => void;
   onRootSelect?: (root: string | null) => void;
-  theme: "light" | "dark";
 }
 
 interface SearchResult {
@@ -23,10 +23,10 @@ export default function GlobalSearch({
   onTokenSelect,
   onTokenHover,
   onRootSelect,
-  theme: _theme,
 }: GlobalSearchProps) {
   const t = useTranslations('GlobalSearch');
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 200);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,9 +53,9 @@ export default function GlobalSearch({
 
   // Search function
   const results = useMemo<SearchResult[]>(() => {
-    if (!query.trim() || query.length < 2) return [];
+    if (!debouncedQuery.trim() || debouncedQuery.length < 2) return [];
 
-    const q = query.toLowerCase().trim();
+    const q = debouncedQuery.toLowerCase().trim();
     const matches: SearchResult[] = [];
     const seen = new Set<string>();
 
@@ -68,7 +68,7 @@ export default function GlobalSearch({
           matches.push({
             token,
             matchType: "root",
-            matchText: `Root: ${root} (${rootTokens.length} occurrences)`,
+            matchText: t('matchRoot', { root, count: rootTokens.length }),
           });
         }
       }
@@ -83,7 +83,7 @@ export default function GlobalSearch({
           matches.push({
             token,
             matchType: "lemma",
-            matchText: `Lemma: ${lemma}`,
+            matchText: t('matchLemma', { lemma }),
           });
         }
       }
@@ -115,7 +115,7 @@ export default function GlobalSearch({
     }
 
     return matches.slice(0, 20);
-  }, [query, tokens, byRoot, byLemma]);
+  }, [debouncedQuery, tokens, byRoot, byLemma, t]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -178,10 +178,17 @@ export default function GlobalSearch({
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           onKeyDown={handleKeyDown}
+          role="combobox"
+          aria-expanded={isOpen && results.length > 0}
+          aria-controls="global-search-results"
+          aria-activedescendant={isOpen && results.length > 0 ? `search-result-${selectedIndex}` : undefined}
+          aria-autocomplete="list"
+          aria-label={t('placeholder')}
         />
         {query && (
           <button
             className="search-clear"
+            aria-label="Clear search"
             onClick={(e) => {
               e.stopPropagation();
               setQuery("");
@@ -194,10 +201,13 @@ export default function GlobalSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div ref={resultsRef} className="search-results-dropdown">
+        <div ref={resultsRef} className="search-results-dropdown" id="global-search-results" role="listbox" aria-label="Search results">
           {results.map((result, index) => (
             <button
               key={result.token.id}
+              id={`search-result-${index}`}
+              role="option"
+              aria-selected={index === selectedIndex}
               className={`search-result-item ${index === selectedIndex ? "selected" : ""}`}
               onMouseEnter={() => {
                 setSelectedIndex(index);

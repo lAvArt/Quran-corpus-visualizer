@@ -3,7 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useTranslations, useLocale } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
 
 interface FeedbackDialogProps {
     isOpen: boolean;
@@ -16,10 +17,23 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
     const isRtl = locale === 'ar';
     const [mounted, setMounted] = useState(false);
     const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onClose);
+    const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    // Reset status when dialog closes
+    useEffect(() => {
+        if (!isOpen) {
+            setStatus("idle");
+            if (autoCloseTimer.current) {
+                clearTimeout(autoCloseTimer.current);
+                autoCloseTimer.current = null;
+            }
+        }
+    }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -41,19 +55,20 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
 
             if (response.ok) {
                 setStatus("success");
-                setTimeout(() => {
+                autoCloseTimer.current = setTimeout(() => {
                     onClose();
-                    setStatus("idle");
                 }, 2000);
             } else {
                 setStatus("error");
             }
-        } catch (error) {
+        } catch {
             setStatus("error");
         }
     };
 
     if (!mounted || !isOpen) return null;
+
+    const titleId = "feedback-dialog-title";
 
     return createPortal(
         <AnimatePresence>
@@ -63,10 +78,15 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={onClose}
+                    onClick={handleOverlayClick}
                 >
                     <motion.div
                         className="dialog-panel"
+                        ref={dialogRef as React.Ref<HTMLDivElement>}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={titleId}
+                        tabIndex={-1}
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -78,28 +98,10 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                     >
                         <button
                             onClick={onClose}
+                            className="dialog-close-btn"
+                            aria-label={t("title") + " — close"}
                             style={{
-                                position: "absolute",
-                                top: "20px",
                                 [isRtl ? 'left' : 'right']: "20px",
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                padding: "8px",
-                                color: "var(--ink-muted)",
-                                transition: "color 0.2s ease",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: "6px",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = "var(--ink)";
-                                e.currentTarget.style.background = "var(--bg-2)";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = "var(--ink-muted)";
-                                e.currentTarget.style.background = "transparent";
                             }}
                         >
                             <svg
@@ -111,13 +113,14 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                aria-hidden="true"
                             >
                                 <line x1="18" y1="6" x2="6" y2="18" />
                                 <line x1="6" y1="6" x2="18" y2="18" />
                             </svg>
                         </button>
 
-                        <h2 style={{
+                        <h2 id={titleId} style={{
                             margin: "0 0 24px 0",
                             fontSize: "1.5rem",
                             fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-display, serif)",
@@ -127,7 +130,7 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                         </h2>
 
                         {status === "success" ? (
-                            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--accent)" }}>
+                            <div role="status" style={{ textAlign: "center", padding: "40px 0", color: "var(--accent)" }}>
                                 <svg
                                     width="48"
                                     height="48"
@@ -138,6 +141,7 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     style={{ margin: "0 auto 16px" }}
+                                    aria-hidden="true"
                                 >
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                                     <polyline points="22 4 12 14.01 9 11.01" />
@@ -147,35 +151,35 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                         ) : (
                             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                                 <div>
-                                    <label htmlFor="name" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                                    <label htmlFor="feedback-name" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
                                         {t("nameLabel")}
                                     </label>
                                     <input
                                         type="text"
-                                        id="name"
+                                        id="feedback-name"
                                         name="name"
                                         className="dialog-input"
                                     />
                                 </div>
 
                                 <div>
-                                    <label htmlFor="email" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                                    <label htmlFor="feedback-email" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
                                         {t("emailLabel")}
                                     </label>
                                     <input
                                         type="email"
-                                        id="email"
+                                        id="feedback-email"
                                         name="email"
                                         className="dialog-input"
                                     />
                                 </div>
 
                                 <div>
-                                    <label htmlFor="message" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
+                                    <label htmlFor="feedback-message" style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "var(--ink-secondary)" }}>
                                         {t("messageLabel")}
                                     </label>
                                     <textarea
-                                        id="message"
+                                        id="feedback-message"
                                         name="message"
                                         required
                                         rows={4}
@@ -185,7 +189,7 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                                 </div>
 
                                 {status === "error" && (
-                                    <p style={{ 
+                                    <p role="alert" style={{ 
                                         color: "#ef4444", 
                                         fontSize: "0.9rem", 
                                         margin: 0,
@@ -199,6 +203,7 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                                 <button
                                     type="submit"
                                     disabled={status === "loading"}
+                                    className="dialog-submit-btn"
                                     style={{
                                         marginTop: "8px",
                                         padding: "14px",
@@ -212,16 +217,6 @@ export function FeedbackDialog({ isOpen, onClose }: FeedbackDialogProps) {
                                         opacity: status === "loading" ? 0.7 : 1,
                                         transition: "transform 0.2s ease, box-shadow 0.2s ease",
                                         boxShadow: "0 2px 8px var(--accent-glow)",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (status !== "loading") {
-                                            e.currentTarget.style.transform = "translateY(-1px)";
-                                            e.currentTarget.style.boxShadow = "0 4px 12px var(--accent-glow)";
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = "translateY(0)";
-                                        e.currentTarget.style.boxShadow = "0 2px 8px var(--accent-glow)";
                                     }}
                                 >
                                     {status === "loading" ? t("sending") : t("send")}
