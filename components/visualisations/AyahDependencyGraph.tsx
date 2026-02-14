@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import * as d3 from "d3";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { getAyah } from "@/lib/corpus/corpusLoader";
+import { quranApi, type QuranWord } from "@/lib/api/quranApi";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
@@ -109,20 +110,38 @@ export default function AyahDependencyGraph({
   const [dimensions, setDimensions] = useState({ width: 1200, height: 620 });
   const [isMounted, setIsMounted] = useState(false);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
+  const [ayahWords, setAyahWords] = useState<Map<number, QuranWord>>(new Map());
   const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
 
   useEffect(() => {
     setActiveSurah(selectedSurahId);
   }, [selectedSurahId]);
 
-  // Fetch the real Uthmani ayah text (with tashkeel) from the API
+  // Fetch the real Uthmani ayah text (with tashkeel) and per-word Arabic from the API
   useEffect(() => {
     if (activeSurah && activeAyah) {
+      // Fetch full ayah text from corpus loader
       getAyah(activeSurah, activeAyah).then(record => {
         setFullAyahText(record ? record.textUthmani : null);
       });
+      // Fetch per-word Arabic text from Quran.com API
+      const verseKey = `${activeSurah}:${activeAyah}`;
+      quranApi.getVerse(verseKey, { words: true }).then(verse => {
+        const wordMap = new Map<number, QuranWord>();
+        if (verse.words) {
+          for (const w of verse.words) {
+            if (w.char_type_name === "word") {
+              wordMap.set(w.position, w);
+            }
+          }
+        }
+        setAyahWords(wordMap);
+      }).catch(() => {
+        setAyahWords(new Map());
+      });
     } else {
       setFullAyahText(null);
+      setAyahWords(new Map());
     }
   }, [activeSurah, activeAyah]);
 
@@ -783,8 +802,8 @@ export default function AyahDependencyGraph({
                 }}
                 title={token.morphology?.gloss || token.root || ""}
               >
-                <span className="dep-ayah-word-text">{token.text}</span>
-                <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || token.root || "-").slice(0, 15)}</span>
+                <span className="dep-ayah-word-text">{ayahWords.get(token.position)?.text ?? token.text}</span>
+                <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || ayahWords.get(token.position)?.translation?.text || token.root || "-").slice(0, 15)}</span>
               </button>
             );
           })}
