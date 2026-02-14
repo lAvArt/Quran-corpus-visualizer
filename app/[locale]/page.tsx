@@ -240,6 +240,7 @@ function HomePageContent() {
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
             highlightRoot={selectedRoot}
+            selectedSurahId={selectedSurahId}
             theme={theme}
             showLabels={true}
           />

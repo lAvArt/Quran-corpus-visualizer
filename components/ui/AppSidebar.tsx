@@ -63,6 +63,9 @@ export default function AppSidebar({
             token={inspectorToken}
             mode={inspectorMode}
             onClearFocus={onClearFocus}
+            allTokens={allTokens}
+            onRootSelect={onRootSelect}
+            onSelectSurah={onSelectSurah}
           />
         )}
         {activeTab === "search" && (

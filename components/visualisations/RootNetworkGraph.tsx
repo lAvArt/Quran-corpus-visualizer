@@ -12,6 +12,7 @@ interface RootNetworkGraphProps {
   onTokenFocus: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
   highlightRoot?: string | null;
+  selectedSurahId?: number;
   theme?: "light" | "dark";
   showLabels?: boolean;
 }
@@ -42,6 +43,7 @@ export default function RootNetworkGraph({
   onTokenFocus,
   onRootSelect,
   highlightRoot,
+  selectedSurahId,
   theme = "dark",
   showLabels = true,
 }: RootNetworkGraphProps) {
@@ -60,13 +62,19 @@ export default function RootNetworkGraph({
 
   const themeColors = DARK_THEME;
 
+  // Filter tokens by surah if selected
+  const scopedTokens = useMemo(() => {
+    if (!selectedSurahId) return tokens;
+    return tokens.filter(t => t.sura === selectedSurahId);
+  }, [tokens, selectedSurahId]);
+
   // Build network data from tokens
   const { initialNodes, initialLinks } = useMemo(() => {
     const rootMap = new Map<string, { count: number; tokens: CorpusToken[]; lemmas: Set<string> }>();
     const lemmaMap = new Map<string, { count: number; tokens: CorpusToken[]; root: string }>();
 
     // Aggregate by root and lemma
-    for (const token of tokens) {
+    for (const token of scopedTokens) {
       if (!token.root) continue;
 
       if (!rootMap.has(token.root)) {
@@ -139,7 +147,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [tokens, themeColors, rootLimit]);
+  }, [scopedTokens, themeColors, rootLimit]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -286,13 +294,14 @@ export default function RootNetworkGraph({
       </div>
       */}
 
-      <div className="viz-controls floating-controls">
-        <p className="ayah-meta-glass">
+      <div className="viz-controls floating-controls" style={{ pointerEvents: 'none' }}>
+        <p className="ayah-meta-glass" style={{ pointerEvents: 'auto' }}>
             {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
             {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
             {initialLinks.length} connections
+            {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
         </p>
-        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, pointerEvents: 'auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
           <input
             type="range"
@@ -301,7 +310,7 @@ export default function RootNetworkGraph({
             step={5}
             value={rootLimit}
             onChange={(e) => setRootLimit(Number(e.target.value))}
-            style={{ width: 100, accentColor: 'var(--accent)' }}
+            style={{ width: 100, accentColor: 'var(--accent)', cursor: 'pointer' }}
           />
           <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 24, textAlign: 'right' }}>{rootLimit}</span>
         </div>
@@ -567,7 +576,7 @@ export default function RootNetworkGraph({
         </AnimatePresence>
       </div>
 
-      <div className="viz-legend">
+      <div className="viz-legend" style={{ position: 'fixed', bottom: 'calc(var(--footer-height, 2.5rem) + 4rem)', insetInlineStart: '1rem', zIndex: 35 }}>
         <div className="viz-legend-item">
           <div
             className="viz-legend-dot"
