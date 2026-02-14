@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useMemo, useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useMemo, useState, useEffect, useCallback, lazy, Suspense, useRef } from "react";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -18,6 +18,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
+import VizExportMenu from "@/components/ui/VizExportMenu";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -49,6 +50,7 @@ function HomePageContent() {
   // Initialize with defaults to avoid hydration mismatch
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
   // const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -381,6 +383,11 @@ function HomePageContent() {
               theme={theme}
               onThemeChange={setTheme}
             />
+            <VizExportMenu
+              targetRef={mainVizRef}
+              vizMode={vizMode}
+              selectedSurahId={selectedSurahId}
+            />
 
             <div className="desktop-only" style={{ display: 'contents' }}>
               <button
@@ -415,7 +422,7 @@ function HomePageContent() {
       }
 
       {/* Main Full-Screen Visualization */}
-      <main className="immersive-viewport viz-fullwidth">
+      <main ref={mainVizRef} className="immersive-viewport viz-fullwidth">
         {renderVisualization()}
       </main>
 

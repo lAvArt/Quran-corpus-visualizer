@@ -45,9 +45,11 @@
         "showTools": "عرض الأدوات <-"
     },
     "AppSidebar": {
-        "index": "الفهرس",
+        "inspector": "المفتش",
         "search": "بحث",
-        "inspector": "الفحص",
+        "index": "فهرس",
+        "label": "الشريط الجانبي",
+        "panelLabel": "لوحات الشريط الجانبي",
         "attribution": "مصدر الصرف:"
     },
     "MobileBottomBar": {
@@ -61,13 +63,6 @@
         "noResults": "لم توجد نتائج",
         "matchRoot": "جذر: {root} ({count} مرة)",
         "matchLemma": "ليما: {lemma}"
-    },
-    "AppSidebar": {
-        "inspector": "المفتش",
-        "search": "بحث",
-        "index": "فهرس",
-        "label": "الشريط الجانبي",
-        "panelLabel": "لوحات الشريط الجانبي"
     },
     "VisualizationSwitcher": {
         "select": "اختر",
@@ -438,6 +433,22 @@
                 "sizeLabel": "حجم العقدة",
                 "sizeText": "يتناسب طردياً مع إجمالي تكرار الحدوث في النطاق المختار (سورة أو القرآن كاملاً)."
             }
+        }
+    },
+    "VizExport": {
+        "button": "تصدير",
+        "exporting": "جارٍ التصدير...",
+        "menuLabel": "تصدير الرسم البياني",
+        "formats": {
+            "svg": "SVG (متجهي)",
+            "png": "PNG (دقة عالية)",
+            "jpeg": "JPEG (دقة عالية)",
+            "pdf": "PDF (جاهز للطباعة)"
+        },
+        "status": {
+            "success": "تم حفظ {format}",
+            "failed": "فشل التصدير",
+            "noTarget": "لا يوجد رسم للتصدير"
         }
     }
 }
