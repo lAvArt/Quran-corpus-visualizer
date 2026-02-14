@@ -727,6 +727,45 @@ export default function AyahDependencyGraph({
         </svg>
       </div>
 
+      {/* Ayah text strip — anchored at bottom, bidirectional highlighting with graph nodes */}
+      <div className="dep-ayah-strip" dir="rtl" lang="ar">
+        <span className="dep-ayah-strip-label">{t("ayahTextLabel")}</span>
+        <div className="dep-ayah-strip-words">
+          {sortedTokens.map((token) => {
+            const isHovered = hoveredTokenId === token.id;
+            const isSelected = selectedTokenId === token.id;
+            const nodeColor = getNodeColor(token.pos);
+            return (
+              <button
+                key={token.id}
+                type="button"
+                className={`dep-ayah-word arabic-font${isHovered ? " is-hovered" : ""}${isSelected ? " is-selected" : ""}`}
+                style={{
+                  borderColor: isSelected ? nodeColor : isHovered ? nodeColor : undefined,
+                  backgroundColor: isSelected ? `${nodeColor}18` : isHovered ? `${nodeColor}10` : undefined,
+                }}
+                onMouseEnter={() => {
+                  setHoveredTokenId(token.id);
+                  onTokenHover(token.id);
+                }}
+                onMouseLeave={() => {
+                  setHoveredTokenId(null);
+                  onTokenHover(null);
+                }}
+                onClick={() => {
+                  setSelectedTokenId(token.id);
+                  onTokenFocus(token.id);
+                }}
+                title={token.morphology?.gloss || token.root || ""}
+              >
+                <span className="dep-ayah-word-text">{token.text}</span>
+                <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || token.root || "-").slice(0, 15)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Sidebar styles moved to globals.css to fix createPortal scoping */}
       <style jsx>{`
         .dep-graph-wrapper {

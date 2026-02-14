@@ -347,6 +347,7 @@
             "hoverToken": "Hovered Token",
             "empty": "Hover or click a token rectangle",
             "noTokens": "No tokens available for {surah} in current dataset.",
+            "ayahTextLabel": "Ayah",
             "Help": {
                 "title": "Dependency Tree",
                 "description": "A hierarchical tree view of the grammatical structure within a single Ayah.",
