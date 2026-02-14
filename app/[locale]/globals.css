@@ -2156,12 +2156,14 @@ button.site-footer-link {
   right: 0;
   z-index: 10;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: center;
   gap: 10px;
-  padding: 8px 16px;
-  background: linear-gradient(0deg, var(--bg-0, #000) 60%, transparent 100%);
+  padding: 10px 16px 10px calc(280px + 2.5rem);
+  background: linear-gradient(0deg, var(--bg-0, #000) 70%, transparent 100%);
   border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 40vh;
 }
 
 .dep-ayah-strip-label {
@@ -2179,7 +2181,8 @@ button.site-footer-link {
 .dep-ayah-strip-words {
   display: flex;
   gap: 6px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: stretch;
 }
 
@@ -2187,14 +2190,14 @@ button.site-footer-link {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 10px 5px;
+  gap: 3px;
+  padding: 8px 12px 6px;
   border: 1.5px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
   border-radius: 8px;
   background: var(--bg-1, #0d0d14);
   cursor: pointer;
   transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.1s ease;
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 48px;
   text-align: center;
 }
@@ -2211,18 +2214,20 @@ button.site-footer-link {
 }
 
 .dep-ayah-word-text {
-  font-size: 1.05rem;
+  font-size: 1.35rem;
   font-weight: 500;
   color: var(--ink, #e8e6e3);
-  line-height: 1.3;
+  line-height: 1.5;
+  direction: rtl;
+  unicode-bidi: bidi-override;
 }
 
 .dep-ayah-word-gloss {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   color: var(--ink-muted, #888);
   font-weight: 500;
   line-height: 1.2;
-  max-width: 80px;
+  max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2246,6 +2251,14 @@ button.site-footer-link {
 
 [data-theme="light"] .dep-ayah-word.is-selected {
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* On mobile/narrow screens the sidebar collapses, so remove padding-left offset */
+@media (max-width: 900px) {
+  .dep-ayah-strip {
+    padding-left: 16px;
+    justify-content: flex-start;
+  }
 }
 
 /* ============================================================================
