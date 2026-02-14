@@ -1,12 +1,15 @@
 export type ExportFormat = "svg" | "png" | "jpeg" | "pdf";
+export type ExportScope = "current-view" | "full-graph";
 
 interface ExportVisualizationOptions {
   container: HTMLElement;
   format: ExportFormat;
   fileBaseName: string;
+  scope?: ExportScope;
   scale?: number;
   jpegQuality?: number;
   backgroundColor?: string;
+  contentPadding?: number;
 }
 
 const STYLE_PROPERTIES = [
@@ -47,6 +50,16 @@ interface SvgSnapshot {
   height: number;
 }
 
+interface SvgFrame {
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+}
+
+const GRAPHICS_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon,text,use,image";
+const NON_RENDERABLE_ANCESTOR_SELECTOR = "defs,clipPath,mask,pattern,marker,symbol,linearGradient,radialGradient,filter";
+
 function sanitizeFileBaseName(name: string): string {
   const normalized = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
   return normalized.replace(/-+/g, "-").replace(/^-|-$/g, "") || "visualization";
@@ -69,6 +82,25 @@ function numericAttr(value: string | null): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseViewBox(viewBoxValue: string | null): SvgFrame | null {
+  if (!viewBoxValue) return null;
+  const parts = viewBoxValue
+    .trim()
+    .split(/[ ,]+/)
+    .map((part) => Number.parseFloat(part))
+    .filter((value) => Number.isFinite(value));
+
+  if (parts.length !== 4) return null;
+  const [minX, minY, width, height] = parts;
+  if (!(width > 0) || !(height > 0)) return null;
+  return { minX, minY, width, height };
+}
+
+function formatNumber(value: number): string {
+  if (Number.isInteger(value)) return `${value}`;
+  return value.toFixed(3).replace(/\.?0+$/, "");
+}
+
 function resolveSvgDimensions(svg: SVGSVGElement): { width: number; height: number } {
   const rect = svg.getBoundingClientRect();
   if (rect.width > 0 && rect.height > 0) {
@@ -87,6 +119,99 @@ function resolveSvgDimensions(svg: SVGSVGElement): { width: number; height: numb
   }
 
   return { width: 1200, height: 800 };
+}
+
+function resolveCurrentViewFrame(svg: SVGSVGElement): SvgFrame {
+  const parsedViewBox = parseViewBox(svg.getAttribute("viewBox"));
+  if (parsedViewBox) {
+    return parsedViewBox;
+  }
+
+  const { width, height } = resolveSvgDimensions(svg);
+  return { minX: 0, minY: 0, width, height };
+}
+
+function transformPoint(matrix: DOMMatrix, x: number, y: number): DOMPoint {
+  return new DOMPoint(x, y).matrixTransform(matrix);
+}
+
+function transformedBoundsForElement(element: SVGGraphicsElement): SvgFrame | null {
+  try {
+    const bbox = element.getBBox();
+    if (!(bbox.width > 0) && !(bbox.height > 0)) {
+      return null;
+    }
+
+    const ctm = element.getCTM();
+    if (!ctm) return null;
+
+    const topLeft = transformPoint(ctm, bbox.x, bbox.y);
+    const topRight = transformPoint(ctm, bbox.x + bbox.width, bbox.y);
+    const bottomLeft = transformPoint(ctm, bbox.x, bbox.y + bbox.height);
+    const bottomRight = transformPoint(ctm, bbox.x + bbox.width, bbox.y + bbox.height);
+    const xs = [topLeft.x, topRight.x, bottomLeft.x, bottomRight.x];
+    const ys = [topLeft.y, topRight.y, bottomLeft.y, bottomRight.y];
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    if (!(maxX > minX) || !(maxY > minY)) {
+      return null;
+    }
+
+    return {
+      minX,
+      minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function resolveFullGraphFrame(svg: SVGSVGElement, padding: number): SvgFrame | null {
+  const graphics = Array.from(svg.querySelectorAll<SVGGraphicsElement>(GRAPHICS_SELECTOR));
+  if (graphics.length === 0) return null;
+
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const element of graphics) {
+    if (element.closest(NON_RENDERABLE_ANCESTOR_SELECTOR)) {
+      continue;
+    }
+    const computed = window.getComputedStyle(element);
+    if (computed.display === "none" || computed.visibility === "hidden") {
+      continue;
+    }
+
+    const bounds = transformedBoundsForElement(element);
+    if (!bounds) continue;
+
+    minX = Math.min(minX, bounds.minX);
+    minY = Math.min(minY, bounds.minY);
+    maxX = Math.max(maxX, bounds.minX + bounds.width);
+    maxY = Math.max(maxY, bounds.minY + bounds.height);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
+
+  const paddedMinX = minX - padding;
+  const paddedMinY = minY - padding;
+  const paddedWidth = Math.max(1, maxX - minX + padding * 2);
+  const paddedHeight = Math.max(1, maxY - minY + padding * 2);
+
+  return {
+    minX: paddedMinX,
+    minY: paddedMinY,
+    width: paddedWidth,
+    height: paddedHeight,
+  };
 }
 
 function svgScore(svg: SVGSVGElement): number {
@@ -128,24 +253,27 @@ function inlineComputedStyles(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement
   }
 }
 
-function buildSvgSnapshot(svg: SVGSVGElement): SvgSnapshot {
+function buildSvgSnapshot(svg: SVGSVGElement, scope: ExportScope, contentPadding: number): SvgSnapshot {
   const cloned = svg.cloneNode(true) as SVGSVGElement;
-  const { width, height } = resolveSvgDimensions(svg);
+  const frame =
+    scope === "full-graph"
+      ? resolveFullGraphFrame(svg, contentPadding) ?? resolveCurrentViewFrame(svg)
+      : resolveCurrentViewFrame(svg);
 
   inlineComputedStyles(svg, cloned);
 
   cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   cloned.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-  cloned.setAttribute("width", `${Math.round(width)}`);
-  cloned.setAttribute("height", `${Math.round(height)}`);
-
-  if (!cloned.getAttribute("viewBox")) {
-    cloned.setAttribute("viewBox", `0 0 ${Math.round(width)} ${Math.round(height)}`);
-  }
+  cloned.setAttribute("width", `${Math.max(1, Math.round(frame.width))}`);
+  cloned.setAttribute("height", `${Math.max(1, Math.round(frame.height))}`);
+  cloned.setAttribute(
+    "viewBox",
+    `${formatNumber(frame.minX)} ${formatNumber(frame.minY)} ${formatNumber(frame.width)} ${formatNumber(frame.height)}`
+  );
 
   const serializer = new XMLSerializer();
   const markup = serializer.serializeToString(cloned);
-  return { markup, width, height };
+  return { markup, width: frame.width, height: frame.height };
 }
 
 async function loadImageFromSvg(svgMarkup: string): Promise<HTMLImageElement> {
@@ -337,7 +465,8 @@ export async function exportVisualization(options: ExportVisualizationOptions): 
     throw new Error("No SVG visualization found in export target.");
   }
 
-  const snapshot = buildSvgSnapshot(targetSvg);
+  const scope = options.scope ?? "full-graph";
+  const snapshot = buildSvgSnapshot(targetSvg, scope, options.contentPadding ?? 36);
   const baseName = sanitizeFileBaseName(options.fileBaseName);
   const scale = options.scale ?? 2;
 

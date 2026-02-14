@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -61,7 +61,7 @@ export default function RootNetworkGraph({
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  const themeColors = DARK_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   // Filter tokens by surah if selected
   const scopedTokens = useMemo(() => {
@@ -165,7 +165,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [scopedTokens, themeColors, rootLimit]);
+  }, [scopedTokens, themeColors.nodeColors.default, rootLimit]);
 
   // Update dimensions on resize
   useEffect(() => {

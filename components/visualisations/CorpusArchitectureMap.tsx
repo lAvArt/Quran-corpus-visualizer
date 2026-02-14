@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
+import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -250,7 +250,7 @@ export default function CorpusArchitectureMap({
         return 0.1;
     };
 
-    const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+    const themeColors = resolveVisualizationTheme(theme);
 
     const lodMode = focusedSurahId ? "focus" : zoomLevel < 0.65 ? "surah" : zoomLevel < 1.25 ? "focus" : "full";
     const focusSurahNodeId = focusedSurahId ? `s-${focusedSurahId}` : null;

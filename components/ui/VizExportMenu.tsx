@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
-import { exportVisualization, type ExportFormat } from "@/lib/export/visualizationExport";
+import { exportVisualization, type ExportFormat, type ExportScope } from "@/lib/export/visualizationExport";
 
 interface VizExportMenuProps {
   targetRef: RefObject<HTMLElement | null>;
@@ -12,20 +12,27 @@ interface VizExportMenuProps {
 }
 
 const EXPORT_FORMATS: ExportFormat[] = ["svg", "png", "jpeg", "pdf"];
+const EXPORT_SCOPES: ExportScope[] = ["full-graph", "current-view"];
+const SCOPE_LABEL_KEY: Record<ExportScope, "fullGraph" | "currentView"> = {
+  "full-graph": "fullGraph",
+  "current-view": "currentView",
+};
 
 function timestampForFileName(): string {
   return new Date().toISOString().replace(/\..+$/, "").replace(/[:T]/g, "-");
 }
 
-function fileBaseName(vizMode: VisualizationMode, selectedSurahId: number): string {
+function fileBaseName(vizMode: VisualizationMode, selectedSurahId: number, scope: ExportScope): string {
   const mode = vizMode.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
-  return `quran-corpus-${mode}-surah-${selectedSurahId}-${timestampForFileName()}`;
+  const scopeSuffix = scope === "full-graph" ? "full" : "view";
+  return `quran-corpus-${mode}-${scopeSuffix}-surah-${selectedSurahId}-${timestampForFileName()}`;
 }
 
 export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: VizExportMenuProps) {
   const t = useTranslations("VizExport");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
+  const [exportScope, setExportScope] = useState<ExportScope>("full-graph");
   const [status, setStatus] = useState<string | null>(null);
   const dropdownId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,7 +97,8 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
         await exportVisualization({
           container: target,
           format,
-          fileBaseName: fileBaseName(vizMode, selectedSurahId),
+          scope: exportScope,
+          fileBaseName: fileBaseName(vizMode, selectedSurahId, exportScope),
           scale: format === "pdf" ? 2.4 : 2,
         });
         setStatus(t("status.success", { format: t(`formats.${format}`) }));
@@ -102,7 +110,7 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
         clearStatusLater();
       }
     },
-    [targetRef, t, clearStatusLater, vizMode, selectedSurahId]
+    [targetRef, t, clearStatusLater, vizMode, selectedSurahId, exportScope]
   );
 
   const triggerLabel = useMemo(() => {
@@ -127,6 +135,20 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
 
       {isExpanded && (
         <div className="viz-export-menu" id={dropdownId} role="menu" aria-label={t("menuLabel")}>
+          <div className="viz-export-scope" role="group" aria-label={t("scopeLabel")}>
+            {EXPORT_SCOPES.map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                className={`viz-export-scope-item ${exportScope === scope ? "active" : ""}`}
+                onClick={() => setExportScope(scope)}
+                disabled={isExporting !== null}
+              >
+                {t(`scopes.${SCOPE_LABEL_KEY[scope]}`)}
+              </button>
+            ))}
+          </div>
+
           {EXPORT_FORMATS.map((format) => (
             <button
               key={format}
@@ -210,6 +232,38 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
           background: rgba(255, 255, 255, 0.94);
           backdrop-filter: blur(14px);
           box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+        }
+
+        .viz-export-scope {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          margin-bottom: 2px;
+        }
+
+        .viz-export-scope-item {
+          border: 1px solid var(--line);
+          border-radius: 9px;
+          padding: 7px 8px;
+          text-align: center;
+          background: transparent;
+          color: var(--ink-secondary);
+          font-family: inherit;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        }
+
+        .viz-export-scope-item:hover:not(:disabled) {
+          border-color: var(--accent);
+          color: var(--ink);
+        }
+
+        .viz-export-scope-item.active {
+          border-color: color-mix(in srgb, var(--accent), transparent 20%);
+          background: color-mix(in srgb, var(--accent), transparent 86%);
+          color: var(--ink);
         }
 
         .viz-export-item {

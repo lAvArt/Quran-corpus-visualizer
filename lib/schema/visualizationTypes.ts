@@ -263,6 +263,51 @@ export const LIGHT_THEME: VisualizationTheme = {
   },
 };
 
+function readThemeVariable(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || null;
+}
+
+export function resolveVisualizationTheme(theme: "light" | "dark"): VisualizationTheme {
+  const base = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const accent = readThemeVariable("--accent") ?? base.accent;
+  const accentSecondary = readThemeVariable("--accent-2") ?? base.accentSecondary;
+  const background = readThemeVariable("--bg-0") ?? base.background;
+  const foreground = readThemeVariable("--ink") ?? base.foreground;
+  const textSecondary = readThemeVariable("--ink-secondary") ?? base.textColors.secondary;
+  const textMuted = readThemeVariable("--ink-muted") ?? base.textColors.muted;
+
+  return {
+    ...base,
+    background,
+    foreground,
+    accent,
+    accentSecondary,
+    nodeColors: {
+      ...base.nodeColors,
+      highlighted: accent,
+      selected: accentSecondary,
+    },
+    edgeColors: {
+      ...base.edgeColors,
+      highlighted: accent,
+    },
+    glowColors: {
+      ...base.glowColors,
+      primary: accent,
+      secondary: accentSecondary,
+      accent,
+    },
+    textColors: {
+      ...base.textColors,
+      primary: foreground,
+      secondary: textSecondary,
+      muted: textMuted,
+    },
+  };
+}
+
 // ============================================================================
 // Color Palettes
 // ============================================================================

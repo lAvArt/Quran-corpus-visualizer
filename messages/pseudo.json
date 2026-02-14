@@ -300,10 +300,28 @@
             "tokenNodes": "[!! Ťôķèñ Ñôḋèṡ !!]"
         }
     },
+    "DisplaySettings": {
+        "button": "[!! Settings !!]",
+        "panelLabel": "[!! Display settings !!]",
+        "appearance": "[!! Appearance !!]",
+        "palette": "[!! Color theme !!]",
+        "themes": {
+            "tealAmber": "[!! Teal & Amber !!]",
+            "emberCyan": "[!! Ember & Cyan !!]",
+            "royalGold": "[!! Royal & Gold !!]",
+            "forestRose": "[!! Forest & Rose !!]",
+            "monoAzure": "[!! Mono Azure !!]"
+        }
+    },
     "VizExport": {
         "button": "[!! Export !!]",
         "exporting": "[!! Exporting... !!]",
         "menuLabel": "[!! Export visualization !!]",
+        "scopeLabel": "[!! Export scope !!]",
+        "scopes": {
+            "currentView": "[!! Current view !!]",
+            "fullGraph": "[!! Full graph !!]"
+        },
         "formats": {
             "svg": "[!! SVG (vector) !!]",
             "png": "[!! PNG (high-res) !!]",

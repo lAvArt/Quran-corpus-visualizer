@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, GRADIENT_PALETTES, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useLocale, useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -170,7 +170,7 @@ export default function ArcFlowDiagram({
     };
   }, [dimensions.width, dimensions.height]);
 
-  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   const scopedTokens = useMemo(() => {
     if (!selectedSurahId) return tokens;

@@ -6,7 +6,7 @@ import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -115,7 +115,7 @@ export default function RadialSuraMap({
     }
   }, [selectedAyah, suraId]);
 
-  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   // ... displayArabicName useMemo ...
 

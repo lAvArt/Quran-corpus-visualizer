@@ -435,10 +435,28 @@
             }
         }
     },
+    "DisplaySettings": {
+        "button": "إعدادات",
+        "panelLabel": "إعدادات العرض",
+        "appearance": "المظهر",
+        "palette": "سمة الألوان",
+        "themes": {
+            "tealAmber": "فيروزي وعنبر",
+            "emberCyan": "جمري وسماوي",
+            "royalGold": "ملكي وذهبي",
+            "forestRose": "غابة ووردي",
+            "monoAzure": "أزرق أحادي"
+        }
+    },
     "VizExport": {
         "button": "تصدير",
         "exporting": "جارٍ التصدير...",
         "menuLabel": "تصدير الرسم البياني",
+        "scopeLabel": "نطاق التصدير",
+        "scopes": {
+            "currentView": "العرض الحالي",
+            "fullGraph": "الرسم الكامل"
+        },
         "formats": {
             "svg": "SVG (متجهي)",
             "png": "PNG (دقة عالية)",

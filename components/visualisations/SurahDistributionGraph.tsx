@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
+import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
@@ -71,7 +71,7 @@ export default function SurahDistributionGraph({
 
 
 
-    const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+    const themeColors = resolveVisualizationTheme(theme);
 
     // Build surah data from tokens
     const layout = useMemo(() => {

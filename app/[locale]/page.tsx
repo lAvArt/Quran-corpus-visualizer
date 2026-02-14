@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState, useEffect, useCallback, lazy, Suspense, useRef } from "react";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
-import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
+import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
@@ -19,6 +19,12 @@ import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import VizExportMenu from "@/components/ui/VizExportMenu";
+import {
+  DEFAULT_COLOR_THEME_ID,
+  applyColorTheme,
+  isValidColorThemeId,
+  type ColorThemeId,
+} from "@/lib/theme/colorThemes";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -50,6 +56,7 @@ function HomePageContent() {
   // Initialize with defaults to avoid hydration mismatch
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
   const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
@@ -74,6 +81,7 @@ function HomePageContent() {
         const saved = JSON.parse(stored);
         if (saved.vizMode) setVizMode(saved.vizMode);
         if (saved.theme) setTheme(saved.theme);
+        if (isValidColorThemeId(saved.colorThemeId)) setColorThemeId(saved.colorThemeId);
         if (saved.selectedSurahId) setSelectedSurahId(saved.selectedSurahId);
         if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
         if (saved.selectedLemma !== undefined) setSelectedLemma(saved.selectedLemma);
@@ -86,7 +94,8 @@ function HomePageContent() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    applyColorTheme(colorThemeId, theme);
+  }, [theme, colorThemeId]);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -96,6 +105,7 @@ function HomePageContent() {
         JSON.stringify({
           vizMode,
           theme,
+          colorThemeId,
           selectedSurahId,
           selectedRoot,
           selectedLemma,
@@ -104,7 +114,7 @@ function HomePageContent() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [vizMode, theme, selectedSurahId, selectedRoot, selectedLemma]);
+  }, [vizMode, theme, colorThemeId, selectedSurahId, selectedRoot, selectedLemma]);
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -373,9 +383,15 @@ function HomePageContent() {
             <div className="desktop-only" style={{ display: 'contents' }}>
               <div className="header-button-group">
                 <LanguageSwitcher />
-                <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
               </div>
             </div>
+
+            <DisplaySettingsPanel
+              theme={theme}
+              onThemeChange={setTheme}
+              colorTheme={colorThemeId}
+              onColorThemeChange={setColorThemeId}
+            />
 
             <VisualizationSwitcher
               currentMode={vizMode}
