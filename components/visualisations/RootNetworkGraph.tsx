@@ -69,6 +69,22 @@ export default function RootNetworkGraph({
     return tokens.filter(t => t.sura === selectedSurahId);
   }, [tokens, selectedSurahId]);
 
+  // Total unique roots in the scoped tokens
+  const totalRoots = useMemo(() => {
+    const roots = new Set<string>();
+    for (const t of scopedTokens) {
+      if (t.root) roots.add(t.root);
+    }
+    return roots.size;
+  }, [scopedTokens]);
+
+  // Clamp rootLimit when surah changes and total roots is fewer
+  useEffect(() => {
+    if (totalRoots > 0 && rootLimit > totalRoots) {
+      setRootLimit(Math.max(5, Math.min(totalRoots, rootLimit)));
+    }
+  }, [totalRoots]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Build network data from tokens
   const { initialNodes, initialLinks } = useMemo(() => {
     const rootMap = new Map<string, { count: number; tokens: CorpusToken[]; lemmas: Set<string> }>();
@@ -314,13 +330,13 @@ export default function RootNetworkGraph({
           <input
             type="range"
             min={5}
-            max={100}
+            max={Math.max(5, totalRoots)}
             step={5}
-            value={rootLimit}
+            value={Math.min(rootLimit, totalRoots || 100)}
             onChange={(e) => setRootLimit(Number(e.target.value))}
             style={{ width: 100, accentColor: 'var(--accent)', cursor: 'pointer' }}
           />
-          <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 24, textAlign: 'right' }}>{rootLimit}</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
         </div>
       </div>
 
