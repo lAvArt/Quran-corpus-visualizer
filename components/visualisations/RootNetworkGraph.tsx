@@ -189,20 +189,20 @@ export default function RootNetworkGraph({
         d3
           .forceLink<NetworkNode, NetworkLink>(linksCopy)
           .id((d) => d.id)
-          .distance((d) => 80 + (d.weight ?? 1) * 5)
-          .strength(0.5)
+          .distance((d) => 35 + Math.min((d.weight ?? 1) * 2, 30))
+          .strength(0.7)
       )
-      .force("charge", d3.forceManyBody().strength(-200))
+      .force("charge", d3.forceManyBody().strength(-80).distanceMax(250))
       .force("center", d3.forceCenter(centerX, centerY))
       .force(
         "collision",
-        d3.forceCollide<NetworkNode>().radius((d) => d.radius + 10)
+        d3.forceCollide<NetworkNode>().radius((d) => d.radius + 4)
       )
       .force("radial", d3.forceRadial<NetworkNode>(
-        (d) => d.type === "root" ? 120 : 220,
+        (d) => d.type === "root" ? 80 : 150,
         centerX,
         centerY
-      ).strength(0.3));
+      ).strength(0.35));
 
     simulationRef.current = simulation;
 

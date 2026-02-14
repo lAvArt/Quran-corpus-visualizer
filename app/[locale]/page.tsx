@@ -421,6 +421,9 @@ function HomePageContent() {
           onTokenHover={setHoverTokenId}
           onTokenFocus={setFocusedTokenId}
           onRootSelect={handleRootSelect}
+          onSelectSurah={(surahId) => handleSurahSelect(surahId)}
+          onLemmaSelect={handleLemmaSelect}
+          selectedSurahId={selectedSurahId}
         />
       </div>
 

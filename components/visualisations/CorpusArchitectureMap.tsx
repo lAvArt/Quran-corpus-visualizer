@@ -143,6 +143,7 @@ export default function CorpusArchitectureMap({
         };
 
         const UNFOCUSED_LIMIT = 10; // compact summary for unfocused surahs
+        const activeHighlight = highlightRoot || internalSelectedRoot;
 
         Array.from(surahRootData.entries())
             .sort((a, b) => a[0] - b[0])
@@ -155,7 +156,18 @@ export default function CorpusArchitectureMap({
                     .sort((a, b) => b[1] - a[1]);
 
                 // Focused surah: include ALL roots; unfocused: top N only
-                const rootsToShow = isFocused ? sortedRoots : sortedRoots.slice(0, UNFOCUSED_LIMIT);
+                let rootsToShow = isFocused ? sortedRoots : sortedRoots.slice(0, UNFOCUSED_LIMIT);
+
+                // Always include highlighted root if it exists in this surah
+                if (activeHighlight && !isFocused) {
+                    const alreadyIncluded = rootsToShow.some(([r]) => r === activeHighlight);
+                    if (!alreadyIncluded) {
+                        const highlightEntry = sortedRoots.find(([r]) => r === activeHighlight);
+                        if (highlightEntry) {
+                            rootsToShow = [...rootsToShow, highlightEntry];
+                        }
+                    }
+                }
 
                 const rootNodes = rootsToShow.map(([rootTxt, count]) => ({
                     id: `s${suraId}-r${rootTxt}`,
@@ -176,7 +188,7 @@ export default function CorpusArchitectureMap({
             });
 
         return root;
-    }, [surahRootData, focusedSurahId]);
+    }, [surahRootData, focusedSurahId, highlightRoot, internalSelectedRoot]);
 
     // Layout Calculation
     const { nodes, links } = useMemo(() => {
@@ -294,6 +306,17 @@ export default function CorpusArchitectureMap({
             : `${selectedRootGlobalStats.total.toLocaleString(locale)} ${ts("totalInQuran")}`
         : "";
     const selectedRootGlossLabel = selectedRootGlobalStats?.gloss?.trim() ?? "";
+
+    // Count how many surahs contain the selected root
+    const selectedRootSurahCount = useMemo(() => {
+        const activeRoot = internalSelectedRoot || highlightRoot;
+        if (!activeRoot) return 0;
+        let count = 0;
+        surahRootData.forEach((data) => {
+            if (data.rootCounts.has(activeRoot)) count++;
+        });
+        return count;
+    }, [internalSelectedRoot, highlightRoot, surahRootData]);
 
     // Corpus coverage stats: how much of the data is shown in the visualization  
     const corpusCoverage = useMemo(() => {

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import MorphologyInspector from "@/components/inspectors/MorphologyInspector";
 import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
+import CorpusIndex from "@/components/ui/CorpusIndex";
 import type { CorpusToken } from "@/lib/schema/types";
 
 interface AppSidebarProps {
@@ -14,6 +15,9 @@ interface AppSidebarProps {
   onTokenHover: (id: string | null) => void;
   onTokenFocus: (id: string | null) => void;
   onRootSelect?: (root: string | null) => void;
+  onSelectSurah?: (surahId: number) => void;
+  onLemmaSelect?: (lemma: string) => void;
+  selectedSurahId?: number;
 }
 
 export default function AppSidebar({
@@ -24,8 +28,11 @@ export default function AppSidebar({
   onTokenHover,
   onTokenFocus,
   onRootSelect,
+  onSelectSurah,
+  onLemmaSelect,
+  selectedSurahId,
 }: AppSidebarProps) {
-  const [activeTab, setActiveTab] = useState<"inspector" | "search">("inspector");
+  const [activeTab, setActiveTab] = useState<"inspector" | "search" | "index">("inspector");
 
   return (
     <aside className="app-sidebar">
@@ -41,6 +48,12 @@ export default function AppSidebar({
           onClick={() => setActiveTab("search")}
         >
           Search
+        </button>
+        <button
+          className={`sidebar-tab ${activeTab === "index" ? "active" : ""}`}
+          onClick={() => setActiveTab("index")}
+        >
+          Index
         </button>
       </div>
 
@@ -58,6 +71,16 @@ export default function AppSidebar({
             onTokenHover={onTokenHover}
             onTokenFocus={onTokenFocus}
             onRootSelect={onRootSelect}
+            onSelectSurah={onSelectSurah}
+          />
+        )}
+        {activeTab === "index" && (
+          <CorpusIndex
+            tokens={allTokens}
+            onSelectSurah={onSelectSurah || (() => {})}
+            onSelectRoot={(root) => onRootSelect?.(root)}
+            onSelectLemma={onLemmaSelect || (() => {})}
+            selectedSurahId={selectedSurahId}
           />
         )}
       </div>
@@ -83,12 +106,12 @@ export default function AppSidebar({
 
         .sidebar-tab {
             flex: 1;
-            padding: 12px;
+            padding: 10px 6px;
             background: transparent;
             border: none;
             color: var(--ink-secondary);
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.82rem;
             cursor: pointer;
             transition: all 0.2s;
             border-bottom: 2px solid transparent;

@@ -62,12 +62,67 @@ export default function SemanticSearchPanel({
 
   const scopeLabel = useMemo(() => {
     if (scope.type === "surah") {
-      // const info = SURAH_NAMES[scope.surahId];
-      // const name = info?.name ? ` · ${info.name}` : "";
       return t('surah', { id: scope.surahId });
     }
     return t('global');
   }, [scope, t]);
+
+  // Root info: when searching by root, compute aggregated stats
+  const rootInfo = useMemo(() => {
+    if (!root.trim()) return null;
+
+    // Find all tokens with this exact root across the entire corpus
+    const matchingTokens = tokens.filter(tk => tk.root === root.trim());
+    if (matchingTokens.length === 0) return null;
+
+    // Surah distribution
+    const surahMap = new Map<number, { count: number; forms: Set<string> }>();
+    const allForms = new Set<string>();
+    const allLemmas = new Set<string>();
+    const posBreakdown = new Map<string, number>();
+    let gloss = "";
+
+    for (const tk of matchingTokens) {
+      allForms.add(tk.text);
+      if (tk.lemma) allLemmas.add(tk.lemma);
+      if (tk.morphology?.gloss && !gloss) gloss = tk.morphology.gloss;
+
+      // POS
+      posBreakdown.set(tk.pos, (posBreakdown.get(tk.pos) || 0) + 1);
+
+      // Per-surah
+      if (!surahMap.has(tk.sura)) {
+        surahMap.set(tk.sura, { count: 0, forms: new Set() });
+      }
+      const entry = surahMap.get(tk.sura)!;
+      entry.count++;
+      entry.forms.add(tk.text);
+    }
+
+    const surahDistribution = Array.from(surahMap.entries())
+      .map(([suraId, data]) => ({
+        suraId,
+        name: SURAH_NAMES[suraId]?.name || `Surah ${suraId}`,
+        arabic: SURAH_NAMES[suraId]?.arabic || "",
+        count: data.count,
+        forms: Array.from(data.forms).slice(0, 3),
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      root: root.trim(),
+      totalOccurrences: matchingTokens.length,
+      surahCount: surahMap.size,
+      gloss,
+      forms: Array.from(allForms).slice(0, 8),
+      lemmas: Array.from(allLemmas).slice(0, 5),
+      posBreakdown: Array.from(posBreakdown.entries()).sort((a, b) => b[1] - a[1]),
+      surahDistribution,
+    };
+  }, [root, tokens]);
+
+  // Whether we're in "root search mode" (show distribution) vs token list mode
+  const isRootSearch = !!root.trim() && !!rootInfo;
 
   return (
     <div className="search-panel">
@@ -124,6 +179,86 @@ export default function SemanticSearchPanel({
         <span className="results-sub">{t('clickToFocus')}</span>
       </div>
 
+      {/* Root Info Card — when searching by root, show aggregated stats */}
+      {isRootSearch && rootInfo && (
+        <div className="root-info-card">
+          <div className="root-info-header">
+            <span className="root-info-arabic" lang="ar" dir="rtl">{rootInfo.root}</span>
+            <span className="root-info-total">{rootInfo.totalOccurrences.toLocaleString()} occurrences</span>
+          </div>
+
+          {rootInfo.gloss && (
+            <div className="root-info-gloss">Meaning: {rootInfo.gloss}</div>
+          )}
+
+          <div className="root-info-stats">
+            <div className="root-stat">
+              <span className="root-stat-value">{rootInfo.surahCount}</span>
+              <span className="root-stat-label">Surahs</span>
+            </div>
+            <div className="root-stat">
+              <span className="root-stat-value">{rootInfo.lemmas.length}</span>
+              <span className="root-stat-label">Lemmas</span>
+            </div>
+            <div className="root-stat">
+              <span className="root-stat-value">{rootInfo.forms.length}+</span>
+              <span className="root-stat-label">Forms</span>
+            </div>
+          </div>
+
+          {rootInfo.posBreakdown.length > 0 && (
+            <div className="root-info-pos">
+              {rootInfo.posBreakdown.map(([posKey, count]) => (
+                <span key={posKey} className="pos-chip">{posKey} ({count})</span>
+              ))}
+            </div>
+          )}
+
+          {rootInfo.forms.length > 0 && (
+            <div className="root-info-forms">
+              <span className="root-forms-label">Forms:</span>
+              <span className="root-forms-list" lang="ar" dir="rtl">
+                {rootInfo.forms.join(" · ")}
+              </span>
+            </div>
+          )}
+
+          <div className="root-info-divider" />
+
+          <div className="surah-dist-header">
+            <span>Surah distribution</span>
+            <span className="results-sub">Click to focus surah &amp; highlight</span>
+          </div>
+
+          <div className="surah-dist-list">
+            {rootInfo.surahDistribution.map((s) => {
+              const maxCount = rootInfo.surahDistribution[0]?.count || 1;
+              const barWidth = Math.max(8, (s.count / maxCount) * 100);
+              return (
+                <button
+                  key={s.suraId}
+                  type="button"
+                  className="surah-dist-item"
+                  onClick={() => {
+                    if (onSelectSurah) onSelectSurah(s.suraId);
+                    if (onRootSelect) onRootSelect(root.trim());
+                  }}
+                >
+                  <span className="surah-dist-name">{s.suraId}. {s.name}</span>
+                  <span className="surah-dist-arabic" lang="ar" dir="rtl">{s.arabic}</span>
+                  <div className="surah-dist-bar-container">
+                    <div className="surah-dist-bar" style={{ width: `${barWidth}%` }} />
+                  </div>
+                  <span className="surah-dist-count">{s.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Token list — show when NOT in root-only mode, or as secondary view */}
+      {(!isRootSearch || lemma || pos || ayah) && (
       <div className="search-results-list">
         {results.length === 0 ? (
           <div className="empty-search">
@@ -155,6 +290,7 @@ export default function SemanticSearchPanel({
           ))
         )}
       </div>
+      )}
 
       <style jsx>{`
         .search-panel {
@@ -261,6 +397,166 @@ export default function SemanticSearchPanel({
             border-radius: 8px;
         }
 
+        /* Root Info Card */
+        .root-info-card {
+            margin-bottom: 12px;
+            padding: 12px;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            background: rgba(239, 68, 68, 0.04);
+        }
+        .root-info-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .root-info-arabic {
+            font-family: var(--font-arabic, "Amiri"), "Amiri", serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .root-info-total {
+            font-size: 0.78rem;
+            color: var(--ink-muted);
+        }
+        .root-info-gloss {
+            font-size: 0.82rem;
+            color: var(--ink-secondary);
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+        .root-info-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .root-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            padding: 6px 4px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.5);
+            border: 1px solid var(--line);
+        }
+        .root-stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+        .root-stat-label {
+            font-size: 0.65rem;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .root-info-pos {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .pos-chip {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid var(--line);
+            font-size: 0.7rem;
+            color: var(--ink-secondary);
+        }
+        .root-info-forms {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .root-forms-label {
+            font-size: 0.72rem;
+            color: var(--ink-muted);
+            white-space: nowrap;
+        }
+        .root-forms-list {
+            font-family: var(--font-arabic, "Amiri"), "Amiri", serif;
+            font-size: 0.95rem;
+            color: var(--ink);
+        }
+        .root-info-divider {
+            height: 1px;
+            background: var(--line);
+            margin: 10px 0;
+        }
+        .surah-dist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.72rem;
+            color: var(--ink-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+        .surah-dist-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 3px;
+        }
+        .surah-dist-item {
+            display: grid;
+            grid-template-columns: 1fr auto auto 32px;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: left;
+            font-size: 0.78rem;
+        }
+        .surah-dist-item:hover {
+            background: rgba(255,255,255,0.9);
+            border-color: var(--accent);
+            transform: translateX(2px);
+        }
+        .surah-dist-name {
+            color: var(--ink);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.72rem;
+        }
+        .surah-dist-arabic {
+            font-family: var(--font-arabic, "Amiri"), "Amiri", serif;
+            font-size: 0.82rem;
+            color: var(--ink-secondary);
+        }
+        .surah-dist-bar-container {
+            width: 40px;
+            height: 4px;
+            background: var(--line);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .surah-dist-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        .surah-dist-count {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-align: right;
+        }
+
         @media (max-width: 640px) {
             .search-controls {
                 grid-template-columns: 1fr;
@@ -281,6 +577,21 @@ export default function SemanticSearchPanel({
         }
         :global([data-theme="dark"]) .scope-pill {
             background: rgba(16, 16, 24, 0.8);
+        }
+        :global([data-theme="dark"]) .root-info-card {
+            background: rgba(239, 68, 68, 0.06);
+        }
+        :global([data-theme="dark"]) .root-stat {
+            background: rgba(255,255,255,0.04);
+        }
+        :global([data-theme="dark"]) .pos-chip {
+            background: rgba(255,255,255,0.06);
+        }
+        :global([data-theme="dark"]) .surah-dist-item {
+            background: rgba(16, 16, 24, 0.5);
+        }
+        :global([data-theme="dark"]) .surah-dist-item:hover {
+            background: rgba(20, 20, 28, 0.9);
         }
       `}</style>
     </div>
