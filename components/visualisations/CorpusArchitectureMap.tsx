@@ -367,8 +367,14 @@ export default function CorpusArchitectureMap({
         const displayedUniqueRoots = displayedRootIds.size;
         const totalTokens = tokens.length;
         const totalSurahs = new Set(tokens.map(t => t.sura)).size;
-        return { totalUniqueRoots, displayedUniqueRoots, totalTokens, totalSurahs };
-    }, [rootGlobalStats, nodes, tokens]);
+
+        // Count roots for focused surah specifically
+        const focusedSurahRootCount = focusedSurahId
+            ? surahRootData.get(focusedSurahId)?.rootCounts.size ?? 0
+            : 0;
+
+        return { totalUniqueRoots, displayedUniqueRoots, totalTokens, totalSurahs, focusedSurahRootCount };
+    }, [rootGlobalStats, nodes, tokens, focusedSurahId, surahRootData]);
 
     const rootVisibilityLimit = useMemo(() => {
         if (focusSurahNodeId) {
@@ -505,7 +511,8 @@ export default function CorpusArchitectureMap({
     const deferredZoom = useDeferredValue(zoomTransform);
 
     const visibleNodes = useMemo(() => {
-        const padding = 160;
+        // Use very generous bounds when a surah is focused to avoid culling roots
+        const padding = focusSurahNodeId ? 500 : 160;
         const minX = -viewRadius - padding;
         const maxX = viewRadius + padding;
         const minY = -viewRadius - padding;
@@ -541,6 +548,12 @@ export default function CorpusArchitectureMap({
 
         return nodes.filter((node) => shouldShowRoot(node) && isInView(node));
     }, [nodes, lodMode, highlightRoot, hoveredNode, focusSurahNodeId, deferredZoom, rootRankById, rootVisibilityLimit, nodePositionById, viewRadius]);
+
+    // Count how many focused-surah roots are currently in the viewport
+    const focusedSurahRootsInView = useMemo(() => {
+        if (!focusedSurahId) return 0;
+        return visibleNodes.filter(n => n.data.type === "word_root" && n.parent?.data.id === `s-${focusedSurahId}`).length;
+    }, [visibleNodes, focusedSurahId]);
 
     const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.data.id)), [visibleNodes]);
     const visibleLinks = useMemo(() => {
@@ -598,7 +611,20 @@ export default function CorpusArchitectureMap({
                                     </div>
                                 </div>
                                 <div style={{ marginTop: 8, fontSize: '0.7em', opacity: 0.5, lineHeight: 1.6 }}>
-                                    {corpusCoverage.totalSurahs} {ts("surah")}s &middot; {corpusCoverage.totalTokens.toLocaleString(locale)} tokens &middot; {corpusCoverage.displayedUniqueRoots}/{corpusCoverage.totalUniqueRoots} {ts("root")}s shown
+                                    {focusedSurahId ? (
+                                        <>
+                                            {focusedSurahRootsInView}/{corpusCoverage.focusedSurahRootCount} {ts("root")}s {t("visibleLabel")}
+                                            {focusedSurahRootsInView < corpusCoverage.focusedSurahRootCount && (
+                                                <span style={{ display: 'block', marginTop: 2, color: 'var(--accent)', opacity: 0.85 }}>
+                                                    {t("zoomToSeeMore")}
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {corpusCoverage.totalSurahs} {ts("surah")}s &middot; {corpusCoverage.totalTokens.toLocaleString(locale)} tokens &middot; {corpusCoverage.displayedUniqueRoots}/{corpusCoverage.totalUniqueRoots} {ts("root")}s {t("visibleLabel")}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -960,6 +986,19 @@ export default function CorpusArchitectureMap({
                                         rootCount: focusedSurahStats.rootsCount,
                                         ayahCount: focusedSurahStats.ayahsCount
                                     })}
+                                </text>
+                            )}
+                            {focusedSurahId && focusedSurahRootsInView < corpusCoverage.focusedSurahRootCount && (
+                                <text
+                                    y={105}
+                                    textAnchor="middle"
+                                    style={{
+                                        fontSize: '11px',
+                                        fill: themeColors.accent,
+                                        opacity: 0.75
+                                    }}
+                                >
+                                    {t("zoomToSeeMore")} ({focusedSurahRootsInView}/{corpusCoverage.focusedSurahRootCount})
                                 </text>
                             )}
                             {internalSelectedRoot && !focusedSurahId && (

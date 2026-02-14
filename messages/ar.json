@@ -368,6 +368,8 @@
             "stats": "{rootCount} جذور • {ayahCount} آيات",
             "occurrences": "{count} تكرار",
             "selectedRoot": "الجذر المختار",
+            "visibleLabel": "ظاهر",
+            "zoomToSeeMore": "كبّر الصورة لإظهار المزيد من الجذور",
             "searchRoot": "البحث عن جذر",
             "searchRootPlaceholder": "اكتب جذراً عربياً…",
             "searchRootHint": "{count} جذر فريد متاح. اكتب للبحث عن أي جذر عبر جميع السور.",

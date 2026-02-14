@@ -368,6 +368,8 @@
             "stats": "{rootCount} Roots • {ayahCount} Ayahs",
             "occurrences": "{count} occurrences",
             "selectedRoot": "Selected Root",
+            "visibleLabel": "visible",
+            "zoomToSeeMore": "Zoom in to reveal more roots",
             "searchRoot": "Search Root",
             "searchRootPlaceholder": "Type an Arabic root…",
             "searchRootHint": "{count} unique roots available. Type to search any root across all surahs.",

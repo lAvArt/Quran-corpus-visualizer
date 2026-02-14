@@ -33,6 +33,64 @@
   box-sizing: border-box;
 }
 
+/* ============================================================================
+   Global Scrollbar Styling
+   ============================================================================ */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Webkit / Blink (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--accent, #0f766e);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:active {
+  background: var(--accent, #f97316);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -1242,21 +1300,6 @@ button.site-footer-link {
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 2rem;
-  scrollbar-width: thin;
-}
-
-/* Scrollbar styling for sidebar */
-.viz-sidebar-stack::-webkit-scrollbar {
-  width: 4px;
-}
-
-.viz-sidebar-stack::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.viz-sidebar-stack::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
 }
 
 /* Reset specific panels to flow naturally in stack */
@@ -1983,7 +2026,6 @@ button.site-footer-link {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  scrollbar-width: thin;
 }
 
 .viz-root-search-item {
@@ -2066,8 +2108,6 @@ button.site-footer-link {
   background: linear-gradient(0deg, var(--bg-0, #000) 60%, transparent 100%);
   border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
   overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent, #e08a2e) transparent;
 }
 
 .dep-ayah-strip-label {
