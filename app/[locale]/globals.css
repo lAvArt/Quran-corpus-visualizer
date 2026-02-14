@@ -2214,20 +2214,30 @@ button.site-footer-link {
 }
 
 .dep-ayah-word-text {
-  font-size: 1.35rem;
-  font-weight: 500;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: var(--ink, #e8e6e3);
-  line-height: 1.5;
+  line-height: 1.4;
   direction: rtl;
   unicode-bidi: bidi-override;
 }
 
+.dep-ayah-word-token {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ink-muted, #aaa);
+  line-height: 1.2;
+  direction: rtl;
+  unicode-bidi: bidi-override;
+  opacity: 0.7;
+}
+
 .dep-ayah-word-gloss {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--ink-muted, #888);
   font-weight: 500;
   line-height: 1.2;
-  max-width: 90px;
+  max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

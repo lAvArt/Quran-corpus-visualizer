@@ -803,7 +803,8 @@ export default function AyahDependencyGraph({
                 title={token.morphology?.gloss || token.root || ""}
               >
                 <span className="dep-ayah-word-text">{ayahWords.get(token.position)?.text ?? token.text}</span>
-                <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || ayahWords.get(token.position)?.translation?.text || token.root || "-").slice(0, 15)}</span>
+                <span className="dep-ayah-word-token">{token.text}</span>
+                <span className="dep-ayah-word-gloss" dir="ltr">{(token.morphology?.gloss || ayahWords.get(token.position)?.translation?.text || token.root || "-").slice(0, 18)}</span>
               </button>
             );
           })}
