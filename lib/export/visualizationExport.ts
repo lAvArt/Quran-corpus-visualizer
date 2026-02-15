@@ -214,61 +214,6 @@ function resolveFullGraphFrame(svg: SVGSVGElement, padding: number): SvgFrame | 
   };
 }
 
-function isDefsLikeNode(node: Element): boolean {
-  const tag = node.tagName.toLowerCase();
-  return (
-    tag === "defs" ||
-    tag === "title" ||
-    tag === "desc" ||
-    tag === "metadata" ||
-    tag === "style" ||
-    tag === "script"
-  );
-}
-
-function fitClonedSvgToViewport(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement, padding: number): SvgFrame {
-  const viewportFrame = resolveCurrentViewFrame(sourceSvg);
-  const fullBounds = resolveFullGraphFrame(sourceSvg, 0);
-
-  if (!fullBounds) {
-    return viewportFrame;
-  }
-
-  const innerPadding = Math.max(0, padding);
-  const availableWidth = Math.max(1, viewportFrame.width - innerPadding * 2);
-  const availableHeight = Math.max(1, viewportFrame.height - innerPadding * 2);
-  const scale = Math.min(availableWidth / fullBounds.width, availableHeight / fullBounds.height);
-
-  if (!Number.isFinite(scale) || scale <= 0) {
-    return viewportFrame;
-  }
-
-  const scaledWidth = fullBounds.width * scale;
-  const scaledHeight = fullBounds.height * scale;
-  const offsetX = viewportFrame.minX + (viewportFrame.width - scaledWidth) / 2;
-  const offsetY = viewportFrame.minY + (viewportFrame.height - scaledHeight) / 2;
-  const translateX = offsetX - fullBounds.minX * scale;
-  const translateY = offsetY - fullBounds.minY * scale;
-
-  const movableNodes = Array.from(clonedSvg.children).filter((child) => !isDefsLikeNode(child));
-  if (movableNodes.length > 0) {
-    const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    wrapper.setAttribute("data-export-fit", "true");
-    wrapper.setAttribute(
-      "transform",
-      `matrix(${formatNumber(scale)} 0 0 ${formatNumber(scale)} ${formatNumber(translateX)} ${formatNumber(translateY)})`
-    );
-
-    const insertionAnchor = clonedSvg.querySelector("defs")?.nextSibling ?? clonedSvg.firstChild;
-    clonedSvg.insertBefore(wrapper, insertionAnchor);
-    for (const node of movableNodes) {
-      wrapper.appendChild(node);
-    }
-  }
-
-  return viewportFrame;
-}
-
 function svgScore(svg: SVGSVGElement): number {
   const rect = svg.getBoundingClientRect();
   if (rect.width > 0 && rect.height > 0) {
@@ -313,23 +258,25 @@ function buildSvgSnapshot(svg: SVGSVGElement, scope: ExportScope, contentPadding
 
   inlineComputedStyles(svg, cloned);
 
-  const frame =
+  const currentFrame = resolveCurrentViewFrame(svg);
+  const outputFrame = currentFrame;
+  const viewBoxFrame =
     scope === "full-graph"
-      ? fitClonedSvgToViewport(svg, cloned, contentPadding)
-      : resolveCurrentViewFrame(svg);
+      ? resolveFullGraphFrame(svg, contentPadding) ?? currentFrame
+      : currentFrame;
 
   cloned.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   cloned.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-  cloned.setAttribute("width", `${Math.max(1, Math.round(frame.width))}`);
-  cloned.setAttribute("height", `${Math.max(1, Math.round(frame.height))}`);
+  cloned.setAttribute("width", `${Math.max(1, Math.round(outputFrame.width))}`);
+  cloned.setAttribute("height", `${Math.max(1, Math.round(outputFrame.height))}`);
   cloned.setAttribute(
     "viewBox",
-    `${formatNumber(frame.minX)} ${formatNumber(frame.minY)} ${formatNumber(frame.width)} ${formatNumber(frame.height)}`
+    `${formatNumber(viewBoxFrame.minX)} ${formatNumber(viewBoxFrame.minY)} ${formatNumber(viewBoxFrame.width)} ${formatNumber(viewBoxFrame.height)}`
   );
 
   const serializer = new XMLSerializer();
   const markup = serializer.serializeToString(cloned);
-  return { markup, width: frame.width, height: frame.height };
+  return { markup, width: outputFrame.width, height: outputFrame.height };
 }
 
 async function loadImageFromSvg(svgMarkup: string): Promise<HTMLImageElement> {
