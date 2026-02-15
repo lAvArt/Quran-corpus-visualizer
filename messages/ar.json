@@ -224,6 +224,14 @@
             "activeRoot": "الجذر النشط",
             "shown": "معروض",
             "coverage": "التغطية",
+            "lowerFrequency": "تردد أقل",
+            "higherFrequency": "تردد أعلى",
+            "lowerRootFrequency": "تردد جذر أقل",
+            "higherRootFrequency": "تردد جذر أعلى",
+            "rootIdentity": "هوية الجذر",
+            "dominantRootIdentity": "هوية الجذر السائد",
+            "uniqueLexicalIdentity": "هوية معجمية فريدة",
+            "highlighted": "مميز",
             "howToRead": "طريقة القراءة"
         },
         "SurahDistribution": {

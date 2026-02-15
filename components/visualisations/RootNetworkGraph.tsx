@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { useTranslations } from "next-intl";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -51,6 +52,8 @@ export default function RootNetworkGraph({
   showLabels = true,
   lexicalColorMode = "theme",
 }: RootNetworkGraphProps) {
+  const t = useTranslations("Visualizations.RootNetwork");
+  const ts = useTranslations("Visualizations.Shared");
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
@@ -620,7 +623,7 @@ export default function RootNetworkGraph({
                 height: 16,
               }}
             />
-            <span>{lexicalColorMode === "theme" ? "Root (trilateral)" : "Root nodes"}</span>
+            <span>{lexicalColorMode === "theme" ? t("rootTrilateral") : t("rootNodes")}</span>
           </div>
           {lexicalColorMode === "theme" ? (
             <>
@@ -629,14 +632,14 @@ export default function RootNetworkGraph({
                   className="viz-legend-dot"
                   style={{ background: getNodeColor("N"), width: 10, height: 10 }}
                 />
-                <span>Noun lemma</span>
+                <span>{t("nounLemma")}</span>
               </div>
               <div className="viz-legend-item">
                 <div
                   className="viz-legend-dot"
                   style={{ background: getNodeColor("V"), width: 10, height: 10 }}
                 />
-                <span>Verb lemma</span>
+                <span>{t("verbLemma")}</span>
               </div>
             </>
           ) : lexicalColorMode === "frequency" ? (
@@ -646,14 +649,14 @@ export default function RootNetworkGraph({
                   className="viz-legend-dot"
                   style={{ background: getFrequencyColor(0.2, theme), width: 10, height: 10 }}
                 />
-                <span>Lower frequency</span>
+                <span>{ts("lowerFrequency")}</span>
               </div>
               <div className="viz-legend-item">
                 <div
                   className="viz-legend-dot"
                   style={{ background: getFrequencyColor(0.9, theme), width: 10, height: 10 }}
                 />
-                <span>Higher frequency</span>
+                <span>{ts("higherFrequency")}</span>
               </div>
             </>
           ) : (
@@ -662,7 +665,7 @@ export default function RootNetworkGraph({
                 className="viz-legend-dot"
                 style={{ background: getIdentityColor("root-color-seed", theme), width: 10, height: 10 }}
               />
-              <span>Unique lexical identity</span>
+              <span>{ts("uniqueLexicalIdentity")}</span>
             </div>
           )}
           <div className="viz-legend-item">
@@ -670,7 +673,7 @@ export default function RootNetworkGraph({
               className="viz-legend-dot"
               style={{ background: themeColors.accent, width: 12, height: 12 }}
             />
-            <span>Highlighted</span>
+            <span>{ts("highlighted")}</span>
           </div>
         </div>,
         document.getElementById('viz-sidebar-portal')!

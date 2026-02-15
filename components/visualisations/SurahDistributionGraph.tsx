@@ -537,17 +537,17 @@ export default function SurahDistributionGraph({
                                 <>
                                     <div className="viz-legend-item">
                                         <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.2, theme), width: 12, height: 12 }} />
-                                        <span>Lower root frequency</span>
+                                        <span>{ts("lowerRootFrequency")}</span>
                                     </div>
                                     <div className="viz-legend-item">
                                         <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.9, theme), width: 12, height: 12 }} />
-                                        <span>Higher root frequency</span>
+                                        <span>{ts("higherRootFrequency")}</span>
                                     </div>
                                 </>
                             ) : (
                                 <div className="viz-legend-item">
                                     <div className="viz-legend-dot" style={{ background: getIdentityColor("surah-identity", theme), width: 12, height: 12 }} />
-                                    <span>Dominant root identity</span>
+                                    <span>{ts("dominantRootIdentity")}</span>
                                 </div>
                             )}
                             <div className="viz-legend-item">

@@ -660,17 +660,17 @@ export default function RadialSuraMap({
                 <>
                   <div className="viz-legend-item">
                     <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.2, theme) }} />
-                    <span>Lower frequency</span>
+                    <span>{ts("lowerFrequency")}</span>
                   </div>
                   <div className="viz-legend-item">
                     <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.9, theme) }} />
-                    <span>Higher frequency</span>
+                    <span>{ts("higherFrequency")}</span>
                   </div>
                 </>
               ) : (
                 <div className="viz-legend-item">
                   <div className="viz-legend-dot" style={{ background: getIdentityColor("radial-identity", theme) }} />
-                  <span>Root identity</span>
+                  <span>{ts("rootIdentity")}</span>
                 </div>
               )}
               <div className="viz-legend-item">

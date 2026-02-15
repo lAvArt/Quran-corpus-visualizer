@@ -224,6 +224,14 @@
             "activeRoot": "Active Root",
             "shown": "Shown",
             "coverage": "Coverage",
+            "lowerFrequency": "Lower frequency",
+            "higherFrequency": "Higher frequency",
+            "lowerRootFrequency": "Lower root frequency",
+            "higherRootFrequency": "Higher root frequency",
+            "rootIdentity": "Root identity",
+            "dominantRootIdentity": "Dominant root identity",
+            "uniqueLexicalIdentity": "Unique lexical identity",
+            "highlighted": "Highlighted",
             "howToRead": "How to Read"
         },
         "SurahDistribution": {
