@@ -59,6 +59,8 @@ const GRAPHICS_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon,text,u
 const NON_RENDERABLE_ANCESTOR_SELECTOR = "defs,clipPath,mask,pattern,marker,symbol,linearGradient,radialGradient,filter";
 const SHAPE_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon";
 const ARABIC_TEXT_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const LATIN_TEXT_PATTERN = /[A-Za-z]/;
+const ARABIC_FONT_FALLBACK = `"Amiri", "Noto Naskh Arabic", "Scheherazade New", "Tahoma", "Arial", serif`;
 
 function sanitizeFileBaseName(name: string): string {
   const normalized = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
@@ -379,22 +381,29 @@ function normalizeArabicTextDirection(clonedSvg: SVGSVGElement): void {
     const declarations = parseStyleDeclarations(node.getAttribute("style"));
     const bidi = declarations.get("unicode-bidi");
     if (bidi && bidi.toLowerCase() === "plaintext") {
-      declarations.set("unicode-bidi", "embed");
+      declarations.set("unicode-bidi", "bidi-override");
     }
 
     const content = node.textContent ?? "";
     if (ARABIC_TEXT_PATTERN.test(content)) {
-      if (!node.hasAttribute("direction")) {
-        node.setAttribute("direction", "rtl");
-      }
-      if (!node.hasAttribute("unicode-bidi")) {
-        node.setAttribute("unicode-bidi", "embed");
-      }
+      node.setAttribute("direction", "rtl");
+      node.setAttribute("unicode-bidi", "bidi-override");
       if (!node.hasAttribute("lang")) {
         node.setAttribute("lang", "ar");
       }
       if (!node.hasAttribute("xml:lang")) {
         node.setAttribute("xml:lang", "ar");
+      }
+
+      declarations.set("direction", "rtl");
+      declarations.set("unicode-bidi", "bidi-override");
+      declarations.set("font-family", ensureArabicFontFamily(declarations.get("font-family")));
+      declarations.set("font-feature-settings", `"rlig" 1, "calt" 1, "liga" 1`);
+      declarations.set("font-variant-ligatures", "contextual common-ligatures");
+
+      if (!LATIN_TEXT_PATTERN.test(content) && !content.includes("\u202B") && !content.includes("\u202C")) {
+        // Wrap pure Arabic runs with explicit directional marks for editors with weak bidi support.
+        node.textContent = `\u202B${content}\u202C`;
       }
     }
 
@@ -403,6 +412,25 @@ function normalizeArabicTextDirection(clonedSvg: SVGSVGElement): void {
       node.setAttribute("style", styleText);
     }
   }
+}
+
+function ensureArabicFontFamily(existing: string | undefined): string {
+  if (!existing) return ARABIC_FONT_FALLBACK;
+
+  const fonts = existing
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => token.replace(/^['"]|['"]$/g, ""));
+
+  const withFallback = [...fonts];
+  for (const fallback of ARABIC_FONT_FALLBACK.split(",").map((token) => token.trim().replace(/^['"]|['"]$/g, ""))) {
+    if (!withFallback.some((font) => font.toLowerCase() === fallback.toLowerCase())) {
+      withFallback.push(fallback);
+    }
+  }
+
+  return withFallback.map((token) => (/[\s]/.test(token) ? `"${token}"` : token)).join(", ");
 }
 
 function injectBackgroundRect(clonedSvg: SVGSVGElement, frame: SvgFrame, backgroundColor: string): void {
