@@ -317,6 +317,7 @@ function HomePageContent() {
               onSurahSelect={(suraId) => handleSurahSelect(suraId, "radial-sura")}
               highlightRoot={selectedRoot}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -361,6 +362,7 @@ function HomePageContent() {
               onTokenFocus={setFocusedTokenId}
               onSurahChange={setSelectedSurahId}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -373,6 +375,8 @@ function HomePageContent() {
               onTokenHover={setHoverTokenId}
               onTokenFocus={setFocusedTokenId}
               selectedSurahId={selectedSurahId}
+              theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 

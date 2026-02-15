@@ -9,6 +9,7 @@ import type { ChangeEvent } from "react";
 import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 interface RootFlowSankeyProps {
   flows: RootWordFlow[];
@@ -17,6 +18,8 @@ interface RootFlowSankeyProps {
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
   selectedSurahId?: number;
+  theme?: "light" | "dark";
+  lexicalColorMode?: LexicalColorMode;
 }
 
 const INITIAL_VISIBLE = 50;
@@ -42,6 +45,8 @@ export default function RootFlowSankey({
   onTokenHover,
   onTokenFocus,
   selectedSurahId,
+  theme = "dark",
+  lexicalColorMode = "theme",
 }: RootFlowSankeyProps) {
   const t = useTranslations("Visualizations.RootFlow");
   const ts = useTranslations("Visualizations.Shared");
@@ -126,6 +131,16 @@ export default function RootFlowSankey({
   const selectedRootLabel = selectedRoot === "all" ? t("allRoots") + " (" + availableRoots.length + ")" : selectedRoot;
   const maxCount = Math.max(...visibleFlows.map((flow) => flow.count), 1);
   const height = Math.max(420, visibleFlows.length * 56 + 170);
+
+  const flowStrokeFor = useCallback(
+    (flow: RootWordFlow): string => {
+      if (lexicalColorMode === "theme") return "url(#flowGrad)";
+      if (lexicalColorMode === "identity") return getIdentityColor(flow.root, theme);
+      const ratio = Math.log1p(flow.count) / Math.log1p(maxCount || 1);
+      return getFrequencyColor(ratio, theme);
+    },
+    [lexicalColorMode, maxCount, theme]
+  );
 
   const handleLoadMore = useCallback(() => {
     setVisibleCount((prev) => prev + LOAD_MORE_COUNT);
@@ -268,7 +283,7 @@ export default function RootFlowSankey({
                   <g key={`${flow.root}-${flow.lemma}`}>
                     <path
                       d={`M ${FLOW_START_X} ${y} C ${FLOW_MID_LEFT} ${y}, ${FLOW_MID_RIGHT} ${y}, ${FLOW_END_X} ${y}`}
-                      stroke="url(#flowGrad)"
+                      stroke={flowStrokeFor(flow)}
                       strokeWidth={width}
                       fill="none"
                       strokeLinecap="round"
