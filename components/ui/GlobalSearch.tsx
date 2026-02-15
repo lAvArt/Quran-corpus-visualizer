@@ -25,6 +25,12 @@ export default function GlobalSearch({
   onRootSelect,
 }: GlobalSearchProps) {
   const t = useTranslations('GlobalSearch');
+  const typeLabelMap: Record<SearchResult["matchType"], string> = {
+    root: t('types.root'),
+    lemma: t('types.lemma'),
+    text: t('types.text'),
+    gloss: t('types.gloss'),
+  };
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 200);
   const [isOpen, setIsOpen] = useState(false);
@@ -188,7 +194,7 @@ export default function GlobalSearch({
         {query && (
           <button
             className="search-clear"
-            aria-label="Clear search"
+            aria-label={t('clearSearch')}
             onClick={(e) => {
               e.stopPropagation();
               setQuery("");
@@ -201,7 +207,7 @@ export default function GlobalSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div ref={resultsRef} className="search-results-dropdown" id="global-search-results" role="listbox" aria-label="Search results">
+        <div ref={resultsRef} className="search-results-dropdown" id="global-search-results" role="listbox" aria-label={t('resultsAriaLabel')}>
           {results.map((result, index) => (
             <button
               key={result.token.id}
@@ -225,7 +231,7 @@ export default function GlobalSearch({
               <span className="result-arabic">{result.token.text}</span>
               <span className="result-meta">
                 <span className={`result-type result-type-${result.matchType}`}>
-                  {result.matchType}
+                  {typeLabelMap[result.matchType]}
                 </span>
                 <span className="result-match">{result.matchText}</span>
               </span>

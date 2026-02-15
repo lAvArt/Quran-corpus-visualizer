@@ -62,7 +62,15 @@
         "placeholder": "Search roots, words, meanings...",
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
-        "matchLemma": "Lemma: {lemma}"
+        "matchLemma": "Lemma: {lemma}",
+        "clearSearch": "Clear search",
+        "resultsAriaLabel": "Search results",
+        "types": {
+            "root": "Root",
+            "lemma": "Lemma",
+            "text": "Text",
+            "gloss": "Gloss"
+        }
     },
     "VisualizationSwitcher": {
         "select": "Select",
@@ -110,7 +118,8 @@
         },
         "searchPlaceholder": "Filter...",
         "verses": "verses",
-        "noResults": "No results found"
+        "noResults": "No results found",
+        "tabsAriaLabel": "Index categories"
     },
     "CurrentSelectionPanel": {
         "title": "Current Selection",
@@ -143,7 +152,19 @@
         "surah": "Surah {id}",
         "found": "Found {count} tokens",
         "clickToFocus": "Click a row to focus",
-        "empty": "Enter criteria to find tokens."
+        "empty": "Enter criteria to find tokens.",
+        "rootInfo": {
+            "occurrences": "{count} occurrences",
+            "meaning": "Meaning",
+            "stats": {
+                "surahs": "Surahs",
+                "lemmas": "Lemmas",
+                "forms": "Forms"
+            },
+            "formsLabel": "Forms",
+            "surahDistribution": "Surah distribution",
+            "clickToFocusSurah": "Click to focus surah and highlight"
+        }
     },
     "VizExplainer": {
         "helpLabel": "How to read this graph"
@@ -169,7 +190,21 @@
             "stem": "Stem",
             "pos": "POS"
         },
-        "noGloss": "No gloss available"
+        "noGloss": "No gloss available",
+        "rootDistribution": {
+            "title": "Root Analysis",
+            "meaning": "Meaning",
+            "stats": {
+                "occurrences": "Occurrences",
+                "surahs": "Surahs",
+                "ayahs": "Ayahs",
+                "lemmas": "Lemmas"
+            },
+            "formsLabel": "Forms",
+            "lemmasLabel": "Lemmas",
+            "surahDistribution": "Surah Distribution",
+            "clickToFocus": "Click to focus"
+        }
     },
     "Visualizations": {
         "Shared": {

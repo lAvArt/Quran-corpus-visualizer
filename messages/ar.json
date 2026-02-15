@@ -62,7 +62,15 @@
         "placeholder": "بحث عن جذور، كلمات، معاني...",
         "noResults": "لم توجد نتائج",
         "matchRoot": "جذر: {root} ({count} مرة)",
-        "matchLemma": "ليما: {lemma}"
+        "matchLemma": "ليما: {lemma}",
+        "clearSearch": "مسح البحث",
+        "resultsAriaLabel": "نتائج البحث",
+        "types": {
+            "root": "جذر",
+            "lemma": "كلمة",
+            "text": "نص",
+            "gloss": "معنى"
+        }
     },
     "VisualizationSwitcher": {
         "select": "اختر",
@@ -110,7 +118,8 @@
         },
         "searchPlaceholder": "تصفية...",
         "verses": "آيات",
-        "noResults": "لم توجد نتائج"
+        "noResults": "لم توجد نتائج",
+        "tabsAriaLabel": "فئات الفهرس"
     },
     "CurrentSelectionPanel": {
         "title": "التحديد الحالي",
@@ -143,7 +152,19 @@
         "surah": "سورة {id}",
         "found": "تم العثور على {count} لفظ",
         "clickToFocus": "اضغط للتركيز",
-        "empty": "أدخل معايير البحث."
+        "empty": "أدخل معايير البحث.",
+        "rootInfo": {
+            "occurrences": "{count} مرة",
+            "meaning": "المعنى",
+            "stats": {
+                "surahs": "سور",
+                "lemmas": "كلمات",
+                "forms": "صيغ"
+            },
+            "formsLabel": "الصيغ",
+            "surahDistribution": "توزيع السور",
+            "clickToFocusSurah": "اضغط للتركيز على السورة وإبرازها"
+        }
     },
     "VizExplainer": {
         "helpLabel": "طريقة قراءة الرسم البياني"
@@ -169,7 +190,21 @@
             "stem": "الجذع",
             "pos": "القسم"
         },
-        "noGloss": "لا توجد ترجمة متاحة"
+        "noGloss": "لا توجد ترجمة متاحة",
+        "rootDistribution": {
+            "title": "تحليل الجذر",
+            "meaning": "المعنى",
+            "stats": {
+                "occurrences": "التكرارات",
+                "surahs": "السور",
+                "ayahs": "الآيات",
+                "lemmas": "الكلمات"
+            },
+            "formsLabel": "الصيغ",
+            "lemmasLabel": "الكلمات",
+            "surahDistribution": "توزيع السور",
+            "clickToFocus": "اضغط للتركيز"
+        }
     },
     "Visualizations": {
         "Shared": {

@@ -103,7 +103,7 @@ export default function CorpusIndex({
 
     return (
         <div className={`corpus-index ${className}`}>
-            <div className="index-tabs" role="tablist" aria-label="Index categories">
+            <div className="index-tabs" role="tablist" aria-label={t('tabsAriaLabel')}>
                 {(["surah", "root", "lemma"] as const).map((mode) => (
                     <button
                         key={mode}

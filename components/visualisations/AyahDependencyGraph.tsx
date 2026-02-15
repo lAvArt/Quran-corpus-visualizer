@@ -243,6 +243,15 @@ export default function AyahDependencyGraph({
   const graphHeight = Math.max(dimensions.height, 620);
   const baseY = Math.max(320, Math.min(graphHeight - 170, graphHeight * 0.68));
   const tokenTopY = baseY - nodeHeight / 2 - 8;
+  const tokenXById = useMemo(() => {
+    const xById = new Map<string, number>();
+    sortedTokens.forEach((token, idx) => {
+      // Quranic Arabic reading order is RTL, so render token 1 on the right.
+      const rtlIndex = sortedTokens.length - 1 - idx;
+      xById.set(token.id, horizontalPadding + rtlIndex * spacing);
+    });
+    return xById;
+  }, [sortedTokens, horizontalPadding, spacing]);
 
   const edgeLayouts = useMemo<EdgeLayout[]>(() => {
     if (!data) return [];
@@ -253,8 +262,9 @@ export default function AyahDependencyGraph({
         const head = tokenMap.get(edge.headTokenId);
         if (!dependent || !head) return null;
 
-        const startX = horizontalPadding + (dependent.position - 1) * spacing;
-        const endX = horizontalPadding + (head.position - 1) * spacing;
+        const startX = tokenXById.get(dependent.id);
+        const endX = tokenXById.get(head.id);
+        if (startX == null || endX == null) return null;
         const span = Math.abs(endX - startX);
         const midX = (startX + endX) / 2;
         const controlY = tokenTopY - (54 + span * 0.22);
@@ -285,7 +295,7 @@ export default function AyahDependencyGraph({
         };
       })
       .filter((layout): layout is EdgeLayout => Boolean(layout));
-  }, [data, tokenMap, horizontalPadding, spacing, tokenTopY]);
+  }, [data, tokenMap, tokenXById, tokenTopY]);
 
   const hoveredEdgeLayout = useMemo(
     () => edgeLayouts.find((layout) => layout.edge.id === hoveredEdgeId) ?? null,
@@ -722,7 +732,7 @@ export default function AyahDependencyGraph({
 
             <g className="dep-token-layer">
               {sortedTokens.map((token) => {
-                const x = horizontalPadding + (token.position - 1) * spacing;
+                const x = tokenXById.get(token.id) ?? horizontalPadding + (token.position - 1) * spacing;
                 const y = baseY;
                 const nodeColor = lexicalNodeColor(token);
                 const isHovered = hoveredTokenId === token.id;

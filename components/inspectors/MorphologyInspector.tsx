@@ -177,28 +177,28 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
             {/* Root Distribution Panel */}
             {rootDistribution && (
                 <div className="inspector-section root-dist-section">
-                    <h3>Root Analysis — <span className="arabic-font" lang="ar" dir="rtl">{rootDistribution.root}</span></h3>
+                    <h3>{t('rootDistribution.title')} — <span className="arabic-font" lang="ar" dir="rtl">{rootDistribution.root}</span></h3>
 
                     {rootDistribution.gloss && (
-                        <p className="root-dist-gloss">Meaning: <em>{rootDistribution.gloss}</em></p>
+                        <p className="root-dist-gloss">{t('rootDistribution.meaning')}: <em>{rootDistribution.gloss}</em></p>
                     )}
 
                     <div className="root-dist-stats">
                         <div className="root-dist-stat">
                             <span className="rds-value">{rootDistribution.totalOccurrences.toLocaleString()}</span>
-                            <span className="rds-label">Occurrences</span>
+                            <span className="rds-label">{t('rootDistribution.stats.occurrences')}</span>
                         </div>
                         <div className="root-dist-stat">
                             <span className="rds-value">{rootDistribution.surahCount}</span>
-                            <span className="rds-label">Surahs</span>
+                            <span className="rds-label">{t('rootDistribution.stats.surahs')}</span>
                         </div>
                         <div className="root-dist-stat">
                             <span className="rds-value">{rootDistribution.totalAyahs}</span>
-                            <span className="rds-label">Ayahs</span>
+                            <span className="rds-label">{t('rootDistribution.stats.ayahs')}</span>
                         </div>
                         <div className="root-dist-stat">
                             <span className="rds-value">{rootDistribution.lemmas.length}</span>
-                            <span className="rds-label">Lemmas</span>
+                            <span className="rds-label">{t('rootDistribution.stats.lemmas')}</span>
                         </div>
                     </div>
 
@@ -215,7 +215,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
 
                     {rootDistribution.forms.length > 0 && (
                         <div className="root-dist-forms">
-                            <span className="rds-label">Forms: </span>
+                            <span className="rds-label">{t('rootDistribution.formsLabel')}: </span>
                             <span className="arabic-font" lang="ar" dir="rtl">
                                 {rootDistribution.forms.join(" · ")}
                             </span>
@@ -224,7 +224,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
 
                     {rootDistribution.lemmas.length > 0 && (
                         <div className="root-dist-forms">
-                            <span className="rds-label">Lemmas: </span>
+                            <span className="rds-label">{t('rootDistribution.lemmasLabel')}: </span>
                             <span className="arabic-font" lang="ar" dir="rtl">
                                 {rootDistribution.lemmas.join(" · ")}
                             </span>
@@ -234,8 +234,8 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                     <div className="root-dist-divider" />
 
                     <div className="root-dist-list-header">
-                        <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>Surah Distribution</span>
-                        <span className="rds-label">Click to focus</span>
+                        <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>{t('rootDistribution.surahDistribution')}</span>
+                        <span className="rds-label">{t('rootDistribution.clickToFocus')}</span>
                     </div>
 
                     <div className="root-dist-list">
