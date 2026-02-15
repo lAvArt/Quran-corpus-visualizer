@@ -32,14 +32,14 @@ const STYLE_PROPERTIES = [
   "letter-spacing",
   "text-anchor",
   "dominant-baseline",
+  "direction",
+  "unicode-bidi",
   "vector-effect",
   "paint-order",
   "shape-rendering",
   "display",
   "visibility",
   "mix-blend-mode",
-  "transform",
-  "transform-origin",
 ] as const;
 
 const MAX_EXPORT_EDGE = 8192;
@@ -253,7 +253,9 @@ function inlineComputedStyles(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement
     const styleParts: string[] = [];
 
     for (const prop of STYLE_PROPERTIES) {
-      const value = computed.getPropertyValue(prop);
+      const rawValue = computed.getPropertyValue(prop);
+      if (!rawValue) continue;
+      const value = prop === "font-family" ? normalizeFontFamily(rawValue) : rawValue;
       if (!value) continue;
       styleParts.push(`${prop}:${value}`);
     }
@@ -263,6 +265,47 @@ function inlineComputedStyles(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement
     const joined = styleParts.join(";");
     clonedEl.setAttribute("style", existingStyle ? `${existingStyle};${joined}` : joined);
   }
+}
+
+function normalizeFontFamily(value: string): string {
+  const tokens = value
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => token.replace(/^['"]|['"]$/g, ""));
+
+  const normalized: string[] = [];
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    if (lower.startsWith("__")) continue;
+    if (lower.includes("fallback")) continue;
+    if (lower.startsWith("var(")) continue;
+
+    if (lower === "space grotesk") {
+      normalized.push("Segoe UI");
+      continue;
+    }
+    if (lower === "fraunces") {
+      normalized.push("Georgia");
+      continue;
+    }
+    normalized.push(token);
+  }
+
+  const deduped = Array.from(new Set(normalized));
+  if (deduped.length === 0) {
+    return "Segoe UI, Arial, sans-serif";
+  }
+
+  const hasGeneric = deduped.some((token) =>
+    /^(serif|sans-serif|monospace|cursive|fantasy|system-ui)$/i.test(token)
+  );
+  if (!hasGeneric) {
+    const hasArabicSerif = deduped.some((token) => /amiri|naskh|scheherazade/i.test(token));
+    deduped.push(hasArabicSerif ? "serif" : "sans-serif");
+  }
+
+  return deduped.map((token) => (/[\s]/.test(token) ? `"${token}"` : token)).join(", ");
 }
 
 function buildSvgSnapshot(svg: SVGSVGElement, scope: ExportScope, contentPadding: number): SvgSnapshot {
