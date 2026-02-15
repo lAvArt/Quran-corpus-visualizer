@@ -440,12 +440,32 @@
         "panelLabel": "Display settings",
         "appearance": "Appearance",
         "palette": "Color theme",
+        "modes": {
+            "light": "Light",
+            "dark": "Dark"
+        },
         "themes": {
             "tealAmber": "Teal & Amber",
             "emberCyan": "Ember & Cyan",
             "royalGold": "Royal & Gold",
             "forestRose": "Forest & Rose",
-            "monoAzure": "Mono Azure"
+            "monoAzure": "Mono Azure",
+            "custom": "Custom"
+        },
+        "custom": {
+            "title": "Custom colors",
+            "editing": "Editing {mode} mode"
+        },
+        "fields": {
+            "accent": "Accent",
+            "accent2": "Accent 2",
+            "accent3": "Accent 3",
+            "bg0": "Background 1",
+            "bg1": "Background 2",
+            "bg2": "Background 3"
+        },
+        "actions": {
+            "resetCurrent": "Reset {mode}"
         }
     },
     "VizExport": {

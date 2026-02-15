@@ -440,12 +440,32 @@
         "panelLabel": "إعدادات العرض",
         "appearance": "المظهر",
         "palette": "سمة الألوان",
+        "modes": {
+            "light": "الفاتح",
+            "dark": "الداكن"
+        },
         "themes": {
             "tealAmber": "فيروزي وعنبر",
             "emberCyan": "جمري وسماوي",
             "royalGold": "ملكي وذهبي",
             "forestRose": "غابة ووردي",
-            "monoAzure": "أزرق أحادي"
+            "monoAzure": "أزرق أحادي",
+            "custom": "مخصص"
+        },
+        "custom": {
+            "title": "ألوان مخصصة",
+            "editing": "تعديل وضع {mode}"
+        },
+        "fields": {
+            "accent": "اللون الأساسي",
+            "accent2": "اللون الثانوي 2",
+            "accent3": "اللون الثانوي 3",
+            "bg0": "الخلفية 1",
+            "bg1": "الخلفية 2",
+            "bg2": "الخلفية 3"
+        },
+        "actions": {
+            "resetCurrent": "إعادة ضبط {mode}"
         }
     },
     "VizExport": {

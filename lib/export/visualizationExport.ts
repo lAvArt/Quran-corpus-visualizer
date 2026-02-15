@@ -406,6 +406,8 @@ async function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality
 }
 
 function defaultBackgroundColor(): string {
+  const cssVar = window.getComputedStyle(document.documentElement).getPropertyValue("--bg-0").trim();
+  if (cssVar) return cssVar;
   const theme = document.documentElement.getAttribute("data-theme");
   return theme === "dark" ? "#0c0b0d" : "#f7f3ea";
 }

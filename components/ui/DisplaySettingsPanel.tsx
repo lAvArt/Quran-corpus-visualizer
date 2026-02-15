@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import {
   COLOR_THEME_PRESETS,
+  type CustomColorTheme,
+  type CustomColorThemePalette,
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
 
@@ -13,6 +15,9 @@ interface DisplaySettingsPanelProps {
   onThemeChange: (theme: "light" | "dark") => void;
   colorTheme: ColorThemeId;
   onColorThemeChange: (themeId: ColorThemeId) => void;
+  customColorTheme: CustomColorTheme;
+  onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
+  onResetCustomColorTheme: (appearance: "light" | "dark") => void;
 }
 
 export default function DisplaySettingsPanel({
@@ -20,11 +25,15 @@ export default function DisplaySettingsPanel({
   onThemeChange,
   colorTheme,
   onColorThemeChange,
+  customColorTheme,
+  onCustomColorThemeChange,
+  onResetCustomColorTheme,
 }: DisplaySettingsPanelProps) {
   const t = useTranslations("DisplaySettings");
   const [isOpen, setIsOpen] = useState(false);
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const activePalette = customColorTheme[theme];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -92,8 +101,89 @@ export default function DisplaySettingsPanel({
                   <span>{t(`themes.${preset.labelKey}`)}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                className={`display-theme-item ${colorTheme === "custom" ? "active" : ""}`}
+                onClick={() => onColorThemeChange("custom")}
+                aria-pressed={colorTheme === "custom"}
+              >
+                <span className="display-theme-swatches">
+                  {[activePalette.accent, activePalette.accent2, activePalette.bg0].map((color, index) => (
+                    <span key={`custom-${index}-${color}`} className="display-theme-swatch" style={{ background: color }} />
+                  ))}
+                </span>
+                <span>{t("themes.custom")}</span>
+              </button>
             </div>
           </div>
+
+          {colorTheme === "custom" && (
+            <div className="display-settings-section custom-colors">
+              <div className="display-settings-title">{t("custom.title")}</div>
+              <div className="display-settings-subtitle">
+                {t("custom.editing", { mode: t(`modes.${theme}`) })}
+              </div>
+
+              <div className="custom-color-grid">
+                <label className="custom-color-row">
+                  <span>{t("fields.accent")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.accent}
+                    onChange={(event) => onCustomColorThemeChange(theme, "accent", event.target.value)}
+                  />
+                </label>
+                <label className="custom-color-row">
+                  <span>{t("fields.accent2")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.accent2}
+                    onChange={(event) => onCustomColorThemeChange(theme, "accent2", event.target.value)}
+                  />
+                </label>
+                <label className="custom-color-row">
+                  <span>{t("fields.accent3")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.accent3}
+                    onChange={(event) => onCustomColorThemeChange(theme, "accent3", event.target.value)}
+                  />
+                </label>
+                <label className="custom-color-row">
+                  <span>{t("fields.bg0")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.bg0}
+                    onChange={(event) => onCustomColorThemeChange(theme, "bg0", event.target.value)}
+                  />
+                </label>
+                <label className="custom-color-row">
+                  <span>{t("fields.bg1")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.bg1}
+                    onChange={(event) => onCustomColorThemeChange(theme, "bg1", event.target.value)}
+                  />
+                </label>
+                <label className="custom-color-row">
+                  <span>{t("fields.bg2")}</span>
+                  <input
+                    type="color"
+                    value={activePalette.bg2}
+                    onChange={(event) => onCustomColorThemeChange(theme, "bg2", event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                className="custom-reset-btn"
+                onClick={() => onResetCustomColorTheme(theme)}
+              >
+                {t("actions.resetCurrent", { mode: t(`modes.${theme}`) })}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -160,6 +250,11 @@ export default function DisplaySettingsPanel({
           gap: 6px;
         }
 
+        .display-settings-subtitle {
+          font-size: 0.72rem;
+          color: var(--ink-muted);
+        }
+
         .display-theme-item {
           border: 1px solid transparent;
           border-radius: 10px;
@@ -199,6 +294,54 @@ export default function DisplaySettingsPanel({
           border: 1px solid rgba(255, 255, 255, 0.35);
         }
 
+        .custom-colors {
+          border-top: 1px solid var(--line);
+          padding-top: 10px;
+        }
+
+        .custom-color-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px 10px;
+        }
+
+        .custom-color-row {
+          display: inline-flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          font-size: 0.73rem;
+          color: var(--ink-secondary);
+        }
+
+        .custom-color-row input[type="color"] {
+          width: 28px;
+          height: 22px;
+          border: 1px solid var(--line);
+          border-radius: 6px;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
+        }
+
+        .custom-reset-btn {
+          margin-top: 6px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          padding: 7px 10px;
+          background: transparent;
+          color: var(--ink-secondary);
+          font-family: inherit;
+          font-size: 0.72rem;
+          cursor: pointer;
+          transition: border-color 0.18s ease, color 0.18s ease;
+        }
+
+        .custom-reset-btn:hover {
+          border-color: var(--accent);
+          color: var(--ink);
+        }
+
         :global([data-theme="dark"]) .display-settings-trigger {
           background: rgba(18, 18, 26, 0.75);
         }
@@ -217,6 +360,10 @@ export default function DisplaySettingsPanel({
           .display-settings-panel {
             right: -42px;
             min-width: 250px;
+          }
+
+          .custom-color-grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

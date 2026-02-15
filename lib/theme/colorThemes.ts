@@ -1,4 +1,5 @@
-export type ColorThemeId = "teal-amber" | "ember-cyan" | "royal-gold" | "forest-rose" | "mono-azure";
+export type ColorThemeId = "teal-amber" | "ember-cyan" | "royal-gold" | "forest-rose" | "mono-azure" | "custom";
+type PresetColorThemeId = Exclude<ColorThemeId, "custom">;
 
 interface ColorThemeTokens {
   accent: string;
@@ -8,8 +9,22 @@ interface ColorThemeTokens {
   accent2Glow: string;
 }
 
+export interface CustomColorThemePalette {
+  accent: string;
+  accent2: string;
+  accent3: string;
+  bg0: string;
+  bg1: string;
+  bg2: string;
+}
+
+export interface CustomColorTheme {
+  light: CustomColorThemePalette;
+  dark: CustomColorThemePalette;
+}
+
 export interface ColorThemePreset {
-  id: ColorThemeId;
+  id: PresetColorThemeId;
   labelKey: "tealAmber" | "emberCyan" | "royalGold" | "forestRose" | "monoAzure";
   preview: readonly [string, string, string];
   light: ColorThemeTokens;
@@ -17,6 +32,24 @@ export interface ColorThemePreset {
 }
 
 export const DEFAULT_COLOR_THEME_ID: ColorThemeId = "teal-amber";
+export const DEFAULT_CUSTOM_COLOR_THEME: CustomColorTheme = {
+  light: {
+    accent: "#0f766e",
+    accent2: "#f59e0b",
+    accent3: "#1d4ed8",
+    bg0: "#f7f3ea",
+    bg1: "#efe6d6",
+    bg2: "#e6dcc9",
+  },
+  dark: {
+    accent: "#f97316",
+    accent2: "#22d3ee",
+    accent3: "#38bdf8",
+    bg0: "#0c0b0d",
+    bg1: "#15151b",
+    bg2: "#1e1e28",
+  },
+};
 
 export const COLOR_THEME_PRESETS: readonly ColorThemePreset[] = [
   {
@@ -117,21 +150,76 @@ export const COLOR_THEME_PRESETS: readonly ColorThemePreset[] = [
 ];
 
 export function isValidColorThemeId(value: unknown): value is ColorThemeId {
-  return typeof value === "string" && COLOR_THEME_PRESETS.some((preset) => preset.id === value);
+  return (
+    value === "custom" ||
+    (typeof value === "string" && COLOR_THEME_PRESETS.some((preset) => preset.id === value))
+  );
 }
 
-export function getColorThemePreset(id: ColorThemeId): ColorThemePreset {
+export function getColorThemePreset(id: PresetColorThemeId): ColorThemePreset {
   const preset = COLOR_THEME_PRESETS.find((entry) => entry.id === id);
   if (preset) return preset;
   return COLOR_THEME_PRESETS[0];
 }
 
-export function applyColorTheme(id: ColorThemeId, appearance: "light" | "dark"): void {
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.trim().replace(/^#/, "");
+  const safe = /^[0-9a-fA-F]{6}$/.test(normalized) ? normalized : "000000";
+  const r = Number.parseInt(safe.slice(0, 2), 16);
+  const g = Number.parseInt(safe.slice(2, 4), 16);
+  const b = Number.parseInt(safe.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function isValidHexColor(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+}
+
+export function isValidCustomColorTheme(value: unknown): value is CustomColorTheme {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<CustomColorTheme>;
+  if (!candidate.light || !candidate.dark) return false;
+
+  const isPaletteValid = (palette: Partial<CustomColorThemePalette> | undefined) =>
+    Boolean(
+      palette &&
+      isValidHexColor(palette.accent) &&
+      isValidHexColor(palette.accent2) &&
+      isValidHexColor(palette.accent3) &&
+      isValidHexColor(palette.bg0) &&
+      isValidHexColor(palette.bg1) &&
+      isValidHexColor(palette.bg2)
+    );
+
+  return isPaletteValid(candidate.light) && isPaletteValid(candidate.dark);
+}
+
+function clearCustomBackgroundOverrides(root: HTMLElement): void {
+  root.style.removeProperty("--bg-0");
+  root.style.removeProperty("--bg-1");
+  root.style.removeProperty("--bg-2");
+}
+
+export function applyColorTheme(
+  id: ColorThemeId,
+  appearance: "light" | "dark",
+  customTheme: CustomColorTheme = DEFAULT_CUSTOM_COLOR_THEME
+): void {
   if (typeof document === "undefined") return;
 
   const root = document.documentElement;
-  const preset = getColorThemePreset(id);
-  const tokens = appearance === "dark" ? preset.dark : preset.light;
+  const tokens =
+    id === "custom"
+      ? {
+          accent: customTheme[appearance].accent,
+          accent2: customTheme[appearance].accent2,
+          accent3: customTheme[appearance].accent3,
+          accentGlow: hexToRgba(customTheme[appearance].accent, appearance === "dark" ? 0.52 : 0.42),
+          accent2Glow: hexToRgba(customTheme[appearance].accent2, appearance === "dark" ? 0.5 : 0.45),
+        }
+      : appearance === "dark"
+        ? getColorThemePreset(id).dark
+        : getColorThemePreset(id).light;
 
   root.setAttribute("data-color-theme", id);
   root.style.setProperty("--accent", tokens.accent);
@@ -139,4 +227,12 @@ export function applyColorTheme(id: ColorThemeId, appearance: "light" | "dark"):
   root.style.setProperty("--accent-3", tokens.accent3);
   root.style.setProperty("--accent-glow", tokens.accentGlow);
   root.style.setProperty("--accent-2-glow", tokens.accent2Glow);
+
+  if (id === "custom") {
+    root.style.setProperty("--bg-0", customTheme[appearance].bg0);
+    root.style.setProperty("--bg-1", customTheme[appearance].bg1);
+    root.style.setProperty("--bg-2", customTheme[appearance].bg2);
+  } else {
+    clearCustomBackgroundOverrides(root);
+  }
 }

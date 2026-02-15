@@ -21,8 +21,12 @@ import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import {
   DEFAULT_COLOR_THEME_ID,
+  DEFAULT_CUSTOM_COLOR_THEME,
   applyColorTheme,
+  isValidCustomColorTheme,
   isValidColorThemeId,
+  type CustomColorTheme,
+  type CustomColorThemePalette,
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
 
@@ -57,6 +61,7 @@ function HomePageContent() {
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
+  const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
   const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
@@ -82,6 +87,7 @@ function HomePageContent() {
         if (saved.vizMode) setVizMode(saved.vizMode);
         if (saved.theme) setTheme(saved.theme);
         if (isValidColorThemeId(saved.colorThemeId)) setColorThemeId(saved.colorThemeId);
+        if (isValidCustomColorTheme(saved.customColorTheme)) setCustomColorTheme(saved.customColorTheme);
         if (saved.selectedSurahId) setSelectedSurahId(saved.selectedSurahId);
         if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
         if (saved.selectedLemma !== undefined) setSelectedLemma(saved.selectedLemma);
@@ -94,8 +100,8 @@ function HomePageContent() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    applyColorTheme(colorThemeId, theme);
-  }, [theme, colorThemeId]);
+    applyColorTheme(colorThemeId, theme, customColorTheme);
+  }, [theme, colorThemeId, customColorTheme]);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -106,6 +112,7 @@ function HomePageContent() {
           vizMode,
           theme,
           colorThemeId,
+          customColorTheme,
           selectedSurahId,
           selectedRoot,
           selectedLemma,
@@ -114,7 +121,29 @@ function HomePageContent() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [vizMode, theme, colorThemeId, selectedSurahId, selectedRoot, selectedLemma]);
+  }, [vizMode, theme, colorThemeId, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
+
+  const handleCustomColorThemeChange = useCallback(
+    (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => {
+      setCustomColorTheme((prev) => ({
+        ...prev,
+        [appearance]: {
+          ...prev[appearance],
+          [field]: value,
+        },
+      }));
+      setColorThemeId("custom");
+    },
+    []
+  );
+
+  const handleResetCustomColorTheme = useCallback((appearance: "light" | "dark") => {
+    setCustomColorTheme((prev) => ({
+      ...prev,
+      [appearance]: { ...DEFAULT_CUSTOM_COLOR_THEME[appearance] },
+    }));
+    setColorThemeId("custom");
+  }, []);
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -391,6 +420,9 @@ function HomePageContent() {
               onThemeChange={setTheme}
               colorTheme={colorThemeId}
               onColorThemeChange={setColorThemeId}
+              customColorTheme={customColorTheme}
+              onCustomColorThemeChange={handleCustomColorThemeChange}
+              onResetCustomColorTheme={handleResetCustomColorTheme}
             />
 
             <VisualizationSwitcher
