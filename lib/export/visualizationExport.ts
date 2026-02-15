@@ -135,20 +135,24 @@ function transformPoint(matrix: DOMMatrix, x: number, y: number): DOMPoint {
   return new DOMPoint(x, y).matrixTransform(matrix);
 }
 
-function transformedBoundsForElement(element: SVGGraphicsElement): SvgFrame | null {
+function transformedBoundsForElement(
+  element: SVGGraphicsElement,
+  rootInverseCtm: DOMMatrix | null
+): SvgFrame | null {
   try {
     const bbox = element.getBBox();
     if (!(bbox.width > 0) && !(bbox.height > 0)) {
       return null;
     }
 
-    const ctm = element.getCTM();
-    if (!ctm) return null;
+    const elementCtm = element.getCTM();
+    if (!elementCtm) return null;
+    const normalizedCtm = rootInverseCtm ? rootInverseCtm.multiply(elementCtm) : elementCtm;
 
-    const topLeft = transformPoint(ctm, bbox.x, bbox.y);
-    const topRight = transformPoint(ctm, bbox.x + bbox.width, bbox.y);
-    const bottomLeft = transformPoint(ctm, bbox.x, bbox.y + bbox.height);
-    const bottomRight = transformPoint(ctm, bbox.x + bbox.width, bbox.y + bbox.height);
+    const topLeft = transformPoint(normalizedCtm, bbox.x, bbox.y);
+    const topRight = transformPoint(normalizedCtm, bbox.x + bbox.width, bbox.y);
+    const bottomLeft = transformPoint(normalizedCtm, bbox.x, bbox.y + bbox.height);
+    const bottomRight = transformPoint(normalizedCtm, bbox.x + bbox.width, bbox.y + bbox.height);
     const xs = [topLeft.x, topRight.x, bottomLeft.x, bottomRight.x];
     const ys = [topLeft.y, topRight.y, bottomLeft.y, bottomRight.y];
     const minX = Math.min(...xs);
@@ -174,6 +178,14 @@ function resolveFullGraphFrame(svg: SVGSVGElement, padding: number): SvgFrame | 
   const graphics = Array.from(svg.querySelectorAll<SVGGraphicsElement>(GRAPHICS_SELECTOR));
   if (graphics.length === 0) return null;
 
+  let rootInverseCtm: DOMMatrix | null = null;
+  try {
+    const rootCtm = svg.getCTM();
+    rootInverseCtm = rootCtm ? rootCtm.inverse() : null;
+  } catch {
+    rootInverseCtm = null;
+  }
+
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -188,7 +200,7 @@ function resolveFullGraphFrame(svg: SVGSVGElement, padding: number): SvgFrame | 
       continue;
     }
 
-    const bounds = transformedBoundsForElement(element);
+    const bounds = transformedBoundsForElement(element, rootInverseCtm);
     if (!bounds) continue;
 
     minX = Math.min(minX, bounds.minX);
