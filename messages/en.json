@@ -473,7 +473,9 @@
             "bg2": "Background 3"
         },
         "actions": {
-            "resetCurrent": "Reset {mode}"
+            "resetCurrent": "Reset {mode}",
+            "title": "Experience",
+            "replayOnboarding": "Replay onboarding"
         }
     },
     "VizExport": {
@@ -495,6 +497,35 @@
             "success": "Saved {format}",
             "failed": "Export failed",
             "noTarget": "No visualization available"
+        }
+    },
+    "Onboarding": {
+        "title": "Welcome to Quran Corpus Visualizer",
+        "subtitle": "A short walkthrough to help you read and use the graphs effectively.",
+        "close": "Close onboarding",
+        "progress": "Step {current} of {total}",
+        "showOnStartup": "Show on startup",
+        "skip": "Skip",
+        "back": "Back",
+        "next": "Next",
+        "start": "Start Exploring",
+        "cards": {
+            "purpose": {
+                "title": "Why this platform exists",
+                "body": "This project helps you explore Quranic morphology and structure visually, so roots, lemmas, and relations become easier to inspect and compare."
+            },
+            "navigation": {
+                "title": "How to navigate quickly",
+                "body": "Use the graph switcher to move between visualizations, search to jump to tokens or roots, and the inspector sidebar to review linguistic details."
+            },
+            "graphs": {
+                "title": "How to read the graphs",
+                "body": "Most views support hover for preview, click for focus, drag to pan, and wheel to zoom. Export can save the current view or the full graph."
+            },
+            "insights": {
+                "title": "How to get better insights",
+                "body": "Apply lexical coloring modes and theme palettes to reveal patterns in frequency, identity, and structure across surahs, roots, and lemmas."
+            }
         }
     }
 }

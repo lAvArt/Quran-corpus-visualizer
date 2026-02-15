@@ -19,6 +19,7 @@ import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import VizExportMenu from "@/components/ui/VizExportMenu";
+import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import {
   DEFAULT_COLOR_THEME_ID,
   DEFAULT_CUSTOM_COLOR_THEME,
@@ -30,6 +31,7 @@ import {
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
 import { isValidLexicalColorMode, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { ONBOARDING_VERSION } from "@/lib/config/version";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -41,6 +43,7 @@ const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSa
 const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
 
 const STORAGE_KEY = "quran-corpus-viz-state";
+const ONBOARDING_STORAGE_KEY = "quran-corpus-onboarding";
 
 function VizFallback() {
   return (
@@ -64,6 +67,9 @@ function HomePageContent() {
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
   const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
   const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [showOnboardingOnStartup, setShowOnboardingOnStartup] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
@@ -148,6 +154,62 @@ function HomePageContent() {
     }));
     setColorThemeId("custom");
   }, []);
+
+  const persistOnboardingState = useCallback((showOnStartup: boolean, completed: boolean) => {
+    try {
+      localStorage.setItem(
+        ONBOARDING_STORAGE_KEY,
+        JSON.stringify({
+          version: ONBOARDING_VERSION,
+          showOnStartup,
+          completed,
+        })
+      );
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      if (!stored) {
+        setIsOnboardingOpen(true);
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+      const showOnStartup = typeof parsed.showOnStartup === "boolean" ? parsed.showOnStartup : true;
+      const completed = typeof parsed.completed === "boolean" ? parsed.completed : false;
+      const version = typeof parsed.version === "string" ? parsed.version : null;
+
+      setShowOnboardingOnStartup(showOnStartup);
+      setHasCompletedOnboarding(completed);
+
+      if (version !== ONBOARDING_VERSION) {
+        setIsOnboardingOpen(true);
+        return;
+      }
+
+      setIsOnboardingOpen(!completed || showOnStartup);
+    } catch {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
+
+  const handleOnboardingClose = useCallback(() => {
+    setHasCompletedOnboarding(true);
+    setIsOnboardingOpen(false);
+    persistOnboardingState(showOnboardingOnStartup, true);
+  }, [persistOnboardingState, showOnboardingOnStartup]);
+
+  const handleOnboardingStartupChange = useCallback(
+    (value: boolean) => {
+      setShowOnboardingOnStartup(value);
+      persistOnboardingState(value, hasCompletedOnboarding);
+    },
+    [hasCompletedOnboarding, persistOnboardingState]
+  );
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -437,6 +499,7 @@ function HomePageContent() {
               customColorTheme={customColorTheme}
               onCustomColorThemeChange={handleCustomColorThemeChange}
               onResetCustomColorTheme={handleResetCustomColorTheme}
+              onReplayOnboarding={() => setIsOnboardingOpen(true)}
             />
 
             <VisualizationSwitcher
@@ -521,6 +584,13 @@ function HomePageContent() {
       </div>
 
       <MobileBottomBar />
+
+      <OnboardingOverlay
+        isOpen={isOnboardingOpen}
+        showOnStartup={showOnboardingOnStartup}
+        onShowOnStartupChange={handleOnboardingStartupChange}
+        onClose={handleOnboardingClose}
+      />
 
       <style jsx>{`
         .loading-indicator {

@@ -1,6 +1,6 @@
 {
   "name": "quran-corpus-visualizer",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Interactive exploration of Quranic linguistic structure and morphology through dynamic visualizations",
   "license": "GPL-3.0",
   "private": false,

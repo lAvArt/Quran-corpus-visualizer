@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useTranslations, useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
+import { APP_VERSION } from "@/lib/config/version";
 
 interface AboutDialogProps {
     isOpen: boolean;
@@ -90,7 +91,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
 
                             <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid var(--line)" }}>
                                 <p style={{ fontSize: "0.9rem", color: "var(--ink-muted)" }}>
-                                    {t("version")} 0.2.0
+                                    {t("version")} {APP_VERSION}
                                 </p>
                                 <p style={{ fontSize: "0.9rem", color: "var(--ink-muted)" }}>
                                     {t("copyright")}
