@@ -12,6 +12,7 @@ import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -19,6 +20,7 @@ interface CorpusArchitectureMapProps {
     highlightRoot?: string | null;
     selectedSurahId?: number;
     theme?: "light" | "dark";
+    lexicalColorMode?: LexicalColorMode;
 }
 
 interface HierarchyNode {
@@ -35,7 +37,8 @@ export default function CorpusArchitectureMap({
     onNodeSelect,
     highlightRoot,
     selectedSurahId,
-    theme = "dark"
+    theme = "dark",
+    lexicalColorMode = "theme",
 }: CorpusArchitectureMapProps) {
     const locale = useLocale();
     const isArabicLocale = locale.startsWith("ar");
@@ -293,6 +296,10 @@ export default function CorpusArchitectureMap({
         });
         return stats;
     }, [tokens]);
+    const maxRootGlobalCount = useMemo(
+        () => Math.max(1, ...Array.from(rootGlobalStats.values()).map((entry) => entry.total)),
+        [rootGlobalStats]
+    );
 
     const selectedRootGlobalStats = internalSelectedRoot
         ? rootGlobalStats.get(internalSelectedRoot) ?? null
@@ -456,6 +463,32 @@ export default function CorpusArchitectureMap({
         });
         return offsets;
     }, [nodes, rootIndexById, rootCountBySurah, focusSurahNodeId]);
+
+    const rootNodeColorById = useMemo(() => {
+        const colors = new Map<string, string>();
+        nodes.forEach((node) => {
+            if (node.data.type !== "word_root") return;
+            const rootKey = (node.data.originalId as string | undefined) ?? node.data.name;
+            const globalCount = rootGlobalStats.get(rootKey)?.total ?? node.data.value;
+            const ratio = Math.log1p(globalCount) / Math.log1p(maxRootGlobalCount);
+
+            const color =
+                lexicalColorMode === "frequency"
+                    ? getFrequencyColor(ratio, theme)
+                    : lexicalColorMode === "identity"
+                        ? getIdentityColor(rootKey, theme)
+                        : themeColors.nodeColors.default;
+            colors.set(node.data.id, color);
+        });
+        return colors;
+    }, [nodes, rootGlobalStats, maxRootGlobalCount, lexicalColorMode, theme, themeColors.nodeColors.default]);
+
+    const legendRootColor =
+        lexicalColorMode === "frequency"
+            ? getFrequencyColor(0.7, theme)
+            : lexicalColorMode === "identity"
+                ? getIdentityColor("root-legend", theme)
+                : themeColors.nodeColors.default;
 
     const getNodeRadius = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
@@ -723,7 +756,7 @@ export default function CorpusArchitectureMap({
                                 <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
                                     <div
                                         className="viz-legend-dot"
-                                        style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
+                                        style={{ background: legendRootColor, width: 8, height: 8 }}
                                     />
                                     <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
                                 </div>
@@ -873,7 +906,7 @@ export default function CorpusArchitectureMap({
                                             <circle
                                                 r={node.data.type === "surah" ? 7.5 : 4.8}
                                                 fill="none"
-                                                stroke={node.data.type === "surah" ? themeColors.accent : themeColors.nodeColors.default}
+                                                stroke={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
                                                 strokeOpacity={theme === "dark" ? 0.55 : 0.45}
                                                 strokeWidth={1.2}
                                                 pointerEvents="none"
@@ -881,7 +914,7 @@ export default function CorpusArchitectureMap({
                                         )}
                                         <circle
                                             r={node.data.type === "surah" ? 5 : (node.data.type === "corpus" ? 0 : 3)}
-                                            fill={node.data.type === 'surah' ? themeColors.accent : themeColors.nodeColors.default}
+                                            fill={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
                                             stroke={theme === "dark" ? "rgba(2, 6, 23, 0.85)" : "rgba(255, 255, 255, 0.85)"}
                                             strokeWidth={node.data.type === "corpus" ? 0 : 0.65}
                                             pointerEvents="none"

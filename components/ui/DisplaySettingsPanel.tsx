@@ -9,12 +9,15 @@ import {
   type CustomColorThemePalette,
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
+import { type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 interface DisplaySettingsPanelProps {
   theme: "light" | "dark";
   onThemeChange: (theme: "light" | "dark") => void;
   colorTheme: ColorThemeId;
   onColorThemeChange: (themeId: ColorThemeId) => void;
+  lexicalColorMode: LexicalColorMode;
+  onLexicalColorModeChange: (mode: LexicalColorMode) => void;
   customColorTheme: CustomColorTheme;
   onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   onResetCustomColorTheme: (appearance: "light" | "dark") => void;
@@ -25,6 +28,8 @@ export default function DisplaySettingsPanel({
   onThemeChange,
   colorTheme,
   onColorThemeChange,
+  lexicalColorMode,
+  onLexicalColorModeChange,
   customColorTheme,
   onCustomColorThemeChange,
   onResetCustomColorTheme,
@@ -114,6 +119,23 @@ export default function DisplaySettingsPanel({
                 </span>
                 <span>{t("themes.custom")}</span>
               </button>
+            </div>
+          </div>
+
+          <div className="display-settings-section">
+            <div className="display-settings-title">{t("coloring.title")}</div>
+            <div className="display-theme-list">
+              {(["theme", "frequency", "identity"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`display-theme-item ${lexicalColorMode === mode ? "active" : ""}`}
+                  onClick={() => onLexicalColorModeChange(mode)}
+                  aria-pressed={lexicalColorMode === mode}
+                >
+                  <span>{t(`coloring.options.${mode}`)}</span>
+                </button>
+              ))}
             </div>
           </div>
 

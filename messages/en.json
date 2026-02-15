@@ -440,6 +440,14 @@
         "panelLabel": "Display settings",
         "appearance": "Appearance",
         "palette": "Color theme",
+        "coloring": {
+            "title": "Lexical coloring",
+            "options": {
+                "theme": "Theme default",
+                "frequency": "By frequency",
+                "identity": "By identity"
+            }
+        },
         "modes": {
             "light": "Light",
             "dark": "Dark"

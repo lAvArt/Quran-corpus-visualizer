@@ -440,6 +440,14 @@
         "panelLabel": "إعدادات العرض",
         "appearance": "المظهر",
         "palette": "سمة الألوان",
+        "coloring": {
+            "title": "تلوين معجمي",
+            "options": {
+                "theme": "ألوان السمة",
+                "frequency": "حسب التكرار",
+                "identity": "حسب الهوية"
+            }
+        },
         "modes": {
             "light": "الفاتح",
             "dark": "الداكن"

@@ -6,6 +6,7 @@ import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -16,6 +17,7 @@ interface RootNetworkGraphProps {
   selectedSurahId?: number;
   theme?: "light" | "dark";
   showLabels?: boolean;
+  lexicalColorMode?: LexicalColorMode;
 }
 
 interface NetworkNode {
@@ -47,6 +49,7 @@ export default function RootNetworkGraph({
   selectedSurahId,
   theme = "dark",
   showLabels = true,
+  lexicalColorMode = "theme",
 }: RootNetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -124,13 +127,20 @@ export default function RootNetworkGraph({
     const scaleFactor = rootLimit <= 20 ? 1 : rootLimit <= 50 ? 0.7 : 0.45;
     for (const [root, data] of sortedRoots) {
       const radius = (8 + (data.count / maxFreq) * 20) * scaleFactor;
+      const rootFrequencyRatio = data.count / maxFreq;
+      const rootColor =
+        lexicalColorMode === "frequency"
+          ? getFrequencyColor(rootFrequencyRatio, theme)
+          : lexicalColorMode === "identity"
+            ? getIdentityColor(root, theme)
+            : themeColors.nodeColors.default;
       nodesResult.push({
         id: `root-${root}`,
         label: root,
         type: "root",
         frequency: data.count,
         radius,
-        color: themeColors.nodeColors.default,
+        color: rootColor,
         tokens: data.tokens,
       });
 
@@ -144,13 +154,20 @@ export default function RootNetworkGraph({
         if (!includedLemmas.has(lemma)) {
           includedLemmas.add(lemma);
           const lemmaRadius = (4 + (lemmaData.count / maxFreq) * 10) * scaleFactor;
+          const lemmaFrequencyRatio = lemmaData.count / maxFreq;
+          const lemmaColor =
+            lexicalColorMode === "frequency"
+              ? getFrequencyColor(lemmaFrequencyRatio, theme)
+              : lexicalColorMode === "identity"
+                ? getIdentityColor(lemma, theme)
+                : getNodeColor(lemmaData.tokens[0]?.pos ?? "N");
           nodesResult.push({
             id: `lemma-${lemma}`,
             label: lemma,
             type: "lemma",
             frequency: lemmaData.count,
             radius: lemmaRadius,
-            color: getNodeColor(lemmaData.tokens[0]?.pos ?? "N"),
+            color: lemmaColor,
             tokens: lemmaData.tokens,
           });
         }
@@ -165,7 +182,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [scopedTokens, themeColors.nodeColors.default, rootLimit]);
+  }, [scopedTokens, themeColors.nodeColors.default, rootLimit, lexicalColorMode, theme]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -611,22 +628,51 @@ export default function RootNetworkGraph({
                 height: 16,
               }}
             />
-            <span>Root (trilateral)</span>
+            <span>{lexicalColorMode === "theme" ? "Root (trilateral)" : "Root nodes"}</span>
           </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-            />
-            <span>Noun lemma</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-            />
-            <span>Verb lemma</span>
-          </div>
+          {lexicalColorMode === "theme" ? (
+            <>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+                />
+                <span>Noun lemma</span>
+              </div>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+                />
+                <span>Verb lemma</span>
+              </div>
+            </>
+          ) : lexicalColorMode === "frequency" ? (
+            <>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getFrequencyColor(0.2, theme), width: 10, height: 10 }}
+                />
+                <span>Lower frequency</span>
+              </div>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getFrequencyColor(0.9, theme), width: 10, height: 10 }}
+                />
+                <span>Higher frequency</span>
+              </div>
+            </>
+          ) : (
+            <div className="viz-legend-item">
+              <div
+                className="viz-legend-dot"
+                style={{ background: getIdentityColor("root-color-seed", theme), width: 10, height: 10 }}
+              />
+              <span>Unique lexical identity</span>
+            </div>
+          )}
           <div className="viz-legend-item">
             <div
               className="viz-legend-dot"

@@ -29,6 +29,7 @@ import {
   type CustomColorThemePalette,
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
+import { isValidLexicalColorMode, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -61,6 +62,7 @@ function HomePageContent() {
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
+  const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
   const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
   const mainVizRef = useRef<HTMLElement>(null);
 
@@ -87,6 +89,7 @@ function HomePageContent() {
         if (saved.vizMode) setVizMode(saved.vizMode);
         if (saved.theme) setTheme(saved.theme);
         if (isValidColorThemeId(saved.colorThemeId)) setColorThemeId(saved.colorThemeId);
+        if (isValidLexicalColorMode(saved.lexicalColorMode)) setLexicalColorMode(saved.lexicalColorMode);
         if (isValidCustomColorTheme(saved.customColorTheme)) setCustomColorTheme(saved.customColorTheme);
         if (saved.selectedSurahId) setSelectedSurahId(saved.selectedSurahId);
         if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
@@ -112,6 +115,7 @@ function HomePageContent() {
           vizMode,
           theme,
           colorThemeId,
+          lexicalColorMode,
           customColorTheme,
           selectedSurahId,
           selectedRoot,
@@ -121,7 +125,7 @@ function HomePageContent() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [vizMode, theme, colorThemeId, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
+  }, [vizMode, theme, colorThemeId, lexicalColorMode, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
 
   const handleCustomColorThemeChange = useCallback(
     (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => {
@@ -299,6 +303,7 @@ function HomePageContent() {
               selectedSurahId={selectedSurahId}
               theme={theme}
               showLabels={true}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -325,6 +330,7 @@ function HomePageContent() {
                 if (type === "root") handleRootSelect(id as string);
               }}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -340,6 +346,7 @@ function HomePageContent() {
               selectedRoot={selectedRootValue}
               selectedLemma={selectedLemmaValue}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -420,6 +427,8 @@ function HomePageContent() {
               onThemeChange={setTheme}
               colorTheme={colorThemeId}
               onColorThemeChange={setColorThemeId}
+              lexicalColorMode={lexicalColorMode}
+              onLexicalColorModeChange={setLexicalColorMode}
               customColorTheme={customColorTheme}
               onCustomColorThemeChange={handleCustomColorThemeChange}
               onResetCustomColorTheme={handleResetCustomColorTheme}
