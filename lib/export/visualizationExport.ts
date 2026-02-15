@@ -59,8 +59,7 @@ const GRAPHICS_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon,text,u
 const NON_RENDERABLE_ANCESTOR_SELECTOR = "defs,clipPath,mask,pattern,marker,symbol,linearGradient,radialGradient,filter";
 const SHAPE_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon";
 const ARABIC_TEXT_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-const LATIN_TEXT_PATTERN = /[A-Za-z]/;
-const ARABIC_FONT_FALLBACK = `"Amiri", "Noto Naskh Arabic", "Scheherazade New", "Tahoma", "Arial", serif`;
+const ARABIC_FONT_FALLBACK = `"Amiri", "Noto Naskh Arabic", "Arial Unicode MS", "Tahoma", "Arial", serif`;
 
 function sanitizeFileBaseName(name: string): string {
   const normalized = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
@@ -381,13 +380,13 @@ function normalizeArabicTextDirection(clonedSvg: SVGSVGElement): void {
     const declarations = parseStyleDeclarations(node.getAttribute("style"));
     const bidi = declarations.get("unicode-bidi");
     if (bidi && bidi.toLowerCase() === "plaintext") {
-      declarations.set("unicode-bidi", "bidi-override");
+      declarations.set("unicode-bidi", "isolate");
     }
 
     const content = node.textContent ?? "";
     if (ARABIC_TEXT_PATTERN.test(content)) {
       node.setAttribute("direction", "rtl");
-      node.setAttribute("unicode-bidi", "bidi-override");
+      node.setAttribute("unicode-bidi", "isolate");
       if (!node.hasAttribute("lang")) {
         node.setAttribute("lang", "ar");
       }
@@ -396,15 +395,12 @@ function normalizeArabicTextDirection(clonedSvg: SVGSVGElement): void {
       }
 
       declarations.set("direction", "rtl");
-      declarations.set("unicode-bidi", "bidi-override");
+      declarations.set("unicode-bidi", "isolate");
       declarations.set("font-family", ensureArabicFontFamily(declarations.get("font-family")));
-      declarations.set("font-feature-settings", `"rlig" 1, "calt" 1, "liga" 1`);
-      declarations.set("font-variant-ligatures", "contextual common-ligatures");
-
-      if (!LATIN_TEXT_PATTERN.test(content) && !content.includes("\u202B") && !content.includes("\u202C")) {
-        // Wrap pure Arabic runs with explicit directional marks for editors with weak bidi support.
-        node.textContent = `\u202B${content}\u202C`;
-      }
+      // Avoid forcing OpenType alternates/ligature features: some SVG editors
+      // (including Illustrator importers) report glyph/feature compatibility errors.
+      declarations.delete("font-feature-settings");
+      declarations.delete("font-variant-ligatures");
     }
 
     const styleText = serializeStyleDeclarations(declarations);
