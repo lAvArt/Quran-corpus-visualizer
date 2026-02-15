@@ -32,8 +32,6 @@ const STYLE_PROPERTIES = [
   "letter-spacing",
   "text-anchor",
   "dominant-baseline",
-  "direction",
-  "unicode-bidi",
   "vector-effect",
   "paint-order",
   "shape-rendering",
@@ -59,6 +57,8 @@ interface SvgFrame {
 
 const GRAPHICS_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon,text,use,image";
 const NON_RENDERABLE_ANCESTOR_SELECTOR = "defs,clipPath,mask,pattern,marker,symbol,linearGradient,radialGradient,filter";
+const SHAPE_SELECTOR = "path,circle,ellipse,rect,line,polyline,polygon";
+const ARABIC_TEXT_PATTERN = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
 function sanitizeFileBaseName(name: string): string {
   const normalized = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
@@ -255,7 +255,10 @@ function inlineComputedStyles(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement
     for (const prop of STYLE_PROPERTIES) {
       const rawValue = computed.getPropertyValue(prop);
       if (!rawValue) continue;
-      const value = prop === "font-family" ? normalizeFontFamily(rawValue) : rawValue;
+      let value = prop === "font-family" ? normalizeFontFamily(rawValue) : rawValue;
+      if (prop === "fill" || prop === "stroke") {
+        value = normalizePaintValue(value);
+      }
       if (!value) continue;
       styleParts.push(`${prop}:${value}`);
     }
@@ -265,6 +268,159 @@ function inlineComputedStyles(sourceSvg: SVGSVGElement, clonedSvg: SVGSVGElement
     const joined = styleParts.join(";");
     clonedEl.setAttribute("style", existingStyle ? `${existingStyle};${joined}` : joined);
   }
+}
+
+function normalizePaintValue(value: string): string {
+  const alpha = extractAlpha(value);
+  if (alpha !== null && alpha <= 0.001) {
+    return "none";
+  }
+  return value;
+}
+
+function extractAlpha(value: string): number | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "none") return 0;
+  if (normalized === "transparent") return 0;
+
+  const rgbaMatch = normalized.match(/^rgba\((.+)\)$/);
+  if (rgbaMatch) {
+    const parts = rgbaMatch[1].split(",").map((part) => part.trim());
+    if (parts.length !== 4) return null;
+    const alphaToken = parts[3];
+    if (alphaToken.endsWith("%")) {
+      const percent = Number.parseFloat(alphaToken.slice(0, -1));
+      return Number.isFinite(percent) ? percent / 100 : null;
+    }
+    const alpha = Number.parseFloat(alphaToken);
+    return Number.isFinite(alpha) ? alpha : null;
+  }
+
+  const rgbSlashMatch = normalized.match(/^rgb\((.+)\/(.+)\)$/);
+  if (rgbSlashMatch) {
+    const alphaToken = rgbSlashMatch[2].trim();
+    if (alphaToken.endsWith("%")) {
+      const percent = Number.parseFloat(alphaToken.slice(0, -1));
+      return Number.isFinite(percent) ? percent / 100 : null;
+    }
+    const alpha = Number.parseFloat(alphaToken);
+    return Number.isFinite(alpha) ? alpha : null;
+  }
+
+  if (/^#[0-9a-f]{4}$/i.test(normalized)) {
+    const alphaNibble = normalized[3];
+    const alpha = Number.parseInt(alphaNibble, 16) / 15;
+    return Number.isFinite(alpha) ? alpha : null;
+  }
+
+  if (/^#[0-9a-f]{8}$/i.test(normalized)) {
+    const alphaByte = normalized.slice(7, 9);
+    const alpha = Number.parseInt(alphaByte, 16) / 255;
+    return Number.isFinite(alpha) ? alpha : null;
+  }
+
+  return null;
+}
+
+function parseStyleDeclarations(styleText: string | null): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!styleText) return map;
+  for (const part of styleText.split(";")) {
+    const [rawKey, ...rawValueParts] = part.split(":");
+    if (!rawKey || rawValueParts.length === 0) continue;
+    const key = rawKey.trim().toLowerCase();
+    const value = rawValueParts.join(":").trim();
+    if (!key || !value) continue;
+    map.set(key, value);
+  }
+  return map;
+}
+
+function serializeStyleDeclarations(declarations: Map<string, string>): string {
+  return Array.from(declarations.entries())
+    .map(([key, value]) => `${key}:${value}`)
+    .join(";");
+}
+
+function normalizeTransparentPaint(clonedSvg: SVGSVGElement): void {
+  const shapes = Array.from(clonedSvg.querySelectorAll<SVGElement>(SHAPE_SELECTOR));
+  for (const shape of shapes) {
+    const declarations = parseStyleDeclarations(shape.getAttribute("style"));
+
+    const fillValue = declarations.get("fill") ?? shape.getAttribute("fill");
+    const fillAlpha = fillValue ? extractAlpha(fillValue) : null;
+    if (fillAlpha !== null && fillAlpha <= 0.001) {
+      declarations.set("fill", "none");
+      declarations.delete("fill-opacity");
+      shape.setAttribute("fill", "none");
+    }
+
+    const strokeValue = declarations.get("stroke") ?? shape.getAttribute("stroke");
+    const strokeAlpha = strokeValue ? extractAlpha(strokeValue) : null;
+    if (strokeAlpha !== null && strokeAlpha <= 0.001) {
+      declarations.set("stroke", "none");
+      declarations.delete("stroke-opacity");
+      shape.setAttribute("stroke", "none");
+    }
+
+    const styleText = serializeStyleDeclarations(declarations);
+    if (styleText) {
+      shape.setAttribute("style", styleText);
+    } else {
+      shape.removeAttribute("style");
+    }
+  }
+}
+
+function normalizeArabicTextDirection(clonedSvg: SVGSVGElement): void {
+  const textNodes = Array.from(clonedSvg.querySelectorAll<SVGElement>("text,tspan"));
+  for (const node of textNodes) {
+    const declarations = parseStyleDeclarations(node.getAttribute("style"));
+    const bidi = declarations.get("unicode-bidi");
+    if (bidi && bidi.toLowerCase() === "plaintext") {
+      declarations.set("unicode-bidi", "embed");
+    }
+
+    const content = node.textContent ?? "";
+    if (ARABIC_TEXT_PATTERN.test(content)) {
+      if (!node.hasAttribute("direction")) {
+        node.setAttribute("direction", "rtl");
+      }
+      if (!node.hasAttribute("unicode-bidi")) {
+        node.setAttribute("unicode-bidi", "embed");
+      }
+      if (!node.hasAttribute("lang")) {
+        node.setAttribute("lang", "ar");
+      }
+      if (!node.hasAttribute("xml:lang")) {
+        node.setAttribute("xml:lang", "ar");
+      }
+    }
+
+    const styleText = serializeStyleDeclarations(declarations);
+    if (styleText) {
+      node.setAttribute("style", styleText);
+    }
+  }
+}
+
+function injectBackgroundRect(clonedSvg: SVGSVGElement, frame: SvgFrame, backgroundColor: string): void {
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", formatNumber(frame.minX));
+  rect.setAttribute("y", formatNumber(frame.minY));
+  rect.setAttribute("width", formatNumber(frame.width));
+  rect.setAttribute("height", formatNumber(frame.height));
+  rect.setAttribute("fill", backgroundColor);
+  rect.setAttribute("pointer-events", "none");
+  rect.setAttribute("data-export-background", "true");
+
+  const firstNonDefs = Array.from(clonedSvg.children).find((child) => child.tagName.toLowerCase() !== "defs");
+  if (firstNonDefs) {
+    clonedSvg.insertBefore(rect, firstNonDefs);
+    return;
+  }
+  clonedSvg.appendChild(rect);
 }
 
 function normalizeFontFamily(value: string): string {
@@ -308,7 +464,12 @@ function normalizeFontFamily(value: string): string {
   return deduped.map((token) => (/[\s]/.test(token) ? `"${token}"` : token)).join(", ");
 }
 
-function buildSvgSnapshot(svg: SVGSVGElement, scope: ExportScope, contentPadding: number): SvgSnapshot {
+function buildSvgSnapshot(
+  svg: SVGSVGElement,
+  scope: ExportScope,
+  contentPadding: number,
+  backgroundColor?: string
+): SvgSnapshot {
   const cloned = svg.cloneNode(true) as SVGSVGElement;
 
   inlineComputedStyles(svg, cloned);
@@ -328,6 +489,12 @@ function buildSvgSnapshot(svg: SVGSVGElement, scope: ExportScope, contentPadding
     "viewBox",
     `${formatNumber(viewBoxFrame.minX)} ${formatNumber(viewBoxFrame.minY)} ${formatNumber(viewBoxFrame.width)} ${formatNumber(viewBoxFrame.height)}`
   );
+
+  normalizeTransparentPaint(cloned);
+  normalizeArabicTextDirection(cloned);
+  if (backgroundColor) {
+    injectBackgroundRect(cloned, viewBoxFrame, backgroundColor);
+  }
 
   const serializer = new XMLSerializer();
   const markup = serializer.serializeToString(cloned);
@@ -412,6 +579,21 @@ function defaultBackgroundColor(): string {
   if (cssVar) return cssVar;
   const theme = document.documentElement.getAttribute("data-theme");
   return theme === "dark" ? "#0c0b0d" : "#f7f3ea";
+}
+
+function resolveExportBackgroundColor(container: HTMLElement, explicitBackground?: string): string {
+  if (explicitBackground) return explicitBackground;
+
+  const nearestThemeRoot = container.closest<HTMLElement>("[data-theme]");
+  const themedVariable =
+    nearestThemeRoot ? window.getComputedStyle(nearestThemeRoot).getPropertyValue("--bg-0").trim() : "";
+  if (themedVariable) return themedVariable;
+
+  const theme = nearestThemeRoot?.getAttribute("data-theme") ?? document.documentElement.getAttribute("data-theme");
+  if (theme === "dark") return "#020617";
+  if (theme === "light") return "#f8f4ec";
+
+  return defaultBackgroundColor();
 }
 
 function uint8FromString(text: string): Uint8Array {
@@ -526,7 +708,8 @@ export async function exportVisualization(options: ExportVisualizationOptions): 
   }
 
   const scope = options.scope ?? "full-graph";
-  const snapshot = buildSvgSnapshot(targetSvg, scope, options.contentPadding ?? 36);
+  const resolvedBackground = resolveExportBackgroundColor(options.container, options.backgroundColor);
+  const snapshot = buildSvgSnapshot(targetSvg, scope, options.contentPadding ?? 36, resolvedBackground);
   const baseName = sanitizeFileBaseName(options.fileBaseName);
   const scale = options.scale ?? 2;
 
@@ -537,22 +720,20 @@ export async function exportVisualization(options: ExportVisualizationOptions): 
   }
 
   if (options.format === "png") {
-    const { canvas } = await canvasFromSvg(snapshot, scale, options.backgroundColor);
+    const { canvas } = await canvasFromSvg(snapshot, scale, resolvedBackground);
     const pngBlob = await canvasToBlob(canvas, "image/png");
     triggerDownload(pngBlob, `${baseName}.png`);
     return;
   }
 
   if (options.format === "jpeg") {
-    const background = options.backgroundColor ?? defaultBackgroundColor();
-    const { canvas } = await canvasFromSvg(snapshot, scale, background);
+    const { canvas } = await canvasFromSvg(snapshot, scale, resolvedBackground);
     const jpegBlob = await canvasToBlob(canvas, "image/jpeg", options.jpegQuality ?? 0.95);
     triggerDownload(jpegBlob, `${baseName}.jpg`);
     return;
   }
 
-  const background = options.backgroundColor ?? defaultBackgroundColor();
-  const { canvas, width, height } = await canvasFromSvg(snapshot, scale, background);
+  const { canvas, width, height } = await canvasFromSvg(snapshot, scale, resolvedBackground);
   const jpegBlob = await canvasToBlob(canvas, "image/jpeg", options.jpegQuality ?? 0.95);
   const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
   const pdfBlob = generatePdfFromJpeg(jpegBytes, width, height);
