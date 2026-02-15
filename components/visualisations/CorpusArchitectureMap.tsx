@@ -573,9 +573,9 @@ export default function CorpusArchitectureMap({
 
     const labelOffsetForNode = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
-            if (node.data.type !== "word_root") return 8;
+            if (node.data.type !== "word_root") return 6;
             const offset = rootOffsetById.get(node.data.id) ?? 0;
-            return 12 + Math.min(16, offset * 0.25);
+            return 9 + Math.min(10, offset * 0.18);
         },
         [rootOffsetById]
     );
@@ -763,17 +763,6 @@ export default function CorpusArchitectureMap({
                     style={{ width: "100%", height: "100%", cursor: "grab" }}
                 >
                     <g ref={gRef}>
-                        {/* Glow Defs Enforced */}
-                        <defs>
-                            <filter id="glow-arch" x="-50%" y="-50%" width="200%" height="200%">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
-                        </defs>
-
                         {/* Links */}
                         <g className="links" fill="none" strokeWidth={1}>
                             {visibleLinks.map((link, i) => {
@@ -880,10 +869,21 @@ export default function CorpusArchitectureMap({
                                         opacity={getOpacity(node)}
                                         className="transition-opacity duration-300"
                                     >
+                                        {isHighlighted && node.data.type !== "corpus" && (
+                                            <circle
+                                                r={node.data.type === "surah" ? 7.5 : 4.8}
+                                                fill="none"
+                                                stroke={node.data.type === "surah" ? themeColors.accent : themeColors.nodeColors.default}
+                                                strokeOpacity={theme === "dark" ? 0.55 : 0.45}
+                                                strokeWidth={1.2}
+                                                pointerEvents="none"
+                                            />
+                                        )}
                                         <circle
-                                            r={node.data.type === 'surah' ? 5 : (node.data.type === 'corpus' ? 0 : 3)} // Larger nodes
+                                            r={node.data.type === "surah" ? 5 : (node.data.type === "corpus" ? 0 : 3)}
                                             fill={node.data.type === 'surah' ? themeColors.accent : themeColors.nodeColors.default}
-                                            filter={isHighlighted ? "url(#glow-arch)" : undefined}
+                                            stroke={theme === "dark" ? "rgba(2, 6, 23, 0.85)" : "rgba(255, 255, 255, 0.85)"}
+                                            strokeWidth={node.data.type === "corpus" ? 0 : 0.65}
                                             pointerEvents="none"
                                         />
                                         {node.data.type !== "corpus" && (
