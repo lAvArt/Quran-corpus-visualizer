@@ -45,10 +45,12 @@
         "showTools": "Show Tools <-"
     },
     "AppSidebar": {
-        "index": "Index",
-        "search": "Search",
         "inspector": "Inspector",
-        "attribution": "Morphology source:"
+        "search": "Search",
+        "index": "Index",
+        "attribution": "Morphology source:",
+        "label": "Sidebar",
+        "panelLabel": "Sidebar panels"
     },
     "MobileBottomBar": {
         "showLegend": "Show Legend",
@@ -61,13 +63,6 @@
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
         "matchLemma": "Lemma: {lemma}"
-    },
-    "AppSidebar": {
-        "inspector": "Inspector",
-        "search": "Search",
-        "index": "Index",
-        "label": "Sidebar",
-        "panelLabel": "Sidebar panels"
     },
     "VisualizationSwitcher": {
         "select": "Select",
@@ -229,6 +224,14 @@
             "activeRoot": "Active Root",
             "shown": "Shown",
             "coverage": "Coverage",
+            "lowerFrequency": "Lower frequency",
+            "higherFrequency": "Higher frequency",
+            "lowerRootFrequency": "Lower root frequency",
+            "higherRootFrequency": "Higher root frequency",
+            "rootIdentity": "Root identity",
+            "dominantRootIdentity": "Dominant root identity",
+            "uniqueLexicalIdentity": "Unique lexical identity",
+            "highlighted": "Highlighted",
             "howToRead": "How to Read"
         },
         "SurahDistribution": {
@@ -437,6 +440,99 @@
                 "distanceText": "Shorter links indicate a stronger, more frequent connection between a Root and a Lemma.",
                 "sizeLabel": "Node Size",
                 "sizeText": "Proportional to the total frequency of occurrences in the selected scope (Surah or full Quran)."
+            }
+        }
+    },
+    "DisplaySettings": {
+        "button": "Settings",
+        "panelLabel": "Display settings",
+        "appearance": "Appearance",
+        "palette": "Color theme",
+        "coloring": {
+            "title": "Lexical coloring",
+            "options": {
+                "theme": "Theme default",
+                "frequency": "By frequency",
+                "identity": "By identity"
+            }
+        },
+        "modes": {
+            "light": "Light",
+            "dark": "Dark"
+        },
+        "themes": {
+            "tealAmber": "Teal & Amber",
+            "emberCyan": "Ember & Cyan",
+            "royalGold": "Royal & Gold",
+            "forestRose": "Forest & Rose",
+            "monoAzure": "Mono Azure",
+            "custom": "Custom"
+        },
+        "custom": {
+            "title": "Custom colors",
+            "editing": "Editing {mode} mode"
+        },
+        "fields": {
+            "accent": "Accent",
+            "accent2": "Accent 2",
+            "accent3": "Accent 3",
+            "bg0": "Background 1",
+            "bg1": "Background 2",
+            "bg2": "Background 3"
+        },
+        "actions": {
+            "resetCurrent": "Reset {mode}",
+            "title": "Experience",
+            "replayOnboarding": "Replay onboarding"
+        }
+    },
+    "VizExport": {
+        "button": "Export",
+        "exporting": "Exporting...",
+        "menuLabel": "Export visualization",
+        "scopeLabel": "Export scope",
+        "scopes": {
+            "currentView": "Current view",
+            "fullGraph": "Full graph"
+        },
+        "formats": {
+            "svg": "SVG (vector)",
+            "png": "PNG (high-res)",
+            "jpeg": "JPEG (high-res)",
+            "pdf": "PDF (print-ready)"
+        },
+        "status": {
+            "success": "Saved {format}",
+            "failed": "Export failed",
+            "noTarget": "No visualization available"
+        }
+    },
+    "Onboarding": {
+        "title": "Welcome to Quran Corpus Visualizer",
+        "subtitle": "A short walkthrough to help you read and use the graphs effectively.",
+        "close": "Close onboarding",
+        "progress": "Step {current} of {total}",
+        "showOnStartup": "Show on startup",
+        "skip": "Skip",
+        "back": "Back",
+        "next": "Next",
+        "start": "Start Exploring",
+        "cards": {
+            "purpose": {
+                "title": "Why this platform exists",
+                "body": "This project helps you explore Quranic morphology and structure visually, so roots, lemmas, and relations become easier to inspect and compare."
+            },
+            "navigation": {
+                "title": "How to navigate quickly",
+                "body": "Use the graph switcher to move between visualizations, search to jump to tokens or roots, and the inspector sidebar to review linguistic details."
+            },
+            "graphs": {
+                "title": "How to read the graphs",
+                "body": "Most views support hover for preview, click for focus, drag to pan, and wheel to zoom. Export can save the current view or the full graph."
+            },
+            "insights": {
+                "title": "How to get better insights",
+                "body": "Apply lexical coloring modes and theme palettes to reveal patterns in frequency, identity, and structure across surahs, roots, and lemmas."
             }
         }
     }

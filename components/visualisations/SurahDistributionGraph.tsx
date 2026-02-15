@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
+import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
@@ -19,6 +20,7 @@ interface SurahDistributionGraphProps {
     onSurahSelect?: (suraId: number) => void;
     highlightRoot?: string | null;
     theme?: "light" | "dark";
+    lexicalColorMode?: LexicalColorMode;
 }
 
 interface SurahNode {
@@ -32,6 +34,8 @@ interface SurahNode {
     tokens: CorpusToken[];
     color: string;
     containsRoot: boolean;
+    dominantRoot: string | null;
+    dominantRootCount: number;
 }
 
 export default function SurahDistributionGraph({
@@ -41,6 +45,7 @@ export default function SurahDistributionGraph({
     onSurahSelect,
     highlightRoot,
     theme = "dark",
+    lexicalColorMode = "theme",
 }: SurahDistributionGraphProps) {
     const t = useTranslations("Visualizations.SurahDistribution");
     const ts = useTranslations("Visualizations.Shared");
@@ -71,19 +76,22 @@ export default function SurahDistributionGraph({
 
 
 
-    const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+    const themeColors = resolveVisualizationTheme(theme);
 
     // Build surah data from tokens
     const layout = useMemo(() => {
-        const surahMap = new Map<number, { tokens: CorpusToken[]; ayahs: Set<number> }>();
+        const surahMap = new Map<number, { tokens: CorpusToken[]; ayahs: Set<number>; rootCounts: Map<string, number> }>();
 
         for (const token of tokens) {
             if (!surahMap.has(token.sura)) {
-                surahMap.set(token.sura, { tokens: [], ayahs: new Set() });
+                surahMap.set(token.sura, { tokens: [], ayahs: new Set(), rootCounts: new Map() });
             }
             const data = surahMap.get(token.sura)!;
             data.tokens.push(token);
             data.ayahs.add(token.ayah);
+            if (token.root) {
+                data.rootCounts.set(token.root, (data.rootCounts.get(token.root) ?? 0) + 1);
+            }
         }
 
         const tokenCounts = [...surahMap.values()].map(d => d.tokens.length);
@@ -92,6 +100,14 @@ export default function SurahDistributionGraph({
         const maxTokens = Math.max(...tokenCounts, 1);
         const minAyahs = Math.min(...ayahCounts, 1);
         const maxAyahs = Math.max(...ayahCounts, 1);
+        const dominantRootCounts = [...surahMap.values()].map((data) => {
+            let max = 0;
+            data.rootCounts.forEach((count) => {
+                if (count > max) max = count;
+            });
+            return max;
+        });
+        const maxDominantRootCount = Math.max(1, ...dominantRootCounts);
 
         const padding = 90;
         const xScale = d3.scaleLinear()
@@ -109,7 +125,22 @@ export default function SurahDistributionGraph({
             const containsRoot = highlightRoot
                 ? data.tokens.some(t => t.root === highlightRoot)
                 : false;
+            let dominantRoot: string | null = null;
+            let dominantRootCount = 0;
+            data.rootCounts.forEach((count, root) => {
+                if (count > dominantRootCount) {
+                    dominantRootCount = count;
+                    dominantRoot = root;
+                }
+            });
             const radius = 6 + Math.sqrt(data.tokens.length / maxTokens) * 22;
+            const rootRatio = Math.log1p(dominantRootCount) / Math.log1p(maxDominantRootCount);
+            const nodeColor =
+                lexicalColorMode === "frequency"
+                    ? getFrequencyColor(rootRatio, theme)
+                    : lexicalColorMode === "identity"
+                        ? getIdentityColor(dominantRoot ?? `surah-${suraId}`, theme)
+                        : colorScale(data.ayahs.size);
             nodes.push({
                 id: suraId,
                 name: SURAH_NAMES[suraId]?.name || `Surah ${suraId}`,
@@ -119,8 +150,10 @@ export default function SurahDistributionGraph({
                 y: yScale(data.tokens.length),
                 radius,
                 tokens: data.tokens,
-                color: colorScale(data.ayahs.size),
-                containsRoot
+                color: nodeColor,
+                containsRoot,
+                dominantRoot,
+                dominantRootCount,
             });
         }
 
@@ -138,7 +171,7 @@ export default function SurahDistributionGraph({
             tokenExtent: [minTokens, maxTokens] as [number, number],
             colorScale
         };
-    }, [tokens, dimensions, highlightRoot, theme]);
+    }, [tokens, dimensions, highlightRoot, theme, lexicalColorMode]);
 
     const { surahNodes, xScale, yScale, xTicks, yTicks, padding, ayahExtent, colorScale } = layout;
 
@@ -476,27 +509,47 @@ export default function SurahDistributionGraph({
                                 <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
                                 <HelpIcon onClick={() => setShowHelp(true)} />
                             </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
-                                />
-                                <span>{t("fewerAyahs")}</span>
-                            </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
-                                />
-                                <span>{t("moderateAyahs")}</span>
-                            </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
-                                />
-                                <span>{t("moreAyahs")}</span>
-                            </div>
+                            {lexicalColorMode === "theme" ? (
+                                <>
+                                    <div className="viz-legend-item">
+                                        <div
+                                            className="viz-legend-dot"
+                                            style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
+                                        />
+                                        <span>{t("fewerAyahs")}</span>
+                                    </div>
+                                    <div className="viz-legend-item">
+                                        <div
+                                            className="viz-legend-dot"
+                                            style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
+                                        />
+                                        <span>{t("moderateAyahs")}</span>
+                                    </div>
+                                    <div className="viz-legend-item">
+                                        <div
+                                            className="viz-legend-dot"
+                                            style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
+                                        />
+                                        <span>{t("moreAyahs")}</span>
+                                    </div>
+                                </>
+                            ) : lexicalColorMode === "frequency" ? (
+                                <>
+                                    <div className="viz-legend-item">
+                                        <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.2, theme), width: 12, height: 12 }} />
+                                        <span>{ts("lowerRootFrequency")}</span>
+                                    </div>
+                                    <div className="viz-legend-item">
+                                        <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.9, theme), width: 12, height: 12 }} />
+                                        <span>{ts("higherRootFrequency")}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="viz-legend-item">
+                                    <div className="viz-legend-dot" style={{ background: getIdentityColor("surah-identity", theme), width: 12, height: 12 }} />
+                                    <span>{ts("dominantRootIdentity")}</span>
+                                </div>
+                            )}
                             <div className="viz-legend-item">
                                 <div
                                     className="viz-legend-dot"

@@ -7,11 +7,12 @@ import { useLocale, useTranslations } from "next-intl";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, LIGHT_THEME } from "@/lib/schema/visualizationTypes";
+import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -19,6 +20,7 @@ interface CorpusArchitectureMapProps {
     highlightRoot?: string | null;
     selectedSurahId?: number;
     theme?: "light" | "dark";
+    lexicalColorMode?: LexicalColorMode;
 }
 
 interface HierarchyNode {
@@ -35,7 +37,8 @@ export default function CorpusArchitectureMap({
     onNodeSelect,
     highlightRoot,
     selectedSurahId,
-    theme = "dark"
+    theme = "dark",
+    lexicalColorMode = "theme",
 }: CorpusArchitectureMapProps) {
     const locale = useLocale();
     const isArabicLocale = locale.startsWith("ar");
@@ -250,7 +253,7 @@ export default function CorpusArchitectureMap({
         return 0.1;
     };
 
-    const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+    const themeColors = resolveVisualizationTheme(theme);
 
     const lodMode = focusedSurahId ? "focus" : zoomLevel < 0.65 ? "surah" : zoomLevel < 1.25 ? "focus" : "full";
     const focusSurahNodeId = focusedSurahId ? `s-${focusedSurahId}` : null;
@@ -293,6 +296,10 @@ export default function CorpusArchitectureMap({
         });
         return stats;
     }, [tokens]);
+    const maxRootGlobalCount = useMemo(
+        () => Math.max(1, ...Array.from(rootGlobalStats.values()).map((entry) => entry.total)),
+        [rootGlobalStats]
+    );
 
     const selectedRootGlobalStats = internalSelectedRoot
         ? rootGlobalStats.get(internalSelectedRoot) ?? null
@@ -457,6 +464,32 @@ export default function CorpusArchitectureMap({
         return offsets;
     }, [nodes, rootIndexById, rootCountBySurah, focusSurahNodeId]);
 
+    const rootNodeColorById = useMemo(() => {
+        const colors = new Map<string, string>();
+        nodes.forEach((node) => {
+            if (node.data.type !== "word_root") return;
+            const rootKey = (node.data.originalId as string | undefined) ?? node.data.name;
+            const globalCount = rootGlobalStats.get(rootKey)?.total ?? node.data.value;
+            const ratio = Math.log1p(globalCount) / Math.log1p(maxRootGlobalCount);
+
+            const color =
+                lexicalColorMode === "frequency"
+                    ? getFrequencyColor(ratio, theme)
+                    : lexicalColorMode === "identity"
+                        ? getIdentityColor(rootKey, theme)
+                        : themeColors.nodeColors.default;
+            colors.set(node.data.id, color);
+        });
+        return colors;
+    }, [nodes, rootGlobalStats, maxRootGlobalCount, lexicalColorMode, theme, themeColors.nodeColors.default]);
+
+    const legendRootColor =
+        lexicalColorMode === "frequency"
+            ? getFrequencyColor(0.7, theme)
+            : lexicalColorMode === "identity"
+                ? getIdentityColor("root-legend", theme)
+                : themeColors.nodeColors.default;
+
     const getNodeRadius = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
             return node.y + (rootOffsetById.get(node.data.id) ?? 0);
@@ -573,9 +606,9 @@ export default function CorpusArchitectureMap({
 
     const labelOffsetForNode = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
-            if (node.data.type !== "word_root") return 8;
+            if (node.data.type !== "word_root") return 6;
             const offset = rootOffsetById.get(node.data.id) ?? 0;
-            return 12 + Math.min(16, offset * 0.25);
+            return 9 + Math.min(10, offset * 0.18);
         },
         [rootOffsetById]
     );
@@ -723,7 +756,7 @@ export default function CorpusArchitectureMap({
                                 <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
                                     <div
                                         className="viz-legend-dot"
-                                        style={{ background: themeColors.nodeColors.default, width: 8, height: 8 }}
+                                        style={{ background: legendRootColor, width: 8, height: 8 }}
                                     />
                                     <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
                                 </div>
@@ -763,17 +796,6 @@ export default function CorpusArchitectureMap({
                     style={{ width: "100%", height: "100%", cursor: "grab" }}
                 >
                     <g ref={gRef}>
-                        {/* Glow Defs Enforced */}
-                        <defs>
-                            <filter id="glow-arch" x="-50%" y="-50%" width="200%" height="200%">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
-                        </defs>
-
                         {/* Links */}
                         <g className="links" fill="none" strokeWidth={1}>
                             {visibleLinks.map((link, i) => {
@@ -880,10 +902,21 @@ export default function CorpusArchitectureMap({
                                         opacity={getOpacity(node)}
                                         className="transition-opacity duration-300"
                                     >
+                                        {isHighlighted && node.data.type !== "corpus" && (
+                                            <circle
+                                                r={node.data.type === "surah" ? 7.5 : 4.8}
+                                                fill="none"
+                                                stroke={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
+                                                strokeOpacity={theme === "dark" ? 0.55 : 0.45}
+                                                strokeWidth={1.2}
+                                                pointerEvents="none"
+                                            />
+                                        )}
                                         <circle
-                                            r={node.data.type === 'surah' ? 5 : (node.data.type === 'corpus' ? 0 : 3)} // Larger nodes
-                                            fill={node.data.type === 'surah' ? themeColors.accent : themeColors.nodeColors.default}
-                                            filter={isHighlighted ? "url(#glow-arch)" : undefined}
+                                            r={node.data.type === "surah" ? 5 : (node.data.type === "corpus" ? 0 : 3)}
+                                            fill={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
+                                            stroke={theme === "dark" ? "rgba(2, 6, 23, 0.85)" : "rgba(255, 255, 255, 0.85)"}
+                                            strokeWidth={node.data.type === "corpus" ? 0 : 0.65}
                                             pointerEvents="none"
                                         />
                                         {node.data.type !== "corpus" && (

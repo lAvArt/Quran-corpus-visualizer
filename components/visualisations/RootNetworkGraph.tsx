@@ -5,7 +5,9 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import { DARK_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { useTranslations } from "next-intl";
 
 interface RootNetworkGraphProps {
   tokens: CorpusToken[];
@@ -16,6 +18,7 @@ interface RootNetworkGraphProps {
   selectedSurahId?: number;
   theme?: "light" | "dark";
   showLabels?: boolean;
+  lexicalColorMode?: LexicalColorMode;
 }
 
 interface NetworkNode {
@@ -47,7 +50,10 @@ export default function RootNetworkGraph({
   selectedSurahId,
   theme = "dark",
   showLabels = true,
+  lexicalColorMode = "theme",
 }: RootNetworkGraphProps) {
+  const t = useTranslations("Visualizations.RootNetwork");
+  const ts = useTranslations("Visualizations.Shared");
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
@@ -61,7 +67,7 @@ export default function RootNetworkGraph({
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  const themeColors = DARK_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   // Filter tokens by surah if selected
   const scopedTokens = useMemo(() => {
@@ -124,13 +130,20 @@ export default function RootNetworkGraph({
     const scaleFactor = rootLimit <= 20 ? 1 : rootLimit <= 50 ? 0.7 : 0.45;
     for (const [root, data] of sortedRoots) {
       const radius = (8 + (data.count / maxFreq) * 20) * scaleFactor;
+      const rootFrequencyRatio = data.count / maxFreq;
+      const rootColor =
+        lexicalColorMode === "frequency"
+          ? getFrequencyColor(rootFrequencyRatio, theme)
+          : lexicalColorMode === "identity"
+            ? getIdentityColor(root, theme)
+            : themeColors.nodeColors.default;
       nodesResult.push({
         id: `root-${root}`,
         label: root,
         type: "root",
         frequency: data.count,
         radius,
-        color: themeColors.nodeColors.default,
+        color: rootColor,
         tokens: data.tokens,
       });
 
@@ -144,13 +157,20 @@ export default function RootNetworkGraph({
         if (!includedLemmas.has(lemma)) {
           includedLemmas.add(lemma);
           const lemmaRadius = (4 + (lemmaData.count / maxFreq) * 10) * scaleFactor;
+          const lemmaFrequencyRatio = lemmaData.count / maxFreq;
+          const lemmaColor =
+            lexicalColorMode === "frequency"
+              ? getFrequencyColor(lemmaFrequencyRatio, theme)
+              : lexicalColorMode === "identity"
+                ? getIdentityColor(lemma, theme)
+                : getNodeColor(lemmaData.tokens[0]?.pos ?? "N");
           nodesResult.push({
             id: `lemma-${lemma}`,
             label: lemma,
             type: "lemma",
             frequency: lemmaData.count,
             radius: lemmaRadius,
-            color: getNodeColor(lemmaData.tokens[0]?.pos ?? "N"),
+            color: lemmaColor,
             tokens: lemmaData.tokens,
           });
         }
@@ -165,7 +185,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [scopedTokens, themeColors, rootLimit]);
+  }, [scopedTokens, themeColors.nodeColors.default, rootLimit, lexicalColorMode, theme]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -419,13 +439,11 @@ export default function RootNetworkGraph({
                   key={idx}
                   d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
                   className={`edge ${isHighlighted ? "highlighted" : ""}`}
-                  stroke={
-                    isHighlighted
-                      ? themeColors.accent
-                      : themeColors.edgeColors.default
-                  }
-                  strokeWidth={isHighlighted ? 2 : 1}
-                  fill="none"
+                  style={{
+                    stroke: isHighlighted ? themeColors.accent : themeColors.edgeColors.default,
+                    strokeWidth: isHighlighted ? 2 : 1,
+                    fill: "none",
+                  }}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{
                     pathLength: 1,
@@ -497,19 +515,13 @@ export default function RootNetworkGraph({
                   <circle
                     r={node.radius}
                     className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
-                    fill={
-                      isHighlighted
-                        ? themeColors.accent
-                        : isRoot
-                        ? themeColors.nodeColors.default
-                        : node.color
-                    }
-                    stroke={
-                      isRoot
+                    style={{
+                      fill: isHighlighted ? themeColors.accent : node.color,
+                      stroke: isRoot
                         ? "rgba(255, 255, 255, 0.4)"
-                        : "rgba(255, 255, 255, 0.2)"
-                    }
-                    strokeWidth={isRoot ? 2 : 1}
+                        : "rgba(255, 255, 255, 0.2)",
+                      strokeWidth: isRoot ? 2 : 1,
+                    }}
                     filter={isHighlighted ? "url(#nodeGlow)" : undefined}
                   />
 
@@ -611,28 +623,57 @@ export default function RootNetworkGraph({
                 height: 16,
               }}
             />
-            <span>Root (trilateral)</span>
+            <span>{lexicalColorMode === "theme" ? t("rootTrilateral") : t("rootNodes")}</span>
           </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-            />
-            <span>Noun lemma</span>
-          </div>
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-            />
-            <span>Verb lemma</span>
-          </div>
+          {lexicalColorMode === "theme" ? (
+            <>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+                />
+                <span>{t("nounLemma")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+                />
+                <span>{t("verbLemma")}</span>
+              </div>
+            </>
+          ) : lexicalColorMode === "frequency" ? (
+            <>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getFrequencyColor(0.2, theme), width: 10, height: 10 }}
+                />
+                <span>{ts("lowerFrequency")}</span>
+              </div>
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getFrequencyColor(0.9, theme), width: 10, height: 10 }}
+                />
+                <span>{ts("higherFrequency")}</span>
+              </div>
+            </>
+          ) : (
+            <div className="viz-legend-item">
+              <div
+                className="viz-legend-dot"
+                style={{ background: getIdentityColor("root-color-seed", theme), width: 10, height: 10 }}
+              />
+              <span>{ts("uniqueLexicalIdentity")}</span>
+            </div>
+          )}
           <div className="viz-legend-item">
             <div
               className="viz-legend-dot"
               style={{ background: themeColors.accent, width: 12, height: 12 }}
             />
-            <span>Highlighted</span>
+            <span>{ts("highlighted")}</span>
           </div>
         </div>,
         document.getElementById('viz-sidebar-portal')!

@@ -1,10 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useMemo, useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useMemo, useState, useEffect, useCallback, lazy, Suspense, useRef } from "react";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
-import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
+import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
@@ -18,6 +18,20 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
+import VizExportMenu from "@/components/ui/VizExportMenu";
+import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
+import {
+  DEFAULT_COLOR_THEME_ID,
+  DEFAULT_CUSTOM_COLOR_THEME,
+  applyColorTheme,
+  isValidCustomColorTheme,
+  isValidColorThemeId,
+  type CustomColorTheme,
+  type CustomColorThemePalette,
+  type ColorThemeId,
+} from "@/lib/theme/colorThemes";
+import { isValidLexicalColorMode, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { ONBOARDING_VERSION } from "@/lib/config/version";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -29,6 +43,7 @@ const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSa
 const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
 
 const STORAGE_KEY = "quran-corpus-viz-state";
+const ONBOARDING_STORAGE_KEY = "quran-corpus-onboarding";
 
 function VizFallback() {
   return (
@@ -49,6 +64,13 @@ function HomePageContent() {
   // Initialize with defaults to avoid hydration mismatch
   const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
+  const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
+  const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [showOnboardingOnStartup, setShowOnboardingOnStartup] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
   // const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -72,6 +94,9 @@ function HomePageContent() {
         const saved = JSON.parse(stored);
         if (saved.vizMode) setVizMode(saved.vizMode);
         if (saved.theme) setTheme(saved.theme);
+        if (isValidColorThemeId(saved.colorThemeId)) setColorThemeId(saved.colorThemeId);
+        if (isValidLexicalColorMode(saved.lexicalColorMode)) setLexicalColorMode(saved.lexicalColorMode);
+        if (isValidCustomColorTheme(saved.customColorTheme)) setCustomColorTheme(saved.customColorTheme);
         if (saved.selectedSurahId) setSelectedSurahId(saved.selectedSurahId);
         if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
         if (saved.selectedLemma !== undefined) setSelectedLemma(saved.selectedLemma);
@@ -84,7 +109,8 @@ function HomePageContent() {
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    applyColorTheme(colorThemeId, theme, customColorTheme);
+  }, [theme, colorThemeId, customColorTheme]);
 
   // Persist state to localStorage
   useEffect(() => {
@@ -94,6 +120,9 @@ function HomePageContent() {
         JSON.stringify({
           vizMode,
           theme,
+          colorThemeId,
+          lexicalColorMode,
+          customColorTheme,
           selectedSurahId,
           selectedRoot,
           selectedLemma,
@@ -102,7 +131,85 @@ function HomePageContent() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [vizMode, theme, selectedSurahId, selectedRoot, selectedLemma]);
+  }, [vizMode, theme, colorThemeId, lexicalColorMode, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
+
+  const handleCustomColorThemeChange = useCallback(
+    (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => {
+      setCustomColorTheme((prev) => ({
+        ...prev,
+        [appearance]: {
+          ...prev[appearance],
+          [field]: value,
+        },
+      }));
+      setColorThemeId("custom");
+    },
+    []
+  );
+
+  const handleResetCustomColorTheme = useCallback((appearance: "light" | "dark") => {
+    setCustomColorTheme((prev) => ({
+      ...prev,
+      [appearance]: { ...DEFAULT_CUSTOM_COLOR_THEME[appearance] },
+    }));
+    setColorThemeId("custom");
+  }, []);
+
+  const persistOnboardingState = useCallback((showOnStartup: boolean, completed: boolean) => {
+    try {
+      localStorage.setItem(
+        ONBOARDING_STORAGE_KEY,
+        JSON.stringify({
+          version: ONBOARDING_VERSION,
+          showOnStartup,
+          completed,
+        })
+      );
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      if (!stored) {
+        setIsOnboardingOpen(true);
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+      const showOnStartup = typeof parsed.showOnStartup === "boolean" ? parsed.showOnStartup : true;
+      const completed = typeof parsed.completed === "boolean" ? parsed.completed : false;
+      const version = typeof parsed.version === "string" ? parsed.version : null;
+
+      setShowOnboardingOnStartup(showOnStartup);
+      setHasCompletedOnboarding(completed);
+
+      if (version !== ONBOARDING_VERSION) {
+        setIsOnboardingOpen(true);
+        return;
+      }
+
+      setIsOnboardingOpen(!completed || showOnStartup);
+    } catch {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
+
+  const handleOnboardingClose = useCallback(() => {
+    setHasCompletedOnboarding(true);
+    setIsOnboardingOpen(false);
+    persistOnboardingState(showOnboardingOnStartup, true);
+  }, [persistOnboardingState, showOnboardingOnStartup]);
+
+  const handleOnboardingStartupChange = useCallback(
+    (value: boolean) => {
+      setShowOnboardingOnStartup(value);
+      persistOnboardingState(value, hasCompletedOnboarding);
+    },
+    [hasCompletedOnboarding, persistOnboardingState]
+  );
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -244,6 +351,7 @@ function HomePageContent() {
               onRootSelect={handleRootSelect}
               highlightRoot={selectedRoot}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -258,6 +366,7 @@ function HomePageContent() {
               selectedSurahId={selectedSurahId}
               theme={theme}
               showLabels={true}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -270,6 +379,7 @@ function HomePageContent() {
               onSurahSelect={(suraId) => handleSurahSelect(suraId, "radial-sura")}
               highlightRoot={selectedRoot}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -284,6 +394,7 @@ function HomePageContent() {
                 if (type === "root") handleRootSelect(id as string);
               }}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -299,6 +410,7 @@ function HomePageContent() {
               selectedRoot={selectedRootValue}
               selectedLemma={selectedLemmaValue}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -312,6 +424,7 @@ function HomePageContent() {
               onTokenFocus={setFocusedTokenId}
               onSurahChange={setSelectedSurahId}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -324,6 +437,8 @@ function HomePageContent() {
               onTokenHover={setHoverTokenId}
               onTokenFocus={setFocusedTokenId}
               selectedSurahId={selectedSurahId}
+              theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
@@ -371,15 +486,32 @@ function HomePageContent() {
             <div className="desktop-only" style={{ display: 'contents' }}>
               <div className="header-button-group">
                 <LanguageSwitcher />
-                <ThemeSwitcher theme={theme} onThemeChange={setTheme} />
               </div>
             </div>
+
+            <DisplaySettingsPanel
+              theme={theme}
+              onThemeChange={setTheme}
+              colorTheme={colorThemeId}
+              onColorThemeChange={setColorThemeId}
+              lexicalColorMode={lexicalColorMode}
+              onLexicalColorModeChange={setLexicalColorMode}
+              customColorTheme={customColorTheme}
+              onCustomColorThemeChange={handleCustomColorThemeChange}
+              onResetCustomColorTheme={handleResetCustomColorTheme}
+              onReplayOnboarding={() => setIsOnboardingOpen(true)}
+            />
 
             <VisualizationSwitcher
               currentMode={vizMode}
               onModeChange={handleVizModeChange}
               theme={theme}
               onThemeChange={setTheme}
+            />
+            <VizExportMenu
+              targetRef={mainVizRef}
+              vizMode={vizMode}
+              selectedSurahId={selectedSurahId}
             />
 
             <div className="desktop-only" style={{ display: 'contents' }}>
@@ -415,7 +547,7 @@ function HomePageContent() {
       }
 
       {/* Main Full-Screen Visualization */}
-      <main className="immersive-viewport viz-fullwidth">
+      <main ref={mainVizRef} className="immersive-viewport viz-fullwidth">
         {renderVisualization()}
       </main>
 
@@ -452,6 +584,13 @@ function HomePageContent() {
       </div>
 
       <MobileBottomBar />
+
+      <OnboardingOverlay
+        isOpen={isOnboardingOpen}
+        showOnStartup={showOnboardingOnStartup}
+        onShowOnStartupChange={handleOnboardingStartupChange}
+        onClose={handleOnboardingClose}
+      />
 
       <style jsx>{`
         .loading-indicator {

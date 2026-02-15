@@ -6,7 +6,8 @@ import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { DARK_THEME, LIGHT_THEME, getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -22,6 +23,7 @@ interface RadialSuraMapProps {
   onRootSelect?: (root: string | null) => void;
   highlightRoot?: string | null;
   theme?: "light" | "dark";
+  lexicalColorMode?: LexicalColorMode;
 }
 
 
@@ -53,6 +55,7 @@ export default function RadialSuraMap({
   onRootSelect,
   highlightRoot,
   theme = "dark",
+  lexicalColorMode = "theme",
 }: RadialSuraMapProps) {
   const t = useTranslations("Visualizations.RadialSura");
   const ts = useTranslations("Visualizations.Shared");
@@ -115,7 +118,7 @@ export default function RadialSuraMap({
     }
   }, [selectedAyah, suraId]);
 
-  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   // ... displayArabicName useMemo ...
 
@@ -138,10 +141,13 @@ export default function RadialSuraMap({
     rootOccurrences,
     ayahRootCounts,
     ayahRootMax,
+    rootTokenTotals,
+    maxRootTokenCount,
   } = useMemo(() => {
     const ayahTokens = new Map<number, CorpusToken[]>();
     const rootOccurrences = new Map<string, number[]>(); // root -> list of ayahs
     const rootCountsByAyah = new Map<number, Map<string, number>>();
+    const rootTokenTotals = new Map<string, number>();
 
     // Group tokens by ayah
     for (const token of tokens) {
@@ -156,6 +162,7 @@ export default function RadialSuraMap({
         if (!rootOccurrences.has(token.root)) {
           rootOccurrences.set(token.root, []);
         }
+        rootTokenTotals.set(token.root, (rootTokenTotals.get(token.root) ?? 0) + 1);
         const ayahs = rootOccurrences.get(token.root)!;
         if (!ayahs.includes(token.ayah)) {
           ayahs.push(token.ayah);
@@ -170,6 +177,7 @@ export default function RadialSuraMap({
 
     const ayahCount = ayahTokens.size || 1;
     const maxTokens = Math.max(...Array.from(ayahTokens.values()).map((t) => t.length), 1);
+    const maxRootTokenCount = Math.max(1, ...Array.from(rootTokenTotals.values()));
 
     // Create ayah bars
     const bars: AyahBar[] = [];
@@ -191,6 +199,27 @@ export default function RadialSuraMap({
 
       // Adjust color if we are highlighting a root
       let barColor = getNodeColor(dominantPOS);
+      const rootCountsForAyah = rootCountsByAyah.get(ayahNum);
+      let dominantRoot: string | null = null;
+      let dominantRootCount = 0;
+      if (rootCountsForAyah) {
+        rootCountsForAyah.forEach((count, root) => {
+          if (count > dominantRootCount) {
+            dominantRootCount = count;
+            dominantRoot = root;
+          }
+        });
+      }
+
+      if (!highlightRoot && dominantRoot && lexicalColorMode !== "theme") {
+        const rootGlobalCount = rootTokenTotals.get(dominantRoot) ?? dominantRootCount;
+        const rootRatio = Math.log1p(rootGlobalCount) / Math.log1p(maxRootTokenCount);
+        barColor =
+          lexicalColorMode === "frequency"
+            ? getFrequencyColor(rootRatio, theme)
+            : getIdentityColor(dominantRoot, theme);
+      }
+
       if (highlightRoot) {
         barColor = containsRoot
           ? themeColors.accent
@@ -224,12 +253,20 @@ export default function RadialSuraMap({
 
         if (!processedPairs.has(pairKey)) {
           processedPairs.add(pairKey);
+          const rootGlobalCount = rootTokenTotals.get(root) ?? 1;
+          const rootRatio = Math.log1p(rootGlobalCount) / Math.log1p(maxRootTokenCount);
+          const connectionColor =
+            lexicalColorMode === "frequency"
+              ? getFrequencyColor(rootRatio, theme)
+              : lexicalColorMode === "identity"
+                ? getIdentityColor(root, theme)
+                : getNodeColor("N");
           connections.push({
             sourceAyah: source,
             targetAyah: target,
             root,
             count: 1,
-            color: getNodeColor("N"), // Default color for connections
+            color: connectionColor,
           });
         }
       }
@@ -254,8 +291,10 @@ export default function RadialSuraMap({
       rootOccurrences,
       ayahRootCounts: rootCountsByAyah,
       ayahRootMax: maxByAyah,
+      rootTokenTotals,
+      maxRootTokenCount,
     };
-  }, [tokens, suraId, highlightRoot, themeColors.accent, theme]);
+  }, [tokens, suraId, highlightRoot, themeColors.accent, theme, lexicalColorMode]);
 
   const highlightAyahs = useMemo(() => {
     if (!highlightRoot) return [];
@@ -278,11 +317,16 @@ export default function RadialSuraMap({
     const map = new Map<string, string>();
     activeAyahRootCounts.forEach((count, root) => {
       const ratio = activeAyahMaxCount > 0 ? count / activeAyahMaxCount : 0;
-      const color = d3.interpolateTurbo(Math.min(1, Math.max(0.15, ratio)));
+      const color =
+        lexicalColorMode === "theme"
+          ? d3.interpolateTurbo(Math.min(1, Math.max(0.15, ratio)))
+          : lexicalColorMode === "frequency"
+            ? getFrequencyColor(Math.log1p(rootTokenTotals.get(root) ?? count) / Math.log1p(maxRootTokenCount), theme)
+            : getIdentityColor(root, theme);
       map.set(root, color);
     });
     return map;
-  }, [activeAyahRootCounts, activeAyahMaxCount]);
+  }, [activeAyahRootCounts, activeAyahMaxCount, lexicalColorMode, rootTokenTotals, maxRootTokenCount, theme]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -593,24 +637,54 @@ export default function RadialSuraMap({
                 <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts("legend")}</span>
                 <HelpIcon onClick={() => setShowHelp(true)} />
               </div>
+              {lexicalColorMode === "theme" ? (
+                <>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
+                    <span>{ts("noun")}</span>
+                  </div>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
+                    <span>{ts("verb")}</span>
+                  </div>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
+                    <span>{ts("adjective")}</span>
+                  </div>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
+                    <span>{ts("preposition")}</span>
+                  </div>
+                </>
+              ) : lexicalColorMode === "frequency" ? (
+                <>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.2, theme) }} />
+                    <span>{ts("lowerFrequency")}</span>
+                  </div>
+                  <div className="viz-legend-item">
+                    <div className="viz-legend-dot" style={{ background: getFrequencyColor(0.9, theme) }} />
+                    <span>{ts("higherFrequency")}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="viz-legend-item">
+                  <div className="viz-legend-dot" style={{ background: getIdentityColor("radial-identity", theme) }} />
+                  <span>{ts("rootIdentity")}</span>
+                </div>
+              )}
               <div className="viz-legend-item">
-                <div className="viz-legend-dot" style={{ background: getNodeColor("N") }} />
-                <span>{ts("noun")}</span>
-              </div>
-              <div className="viz-legend-item">
-                <div className="viz-legend-dot" style={{ background: getNodeColor("V") }} />
-                <span>{ts("verb")}</span>
-              </div>
-              <div className="viz-legend-item">
-                <div className="viz-legend-dot" style={{ background: getNodeColor("ADJ") }} />
-                <span>{ts("adjective")}</span>
-              </div>
-              <div className="viz-legend-item">
-                <div className="viz-legend-dot" style={{ background: getNodeColor("P") }} />
-                <span>{ts("preposition")}</span>
-              </div>
-              <div className="viz-legend-item">
-                <div className="viz-legend-line" style={{ background: "url(#connectionGrad)" }} />
+                <div
+                  className="viz-legend-line"
+                  style={{
+                    background:
+                      lexicalColorMode === "theme"
+                        ? "url(#connectionGrad)"
+                        : lexicalColorMode === "frequency"
+                          ? `linear-gradient(90deg, ${getFrequencyColor(0.2, theme)}, ${getFrequencyColor(0.9, theme)})`
+                          : `linear-gradient(90deg, ${getIdentityColor("radial-a", theme)}, ${getIdentityColor("radial-b", theme)})`,
+                  }}
+                />
                 <span>{t("rootConnection")}</span>
               </div>
               <div className="viz-legend-item">
@@ -756,7 +830,14 @@ export default function RadialSuraMap({
                       <motion.path
                         d={pathD}
                         className={`connection ${isHighlighted ? "highlighted" : ""}`}
-                        stroke={countColor ?? (isHighlighted ? themeColors.accent : "url(#connectionGrad)")}
+                        stroke={
+                          countColor ??
+                          (isHighlighted
+                            ? themeColors.accent
+                            : lexicalColorMode === "theme"
+                              ? "url(#connectionGrad)"
+                              : conn.color)
+                        }
                         strokeWidth={isHighlighted ? 2.5 : 1.5}
                         fill="none"
                         pointerEvents="none"

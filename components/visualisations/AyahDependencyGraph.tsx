@@ -10,6 +10,7 @@ import { getAyah } from "@/lib/corpus/corpusLoader";
 import { quranApi, type QuranWord } from "@/lib/api/quranApi";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
@@ -21,6 +22,7 @@ interface AyahDependencyGraphProps {
   onTokenFocus: (tokenId: string) => void;
   onSurahChange?: (surahId: number) => void;
   theme?: "light" | "dark";
+  lexicalColorMode?: LexicalColorMode;
 }
 
 interface RelationMeta {
@@ -92,6 +94,7 @@ export default function AyahDependencyGraph({
   onTokenFocus,
   onSurahChange,
   theme = "dark",
+  lexicalColorMode = "theme",
 }: AyahDependencyGraphProps) {
   const t = useTranslations("Visualizations.AyahDependency");
   const ts = useTranslations("Visualizations.Shared");
@@ -213,6 +216,24 @@ export default function AyahDependencyGraph({
   );
 
   const tokenMap = useMemo(() => new Map(sortedTokens.map((token) => [token.id, token])), [sortedTokens]);
+  const rootTokenCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    sortedTokens.forEach((token) => {
+      if (!token.root) return;
+      counts.set(token.root, (counts.get(token.root) ?? 0) + 1);
+    });
+    return counts;
+  }, [sortedTokens]);
+  const maxRootTokenCount = useMemo(() => Math.max(1, ...Array.from(rootTokenCounts.values())), [rootTokenCounts]);
+  const lexicalNodeColor = useCallback(
+    (token: CorpusToken): string => {
+      if (lexicalColorMode === "theme" || !token.root) return getNodeColor(token.pos);
+      if (lexicalColorMode === "identity") return getIdentityColor(token.root, theme);
+      const ratio = Math.log1p(rootTokenCounts.get(token.root) ?? 1) / Math.log1p(maxRootTokenCount || 1);
+      return getFrequencyColor(ratio, theme);
+    },
+    [lexicalColorMode, maxRootTokenCount, rootTokenCounts, theme]
+  );
 
   const nodeWidth = 150;
   const nodeHeight = 104;
@@ -703,7 +724,7 @@ export default function AyahDependencyGraph({
               {sortedTokens.map((token) => {
                 const x = horizontalPadding + (token.position - 1) * spacing;
                 const y = baseY;
-                const nodeColor = getNodeColor(token.pos);
+                const nodeColor = lexicalNodeColor(token);
                 const isHovered = hoveredTokenId === token.id;
                 const isSelected = selectedTokenId === token.id;
                 const inHoveredEdge = hoveredEdgeTokenIds.has(token.id);
@@ -778,7 +799,7 @@ export default function AyahDependencyGraph({
           {sortedTokens.map((token) => {
             const isHovered = hoveredTokenId === token.id;
             const isSelected = selectedTokenId === token.id;
-            const nodeColor = getNodeColor(token.pos);
+            const nodeColor = lexicalNodeColor(token);
             return (
               <button
                 key={token.id}

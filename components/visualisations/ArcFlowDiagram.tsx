@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { DARK_THEME, LIGHT_THEME, getNodeColor, GRADIENT_PALETTES } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, GRADIENT_PALETTES, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useLocale, useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -21,6 +22,7 @@ interface ArcFlowDiagramProps {
   selectedRoot?: string | null;
   selectedLemma?: string | null;
   theme?: "light" | "dark";
+  lexicalColorMode?: LexicalColorMode;
 }
 
 interface FlowNode {
@@ -70,6 +72,7 @@ export default function ArcFlowDiagram({
   selectedRoot,
   selectedLemma,
   theme = "dark",
+  lexicalColorMode = "theme",
 }: ArcFlowDiagramProps) {
   const t = useTranslations("Visualizations.ArcFlow");
   const ts = useTranslations("Visualizations.Shared");
@@ -170,7 +173,7 @@ export default function ArcFlowDiagram({
     };
   }, [dimensions.width, dimensions.height]);
 
-  const themeColors = theme === "dark" ? DARK_THEME : LIGHT_THEME;
+  const themeColors = resolveVisualizationTheme(theme);
 
   const scopedTokens = useMemo(() => {
     if (!selectedSurahId) return tokens;
@@ -385,7 +388,11 @@ export default function ArcFlowDiagram({
         color: activeGroupBy === "pos"
           ? getNodeColor(key)
           : activeGroupBy === "root"
-            ? d3.interpolateRgb(rootFrequencyColor, rootIdentityColor)(0.4)
+            ? lexicalColorMode === "frequency"
+              ? getFrequencyColor(frequencyRatio, theme)
+              : lexicalColorMode === "identity"
+                ? getIdentityColor(key, theme)
+                : d3.interpolateRgb(rootFrequencyColor, rootIdentityColor)(0.4)
             : d3.interpolateRgbBasis(GRADIENT_PALETTES.vibrant)(identityRatio),
         sampleToken: data.sampleToken,
         matchCount: data.matchCount,
@@ -543,6 +550,8 @@ export default function ArcFlowDiagram({
     tokenMatchesContext,
     maxBarHeightForLayout,
     themeColors.nodeColors.default,
+    lexicalColorMode,
+    theme,
   ]);
 
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
@@ -814,7 +823,11 @@ export default function ArcFlowDiagram({
             className="viz-legend-line"
             style={{
               background: activeGroupBy === "root"
-                ? "linear-gradient(90deg, #a21caf, #7c3aed, #2563eb, #06b6d4)"
+                ? lexicalColorMode === "frequency"
+                  ? `linear-gradient(90deg, ${getFrequencyColor(0.05, theme)}, ${getFrequencyColor(0.45, theme)}, ${getFrequencyColor(0.95, theme)})`
+                  : lexicalColorMode === "identity"
+                    ? `linear-gradient(90deg, ${getIdentityColor("root-a", theme)}, ${getIdentityColor("root-b", theme)}, ${getIdentityColor("root-c", theme)})`
+                    : "linear-gradient(90deg, #a21caf, #7c3aed, #2563eb, #06b6d4)"
                 : `linear-gradient(90deg, ${GRADIENT_PALETTES.vibrant.join(", ")})`,
             }}
           />
