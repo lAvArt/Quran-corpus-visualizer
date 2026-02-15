@@ -436,13 +436,11 @@ export default function RootNetworkGraph({
                   key={idx}
                   d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
                   className={`edge ${isHighlighted ? "highlighted" : ""}`}
-                  stroke={
-                    isHighlighted
-                      ? themeColors.accent
-                      : themeColors.edgeColors.default
-                  }
-                  strokeWidth={isHighlighted ? 2 : 1}
-                  fill="none"
+                  style={{
+                    stroke: isHighlighted ? themeColors.accent : themeColors.edgeColors.default,
+                    strokeWidth: isHighlighted ? 2 : 1,
+                    fill: "none",
+                  }}
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{
                     pathLength: 1,
@@ -514,19 +512,13 @@ export default function RootNetworkGraph({
                   <circle
                     r={node.radius}
                     className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
-                    fill={
-                      isHighlighted
-                        ? themeColors.accent
-                        : isRoot
-                        ? themeColors.nodeColors.default
-                        : node.color
-                    }
-                    stroke={
-                      isRoot
+                    style={{
+                      fill: isHighlighted ? themeColors.accent : node.color,
+                      stroke: isRoot
                         ? "rgba(255, 255, 255, 0.4)"
-                        : "rgba(255, 255, 255, 0.2)"
-                    }
-                    strokeWidth={isRoot ? 2 : 1}
+                        : "rgba(255, 255, 255, 0.2)",
+                      strokeWidth: isRoot ? 2 : 1,
+                    }}
                     filter={isHighlighted ? "url(#nodeGlow)" : undefined}
                   />
 

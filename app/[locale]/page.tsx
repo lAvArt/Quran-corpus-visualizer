@@ -289,6 +289,7 @@ function HomePageContent() {
               onRootSelect={handleRootSelect}
               highlightRoot={selectedRoot}
               theme={theme}
+              lexicalColorMode={lexicalColorMode}
             />
           );
 
