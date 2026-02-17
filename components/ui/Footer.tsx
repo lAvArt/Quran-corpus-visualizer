@@ -42,6 +42,14 @@ export function Footer() {
                         >
                             {t("source")}
                         </Link>
+                        <Link
+                            href="https://api-docs.quran.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="site-footer-link"
+                        >
+                            {t("quranApi")}
+                        </Link>
                         <button
                             onClick={() => setShowAbout(true)}
                             className="site-footer-link about-link"
