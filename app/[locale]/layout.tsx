@@ -80,6 +80,7 @@ export const metadata: Metadata = {
       'ar-SA': '/ar',
     },
   },
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
