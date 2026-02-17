@@ -59,6 +59,15 @@ export const WALKTHROUGH_STEPS: WalkthroughStepConfig[] = [
     actionMode: "root-network",
   },
   {
+    id: "current-selection",
+    titleKey: "Walkthrough.steps.currentSelection.title",
+    bodyKey: "Walkthrough.steps.currentSelection.body",
+    targetSelector: '[data-tour-id="current-selection"]',
+    placement: "right",
+    action: "set-viz-mode",
+    actionMode: "root-network",
+  },
+  {
     id: "legend",
     titleKey: "Walkthrough.steps.legend.title",
     bodyKey: "Walkthrough.steps.legend.body",

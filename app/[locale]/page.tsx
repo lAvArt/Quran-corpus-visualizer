@@ -70,7 +70,7 @@ function VizFallback() {
 
 function HomePageContent() {
   const t = useTranslations('Index');
-  const { isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
+  const { isLeftSidebarOpen, isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   // Initialize with defaults to avoid hydration mismatch
@@ -653,19 +653,21 @@ function HomePageContent() {
         {renderVisualization()}
       </main>
 
-      <div id="viz-sidebar-portal" className="viz-sidebar-stack">
-        <div data-tour-id="current-selection">
-          <CurrentSelectionPanel
-            vizMode={vizMode}
-            selectedSurahId={selectedSurahId}
-            selectedAyah={selectedAyahInSurah}
-            selectedRoot={selectedRootValue}
-            selectedLemma={selectedLemmaValue}
-            activeToken={focusedToken ?? null}
-            allTokens={allTokens}
-          />
+      {(!isMobileViewport || isLeftSidebarOpen) && (
+        <div id="viz-sidebar-portal" className="viz-sidebar-stack">
+          <div data-tour-id="current-selection">
+            <CurrentSelectionPanel
+              vizMode={vizMode}
+              selectedSurahId={selectedSurahId}
+              selectedAyah={selectedAyahInSurah}
+              selectedRoot={selectedRootValue}
+              selectedLemma={selectedLemmaValue}
+              activeToken={focusedToken ?? null}
+              allTokens={allTokens}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Collapsible Sidebar */}
       <div className={`floating-sidebar ${isSidebarOpen ? "open" : ""}`} data-tour-id="tools-sidebar">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { usePwaInstall } from "@/components/providers/PwaProvider";
 import { AboutDialog } from "./AboutDialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 
@@ -10,6 +11,23 @@ export function Footer() {
     const t = useTranslations("Footer");
     const [showAbout, setShowAbout] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
+    const [isInstalling, setIsInstalling] = useState(false);
+    const { canInstall, isInstalled, isInstallSupported, promptInstall } = usePwaInstall();
+
+    const handleInstallClick = async () => {
+        if (canInstall) {
+            setIsInstalling(true);
+            try {
+                await promptInstall();
+            } finally {
+                setIsInstalling(false);
+            }
+            return;
+        }
+
+        // Fallback guidance path when prompt is not available yet
+        setShowAbout(true);
+    };
 
     return (
         <>
@@ -57,6 +75,15 @@ export function Footer() {
                             {t("about")}
                         </button>
                     </nav>
+                    {isInstallSupported && !isInstalled && (
+                        <button
+                            onClick={handleInstallClick}
+                            className="site-footer-link site-footer-install"
+                            aria-label={t("installApp")}
+                        >
+                            {isInstalling ? t("installing") : t("installApp")}
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowFeedback(true)}
                         className="site-footer-link site-footer-feedback"
