@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
+import { usePwaInstall } from "@/components/providers/PwaProvider";
 import {
   COLOR_THEME_PRESETS,
   type CustomColorTheme,
@@ -38,6 +39,8 @@ export default function DisplaySettingsPanel({
 }: DisplaySettingsPanelProps) {
   const t = useTranslations("DisplaySettings");
   const [isOpen, setIsOpen] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const { canInstall, isInstalled, isInstallSupported, promptInstall } = usePwaInstall();
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const activePalette = customColorTheme[theme];
@@ -68,6 +71,16 @@ export default function DisplaySettingsPanel({
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [isOpen]);
+
+  const handleInstallApp = async () => {
+    if (!canInstall || isInstalling) return;
+    setIsInstalling(true);
+    try {
+      await promptInstall();
+    } finally {
+      setIsInstalling(false);
+    }
+  };
 
   return (
     <div className="display-settings" ref={containerRef}>
@@ -215,6 +228,25 @@ export default function DisplaySettingsPanel({
             <button type="button" className="custom-reset-btn" onClick={onReplayExperience}>
               {t("actions.replayExperience")}
             </button>
+            {(canInstall || isInstalled || isInstallSupported) && (
+              <>
+                <button
+                  type="button"
+                  className="custom-reset-btn"
+                  onClick={handleInstallApp}
+                  disabled={!canInstall || isInstalling || isInstalled}
+                >
+                  {isInstalled
+                    ? t("actions.installed")
+                    : isInstalling
+                      ? t("actions.installing")
+                      : t("actions.installApp")}
+                </button>
+                {!isInstalled && !canInstall && (
+                  <p className="display-settings-note">{t("actions.installHint")}</p>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -372,6 +404,18 @@ export default function DisplaySettingsPanel({
         .custom-reset-btn:hover {
           border-color: var(--accent);
           color: var(--ink);
+        }
+
+        .custom-reset-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .display-settings-note {
+          margin: 0;
+          font-size: 0.7rem;
+          color: var(--ink-muted);
+          line-height: 1.4;
         }
 
         :global([data-theme="dark"]) .display-settings-trigger {

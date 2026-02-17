@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
 import { APP_VERSION } from "@/lib/config/version";
+import { usePwaInstall } from "@/components/providers/PwaProvider";
 
 interface AboutDialogProps {
     isOpen: boolean;
@@ -17,6 +18,8 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
     const locale = useLocale();
     const isRtl = locale === 'ar';
     const [mounted, setMounted] = useState(false);
+    const [isInstalling, setIsInstalling] = useState(false);
+    const { canInstall, isInstalled, isInstallSupported, promptInstall } = usePwaInstall();
     const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onClose);
 
     useEffect(() => {
@@ -26,6 +29,16 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
     if (!mounted || !isOpen) return null;
 
     const titleId = "about-dialog-title";
+
+    const handleInstallApp = async () => {
+        if (!canInstall || isInstalling) return;
+        setIsInstalling(true);
+        try {
+            await promptInstall();
+        } finally {
+            setIsInstalling(false);
+        }
+    };
 
     return createPortal(
         <AnimatePresence>
@@ -88,6 +101,50 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
 
                         <div style={{ color: "var(--ink-secondary)", lineHeight: "1.6" }}>
                             <p>{t("description")}</p>
+                            <div style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid var(--line)" }}>
+                                <p style={{ margin: 0, fontWeight: 700, color: "var(--ink)" }}>{t("dataSourcesTitle")}</p>
+                                <p style={{ margin: "8px 0 0 0", fontSize: "0.92rem" }}>
+                                    {t("quranicCorpus")}{" "}
+                                    <a href="https://corpus.quran.com/" target="_blank" rel="noopener noreferrer">
+                                        corpus.quran.com
+                                    </a>
+                                </p>
+                                <p style={{ margin: "8px 0 0 0", fontSize: "0.92rem" }}>
+                                    {t("quranComApi")}{" "}
+                                    <a href="https://api-docs.quran.com/" target="_blank" rel="noopener noreferrer">
+                                        api-docs.quran.com
+                                    </a>
+                                </p>
+                                <p style={{ margin: "10px 0 0 0", fontSize: "0.86rem", color: "var(--ink-muted)" }}>
+                                    {t("licenseNotice")}
+                                </p>
+                                {(canInstall || isInstalled || isInstallSupported) && (
+                                    <button
+                                        type="button"
+                                        onClick={handleInstallApp}
+                                        disabled={!canInstall || isInstalled || isInstalling}
+                                        style={{
+                                            marginTop: "14px",
+                                            border: "1px solid var(--line)",
+                                            borderRadius: "10px",
+                                            padding: "8px 12px",
+                                            background: "transparent",
+                                            color: "var(--ink-secondary)",
+                                            cursor: !canInstall || isInstalled || isInstalling ? "not-allowed" : "pointer",
+                                            opacity: !canInstall || isInstalled || isInstalling ? 0.65 : 1,
+                                            fontFamily: "inherit",
+                                            fontSize: "0.82rem",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {isInstalled
+                                            ? t("installed")
+                                            : isInstalling
+                                                ? t("installing")
+                                                : t("installApp")}
+                                    </button>
+                                )}
+                            </div>
 
                             <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid var(--line)" }}>
                                 <p style={{ fontSize: "0.9rem", color: "var(--ink-muted)" }}>

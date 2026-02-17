@@ -18,12 +18,20 @@
     "Footer": {
         "github": "GitHub",
         "source": "Source",
+        "quranApi": "Quran.com API",
         "about": "About",
         "feedback": "Feedback"
     },
     "About": {
         "title": "About Quran Corpus Visualizer",
         "description": "An interactive exploration of the Quran through advanced linguistic visualization. This project aims to make the intricate morphological structure of the Quran accessible and engaging for everyone.",
+        "dataSourcesTitle": "Data sources and attribution",
+        "quranicCorpus": "Morphology and corpus structure by Quranic Arabic Corpus.",
+        "quranComApi": "Verse and word data delivered through Quran.com API.",
+        "licenseNotice": "Please verify and comply with upstream data and API terms when redistributing this project.",
+        "installApp": "Install app",
+        "installing": "Preparing install prompt...",
+        "installed": "App installed",
         "version": "Version",
         "copyright": "© 2026 Pluragate. Licensed under GPL-3.0."
     },
@@ -518,7 +526,11 @@
         "actions": {
             "resetCurrent": "Reset {mode}",
             "title": "Experience",
-            "replayExperience": "Replay onboarding + walkthrough"
+            "replayExperience": "Replay onboarding + walkthrough",
+            "installApp": "Install app",
+            "installing": "Preparing install prompt...",
+            "installed": "App installed",
+            "installHint": "Install becomes available after your browser marks this app as installable."
         }
     },
     "VizExport": {
