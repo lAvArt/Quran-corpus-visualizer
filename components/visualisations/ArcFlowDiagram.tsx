@@ -82,7 +82,7 @@ export default function ArcFlowDiagram({
   const gRef = useRef<SVGGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [zoomLevel, setZoomLevel] = useState(0.92);
-  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+  const { isLeftSidebarOpen } = useVizControl();
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);
@@ -641,12 +641,12 @@ export default function ArcFlowDiagram({
 
   const selectedSummary = useMemo(() => {
     const items: Array<{ label: string; value: string }> = [];
-    if (selectedSurahId) items.push({ label: "Surah", value: String(selectedSurahId) });
-    if (selectedAyah) items.push({ label: "Ayah", value: String(selectedAyah) });
-    if (selectedRoot) items.push({ label: "Root", value: selectedRoot });
-    if (selectedLemma) items.push({ label: "Lemma", value: selectedLemma });
+    if (selectedSurahId) items.push({ label: ts("surah"), value: String(selectedSurahId) });
+    if (selectedAyah) items.push({ label: ts("ayah"), value: String(selectedAyah) });
+    if (selectedRoot) items.push({ label: ts("root"), value: selectedRoot });
+    if (selectedLemma) items.push({ label: ts("lemma"), value: selectedLemma });
     return items;
-  }, [selectedSurahId, selectedAyah, selectedRoot, selectedLemma]);
+  }, [selectedSurahId, selectedAyah, selectedRoot, selectedLemma, ts]);
 
   const activeGroupLabel =
     activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah");

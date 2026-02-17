@@ -82,7 +82,7 @@ export default function RadialSuraMap({
 
 
 
-  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+  const { isLeftSidebarOpen } = useVizControl();
 
   useEffect(() => {
     setIsMounted(true);

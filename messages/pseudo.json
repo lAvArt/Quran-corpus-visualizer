@@ -14,7 +14,15 @@
     },
     "GlobalSearch": {
         "placeholder": "[!! Ṡèâṛçħ ṛôôťṡ, ŵôṛḋṡ, ṁèâñîñġṡ... !!]",
-        "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]"
+        "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]",
+        "clearSearch": "[!! Clear search !!]",
+        "resultsAriaLabel": "[!! Search results !!]",
+        "types": {
+            "root": "[!! Root !!]",
+            "lemma": "[!! Lemma !!]",
+            "text": "[!! Text !!]",
+            "gloss": "[!! Gloss !!]"
+        }
     },
     "VisualizationSwitcher": {
         "select": "[!! Ṡèļèçť !!]",
@@ -62,7 +70,8 @@
         },
         "searchPlaceholder": "[!! Ḟîļťèṛ... !!]",
         "verses": "[!! vèṛṡèṡ !!]",
-        "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]"
+        "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]",
+        "tabsAriaLabel": "[!! Index categories !!]"
     },
     "CurrentSelectionPanel": {
         "title": "[!! Çûṛṛèñť Ṡèļèçťîôñ !!]",
@@ -95,7 +104,19 @@
         "surah": "[!! Ṡûṛâħ {id} !!]",
         "found": "[!! Ḟôûñḋ {count} ťôķèñṡ !!]",
         "clickToFocus": "[!! Çļîçķ â ṛôŵ ťô ḟôçûṡ !!]",
-        "empty": "[!! Èñťèṛ çṛîťèṛîâ ťô ḟîñḋ ťôķèñṡ. !!]"
+        "empty": "[!! Èñťèṛ çṛîťèṛîâ ťô ḟîñḋ ťôķèñṡ. !!]",
+        "rootInfo": {
+            "occurrences": "[!! {count} occurrences !!]",
+            "meaning": "[!! Meaning !!]",
+            "stats": {
+                "surahs": "[!! Surahs !!]",
+                "lemmas": "[!! Lemmas !!]",
+                "forms": "[!! Forms !!]"
+            },
+            "formsLabel": "[!! Forms !!]",
+            "surahDistribution": "[!! Surah distribution !!]",
+            "clickToFocusSurah": "[!! Click to focus surah and highlight !!]"
+        }
     },
     "VizExplainer": {
         "helpLabel": "[!! Ħôŵ ťô ṛèâḋ ťħîṡ ġṛâṗħ !!]"
@@ -121,7 +142,21 @@
             "stem": "[!! Ṡťèṁ !!]",
             "pos": "[!! ṖÔṠ !!]"
         },
-        "noGloss": "[!! Ñô ġļôṡṡ âvâîļâḃļè !!]"
+        "noGloss": "[!! Ñô ġļôṡṡ âvâîļâḃļè !!]",
+        "rootDistribution": {
+            "title": "[!! Root Analysis !!]",
+            "meaning": "[!! Meaning !!]",
+            "stats": {
+                "occurrences": "[!! Occurrences !!]",
+                "surahs": "[!! Surahs !!]",
+                "ayahs": "[!! Ayahs !!]",
+                "lemmas": "[!! Lemmas !!]"
+            },
+            "formsLabel": "[!! Forms !!]",
+            "lemmasLabel": "[!! Lemmas !!]",
+            "surahDistribution": "[!! Surah Distribution !!]",
+            "clickToFocus": "[!! Click to focus !!]"
+        }
     },
     "Visualizations": {
         "Shared": {

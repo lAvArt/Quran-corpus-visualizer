@@ -18,12 +18,20 @@
     "Footer": {
         "github": "GitHub",
         "source": "Source",
+        "quranApi": "Quran.com API",
         "about": "About",
         "feedback": "Feedback"
     },
     "About": {
         "title": "About Quran Corpus Visualizer",
         "description": "An interactive exploration of the Quran through advanced linguistic visualization. This project aims to make the intricate morphological structure of the Quran accessible and engaging for everyone.",
+        "dataSourcesTitle": "Data sources and attribution",
+        "quranicCorpus": "Morphology and corpus structure by Quranic Arabic Corpus.",
+        "quranComApi": "Verse and word data delivered through Quran.com API.",
+        "licenseNotice": "Please verify and comply with upstream data and API terms when redistributing this project.",
+        "installApp": "Install app",
+        "installing": "Preparing install prompt...",
+        "installed": "App installed",
         "version": "Version",
         "copyright": "© 2026 Pluragate. Licensed under GPL-3.0."
     },
@@ -62,7 +70,15 @@
         "placeholder": "Search roots, words, meanings...",
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
-        "matchLemma": "Lemma: {lemma}"
+        "matchLemma": "Lemma: {lemma}",
+        "clearSearch": "Clear search",
+        "resultsAriaLabel": "Search results",
+        "types": {
+            "root": "Root",
+            "lemma": "Lemma",
+            "text": "Text",
+            "gloss": "Gloss"
+        }
     },
     "VisualizationSwitcher": {
         "select": "Select",
@@ -110,7 +126,8 @@
         },
         "searchPlaceholder": "Filter...",
         "verses": "verses",
-        "noResults": "No results found"
+        "noResults": "No results found",
+        "tabsAriaLabel": "Index categories"
     },
     "CurrentSelectionPanel": {
         "title": "Current Selection",
@@ -143,7 +160,19 @@
         "surah": "Surah {id}",
         "found": "Found {count} tokens",
         "clickToFocus": "Click a row to focus",
-        "empty": "Enter criteria to find tokens."
+        "empty": "Enter criteria to find tokens.",
+        "rootInfo": {
+            "occurrences": "{count} occurrences",
+            "meaning": "Meaning",
+            "stats": {
+                "surahs": "Surahs",
+                "lemmas": "Lemmas",
+                "forms": "Forms"
+            },
+            "formsLabel": "Forms",
+            "surahDistribution": "Surah distribution",
+            "clickToFocusSurah": "Click to focus surah and highlight"
+        }
     },
     "VizExplainer": {
         "helpLabel": "How to read this graph"
@@ -169,7 +198,21 @@
             "stem": "Stem",
             "pos": "POS"
         },
-        "noGloss": "No gloss available"
+        "noGloss": "No gloss available",
+        "rootDistribution": {
+            "title": "Root Analysis",
+            "meaning": "Meaning",
+            "stats": {
+                "occurrences": "Occurrences",
+                "surahs": "Surahs",
+                "ayahs": "Ayahs",
+                "lemmas": "Lemmas"
+            },
+            "formsLabel": "Forms",
+            "lemmasLabel": "Lemmas",
+            "surahDistribution": "Surah Distribution",
+            "clickToFocus": "Click to focus"
+        }
     },
     "Visualizations": {
         "Shared": {
@@ -483,7 +526,11 @@
         "actions": {
             "resetCurrent": "Reset {mode}",
             "title": "Experience",
-            "replayOnboarding": "Replay onboarding"
+            "replayExperience": "Replay onboarding + walkthrough",
+            "installApp": "Install app",
+            "installing": "Preparing install prompt...",
+            "installed": "App installed",
+            "installHint": "Install becomes available after your browser marks this app as installable."
         }
     },
     "VizExport": {
@@ -517,6 +564,7 @@
         "back": "Back",
         "next": "Next",
         "start": "Start Exploring",
+        "startTour": "Start guided walkthrough",
         "cards": {
             "purpose": {
                 "title": "Why this platform exists",
@@ -533,6 +581,49 @@
             "insights": {
                 "title": "How to get better insights",
                 "body": "Apply lexical coloring modes and theme palettes to reveal patterns in frequency, identity, and structure across surahs, roots, and lemmas."
+            }
+        }
+    },
+    "Walkthrough": {
+        "close": "Close walkthrough",
+        "progress": "Step {current} of {total}",
+        "skip": "Skip",
+        "back": "Back",
+        "next": "Next",
+        "finish": "Finish tour",
+        "steps": {
+            "welcome": {
+                "title": "Guided walkthrough",
+                "body": "This quick tour highlights the key sections and shows how the main graph families work."
+            },
+            "header": {
+                "title": "Header controls",
+                "body": "Use language and display controls to adapt the interface while keeping your analysis context."
+            },
+            "search": {
+                "title": "Global search",
+                "body": "Search roots, lemmas, Arabic tokens, or glosses to jump directly into relevant passages."
+            },
+            "switcher": {
+                "title": "Visualization switcher",
+                "body": "Switch between complementary graph modes to study structure, flow, and syntax from different angles."
+            },
+            "canvas": {
+                "title": "Main canvas",
+                "body": "Most visualizations support hover for preview, click for focus, drag to pan, and wheel to zoom."
+            },
+            "corpusArchitecture": {
+                "title": "Corpus Architecture Map"
+            },
+            "rootNetwork": {
+                "title": "Root Network Graph"
+            },
+            "legend": {
+                "title": "Legend guide",
+                "body": "This legend explains colors and symbols for the current graph, so you can read relationships faster and avoid misinterpretation."
+            },
+            "dependencyTree": {
+                "title": "Dependency Tree + Inspector"
             }
         }
     }

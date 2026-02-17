@@ -189,25 +189,25 @@ export default function SemanticSearchPanel({
         <div className="root-info-card">
           <div className="root-info-header">
             <span className="root-info-arabic" lang="ar" dir="rtl">{rootInfo.root}</span>
-            <span className="root-info-total">{rootInfo.totalOccurrences.toLocaleString()} occurrences</span>
+            <span className="root-info-total">{t('rootInfo.occurrences', { count: rootInfo.totalOccurrences.toLocaleString() })}</span>
           </div>
 
           {rootInfo.gloss && (
-            <div className="root-info-gloss">Meaning: {rootInfo.gloss}</div>
+            <div className="root-info-gloss">{t('rootInfo.meaning')}: {rootInfo.gloss}</div>
           )}
 
           <div className="root-info-stats">
             <div className="root-stat">
               <span className="root-stat-value">{rootInfo.surahCount}</span>
-              <span className="root-stat-label">Surahs</span>
+              <span className="root-stat-label">{t('rootInfo.stats.surahs')}</span>
             </div>
             <div className="root-stat">
               <span className="root-stat-value">{rootInfo.lemmas.length}</span>
-              <span className="root-stat-label">Lemmas</span>
+              <span className="root-stat-label">{t('rootInfo.stats.lemmas')}</span>
             </div>
             <div className="root-stat">
               <span className="root-stat-value">{rootInfo.forms.length}+</span>
-              <span className="root-stat-label">Forms</span>
+              <span className="root-stat-label">{t('rootInfo.stats.forms')}</span>
             </div>
           </div>
 
@@ -221,7 +221,7 @@ export default function SemanticSearchPanel({
 
           {rootInfo.forms.length > 0 && (
             <div className="root-info-forms">
-              <span className="root-forms-label">Forms:</span>
+              <span className="root-forms-label">{t('rootInfo.formsLabel')}:</span>
               <span className="root-forms-list" lang="ar" dir="rtl">
                 {rootInfo.forms.join(" · ")}
               </span>
@@ -231,8 +231,8 @@ export default function SemanticSearchPanel({
           <div className="root-info-divider" />
 
           <div className="surah-dist-header">
-            <span>Surah distribution</span>
-            <span className="results-sub">Click to focus surah &amp; highlight</span>
+            <span>{t('rootInfo.surahDistribution')}</span>
+            <span className="results-sub">{t('rootInfo.clickToFocusSurah')}</span>
           </div>
 
           <div className="surah-dist-list">

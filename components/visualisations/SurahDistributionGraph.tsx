@@ -68,7 +68,7 @@ export default function SurahDistributionGraph({
     const [isMounted, setIsMounted] = useState(false);
 
 
-    const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+    const { isLeftSidebarOpen } = useVizControl();
 
     useEffect(() => {
         setIsMounted(true);
@@ -224,7 +224,7 @@ export default function SurahDistributionGraph({
             <div className="viz-controls floating-controls">
                 <p className="ayah-meta-glass">
                     {totalSurahs} Surahs · {totalTokens.toLocaleString()} Words
-                    {highlightRoot && ` · Root: ${highlightRoot}`}
+                    {highlightRoot && ` · ${ts("root")}: ${highlightRoot}`}
                 </p>
             </div>
 

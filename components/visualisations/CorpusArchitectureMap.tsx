@@ -314,17 +314,6 @@ export default function CorpusArchitectureMap({
         : "";
     const selectedRootGlossLabel = selectedRootGlobalStats?.gloss?.trim() ?? "";
 
-    // Count how many surahs contain the selected root
-    const selectedRootSurahCount = useMemo(() => {
-        const activeRoot = internalSelectedRoot || highlightRoot;
-        if (!activeRoot) return 0;
-        let count = 0;
-        surahRootData.forEach((data) => {
-            if (data.rootCounts.has(activeRoot)) count++;
-        });
-        return count;
-    }, [internalSelectedRoot, highlightRoot, surahRootData]);
-
     // Root search state
     const [rootSearchQuery, setRootSearchQuery] = useState("");
     const deferredRootSearch = useDeferredValue(rootSearchQuery);

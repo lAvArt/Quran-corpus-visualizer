@@ -582,22 +582,22 @@ export default function RootNetworkGraph({
                       {node.label}
                     </div>
                     <div className="viz-tooltip-subtitle">
-                      {node.type === "root" ? "Root" : "Lemma"}
+                      {node.type === "root" ? ts("root") : ts("lemma")}
                     </div>
                     <div className="viz-tooltip-row">
-                      <span className="viz-tooltip-label">Occurrences</span>
+                      <span className="viz-tooltip-label">{ts("occurrences")}</span>
                       <span className="viz-tooltip-value">{node.frequency}</span>
                     </div>
                     {node.tokens[0] && (
                       <>
                         <div className="viz-tooltip-row">
-                          <span className="viz-tooltip-label">Example</span>
+                          <span className="viz-tooltip-label">{ts("example")}</span>
                           <span className="viz-tooltip-value arabic-text">
                             {node.tokens[0].text}
                           </span>
                         </div>
                         <div className="viz-tooltip-row">
-                          <span className="viz-tooltip-label">Gloss</span>
+                          <span className="viz-tooltip-label">{ts("gloss")}</span>
                           <span className="viz-tooltip-value">
                             {node.tokens[0].morphology.gloss ?? "—"}
                           </span>
@@ -613,7 +613,7 @@ export default function RootNetworkGraph({
       </div>
 
       {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
-        <div className="viz-legend">
+        <div className="viz-legend" data-tour-id="viz-legend">
           <div className="viz-legend-item">
             <div
               className="viz-legend-dot"

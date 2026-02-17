@@ -8,13 +8,20 @@ const DB_VERSION = 2; // Incremented for verses store
 const STORE_TOKENS = 'tokens';
 const STORE_VERSES = 'verses';
 const STORE_METADATA = 'metadata';
+const CORPUS_METADATA_KEY = 'corpus';
+const CACHE_POLICY_METADATA_KEY = 'cache-policy';
+
+export const QURAN_COM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const CORPUS_CACHE_POLICY_VERSION = 1;
 
 interface CacheMetadata {
     key: string;
     lastUpdated: number;
-    tokenCount: number;
+    tokenCount?: number;
     hasMorphology?: boolean;
     morphologyVersion?: string;
+    cachePolicyVersion?: number;
+    migrationAppliedAt?: number;
 }
 
 class CorpusCache {
@@ -206,6 +213,41 @@ class CorpusCache {
             request.onsuccess = () => resolve(request.result ?? null);
             request.onerror = () => reject(request.error);
         });
+    }
+
+    isMetadataExpired(metadata: CacheMetadata | null, maxAgeMs = QURAN_COM_CACHE_TTL_MS): boolean {
+        if (!metadata || typeof metadata.lastUpdated !== 'number') return true;
+        return Date.now() - metadata.lastUpdated > maxAgeMs;
+    }
+
+    async clearCorpusData(): Promise<void> {
+        const db = await this.init();
+        const tx = db.transaction([STORE_TOKENS, STORE_VERSES, STORE_METADATA], 'readwrite');
+        tx.objectStore(STORE_TOKENS).clear();
+        tx.objectStore(STORE_VERSES).clear();
+        tx.objectStore(STORE_METADATA).delete(CORPUS_METADATA_KEY);
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    }
+
+    async ensureCachePolicyVersion(): Promise<boolean> {
+        const policy = await this.getMetadata(CACHE_POLICY_METADATA_KEY);
+        const currentVersion = typeof policy?.cachePolicyVersion === 'number' ? policy.cachePolicyVersion : 0;
+
+        if (currentVersion >= CORPUS_CACHE_POLICY_VERSION) {
+            return false;
+        }
+
+        await this.clearCorpusData();
+        await this.setMetadata(CACHE_POLICY_METADATA_KEY, {
+            cachePolicyVersion: CORPUS_CACHE_POLICY_VERSION,
+            migrationAppliedAt: Date.now(),
+        });
+
+        return true;
     }
 
     async clearAll(): Promise<void> {

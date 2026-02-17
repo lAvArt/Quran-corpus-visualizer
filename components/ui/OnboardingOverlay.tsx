@@ -3,24 +3,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useAccessibleDialog } from "@/lib/hooks/useAccessibleDialog";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 interface OnboardingOverlayProps {
   isOpen: boolean;
   showOnStartup: boolean;
   onShowOnStartupChange: (value: boolean) => void;
-  onClose: () => void;
+  onComplete: () => void;
+  onSkip: () => void;
+  onStartWalkthrough: () => void;
 }
 
 export default function OnboardingOverlay({
   isOpen,
   showOnStartup,
   onShowOnStartupChange,
-  onClose,
+  onComplete,
+  onSkip,
+  onStartWalkthrough,
 }: OnboardingOverlayProps) {
   const t = useTranslations("Onboarding");
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onClose);
+  const { dialogRef, handleOverlayClick } = useAccessibleDialog(isOpen, onSkip);
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps = useMemo(
@@ -73,7 +78,7 @@ export default function OnboardingOverlay({
         <button
           type="button"
           className="onboarding-close"
-          onClick={onClose}
+          onClick={onSkip}
           aria-label={t("close")}
           style={{
             [isRtl ? "left" : "right"]: "16px",
@@ -85,6 +90,9 @@ export default function OnboardingOverlay({
         <div className="onboarding-head">
           <h2 id="onboarding-title">{t("title")}</h2>
           <p>{t("subtitle")}</p>
+          <div className="onboarding-lang-switch">
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <div className="onboarding-progress">
@@ -107,7 +115,7 @@ export default function OnboardingOverlay({
           </label>
 
           <div className="onboarding-actions">
-            <button type="button" className="ghost" onClick={onClose}>
+            <button type="button" className="ghost" onClick={onSkip}>
               {t("skip")}
             </button>
             {!isFirstStep && (
@@ -124,13 +132,14 @@ export default function OnboardingOverlay({
               className="primary"
               onClick={() => {
                 if (isLastStep) {
-                  onClose();
+                  onComplete();
+                  onStartWalkthrough();
                   return;
                 }
                 setStepIndex((prev) => Math.min(steps.length - 1, prev + 1));
               }}
             >
-              {isLastStep ? t("start") : t("next")}
+              {isLastStep ? t("startTour") : t("next")}
             </button>
           </div>
         </div>
@@ -181,6 +190,17 @@ export default function OnboardingOverlay({
           margin: 0;
           font-size: 1.35rem;
           font-family: var(--font-display, serif);
+        }
+
+        .onboarding-lang-switch {
+          margin-top: 10px;
+          display: inline-flex;
+          align-self: flex-start;
+        }
+
+        .onboarding-lang-switch :global(.header-button-group) {
+          background: transparent;
+          border: 1px solid var(--line);
         }
 
         .onboarding-head p {

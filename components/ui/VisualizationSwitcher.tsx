@@ -109,7 +109,7 @@ export default function VisualizationSwitcher({
   const currentOption = VISUALIZATION_OPTIONS.find((opt) => opt.mode === currentMode);
 
   return (
-    <div className="viz-switcher-container" ref={containerRef}>
+    <div className="viz-switcher-container" ref={containerRef} data-tour-id="viz-switcher-root">
       <div className="viz-switcher-header">
         <button
           type="button"

@@ -45,6 +45,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 - **Immersive Design** — A "neural" dark mode interface designed for deep focus.
 - **Responsive** — Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
 - **Internationalization** — Full support for English and Arabic interfaces (RTL).
+- **Progressive Web App (PWA)** — Installable app shell with offline-first static assets and network-first page updates.
 
 <details>
 <summary><strong>📸 More Screenshots</strong></summary>
@@ -158,8 +159,11 @@ This project uses data and APIs from the **Quranic Arabic Corpus**, an open-sour
 
 - **Source**: [github.com/kaisdukes/quranic-corpus](https://github.com/kaisdukes/quranic-corpus)
 - **Website**: [corpus.quran.com](https://corpus.quran.com)
+- **Verse API**: [api-docs.quran.com](https://api-docs.quran.com/)
 
 We explicitly acknowledge and thank the original authors for their monumental work in digitizing and annotating the linguistic structure of the Quran.
+
+Quran.com-derived cached corpus content in the browser is enforced with a strict **7-day TTL** and policy-version migration to keep offline data fresh and license-aligned.
 
 ## Security
 

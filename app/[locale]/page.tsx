@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useMemo, useState, useEffect, useCallback, lazy, Suspense, useRef } from "react";
+import Image from "next/image";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
@@ -20,6 +21,8 @@ import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
+import GuidedWalkthroughOverlay from "@/components/ui/GuidedWalkthroughOverlay";
+import { WALKTHROUGH_STEPS } from "@/lib/data/walkthroughSteps";
 import {
   DEFAULT_COLOR_THEME_ID,
   DEFAULT_CUSTOM_COLOR_THEME,
@@ -31,7 +34,7 @@ import {
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
 import { isValidLexicalColorMode, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
-import { ONBOARDING_VERSION } from "@/lib/config/version";
+import { EXPERIENCE_VERSION } from "@/lib/config/version";
 
 // Lazy-load heavy visualization components for better initial bundle size
 const RadialSuraMap = lazy(() => import("@/components/visualisations/RadialSuraMap"));
@@ -43,7 +46,16 @@ const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSa
 const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
 
 const STORAGE_KEY = "quran-corpus-viz-state";
-const ONBOARDING_STORAGE_KEY = "quran-corpus-onboarding";
+const EXPERIENCE_STORAGE_KEY = "quran-corpus-onboarding";
+
+type ExperiencePhase = "none" | "onboarding" | "walkthrough";
+
+interface ExperienceStorageState {
+  version: string;
+  showOnStartup: boolean;
+  completed: boolean;
+  lastCompletedAt?: string;
+}
 
 function VizFallback() {
   return (
@@ -67,9 +79,12 @@ function HomePageContent() {
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
   const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
   const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [showOnboardingOnStartup, setShowOnboardingOnStartup] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [experiencePhase, setExperiencePhase] = useState<ExperiencePhase>("none");
+  const [showOnStartup, setShowOnStartup] = useState(true);
+  const [experienceCompleted, setExperienceCompleted] = useState(false);
+  const [lastCompletedAt, setLastCompletedAt] = useState<string | undefined>(undefined);
+  const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
@@ -155,15 +170,27 @@ function HomePageContent() {
     setColorThemeId("custom");
   }, []);
 
-  const persistOnboardingState = useCallback((showOnStartup: boolean, completed: boolean) => {
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const sync = () => setIsMobileViewport(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+    };
+  }, []);
+
+  const persistExperienceState = useCallback((showOnStartupValue: boolean, completed: boolean, completedAt?: string) => {
     try {
+      const payload: ExperienceStorageState = {
+        version: EXPERIENCE_VERSION,
+        showOnStartup: showOnStartupValue,
+        completed,
+        ...(completedAt ? { lastCompletedAt: completedAt } : {}),
+      };
       localStorage.setItem(
-        ONBOARDING_STORAGE_KEY,
-        JSON.stringify({
-          version: ONBOARDING_VERSION,
-          showOnStartup,
-          completed,
-        })
+        EXPERIENCE_STORAGE_KEY,
+        JSON.stringify(payload)
       );
     } catch {
       // Ignore localStorage errors
@@ -172,44 +199,94 @@ function HomePageContent() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      const stored = localStorage.getItem(EXPERIENCE_STORAGE_KEY);
       if (!stored) {
-        setIsOnboardingOpen(true);
+        setExperiencePhase("onboarding");
         return;
       }
 
       const parsed = JSON.parse(stored);
-      const showOnStartup = typeof parsed.showOnStartup === "boolean" ? parsed.showOnStartup : true;
+      const showOnStartupValue = typeof parsed.showOnStartup === "boolean" ? parsed.showOnStartup : true;
       const completed = typeof parsed.completed === "boolean" ? parsed.completed : false;
       const version = typeof parsed.version === "string" ? parsed.version : null;
+      const completedAt = typeof parsed.lastCompletedAt === "string" ? parsed.lastCompletedAt : undefined;
 
-      setShowOnboardingOnStartup(showOnStartup);
-      setHasCompletedOnboarding(completed);
+      setShowOnStartup(showOnStartupValue);
+      setExperienceCompleted(completed);
+      setLastCompletedAt(completedAt);
 
-      if (version !== ONBOARDING_VERSION) {
-        setIsOnboardingOpen(true);
+      if (version !== EXPERIENCE_VERSION) {
+        setExperienceCompleted(false);
+        setLastCompletedAt(undefined);
+        if (showOnStartupValue) {
+          setExperiencePhase("onboarding");
+        } else {
+          setExperiencePhase("none");
+        }
         return;
       }
 
-      setIsOnboardingOpen(!completed || showOnStartup);
+      if (!completed && showOnStartupValue) {
+        setExperiencePhase("onboarding");
+      } else {
+        setExperiencePhase("none");
+      }
     } catch {
-      setIsOnboardingOpen(true);
+      setExperiencePhase("onboarding");
     }
   }, []);
 
-  const handleOnboardingClose = useCallback(() => {
-    setHasCompletedOnboarding(true);
-    setIsOnboardingOpen(false);
-    persistOnboardingState(showOnboardingOnStartup, true);
-  }, [persistOnboardingState, showOnboardingOnStartup]);
+  const markExperienceCompleted = useCallback(() => {
+    const completedAt = new Date().toISOString();
+    setExperienceCompleted(true);
+    setLastCompletedAt(completedAt);
+    setExperiencePhase("none");
+    setWalkthroughStepIndex(0);
+    persistExperienceState(showOnStartup, true, completedAt);
+  }, [persistExperienceState, showOnStartup]);
 
   const handleOnboardingStartupChange = useCallback(
     (value: boolean) => {
-      setShowOnboardingOnStartup(value);
-      persistOnboardingState(value, hasCompletedOnboarding);
+      setShowOnStartup(value);
+      persistExperienceState(value, experienceCompleted, experienceCompleted ? lastCompletedAt : undefined);
     },
-    [hasCompletedOnboarding, persistOnboardingState]
+    [experienceCompleted, lastCompletedAt, persistExperienceState]
   );
+
+  const handleOnboardingComplete = useCallback(() => {
+    setExperiencePhase("none");
+  }, []);
+
+  const handleStartWalkthrough = useCallback(() => {
+    if (isMobileViewport) {
+      markExperienceCompleted();
+      return;
+    }
+    setExperiencePhase("walkthrough");
+    setWalkthroughStepIndex(0);
+  }, [isMobileViewport, markExperienceCompleted]);
+
+  const handleReplayExperience = useCallback(() => {
+    setExperienceCompleted(false);
+    setLastCompletedAt(undefined);
+    setWalkthroughStepIndex(0);
+    setExperiencePhase("onboarding");
+    persistExperienceState(showOnStartup, false);
+  }, [persistExperienceState, showOnStartup]);
+
+  const handleWalkthroughNext = useCallback(() => {
+    setWalkthroughStepIndex((prev) => Math.min(WALKTHROUGH_STEPS.length - 1, prev + 1));
+  }, []);
+
+  const handleWalkthroughBack = useCallback(() => {
+    setWalkthroughStepIndex((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  useEffect(() => {
+    if (experiencePhase === "walkthrough" && isMobileViewport) {
+      markExperienceCompleted();
+    }
+  }, [experiencePhase, isMobileViewport, markExperienceCompleted]);
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -334,6 +411,24 @@ function HomePageContent() {
   const handleLemmaSelect = useCallback((lemma: string) => {
     setSelectedLemma(lemma);
   }, []);
+
+  const handleWalkthroughEnd = useCallback(() => {
+    handleVizModeChange("corpus-architecture");
+    markExperienceCompleted();
+  }, [handleVizModeChange, markExperienceCompleted]);
+
+  useEffect(() => {
+    if (experiencePhase !== "walkthrough") return;
+    const step = WALKTHROUGH_STEPS[walkthroughStepIndex];
+    if (!step) return;
+
+    if (step.action === "set-viz-mode" && step.actionMode) {
+      handleVizModeChange(step.actionMode);
+    }
+    if (step.openToolsSidebar) {
+      setIsSidebarOpen(true);
+    }
+  }, [experiencePhase, walkthroughStepIndex, handleVizModeChange, setIsSidebarOpen]);
 
   // Render the active visualization
   const renderVisualization = () => {
@@ -463,8 +558,8 @@ function HomePageContent() {
       {/* Site Header */}
       <header className="floating-header">
         <div className="header-dock">
-          <div className="brand-block">
-            <img src="/favicon.svg" alt="" className="brand-logo" width={28} height={28} />
+          <div className="brand-block" data-tour-id="header-brand">
+            <Image src="/favicon.svg" alt="" className="brand-logo" width={28} height={28} />
             <div className="brand-text">
               <p className="eyebrow">{t('eyebrow')}</p>
               <div className="brand-title-row">
@@ -473,14 +568,16 @@ function HomePageContent() {
             </div>
           </div>
 
-          <GlobalSearch
-            tokens={allTokens}
-            onTokenSelect={handleTokenSelect}
-            onTokenHover={setHoverTokenId}
-            onRootSelect={handleRootSelect}
-          />
+          <div data-tour-id="global-search">
+            <GlobalSearch
+              tokens={allTokens}
+              onTokenSelect={handleTokenSelect}
+              onTokenHover={setHoverTokenId}
+              onRootSelect={handleRootSelect}
+            />
+          </div>
 
-          <div className="header-controls">
+          <div className="header-controls" data-tour-id="header-controls">
             {/* Desktop Only: Inline Controls */}
             {/* Desktop Only: Inline Controls */}
             <div className="desktop-only" style={{ display: 'contents' }}>
@@ -489,25 +586,29 @@ function HomePageContent() {
               </div>
             </div>
 
-            <DisplaySettingsPanel
-              theme={theme}
-              onThemeChange={setTheme}
-              colorTheme={colorThemeId}
-              onColorThemeChange={setColorThemeId}
-              lexicalColorMode={lexicalColorMode}
-              onLexicalColorModeChange={setLexicalColorMode}
-              customColorTheme={customColorTheme}
-              onCustomColorThemeChange={handleCustomColorThemeChange}
-              onResetCustomColorTheme={handleResetCustomColorTheme}
-              onReplayOnboarding={() => setIsOnboardingOpen(true)}
-            />
+            <div data-tour-id="display-settings">
+              <DisplaySettingsPanel
+                theme={theme}
+                onThemeChange={setTheme}
+                colorTheme={colorThemeId}
+                onColorThemeChange={setColorThemeId}
+                lexicalColorMode={lexicalColorMode}
+                onLexicalColorModeChange={setLexicalColorMode}
+                customColorTheme={customColorTheme}
+                onCustomColorThemeChange={handleCustomColorThemeChange}
+                onResetCustomColorTheme={handleResetCustomColorTheme}
+                onReplayExperience={handleReplayExperience}
+              />
+            </div>
 
-            <VisualizationSwitcher
-              currentMode={vizMode}
-              onModeChange={handleVizModeChange}
-              theme={theme}
-              onThemeChange={setTheme}
-            />
+            <div data-tour-id="viz-switcher">
+              <VisualizationSwitcher
+                currentMode={vizMode}
+                onModeChange={handleVizModeChange}
+                theme={theme}
+                onThemeChange={setTheme}
+              />
+            </div>
             <VizExportMenu
               targetRef={mainVizRef}
               vizMode={vizMode}
@@ -518,6 +619,7 @@ function HomePageContent() {
               <button
                 className={`sidebar-toggle-btn ${isSidebarOpen ? "active" : ""}`}
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                data-tour-id="tools-toggle"
               >
                 {isSidebarOpen ? t('hideTools') : t('showTools')}
               </button>
@@ -547,24 +649,26 @@ function HomePageContent() {
       }
 
       {/* Main Full-Screen Visualization */}
-      <main ref={mainVizRef} className="immersive-viewport viz-fullwidth">
+      <main ref={mainVizRef} className="immersive-viewport viz-fullwidth" data-tour-id="main-viewport">
         {renderVisualization()}
       </main>
 
       <div id="viz-sidebar-portal" className="viz-sidebar-stack">
-        <CurrentSelectionPanel
-          vizMode={vizMode}
-          selectedSurahId={selectedSurahId}
-          selectedAyah={selectedAyahInSurah}
-          selectedRoot={selectedRootValue}
-          selectedLemma={selectedLemmaValue}
-          activeToken={focusedToken ?? null}
-          allTokens={allTokens}
-        />
+        <div data-tour-id="current-selection">
+          <CurrentSelectionPanel
+            vizMode={vizMode}
+            selectedSurahId={selectedSurahId}
+            selectedAyah={selectedAyahInSurah}
+            selectedRoot={selectedRootValue}
+            selectedLemma={selectedLemmaValue}
+            activeToken={focusedToken ?? null}
+            allTokens={allTokens}
+          />
+        </div>
       </div>
 
       {/* Collapsible Sidebar */}
-      <div className={`floating-sidebar ${isSidebarOpen ? "open" : ""}`}>
+      <div className={`floating-sidebar ${isSidebarOpen ? "open" : ""}`} data-tour-id="tools-sidebar">
         <AppSidebar
           allTokens={allTokens}
           inspectorToken={inspectorTokenFinal}
@@ -586,10 +690,21 @@ function HomePageContent() {
       <MobileBottomBar />
 
       <OnboardingOverlay
-        isOpen={isOnboardingOpen}
-        showOnStartup={showOnboardingOnStartup}
+        isOpen={experiencePhase === "onboarding"}
+        showOnStartup={showOnStartup}
         onShowOnStartupChange={handleOnboardingStartupChange}
-        onClose={handleOnboardingClose}
+        onComplete={handleOnboardingComplete}
+        onSkip={markExperienceCompleted}
+        onStartWalkthrough={handleStartWalkthrough}
+      />
+      <GuidedWalkthroughOverlay
+        isOpen={experiencePhase === "walkthrough" && !isMobileViewport}
+        steps={WALKTHROUGH_STEPS}
+        stepIndex={walkthroughStepIndex}
+        onNext={handleWalkthroughNext}
+        onBack={handleWalkthroughBack}
+        onSkip={handleWalkthroughEnd}
+        onComplete={handleWalkthroughEnd}
       />
 
       <style jsx>{`
