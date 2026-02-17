@@ -613,7 +613,7 @@ export default function RootNetworkGraph({
       </div>
 
       {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
-        <div className="viz-legend">
+        <div className="viz-legend" data-tour-id="viz-legend">
           <div className="viz-legend-item">
             <div
               className="viz-legend-dot"

@@ -54,7 +54,7 @@ export default function RootFlowSankey({
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+  const { isLeftSidebarOpen } = useVizControl();
 
   const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
     minScale: 0.2,

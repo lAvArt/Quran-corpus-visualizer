@@ -114,7 +114,7 @@ export default function AyahDependencyGraph({
   const [isMounted, setIsMounted] = useState(false);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
   const [ayahWords, setAyahWords] = useState<Map<number, QuranWord>>(new Map());
-  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+  const { isLeftSidebarOpen } = useVizControl();
 
   useEffect(() => {
     setActiveSurah(selectedSurahId);

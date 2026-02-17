@@ -37,7 +37,7 @@ export default function AppSidebar({
   const t = useTranslations('AppSidebar');
 
   return (
-    <aside className="app-sidebar" aria-label={t('label')}>
+    <aside className="app-sidebar" aria-label={t('label')} data-tour-id="app-sidebar">
       <div className="sidebar-tabs" role="tablist" aria-label={t('panelLabel')}>
         <button
           className={`sidebar-tab ${activeTab === "inspector" ? "active" : ""}`}

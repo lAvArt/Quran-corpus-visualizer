@@ -82,7 +82,7 @@ export default function ArcFlowDiagram({
   const gRef = useRef<SVGGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [zoomLevel, setZoomLevel] = useState(0.92);
-  const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+  const { isLeftSidebarOpen } = useVizControl();
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);

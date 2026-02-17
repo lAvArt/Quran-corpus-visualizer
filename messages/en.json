@@ -518,7 +518,7 @@
         "actions": {
             "resetCurrent": "Reset {mode}",
             "title": "Experience",
-            "replayOnboarding": "Replay onboarding"
+            "replayExperience": "Replay onboarding + walkthrough"
         }
     },
     "VizExport": {
@@ -552,6 +552,7 @@
         "back": "Back",
         "next": "Next",
         "start": "Start Exploring",
+        "startTour": "Start guided walkthrough",
         "cards": {
             "purpose": {
                 "title": "Why this platform exists",
@@ -568,6 +569,49 @@
             "insights": {
                 "title": "How to get better insights",
                 "body": "Apply lexical coloring modes and theme palettes to reveal patterns in frequency, identity, and structure across surahs, roots, and lemmas."
+            }
+        }
+    },
+    "Walkthrough": {
+        "close": "Close walkthrough",
+        "progress": "Step {current} of {total}",
+        "skip": "Skip",
+        "back": "Back",
+        "next": "Next",
+        "finish": "Finish tour",
+        "steps": {
+            "welcome": {
+                "title": "Guided walkthrough",
+                "body": "This quick tour highlights the key sections and shows how the main graph families work."
+            },
+            "header": {
+                "title": "Header controls",
+                "body": "Use language and display controls to adapt the interface while keeping your analysis context."
+            },
+            "search": {
+                "title": "Global search",
+                "body": "Search roots, lemmas, Arabic tokens, or glosses to jump directly into relevant passages."
+            },
+            "switcher": {
+                "title": "Visualization switcher",
+                "body": "Switch between complementary graph modes to study structure, flow, and syntax from different angles."
+            },
+            "canvas": {
+                "title": "Main canvas",
+                "body": "Most visualizations support hover for preview, click for focus, drag to pan, and wheel to zoom."
+            },
+            "corpusArchitecture": {
+                "title": "Corpus Architecture Map"
+            },
+            "rootNetwork": {
+                "title": "Root Network Graph"
+            },
+            "legend": {
+                "title": "Legend guide",
+                "body": "This legend explains colors and symbols for the current graph, so you can read relationships faster and avoid misinterpretation."
+            },
+            "dependencyTree": {
+                "title": "Dependency Tree + Inspector"
             }
         }
     }

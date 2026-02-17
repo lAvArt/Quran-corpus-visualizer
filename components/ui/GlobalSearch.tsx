@@ -162,7 +162,7 @@ export default function GlobalSearch({
   }, [selectedIndex, results.length]);
 
   return (
-    <div className="global-search">
+    <div className="global-search" data-tour-id="global-search-root">
       <div
         className="search-input-wrapper"
         onClick={() => inputRef.current?.focus()}

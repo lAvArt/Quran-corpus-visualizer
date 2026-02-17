@@ -68,7 +68,7 @@ export default function SurahDistributionGraph({
     const [isMounted, setIsMounted] = useState(false);
 
 
-    const { isLeftSidebarOpen, toggleLeftSidebar } = useVizControl();
+    const { isLeftSidebarOpen } = useVizControl();
 
     useEffect(() => {
         setIsMounted(true);

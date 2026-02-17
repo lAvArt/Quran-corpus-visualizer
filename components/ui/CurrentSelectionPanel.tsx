@@ -55,7 +55,7 @@ export default function CurrentSelectionPanel({
   }, [allTokens, selectedSurahId, selectedAyah]);
 
   return (
-    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`} aria-label={t('title')}>
+    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`} aria-label={t('title')} data-tour-id="current-selection-panel">
       <button
         className="panel-header"
         onClick={() => setIsCollapsed(!isCollapsed)}

@@ -21,7 +21,7 @@ interface DisplaySettingsPanelProps {
   customColorTheme: CustomColorTheme;
   onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   onResetCustomColorTheme: (appearance: "light" | "dark") => void;
-  onReplayOnboarding: () => void;
+  onReplayExperience: () => void;
 }
 
 export default function DisplaySettingsPanel({
@@ -34,7 +34,7 @@ export default function DisplaySettingsPanel({
   customColorTheme,
   onCustomColorThemeChange,
   onResetCustomColorTheme,
-  onReplayOnboarding,
+  onReplayExperience,
 }: DisplaySettingsPanelProps) {
   const t = useTranslations("DisplaySettings");
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +77,7 @@ export default function DisplaySettingsPanel({
         aria-expanded={isOpen}
         aria-controls={panelId}
         aria-label={t("panelLabel")}
+        data-tour-id="display-settings-trigger"
         onClick={() => setIsOpen((prev) => !prev)}
       >
         {"\u2699"}
@@ -211,8 +212,8 @@ export default function DisplaySettingsPanel({
 
           <div className="display-settings-section custom-colors">
             <div className="display-settings-title">{t("actions.title")}</div>
-            <button type="button" className="custom-reset-btn" onClick={onReplayOnboarding}>
-              {t("actions.replayOnboarding")}
+            <button type="button" className="custom-reset-btn" onClick={onReplayExperience}>
+              {t("actions.replayExperience")}
             </button>
           </div>
         </div>
