@@ -6,7 +6,7 @@
 import { quranApi, type QuranWord } from '@/lib/api/quranApi';
 
 
-import { corpusCache } from '@/lib/cache/corpusCache';
+import { corpusCache, QURAN_COM_CACHE_TTL_MS } from '@/lib/cache/corpusCache';
 import { SAMPLE_MORPHOLOGY_DATA } from '@/lib/corpus/morphologyData';
 import { loadMorphologyMap, type MorphologyEntry, buildSampleMorphologyMap } from '@/lib/corpus/morphologyLoader';
 import type { CorpusToken, PartOfSpeech, AyahRecord } from '@/lib/schema/types';
@@ -24,6 +24,26 @@ export type ProgressCallback = (progress: LoadingProgress) => void;
 
 const sampleMorphologyMap = buildSampleMorphologyMap(SAMPLE_MORPHOLOGY_DATA);
 const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
+let cachePolicyInFlight: Promise<void> | null = null;
+
+async function ensureQuranComCachePolicy(): Promise<void> {
+    if (!cachePolicyInFlight) {
+        cachePolicyInFlight = (async () => {
+            await corpusCache.ensureCachePolicyVersion();
+            const metadata = await corpusCache.getMetadata('corpus');
+            if (corpusCache.isMetadataExpired(metadata, QURAN_COM_CACHE_TTL_MS)) {
+                await corpusCache.clearCorpusData();
+            }
+        })().catch((error) => {
+            cachePolicyInFlight = null;
+            throw error;
+        }).finally(() => {
+            cachePolicyInFlight = null;
+        });
+    }
+
+    await cachePolicyInFlight;
+}
 
 function buildMorphologyFallbackBySura(
     morphologyMap: Map<string, MorphologyEntry>
@@ -132,6 +152,8 @@ export async function loadFullCorpus(
         progress.message = 'Checking cache...';
         notify();
 
+        await ensureQuranComCachePolicy();
+
         console.log('[CorpusLoader] Checking IndexedDB cache...');
         const cachedCount = await corpusCache.getTokenCount();
         const cacheMeta = await corpusCache.getMetadata('corpus');
@@ -156,7 +178,7 @@ export async function loadFullCorpus(
             }
 
             console.warn('[CorpusLoader] Cache missing morphology. Rebuilding...');
-            await corpusCache.clearAll();
+            await corpusCache.clearCorpusData();
         }
 
         console.log('[CorpusLoader] No cache found, fetching from API...');
@@ -276,6 +298,7 @@ export async function loadSurahs(
     const allTokens: CorpusToken[] = [];
     let morphologyMap: Map<string, MorphologyEntry> | null = null;
     let morphologyFallbackBySura: Map<number, CorpusToken[]> | null = null;
+    await ensureQuranComCachePolicy();
     try {
         morphologyMap = await loadMorphologyMap();
         morphologyFallbackBySura = buildMorphologyFallbackBySura(morphologyMap);
@@ -300,7 +323,7 @@ export async function loadSurahs(
             allTokens.push(...cached);
         } else {
             if (cached.length > 0 && !cachedHasRoots) {
-                await corpusCache.clearAll();
+                await corpusCache.clearCorpusData();
             }
 
             // Load from API with full verses
@@ -363,6 +386,7 @@ export async function loadSurahs(
 export async function getAyah(sura: number, ayah: number): Promise<AyahRecord | null> {
     const id = `${sura}:${ayah}`;
     try {
+        await ensureQuranComCachePolicy();
         const record = (await corpusCache.getVerse(id)) as AyahRecord | null;
         const cachedText = record?.textSimple?.trim() || record?.textUthmani?.trim();
         if (record && cachedText) {
