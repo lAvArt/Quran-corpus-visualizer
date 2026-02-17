@@ -152,8 +152,8 @@ export default function VisualizationSwitcher({
       <style jsx>{`
         .viz-switcher-container {
           position: relative;
-          width: min(56vw, 620px);
-          min-width: 420px;
+          width: 100%;
+          min-width: 0;
           max-width: 620px;
         }
 
@@ -214,6 +214,8 @@ export default function VisualizationSwitcher({
           font-weight: 600;
           font-size: 0.88rem;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .viz-switcher-desc {
@@ -281,6 +283,16 @@ export default function VisualizationSwitcher({
 
         .viz-switcher-option.active .viz-switcher-desc {
           color: rgba(255, 255, 255, 0.8);
+        }
+
+        @media (max-width: 1280px) {
+          .viz-switcher-desc {
+            display: none;
+          }
+
+          .viz-switcher-current {
+            padding: 8px 10px;
+          }
         }
 
 @media (max-width: 640px) {

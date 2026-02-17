@@ -8,6 +8,7 @@ export type WalkthroughStepId =
   | "main-canvas"
   | "corpus-architecture"
   | "root-network"
+  | "current-selection"
   | "legend"
   | "dependency-tree";
 

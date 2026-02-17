@@ -42,10 +42,12 @@ function isRunningStandalone(): boolean {
 export function PwaProvider({ children }: { children: ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstallSupported, setIsInstallSupported] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    setIsInstallSupported("serviceWorker" in navigator);
     setIsInstalled(isRunningStandalone());
 
     const media = window.matchMedia("(display-mode: standalone)");
@@ -115,15 +117,13 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   }, [deferredPrompt, isInstalled]);
 
   const value = useMemo<PwaContextValue>(() => {
-    const isInstallSupported = typeof window !== "undefined" && "serviceWorker" in navigator;
-
     return {
       canInstall: Boolean(deferredPrompt) && !isInstalled,
       isInstalled,
       isInstallSupported,
       promptInstall,
     };
-  }, [deferredPrompt, isInstalled, promptInstall]);
+  }, [deferredPrompt, isInstalled, isInstallSupported, promptInstall]);
 
   return <PwaContext.Provider value={value}>{children}</PwaContext.Provider>;
 }

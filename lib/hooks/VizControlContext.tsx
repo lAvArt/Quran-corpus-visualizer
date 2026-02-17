@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
 
 interface VizControlContextType {
     isLeftSidebarOpen: boolean;
@@ -17,15 +17,26 @@ interface VizControlContextType {
 const VizControlContext = createContext<VizControlContextType | undefined>(undefined);
 
 export function VizControlProvider({ children }: { children: ReactNode }) {
-    // Default states:
-    // Left Sidebar (Legend/Details) defaults to CLOSED on mobile, OPEN on desktop (handled by responsive CSS mostly, but state-wise we start closed to be safe on mobile)
-    // We'll trust the components to set initial state or responsive effects if needed, but for now defaulting to false prevents flash of content on mobile.
-    // Actually, existing components had `useEffect` to close on mobile.
-    // Let's start with TRUE as that matches previous default, but we'll add a mount effect to check width?
-    // Simpler: Start TRUE, let the consumer components (or a central effect here) handle resize.
-    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+    // Start closed, then sync to viewport after mount:
+    // desktop => open, mobile => closed
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false); // Tools sidebar usually starts closed or controlled by page
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const media = window.matchMedia("(max-width: 900px)");
+        const syncLeftSidebar = () => {
+            setIsLeftSidebarOpen(!media.matches);
+        };
+
+        syncLeftSidebar();
+        media.addEventListener("change", syncLeftSidebar);
+        return () => {
+            media.removeEventListener("change", syncLeftSidebar);
+        };
+    }, []);
 
     const toggleLeftSidebar = useCallback(() => setIsLeftSidebarOpen(prev => !prev), []);
     const toggleRightSidebar = useCallback(() => setIsRightSidebarOpen(prev => !prev), []);

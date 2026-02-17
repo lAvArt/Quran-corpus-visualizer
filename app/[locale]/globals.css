@@ -198,6 +198,29 @@ button.site-footer-link {
   flex-shrink: 0;
 }
 
+.site-footer-install {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 35%);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+  color: var(--ink);
+}
+
+.site-footer-install:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 80%);
+}
+
+[data-theme='dark'] .site-footer-install {
+  color: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+}
+
+[data-theme='dark'] .site-footer-install:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 74%);
+}
+
 @media (max-width: 680px) {
   .site-footer-inner {
     padding: 0.3rem 0.5rem;
@@ -841,6 +864,11 @@ button.site-footer-link {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
+.header-dock > [data-tour-id="global-search"] {
+  flex: 0 1 280px;
+  min-width: 150px;
+}
+
 .brand-block {
   display: flex;
   flex-direction: row;
@@ -902,6 +930,20 @@ button.site-footer-link {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.header-controls [data-tour-id="viz-switcher"] {
+  flex: 1 1 420px;
+  min-width: 150px;
+}
+
+.header-controls [data-tour-id="display-settings"],
+.header-controls .viz-export,
+.header-controls .sidebar-toggle-btn,
+.header-controls .header-button-group {
+  flex: 0 0 auto;
 }
 
 .sidebar-toggle-btn {
@@ -913,6 +955,7 @@ button.site-footer-link {
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1026,6 +1069,15 @@ button.site-footer-link {
 
   .header-controls {
     gap: 6px;
+  }
+
+  .header-controls [data-tour-id="viz-switcher"] {
+    min-width: 130px;
+  }
+
+  .sidebar-toggle-btn {
+    padding: 0.42rem 0.8rem;
+    font-size: 0.74rem;
   }
 }
 

@@ -18,9 +18,11 @@
     "Footer": {
         "github": "GitHub",
         "source": "Source",
-        "quranApi": "Quran.com API",
+        "quranApi": "Quran API",
         "about": "About",
-        "feedback": "Feedback"
+        "feedback": "Feedback",
+        "installApp": "Install app",
+        "installing": "Preparing install..."
     },
     "About": {
         "title": "About Quran Corpus Visualizer",
@@ -617,6 +619,10 @@
             },
             "rootNetwork": {
                 "title": "Root Network Graph"
+            },
+            "currentSelection": {
+                "title": "Current selection panel",
+                "body": "This panel summarizes your active view, surah, ayah, root, and lemma so you can keep context while navigating."
             },
             "legend": {
                 "title": "Legend guide",
