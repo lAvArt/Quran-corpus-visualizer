@@ -92,11 +92,12 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
         }
 
         .mobile-menu-dropdown {
-            position: fixed;
-            top: 52px;
-            right: 8px;
-            left: 8px;
-            width: auto;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: max-content;
+            min-width: 240px;
+            max-width: calc(100vw - 16px);
             background: rgba(255, 255, 255, 0.9);
             border: 1px solid var(--line);
             border-radius: 16px;
