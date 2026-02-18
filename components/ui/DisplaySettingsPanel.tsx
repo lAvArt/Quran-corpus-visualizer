@@ -306,6 +306,8 @@ export default function DisplaySettingsPanel({
           right: 0;
           z-index: 70;
           min-width: 270px;
+          max-height: calc(100vh - 70px);
+          overflow-y: auto;
           display: grid;
           gap: 12px;
           padding: 12px;
@@ -453,11 +455,6 @@ export default function DisplaySettingsPanel({
             height: 38px;
           }
 
-          .display-settings-panel {
-            right: -42px;
-            min-width: 250px;
-          }
-
           .custom-color-grid {
             grid-template-columns: 1fr;
           }
@@ -473,6 +470,12 @@ export default function DisplaySettingsPanel({
           }
 
           .display-settings-panel {
+            position: fixed;
+            top: 52px;
+            right: 8px;
+            left: 8px;
+            min-width: 0;
+            width: auto;
             max-height: calc(100vh - 60px);
             overflow-y: auto;
           }
