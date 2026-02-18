@@ -50,14 +50,6 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
                 {isMobileNavOpen && (
                     <motion.div
                         className="mobile-menu-dropdown"
-                        style={{
-                            position: "absolute",
-                            top: "calc(100% + 12px)",
-                            right: 0,
-                            width: 240,
-                            zIndex: 100,
-                            transformOrigin: "top right",
-                        }}
                         initial={{ opacity: 0, y: -10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -100,10 +92,11 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
         }
 
         .mobile-menu-dropdown {
-            position: absolute;
-            top: calc(100% + 12px);
-            right: 0;
-            width: 240px;
+            position: fixed;
+            top: 52px;
+            right: 8px;
+            left: 8px;
+            width: auto;
             background: rgba(255, 255, 255, 0.9);
             border: 1px solid var(--line);
             border-radius: 16px;
