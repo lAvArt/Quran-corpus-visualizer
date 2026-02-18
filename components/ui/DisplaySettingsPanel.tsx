@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { usePwaInstall } from "@/components/providers/PwaProvider";
+import VizExportMenu from "@/components/ui/VizExportMenu";
 import {
   COLOR_THEME_PRESETS,
   type CustomColorTheme,
@@ -11,6 +12,8 @@ import {
   type ColorThemeId,
 } from "@/lib/theme/colorThemes";
 import { type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
+import type { RefObject } from "react";
 
 interface DisplaySettingsPanelProps {
   theme: "light" | "dark";
@@ -23,6 +26,9 @@ interface DisplaySettingsPanelProps {
   onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   onResetCustomColorTheme: (appearance: "light" | "dark") => void;
   onReplayExperience: () => void;
+  exportTargetRef?: RefObject<HTMLElement | null>;
+  vizMode?: VisualizationMode;
+  selectedSurahId?: number;
 }
 
 export default function DisplaySettingsPanel({
@@ -36,6 +42,9 @@ export default function DisplaySettingsPanel({
   onCustomColorThemeChange,
   onResetCustomColorTheme,
   onReplayExperience,
+  exportTargetRef,
+  vizMode,
+  selectedSurahId,
 }: DisplaySettingsPanelProps) {
   const t = useTranslations("DisplaySettings");
   const [isOpen, setIsOpen] = useState(false);
@@ -220,6 +229,17 @@ export default function DisplaySettingsPanel({
               >
                 {t("actions.resetCurrent", { mode: t(`modes.${theme}`) })}
               </button>
+            </div>
+          )}
+
+          {exportTargetRef && vizMode != null && selectedSurahId != null && (
+            <div className="display-settings-section custom-colors mobile-export-section">
+              <div className="display-settings-title">{t("export")}</div>
+              <VizExportMenu
+                targetRef={exportTargetRef}
+                vizMode={vizMode}
+                selectedSurahId={selectedSurahId}
+              />
             </div>
           )}
 
@@ -440,6 +460,21 @@ export default function DisplaySettingsPanel({
 
           .custom-color-grid {
             grid-template-columns: 1fr;
+          }
+        }
+
+        .mobile-export-section {
+          display: none;
+        }
+
+        @media (max-width: 980px) {
+          .mobile-export-section {
+            display: grid;
+          }
+
+          .display-settings-panel {
+            max-height: calc(100vh - 60px);
+            overflow-y: auto;
           }
         }
       `}</style>

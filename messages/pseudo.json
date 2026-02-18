@@ -26,6 +26,7 @@
     },
     "VisualizationSwitcher": {
         "select": "[!! Ṡèļèçť !!]",
+        "dropdownTitle": "[!! Çħôôṡè Vîṡûâļîžâťîôñ !!]",
         "lightTheme": "[!! Ļîġħť ťħèṁè !!]",
         "darkTheme": "[!! Ḋâṛķ ťħèṁè !!]",
         "modes": {
@@ -339,6 +340,7 @@
         "button": "[!! Settings !!]",
         "panelLabel": "[!! Display settings !!]",
         "appearance": "[!! Appearance !!]",
+        "export": "[!! Export !!]",
         "palette": "[!! Color theme !!]",
         "modes": {
             "light": "[!! Light !!]",
