@@ -61,6 +61,7 @@ export default function RadialSuraMap({
   const ts = useTranslations("Visualizations.Shared");
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomScale, setZoomScale] = useState(1);
+  const [isMounted, setIsMounted] = useState(false);
   const { svgRef, gRef, resetZoom, zoomBy } = useZoom<SVGSVGElement>({
     minScale: 0.3,
     maxScale: 6,
@@ -76,7 +77,6 @@ export default function RadialSuraMap({
   const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
