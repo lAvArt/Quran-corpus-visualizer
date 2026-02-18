@@ -5,6 +5,8 @@ interface ZoomOptions {
     minScale?: number;
     maxScale?: number;
     initialScale?: number;
+    /** Extra dependency to re-trigger zoom setup (e.g. set to true once the SVG is mounted). */
+    ready?: unknown;
     onZoom?: (transform: d3.ZoomTransform) => void;
     onZoomEnd?: (transform: d3.ZoomTransform) => void;
 }
@@ -13,6 +15,7 @@ export function useZoom<SVGType extends SVGSVGElement>({
     minScale = 0.5,
     maxScale = 8,
     initialScale = 1,
+    ready,
     onZoom,
     onZoomEnd,
 }: ZoomOptions = {}) {
@@ -60,7 +63,7 @@ export function useZoom<SVGType extends SVGSVGElement>({
         return () => {
             svgSelection.on(".zoom", null);
         };
-    }, [minScale, maxScale, initialScale]);
+    }, [minScale, maxScale, initialScale, ready]);
 
     const resetZoom = () => {
         if (svgRef.current && zoomInstanceRef.current) {
@@ -72,5 +75,14 @@ export function useZoom<SVGType extends SVGSVGElement>({
         }
     };
 
-    return { svgRef, gRef, resetZoom };
+    const zoomBy = (factor: number) => {
+        if (svgRef.current && zoomInstanceRef.current) {
+            d3.select(svgRef.current)
+                .transition()
+                .duration(200)
+                .call(zoomInstanceRef.current.scaleBy, factor);
+        }
+    };
+
+    return { svgRef, gRef, resetZoom, zoomBy };
 }
