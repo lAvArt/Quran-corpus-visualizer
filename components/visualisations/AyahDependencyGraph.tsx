@@ -667,7 +667,7 @@ export default function AyahDependencyGraph({
           ref={svgRef}
           viewBox={`0 0 ${dimensions.width} ${graphHeight}`}
           className="dep-svg"
-          style={{ cursor: "grab" }}
+          style={{ cursor: "grab", touchAction: "none" }}
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setHoveredEdgeId(null);

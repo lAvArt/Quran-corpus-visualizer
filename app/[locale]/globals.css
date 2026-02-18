@@ -1286,6 +1286,13 @@ button.site-footer-link {
   border-radius: 0;
 }
 
+/* Prevent browser pinch-to-zoom on visualization SVGs – let d3 zoom handle it */
+.viz-canvas,
+.dep-svg,
+.sankey {
+  touch-action: none;
+}
+
 /* ============================================================================
    Theme Text Color Consistency
    ============================================================================ */

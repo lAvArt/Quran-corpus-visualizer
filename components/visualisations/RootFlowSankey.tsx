@@ -249,7 +249,7 @@ export default function RootFlowSankey({
             className="sankey"
             role="img"
             aria-label="Root to lemma flow chart"
-            style={{ cursor: "grab" }}
+            style={{ cursor: "grab", touchAction: "none" }}
             onMouseDown={(e) => {
               (e.target as HTMLElement).style.cursor = "grabbing";
             }}

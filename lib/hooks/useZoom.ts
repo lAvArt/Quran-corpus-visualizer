@@ -30,6 +30,9 @@ export function useZoom<SVGType extends SVGSVGElement>({
     useEffect(() => {
         if (!svgRef.current || !gRef.current) return;
 
+        // Prevent browser from intercepting touch gestures (pinch-to-zoom)
+        svgRef.current.style.touchAction = "none";
+
         const zoom = d3
             .zoom<SVGType, unknown>()
             .scaleExtent([minScale, maxScale])
