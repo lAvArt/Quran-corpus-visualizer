@@ -130,6 +130,7 @@ export default function VisualizationSwitcher({
       {
         isExpanded && (
           <div className="viz-switcher-dropdown" id={dropdownId}>
+            <div className="viz-dropdown-title">{t('dropdownTitle')}</div>
             {VISUALIZATION_OPTIONS.map((option) => (
               <button
                 type="button"
@@ -239,6 +240,16 @@ export default function VisualizationSwitcher({
         }
 
 
+        .viz-dropdown-title {
+          font-size: 0.78rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--ink-secondary);
+          padding: 6px 12px 4px;
+          display: none;
+        }
+
         .viz-switcher-dropdown {
           position: absolute;
           top: calc(100% + 8px);
@@ -254,6 +265,8 @@ export default function VisualizationSwitcher({
           background: rgba(255, 255, 255, 0.9);
           backdrop-filter: blur(16px);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+          max-height: calc(100vh - 100px);
+          overflow-y: auto;
         }
 
         .viz-switcher-option {
@@ -295,31 +308,25 @@ export default function VisualizationSwitcher({
           }
         }
 
-@media (max-width: 640px) {
+@media (max-width: 980px) {
           .viz-switcher-container {
             width: auto;
             min-width: 0;
             position: static; /* Allow dropdown to be fixed relative to viewport */
           }
 
-          .viz-switcher-info {
-            display: none;
+          .viz-dropdown-title {
+            display: block;
           }
 
-          .viz-switcher-current {
-            padding: 8px;
-            gap: 4px;
-            justify-content: center;
-          }
-          
           .viz-switcher-dropdown {
             position: fixed;
-            top: 70px;
+            top: 60px;
             left: 50%;
             transform: translateX(-50%);
             width: 94vw;
             max-width: 400px;
-            max-height: 80vh;
+            max-height: calc(100vh - 80px);
             overflow-y: auto;
             z-index: 100;
             right: auto;
@@ -328,6 +335,21 @@ export default function VisualizationSwitcher({
 
           .viz-switcher-option .viz-switcher-info {
              display: flex; /* Keep info visible in dropdown */
+          }
+        }
+
+        @media (max-width: 640px) {
+          .viz-switcher-current {
+            padding: 8px;
+            gap: 4px;
+          }
+
+          .viz-switcher-desc {
+            display: none;
+          }
+
+          .viz-switcher-label {
+            font-size: 0.78rem;
           }
         }
 

@@ -1,5 +1,5 @@
 
-const SW_VERSION = "1";
+const SW_VERSION = "2";
 const STATIC_CACHE = `qcv-static-${SW_VERSION}`;
 const PAGE_CACHE = `qcv-pages-${SW_VERSION}`;
 
@@ -29,26 +29,19 @@ self.addEventListener("message", (event) => {
   }
 });
 
-async function staleWhileRevalidate(request) {
+async function cacheFirst(request) {
   const cache = await caches.open(STATIC_CACHE);
   const cached = await cache.match(request);
 
-  const networkPromise = fetch(request)
-    .then((response) => {
-      if (response && response.ok) {
-        void cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => null);
-
   if (cached) {
-    void networkPromise;
     return cached;
   }
 
-  const networkResponse = await networkPromise;
-  return networkResponse || fetch(request);
+  const response = await fetch(request);
+  if (response && response.ok) {
+    void cache.put(request, response.clone());
+  }
+  return response;
 }
 
 async function networkFirstPage(request) {
@@ -86,6 +79,6 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".svg");
 
   if (isStaticAsset) {
-    event.respondWith(staleWhileRevalidate(request));
+    event.respondWith(cacheFirst(request));
   }
 });

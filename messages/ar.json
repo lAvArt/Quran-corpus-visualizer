@@ -84,6 +84,7 @@
     },
     "VisualizationSwitcher": {
         "select": "اختر",
+        "dropdownTitle": "اختر الرسم البياني",
         "lightTheme": "الوضع الفاتح",
         "darkTheme": "الوضع الداكن",
         "modes": {
@@ -492,6 +493,7 @@
         "button": "إعدادات",
         "panelLabel": "إعدادات العرض",
         "appearance": "المظهر",
+        "export": "تصدير",
         "palette": "سمة الألوان",
         "coloring": {
             "title": "تلوين معجمي",
