@@ -84,6 +84,7 @@
     },
     "VisualizationSwitcher": {
         "select": "Select",
+        "dropdownTitle": "Choose Visualization",
         "lightTheme": "Light theme",
         "darkTheme": "Dark theme",
         "modes": {
@@ -492,6 +493,7 @@
         "button": "Settings",
         "panelLabel": "Display settings",
         "appearance": "Appearance",
+        "export": "Export",
         "palette": "Color theme",
         "coloring": {
             "title": "Lexical coloring",

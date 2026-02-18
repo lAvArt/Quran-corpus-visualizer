@@ -1042,12 +1042,14 @@ button.site-footer-link {
 
   /* Keep header horizontal, just tighter */
   .header-dock {
-    gap: 0.5rem;
-    padding: 0.3rem 0.8rem;
+    gap: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    overflow-x: hidden;
   }
 
   .brand-block {
     min-width: auto;
+    flex-shrink: 0;
   }
 
   .brand-title {
@@ -1068,11 +1070,22 @@ button.site-footer-link {
   }
 
   .header-controls {
-    gap: 6px;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
   }
 
   .header-controls [data-tour-id="viz-switcher"] {
-    min-width: 130px;
+    flex: 1 1 100px;
+    min-width: 0;
+    max-width: 200px;
+    margin-inline-end: 12px;
+  }
+
+  .header-controls .mobile-nav-menu {
+    flex: 0 0 auto;
+    margin-inline-start: 4px;
   }
 
   .sidebar-toggle-btn {
@@ -1085,7 +1098,24 @@ button.site-footer-link {
 
   /* Further compact for very small screens */
   .header-dock {
-    padding: 0.3rem 0.5rem;
+    padding: 0.25rem 0.4rem;
+    gap: 0.3rem;
+  }
+
+  .header-controls [data-tour-id="viz-switcher"] {
+    flex: 1 1 60px;
+    min-width: 0;
+    max-width: 140px;
+    overflow: hidden;
+  }
+
+  .brand-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .brand-title-row::before {
+    font-size: 0.8rem;
   }
 }
 
@@ -1581,13 +1611,13 @@ button.site-footer-link {
   box-shadow: 0 4px 12px var(--accent-glow);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
   .desktop-only {
     display: none !important;
   }
 }
 
-@media (min-width: 901px) {
+@media (min-width: 981px) {
   .mobile-only {
     display: none !important;
   }

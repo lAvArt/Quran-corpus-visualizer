@@ -18,13 +18,13 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["education", "reference", "productivity"],
     icons: [
       {
-        src: "/logo.svg",
+        src: "/icon-any.svg",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/favicon.svg",
+        src: "/icon-maskable.svg",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",

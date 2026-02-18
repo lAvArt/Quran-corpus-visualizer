@@ -568,7 +568,7 @@ function HomePageContent() {
             </div>
           </div>
 
-          <div data-tour-id="global-search">
+          <div data-tour-id="global-search" className="desktop-only">
             <GlobalSearch
               tokens={allTokens}
               onTokenSelect={handleTokenSelect}
@@ -598,6 +598,9 @@ function HomePageContent() {
                 onCustomColorThemeChange={handleCustomColorThemeChange}
                 onResetCustomColorTheme={handleResetCustomColorTheme}
                 onReplayExperience={handleReplayExperience}
+                exportTargetRef={mainVizRef}
+                vizMode={vizMode}
+                selectedSurahId={selectedSurahId}
               />
             </div>
 
@@ -609,11 +612,13 @@ function HomePageContent() {
                 onThemeChange={setTheme}
               />
             </div>
-            <VizExportMenu
-              targetRef={mainVizRef}
-              vizMode={vizMode}
-              selectedSurahId={selectedSurahId}
-            />
+            <div className="desktop-only" style={{ display: 'contents' }}>
+              <VizExportMenu
+                targetRef={mainVizRef}
+                vizMode={vizMode}
+                selectedSurahId={selectedSurahId}
+              />
+            </div>
 
             <div className="desktop-only" style={{ display: 'contents' }}>
               <button
