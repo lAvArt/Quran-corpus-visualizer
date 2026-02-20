@@ -94,11 +94,45 @@ export default function CurrentSelectionPanel({
             </div>
             <div className="selection-row">
               <span className="selection-label">{t('labels.root')}</span>
-              <span className="selection-value arabic-text">{selectedRoot ?? "-"}</span>
+              <span className="selection-value arabic-text">
+                {selectedRoot ? (
+                  <a
+                    href={`https://www.almaany.com/ar/dict/ar-ar/${selectedRoot}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dictionary-link"
+                    title="Open in Al-Maany Dictionary"
+                  >
+                    {selectedRoot}
+                    <svg className="external-link-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                ) : "-"}
+              </span>
             </div>
             <div className="selection-row">
               <span className="selection-label">{t('labels.lemma')}</span>
-              <span className="selection-value arabic-text">{selectedLemma ?? "-"}</span>
+              <span className="selection-value arabic-text">
+                {selectedLemma ? (
+                  <a
+                    href={`https://www.almaany.com/ar/dict/ar-ar/${selectedLemma}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dictionary-link"
+                    title="Open in Al-Maany Dictionary"
+                  >
+                    {selectedLemma}
+                    <svg className="external-link-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                ) : "-"}
+              </span>
             </div>
             <div className="selection-row">
               <span className="selection-label">{t('labels.token')}</span>
@@ -280,6 +314,24 @@ export default function CurrentSelectionPanel({
         :global([data-theme="dark"]) .ayah-text-content::-webkit-scrollbar-thumb {
           background: color-mix(in srgb, var(--accent), rgba(255, 255, 255, 0.3) 20%);
           background-clip: content-box;
+        }
+
+        .dictionary-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          color: var(--accent);
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .dictionary-link:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
+
+        .external-link-icon {
+          opacity: 0.6;
         }
       `}</style>
     </aside>
