@@ -28,6 +28,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 - **Radial Surah Map** — Visualize the entire Quran or specific Surahs as a radial tree, highlighting relationships between Ayahs and roots.
 - **Root Network Graph** — Explore the connectivity of Arabic roots across the corpus using force-directed graphs.
+- **Knowledge Graph** — Neural-style map of your tracked roots and learning progress, with force-directed and flow layout modes.
 - **Surah Distribution** — Analyze the distribution of specific roots or lemmas across all Surahs.
 - **Arc Flow Diagram** — Trace the flow of roots and grammatical connections within an Ayah.
 - **Ayah Dependency Graph** — Deep dive into the syntactic dependency structure of individual Ayahs.
@@ -43,6 +44,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 ### Modern UX/UI
 
 - **Immersive Design** — A "neural" dark mode interface designed for deep focus.
+- **Knowledge Tracker** — Track Arabic roots as "learning" or "learned", add notes, and import/export your progress as JSON.
 - **Responsive** — Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
 - **Internationalization** — Full support for English and Arabic interfaces (RTL).
 - **Progressive Web App (PWA)** — Installable app shell with offline-first static assets and network-first page updates.
@@ -118,11 +120,11 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
 - **Language**: TypeScript
 - **Visualization**: [D3.js](https://d3js.org/) for complex graphs
 - **Animation**: Framer Motion
-- **Styling**: Tailwind CSS / CSS Modules
+- **Styling**: Vanilla CSS
 - **Internationalization**: next-intl
 
 ## Project Structure
@@ -136,6 +138,8 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 │   ├── inspectors/       # Detailed data inspection panels
 │   └── ui/               # Reusable UI elements (Sidebar, Search, etc.)
 ├── lib/
+│   ├── cache/            # IndexedDB caching (corpus + knowledge tracker)
+│   ├── context/          # React context providers (Knowledge, etc.)
 │   ├── corpus/           # Data loaders and types for Quranic data
 │   ├── data/             # Static data (Surah names, help text)
 │   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)

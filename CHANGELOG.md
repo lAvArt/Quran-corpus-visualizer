@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-21
+
+### Added
+
+- **Knowledge Graph Visualization** — Neural-style force-directed and flow-layout graph of tracked roots and their derived lemmas, with glow effects, ghost-root context nodes, and dual layout toggle
+- **Knowledge Tracker** — IndexedDB-backed root learning system with `learning` → `learned` states, personal notes, and timestamped progress
+- **Knowledge Context Provider** (`KnowledgeContext.tsx`) — App-wide React context for knowledge state, with hydration from IndexedDB on mount
+- **Knowledge Cache** (`knowledgeCache.ts`) — Persistent IndexedDB store for tracked roots with export/import support
+- **Knowledge Panel** in Current Selection — Track, annotate, and manage roots directly from any visualization's selection panel
+- **Knowledge Settings** in Display Settings — View stats (total/learning/learned), export knowledge as JSON, import from file
+- **Dual Dictionary Links** in Mobile Nav — Quick links to Doha Historical Dictionary and Al-Maany for the selected root
+- **i18n: 14 new Arabic keys** for Knowledge Graph, Knowledge Tracker, and Display Settings sections
+- **Visual polish** across Corpus Architecture Map, Radial Surah Map, Root Network Graph, and Surah Distribution Graph
+
 ## [0.4.0] - 2026-02-15
 
 ### Added
