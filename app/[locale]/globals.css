@@ -1158,6 +1158,42 @@ button.site-footer-link {
   left: 2rem;
   z-index: 10;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ayah-meta-wrapper {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.kg-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--ink-secondary);
+  pointer-events: auto;
+}
+
+[data-theme='dark'] .kg-reset-btn {
+  background: rgba(25, 25, 35, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.kg-reset-btn:hover {
+  background: var(--bg-1);
+  color: var(--ink-primary);
+  transform: scale(1.05);
 }
 
 @media (max-width: 900px) {

@@ -115,6 +115,10 @@
             "sankey-flow": {
                 "label": "تدفق سانكي",
                 "description": "تصور تدفق الجذر إلى المعنى مع عروض نسبية"
+            },
+            "knowledge-graph": {
+                "label": "الشبكة المعرفية",
+                "description": "خريطة عصبية للجذور المميزة وتقدمك في التعلم"
             }
         }
     },
@@ -142,7 +146,17 @@
             "lemma": "الكلمة",
             "token": "اللفظ"
         },
-        "ayahTokens": "كلمات الآية"
+        "ayahTokens": "كلمات الآية",
+        "knowledge": {
+            "title": "متتبع المعرفة",
+            "markLearning": "ابدأ التعلم",
+            "markLearned": "تعيين كمكتسب ✓",
+            "learning": "مكتسب ✓",
+            "notes": "ملاحظات",
+            "notesPlaceholder": "أضف ملاحظاتك حول هذا الجذر...",
+            "save": "حفظ",
+            "remove": "إزالة التتبع"
+        }
     },
     "SemanticSearchPanel": {
         "placeholders": {
@@ -535,6 +549,12 @@
             "installing": "جارٍ تجهيز نافذة التثبيت...",
             "installed": "تم تثبيت التطبيق",
             "installHint": "يظهر خيار التثبيت بعد أن يعتبر المتصفح هذا التطبيق قابلاً للتثبيت."
+        },
+        "knowledge": {
+            "title": "المعرفة",
+            "stats": "{total} متتبع · {learning} قيد التعلم · {learned} مكتسب",
+            "export": "تصدير المعرفة (JSON)",
+            "import": "استيراد المعرفة"
         }
     },
     "VizExport": {

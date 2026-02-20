@@ -143,13 +143,13 @@ export default function CurrentSelectionPanel({
                         </svg>
                       </a>
                       <a
-                        href={`https://www.lesanarab.com/kalima/${encodeURIComponent(selectedRoot)}`}
+                        href={`https://www.dohadictionary.org/dictionary/${encodeURIComponent(selectedRoot)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="dictionary-link dict-badge"
-                        title="Lisan al-Arab &amp; Classical Dictionaries (Hawramani)"
+                        title="Doha Historical Dictionary"
                       >
-                        لسان العرب
+                        معجم الدوحة
                         <svg className="external-link-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                           <polyline points="15 3 21 3 21 9"></polyline>
@@ -183,13 +183,13 @@ export default function CurrentSelectionPanel({
                         </svg>
                       </a>
                       <a
-                        href={`https://www.lesanarab.com/kalima/${encodeURIComponent(selectedLemma)}`}
+                        href={`https://www.dohadictionary.org/dictionary/${encodeURIComponent(selectedLemma)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="dictionary-link dict-badge"
-                        title="Lisan al-Arab &amp; Classical Dictionaries (Hawramani)"
+                        title="Doha Historical Dictionary"
                       >
-                        لسان العرب
+                        معجم الدوحة
                         <svg className="external-link-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                           <polyline points="15 3 21 3 21 9"></polyline>

@@ -72,6 +72,7 @@ export default function KnowledgeGraphViz({
     const [viewMode, setViewMode] = useState<"neural" | "flow">("neural");
     const viewModeRef = useRef<"neural" | "flow">("neural");
     const simulationRef = useRef<d3.Simulation<KGNode, KGLink> | null>(null);
+    const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
     const liveNodesRef = useRef<KGNode[]>([]);
 
     // ── Palette derived from theme ───────────────────────────────────
@@ -346,6 +347,7 @@ export default function KnowledgeGraphViz({
             .scaleExtent([0.15, 6])
             .on("zoom", (event) => { g.attr("transform", event.transform.toString()); });
 
+        zoomBehaviorRef.current = zoomBehavior;
         svg.call(zoomBehavior);
 
         return () => { svg.on(".zoom", null); };
@@ -425,12 +427,30 @@ export default function KnowledgeGraphViz({
     return (
         <section className="immersive-viz" data-theme={theme}>
             {/* Floating stats pill */}
-            <div className="viz-controls floating-controls" style={{ pointerEvents: "none" }}>
-                <p className="ayah-meta-glass" style={{ pointerEvents: "auto" }}>
-                    {nodes.filter(n => n.type === "tracked-root" || n.type === "ghost-root").length} roots · {nodes.filter(n => n.type === "lemma").length} lemmas · {links.length} connections
-                    {hasTracked && ` · ${stats.total} tracked`}
-                    {!hasTracked && " · Select roots to begin tracking"}
-                </p>
+            <div className="viz-controls floating-controls">
+                <div className="ayah-meta-wrapper">
+                    <button
+                        className="kg-reset-btn"
+                        onClick={() => {
+                            if (svgRef.current && zoomBehaviorRef.current) {
+                                d3.select(svgRef.current)
+                                    .transition()
+                                    .duration(750)
+                                    .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+                            }
+                        }}
+                        title="Focus View"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+                        </svg>
+                    </button>
+                    <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
+                        {nodes.filter(n => n.type === "tracked-root" || n.type === "ghost-root").length} roots · {nodes.filter(n => n.type === "lemma").length} lemmas · {links.length} connections
+                        {hasTracked && ` · ${stats.total} tracked`}
+                        {!hasTracked && " · Select roots to begin tracking"}
+                    </p>
+                </div>
             </div>
 
             {/* Graph switch toggle */}
@@ -682,9 +702,9 @@ export default function KnowledgeGraphViz({
                     {(hoveredNode || selectedNode) && (
                         <motion.div
                             className="kg-info-card"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 8 }}
+                            initial={{ opacity: 0, y: 8, x: "-50%" }}
+                            animate={{ opacity: 1, y: 0, x: "-50%" }}
+                            exit={{ opacity: 0, y: 8, x: "-50%" }}
                             transition={{ duration: 0.18 }}
                         >
                             {(() => {

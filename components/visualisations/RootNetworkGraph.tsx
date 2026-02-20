@@ -57,6 +57,7 @@ export default function RootNetworkGraph({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
+  const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const gRef = useRef<SVGGElement>(null);
 
   const [dimensions, setDimensions] = useState({ width: 900, height: 650 });
@@ -286,6 +287,7 @@ export default function RootNetworkGraph({
         g.attr("transform", event.transform.toString());
       });
 
+    zoomBehaviorRef.current = zoomBehavior;
     svg.call(zoomBehavior);
 
     return () => {
@@ -376,14 +378,32 @@ export default function RootNetworkGraph({
       </div>
       */}
 
-      <div className="viz-controls floating-controls" style={{ pointerEvents: 'none' }}>
-        <p className="ayah-meta-glass" style={{ pointerEvents: 'auto' }}>
-          {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
-          {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
-          {initialLinks.length} connections
-          {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
-        </p>
-        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, pointerEvents: 'auto' }}>
+      <div className="viz-controls floating-controls">
+        <div className="ayah-meta-wrapper">
+          <button
+            className="kg-reset-btn"
+            onClick={() => {
+              if (svgRef.current && zoomBehaviorRef.current) {
+                d3.select(svgRef.current)
+                  .transition()
+                  .duration(750)
+                  .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+              }
+            }}
+            title="Focus View"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+            </svg>
+          </button>
+          <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
+            {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
+            {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
+            {initialLinks.length} connections
+            {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
+          </p>
+        </div>
+        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
           <input
             type="range"
