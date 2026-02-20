@@ -57,6 +57,7 @@ export default function RootNetworkGraph({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
+  const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const gRef = useRef<SVGGElement>(null);
 
   const [dimensions, setDimensions] = useState({ width: 900, height: 650 });
@@ -66,6 +67,7 @@ export default function RootNetworkGraph({
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const liveNodesRef = useRef<NetworkNode[]>([]);
 
   const themeColors = resolveVisualizationTheme(theme);
 
@@ -203,14 +205,14 @@ export default function RootNetworkGraph({
     });
 
     observer.observe(containerRef.current);
-    
+
     // Initial size
     const rect = containerRef.current.getBoundingClientRect();
-    if(rect.width > 0 && rect.height > 0) {
-        setDimensions({
-            width: Math.max(rect.width, 600),
-            height: Math.max(rect.height, 500),
-        });
+    if (rect.width > 0 && rect.height > 0) {
+      setDimensions({
+        width: Math.max(rect.width, 600),
+        height: Math.max(rect.height, 500),
+      });
     }
 
     return () => observer.disconnect();
@@ -257,6 +259,7 @@ export default function RootNetworkGraph({
       ).strength(0.4));
 
     simulationRef.current = simulation;
+    liveNodesRef.current = nodesCopy;
 
     simulation.on("tick", () => {
       setNodes([...nodesCopy]);
@@ -284,12 +287,49 @@ export default function RootNetworkGraph({
         g.attr("transform", event.transform.toString());
       });
 
+    zoomBehaviorRef.current = zoomBehavior;
     svg.call(zoomBehavior);
 
     return () => {
       svg.on(".zoom", null);
     };
   }, [isMounted, dimensions]);
+
+  // D3 Drag behavior for nodes
+  useEffect(() => {
+    if (!gRef.current || !simulationRef.current) return;
+
+    const simulation = simulationRef.current;
+    const g = d3.select(gRef.current);
+
+    const dragBehavior = d3.drag<SVGGElement, unknown>()
+      .on("start", (event) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
+        const nodeId = el?.getAttribute("data-node-id");
+        const node = liveNodesRef.current.find((n) => n.id === nodeId);
+        if (node) { node.fx = node.x; node.fy = node.y; }
+      })
+      .on("drag", (event) => {
+        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
+        const nodeId = el?.getAttribute("data-node-id");
+        const node = liveNodesRef.current.find((n) => n.id === nodeId);
+        if (node) { node.fx = event.x; node.fy = event.y; }
+      })
+      .on("end", (event) => {
+        if (!event.active) simulation.alphaTarget(0);
+        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
+        const nodeId = el?.getAttribute("data-node-id");
+        const node = liveNodesRef.current.find((n) => n.id === nodeId);
+        if (node) { node.fx = null; node.fy = null; }
+      });
+
+    g.selectAll<SVGGElement, unknown>(".rn-node").call(dragBehavior);
+
+    return () => {
+      g.selectAll<SVGGElement, unknown>(".rn-node").on(".drag", null);
+    };
+  }, [nodes]);
 
   const handleNodeHover = useCallback(
     (node: NetworkNode | null) => {
@@ -338,14 +378,32 @@ export default function RootNetworkGraph({
       </div>
       */}
 
-      <div className="viz-controls floating-controls" style={{ pointerEvents: 'none' }}>
-        <p className="ayah-meta-glass" style={{ pointerEvents: 'auto' }}>
+      <div className="viz-controls floating-controls">
+        <div className="ayah-meta-wrapper">
+          <button
+            className="kg-reset-btn"
+            onClick={() => {
+              if (svgRef.current && zoomBehaviorRef.current) {
+                d3.select(svgRef.current)
+                  .transition()
+                  .duration(750)
+                  .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+              }
+            }}
+            title="Focus View"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+            </svg>
+          </button>
+          <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
             {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
             {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
             {initialLinks.length} connections
             {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
-        </p>
-        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, pointerEvents: 'auto' }}>
+          </p>
+        </div>
+        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
           <input
             type="range"
@@ -362,197 +420,187 @@ export default function RootNetworkGraph({
 
       <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
         {!isMounted ? null : (
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-          className="network-graph viz-canvas"
-          style={{ width: '100%', height: '100%', cursor: 'grab' }}
-        >
-          <g ref={gRef}>
-          <defs>
-            {/* Radial gradient for background glow */}
-            <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="rgba(239, 68, 68, 0.1)" />
-              <stop offset="100%" stopColor="transparent" />
-            </radialGradient>
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+            className="network-graph viz-canvas"
+            style={{ width: '100%', height: '100%', cursor: 'grab' }}
+          >
+            <g ref={gRef}>
+              <defs>
+                {/* Radial gradient for background glow */}
+                <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="rgba(239, 68, 68, 0.1)" />
+                  <stop offset="100%" stopColor="transparent" />
+                </radialGradient>
 
-            {/* Glow filter for nodes */}
-            <filter id="nodeGlow" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur stdDeviation="6" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+                {/* Glow filter for nodes */}
+                <filter id="nodeGlow" x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
 
-            <filter id="subtleGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+                <filter id="subtleGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
 
-          {/* Background orbital rings */}
-          <g className="orbital-rings">
-            {[150, 220, 290].map((r, i) => (
+              {/* Background orbital rings */}
+              <g className="orbital-rings">
+                {[150, 220, 290].map((r, i) => (
+                  <circle
+                    key={i}
+                    cx={dimensions.width / 2}
+                    cy={dimensions.height / 2}
+                    r={r}
+                    className="orbital-ring"
+                  />
+                ))}
+              </g>
+
+              {/* Center glow */}
               <circle
-                key={i}
                 cx={dimensions.width / 2}
                 cy={dimensions.height / 2}
-                r={r}
-                className="orbital-ring"
+                r={100}
+                fill="url(#bgGlow)"
               />
-            ))}
-          </g>
 
-          {/* Center glow */}
-          <circle
-            cx={dimensions.width / 2}
-            cy={dimensions.height / 2}
-            r={100}
-            fill="url(#bgGlow)"
-          />
+              {/* Links */}
+              <g className="links">
+                {links.map((link, idx) => {
+                  const source = link.source as NetworkNode;
+                  const target = link.target as NetworkNode;
 
-          {/* Links */}
-          <g className="links">
-            {links.map((link, idx) => {
-              const source = link.source as NetworkNode;
-              const target = link.target as NetworkNode;
+                  if (!source.x || !source.y || !target.x || !target.y) return null;
 
-              if (!source.x || !source.y || !target.x || !target.y) return null;
+                  const isHighlighted = isLinkHighlighted(link);
 
-              const isHighlighted = isLinkHighlighted(link);
+                  // Calculate control point for curved line
+                  const midX = (source.x + target.x) / 2;
+                  const midY = (source.y + target.y) / 2;
+                  const dx = target.x - source.x;
+                  const dy = target.y - source.y;
+                  const normalX = -dy * 0.15;
+                  const normalY = dx * 0.15;
 
-              // Calculate control point for curved line
-              const midX = (source.x + target.x) / 2;
-              const midY = (source.y + target.y) / 2;
-              const dx = target.x - source.x;
-              const dy = target.y - source.y;
-              const normalX = -dy * 0.15;
-              const normalY = dx * 0.15;
-
-              return (
-                <motion.path
-                  key={idx}
-                  d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
-                  className={`edge ${isHighlighted ? "highlighted" : ""}`}
-                  style={{
-                    stroke: isHighlighted ? themeColors.accent : themeColors.edgeColors.default,
-                    strokeWidth: isHighlighted ? 2 : 1,
-                    fill: "none",
-                  }}
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{
-                    pathLength: 1,
-                    opacity: isHighlighted ? 0.9 : 0.3,
-                  }}
-                  transition={{ duration: 1, delay: idx * 0.01 }}
-                  filter={isHighlighted ? "url(#subtleGlow)" : undefined}
-                />
-              );
-            })}
-          </g>
-
-          {/* Nodes */}
-          <g className="nodes">
-            {nodes.map((node) => {
-              if (!node.x || !node.y) return null;
-
-              const isHovered = hoveredNode === node.id;
-              const isSelected = selectedNode === node.id;
-              const isSearchHighlighted = highlightRootNodeId === node.id;
-              const isHighlighted = isHovered || isSelected || isSearchHighlighted;
-              const isRoot = node.type === "root";
-
-              return (
-                <motion.g
-                  key={node.id}
-                  className="node-group"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{
-                    scale: 1,
-                    opacity: 1,
-                    x: node.x,
-                    y: node.y,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 100,
-                    damping: 15,
-                  }}
-                  style={{ cursor: "pointer" }}
-                  onMouseEnter={() => handleNodeHover(node)}
-                  onMouseLeave={() => handleNodeHover(null)}
-                  onClick={() => {
-                    handleNodeClick(node);
-                    if (node.type === "root" && onRootSelect) {
-                      onRootSelect(node.label);
-                    }
-                  }}
-                >
-                  {/* Outer glow ring for highlighted root nodes */}
-                  {isRoot && isHighlighted && (
-                    <motion.circle
-                      r={node.radius + 12}
-                      fill="none"
-                      stroke={themeColors.accent}
-                      strokeWidth={2}
-                      opacity={0.5}
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1.1, opacity: 0.5 }}
-                      transition={{
-                        repeat: Infinity,
-                        repeatType: "reverse",
-                        duration: 1,
-                      }}
-                    />
-                  )}
-
-                  {/* Node circle */}
-                  <circle
-                    r={node.radius}
-                    className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
-                    style={{
-                      fill: isHighlighted ? themeColors.accent : node.color,
-                      stroke: isRoot
-                        ? "rgba(255, 255, 255, 0.4)"
-                        : "rgba(255, 255, 255, 0.2)",
-                      strokeWidth: isRoot ? 2 : 1,
-                    }}
-                    filter={isHighlighted ? "url(#nodeGlow)" : undefined}
-                  />
-
-                  {/* Inner highlight for root nodes */}
-                  {isRoot && (
-                    <circle
-                      r={node.radius * 0.3}
-                      fill="rgba(255, 255, 255, 0.2)"
-                    />
-                  )}
-
-                  {/* Label */}
-                  {(showLabels || isHighlighted) && (
-                    <text
-                      className="node-label arabic-text"
-                      y={node.radius + 16}
+                  return (
+                    <motion.path
+                      key={idx}
+                      d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
+                      className={`edge ${isHighlighted ? "highlighted" : ""}`}
                       style={{
-                        opacity: isHighlighted ? 1 : 0.7,
-                        fontSize: isRoot ? "14px" : "11px",
-                        fontWeight: isRoot ? 600 : 400,
+                        stroke: isHighlighted ? themeColors.accent : themeColors.edgeColors.default,
+                        strokeWidth: isHighlighted ? 2 : 1,
+                        fill: "none",
+                      }}
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{
+                        pathLength: 1,
+                        opacity: isHighlighted ? 0.9 : 0.3,
+                      }}
+                      transition={{ duration: 1, delay: idx * 0.01 }}
+                      filter={isHighlighted ? "url(#subtleGlow)" : undefined}
+                    />
+                  );
+                })}
+              </g>
+
+              {/* Nodes */}
+              <g className="nodes">
+                {nodes.map((node) => {
+                  if (!node.x || !node.y) return null;
+
+                  const isHovered = hoveredNode === node.id;
+                  const isSelected = selectedNode === node.id;
+                  const isSearchHighlighted = highlightRootNodeId === node.id;
+                  const isHighlighted = isHovered || isSelected || isSearchHighlighted;
+                  const isRoot = node.type === "root";
+
+                  return (
+                    <g
+                      key={node.id}
+                      className="node-group rn-node"
+                      data-node-id={node.id}
+                      transform={`translate(${node.x},${node.y})`}
+                      style={{ cursor: "grab" }}
+                      onMouseEnter={() => handleNodeHover(node)}
+                      onMouseLeave={() => handleNodeHover(null)}
+                      onClick={() => {
+                        handleNodeClick(node);
+                        if (node.type === "root" && onRootSelect) {
+                          onRootSelect(node.label);
+                        }
                       }}
                     >
-                      {node.label}
-                    </text>
-                  )}
-                </motion.g>
-              );
-            })}
-          </g>
-          </g>
-        </svg>
+                      {/* Outer glow ring for highlighted root nodes */}
+                      {isRoot && isHighlighted && (
+                        <motion.circle
+                          r={node.radius + 12}
+                          fill="none"
+                          stroke={themeColors.accent}
+                          strokeWidth={2}
+                          opacity={0.5}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1.1, opacity: 0.5 }}
+                          transition={{
+                            repeat: Infinity,
+                            repeatType: "reverse",
+                            duration: 1,
+                          }}
+                        />
+                      )}
+
+                      {/* Node circle */}
+                      <circle
+                        r={node.radius}
+                        className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
+                        style={{
+                          fill: isHighlighted ? themeColors.accent : node.color,
+                          stroke: isRoot
+                            ? "rgba(255, 255, 255, 0.4)"
+                            : "rgba(255, 255, 255, 0.2)",
+                          strokeWidth: isRoot ? 2 : 1,
+                        }}
+                        filter={isHighlighted ? "url(#nodeGlow)" : undefined}
+                      />
+
+                      {/* Inner highlight for root nodes */}
+                      {isRoot && (
+                        <circle
+                          r={node.radius * 0.3}
+                          fill="rgba(255, 255, 255, 0.2)"
+                        />
+                      )}
+
+                      {/* Label */}
+                      {(showLabels || isHighlighted) && (
+                        <text
+                          className="node-label arabic-text"
+                          y={node.radius + 16}
+                          style={{
+                            opacity: isHighlighted ? 1 : 0.7,
+                            fontSize: isRoot ? "14px" : "11px",
+                            fontWeight: isRoot ? 600 : 400,
+                          }}
+                        >
+                          {node.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            </g>
+          </svg>
         )}
 
         {/* Tooltip */}

@@ -16,6 +16,7 @@ export type VisualizationMode =
   | "sankey-flow"      // Root-to-lemma Sankey diagram
   | "surah-distribution" // Spiral view of all surahs
   | "corpus-architecture" // Global corpus hierarchy map
+  | "knowledge-graph"  // Neural network of tracked roots
   | "heatmap";         // Frequency heatmap grid
 
 export interface VisualizationConfig {

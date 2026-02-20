@@ -224,6 +224,8 @@ button.site-footer-link {
 @media (max-width: 680px) {
   .site-footer-inner {
     padding: 0.3rem 0.5rem;
+    padding-inline-start: 2.5rem;
+    /* Avoid Next.js dev badge overlap */
     gap: 6px;
   }
 
@@ -864,7 +866,7 @@ button.site-footer-link {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.header-dock > [data-tour-id="global-search"] {
+.header-dock>[data-tour-id="global-search"] {
   flex: 0 1 280px;
   min-width: 150px;
 }
@@ -1156,6 +1158,42 @@ button.site-footer-link {
   left: 2rem;
   z-index: 10;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ayah-meta-wrapper {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.kg-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--ink-secondary);
+  pointer-events: auto;
+}
+
+[data-theme='dark'] .kg-reset-btn {
+  background: rgba(25, 25, 35, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.kg-reset-btn:hover {
+  background: var(--bg-1);
+  color: var(--ink-primary);
+  transform: scale(1.05);
 }
 
 @media (max-width: 900px) {
@@ -1171,6 +1209,141 @@ button.site-footer-link {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+/* Knowledge Graph – View Switch Toggle */
+.kg-view-switch {
+  position: fixed;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+[data-theme='light'] .kg-view-switch {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.kg-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.kg-switch-btn:hover {
+  color: var(--ink-secondary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='light'] .kg-switch-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.kg-switch-btn.active {
+  background: var(--accent, #f59e0b);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.kg-switch-btn.active svg {
+  stroke: #000;
+}
+
+/* Knowledge Graph – Info Card */
+.kg-info-card {
+  position: fixed;
+  bottom: 8.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--ink-secondary);
+}
+
+[data-theme='light'] .kg-info-card {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.kg-info-word {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.kg-info-divider {
+  color: var(--ink-muted);
+  opacity: 0.4;
+}
+
+.kg-info-meta {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+}
+
+.kg-info-track-btn {
+  margin-left: 4px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent, #f59e0b);
+  background: transparent;
+  color: var(--accent, #f59e0b);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.kg-info-track-btn:hover {
+  background: var(--accent, #f59e0b);
+  color: #000;
+}
+
+@media (max-width: 768px) {
+  .kg-info-card {
+    bottom: 10rem;
+    max-width: calc(100vw - 2rem);
+    font-size: 0.72rem;
+    padding: 5px 12px;
+    gap: 6px;
+  }
+
+  .kg-info-word {
+    font-size: 0.88rem;
+  }
+
+  .kg-view-switch {
+    bottom: 7.5rem;
   }
 }
 
@@ -1448,6 +1621,52 @@ button.site-footer-link {
   font-family: "Amiri", serif;
   font-size: 0.95rem;
   direction: rtl;
+}
+
+.dict-word-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.dict-links {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-family: "Amiri", serif;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.dict-badge:hover {
+  background: rgba(var(--accent-rgb, 245 158 11), 0.12);
+  border-color: var(--accent, #f59e0b);
+  color: var(--accent, #f59e0b);
+}
+
+.dict-badge .external-link-icon {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.dict-badge:hover .external-link-icon {
+  opacity: 1;
 }
 
 /* The old stack container is now redundant, but kept for legacy viz if needed 
@@ -2364,6 +2583,7 @@ button.site-footer-link {
    Reduced Motion: Disable or simplify animations for users who prefer it
    ============================================================================ */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

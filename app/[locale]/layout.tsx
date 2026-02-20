@@ -120,6 +120,7 @@ export default async function RootLayout({
       lang={locale}
       dir={direction}
       className={`${spaceGrotesk.variable} ${fraunces.variable} ${amiri.variable}`}
+      suppressHydrationWarning
     >
       <body className="body-root">
         <NextIntlClientProvider messages={messages}>

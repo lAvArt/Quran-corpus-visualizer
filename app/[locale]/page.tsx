@@ -44,6 +44,7 @@ const ArcFlowDiagram = lazy(() => import("@/components/visualisations/ArcFlowDia
 const AyahDependencyGraph = lazy(() => import("@/components/visualisations/AyahDependencyGraph"));
 const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSankey"));
 const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
+const KnowledgeGraphViz = lazy(() => import("@/components/visualisations/KnowledgeGraphViz"));
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 const EXPERIENCE_STORAGE_KEY = "quran-corpus-onboarding";
@@ -520,6 +521,15 @@ function HomePageContent() {
               onSurahChange={setSelectedSurahId}
               theme={theme}
               lexicalColorMode={lexicalColorMode}
+            />
+          );
+
+        case "knowledge-graph":
+          return (
+            <KnowledgeGraphViz
+              tokens={allTokens}
+              onRootSelect={handleRootSelect}
+              theme={theme}
             />
           );
 

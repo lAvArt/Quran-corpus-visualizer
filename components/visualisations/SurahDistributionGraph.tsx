@@ -51,7 +51,7 @@ export default function SurahDistributionGraph({
     const ts = useTranslations("Visualizations.Shared");
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoomLevel, setZoomLevel] = useState(0.8);
-    const { svgRef, gRef } = useZoom<SVGSVGElement>({
+    const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 8,
         initialScale: 0.8,
@@ -222,10 +222,21 @@ export default function SurahDistributionGraph({
     return (
         <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
             <div className="viz-controls floating-controls">
-                <p className="ayah-meta-glass">
-                    {totalSurahs} Surahs · {totalTokens.toLocaleString()} Words
-                    {highlightRoot && ` · ${ts("root")}: ${highlightRoot}`}
-                </p>
+                <div className="ayah-meta-wrapper">
+                    <button
+                        className="kg-reset-btn"
+                        onClick={resetZoom}
+                        title="Focus View"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+                        </svg>
+                    </button>
+                    <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
+                        {totalSurahs} Surahs · {totalTokens.toLocaleString()} Words
+                        {highlightRoot && ` · ${ts("root")}: ${highlightRoot}`}
+                    </p>
+                </div>
             </div>
 
             <div

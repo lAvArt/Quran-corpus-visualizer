@@ -58,7 +58,7 @@ export default function CorpusArchitectureMap({
         });
     }, []);
 
-    const { svgRef, gRef } = useZoom<SVGSVGElement>({
+    const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 12,
         initialScale: 1.4,
@@ -776,6 +776,20 @@ export default function CorpusArchitectureMap({
                     ]
                 }}
             />
+
+            <div className="viz-controls floating-controls">
+                <div className="ayah-meta-wrapper">
+                    <button
+                        className="kg-reset-btn"
+                        onClick={resetZoom}
+                        title="Focus View"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
 
             <div ref={containerRef} className="viz-container-full">
                 <svg
