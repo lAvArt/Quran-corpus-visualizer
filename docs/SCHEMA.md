@@ -63,6 +63,16 @@ UI components must consume only this internal model, never raw upstream payloads
 - key: POS tag
 - value: token IDs and ayah IDs containing that tag
 
+### TrackedRoot (Knowledge Tracker)
+
+Persisted in IndexedDB (`qcv-knowledge` store). Not part of the upstream corpus — this is user-generated learning state.
+
+- `root`: string (primary key, Arabic root)
+- `state`: KnowledgeState (`"learning"` | `"learned"`)
+- `notes`: string (optional, user-entered)
+- `trackedAt`: number (timestamp, epoch ms)
+- `updatedAt`: number (timestamp, epoch ms)
+
 ## Relation Model
 
 - `Sura 1..n Ayah`
