@@ -59,6 +59,12 @@ const VISUALIZATION_OPTIONS: Array<{
       description: "Root-to-lemma flow visualization with proportional widths",
       icon: "\u224B",
     },
+    {
+      mode: "knowledge-graph",
+      label: "Knowledge Graph",
+      description: "Neural map of your tracked roots and learning progress",
+      icon: "🌱",
+    },
   ];
 
 export default function VisualizationSwitcher({
@@ -350,6 +356,12 @@ export default function VisualizationSwitcher({
 
           .viz-switcher-label {
             font-size: 0.78rem;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .viz-switcher-current .viz-switcher-label {
+            display: none;
           }
         }
 

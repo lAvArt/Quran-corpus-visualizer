@@ -115,6 +115,10 @@
             "sankey-flow": {
                 "label": "Sankey Flow",
                 "description": "Root-to-lemma flow visualization with proportional widths"
+            },
+            "knowledge-graph": {
+                "label": "Knowledge Graph",
+                "description": "Neural map of your tracked roots and learning progress"
             }
         }
     },
@@ -142,7 +146,17 @@
             "lemma": "Lemma",
             "token": "Token"
         },
-        "ayahTokens": "Ayah Tokens"
+        "ayahTokens": "Ayah Tokens",
+        "knowledge": {
+            "title": "Knowledge Tracker",
+            "markLearning": "Start Learning",
+            "markLearned": "Mark as Learned ✓",
+            "learning": "Learned ✓",
+            "notes": "Notes",
+            "notesPlaceholder": "Add your notes about this root...",
+            "save": "Save",
+            "remove": "Remove tracking"
+        }
     },
     "SemanticSearchPanel": {
         "placeholders": {
@@ -535,6 +549,12 @@
             "installing": "Preparing install prompt...",
             "installed": "App installed",
             "installHint": "Install becomes available after your browser marks this app as installable."
+        },
+        "knowledge": {
+            "title": "Knowledge",
+            "stats": "{total} tracked · {learning} learning · {learned} learned",
+            "export": "Export Knowledge (JSON)",
+            "import": "Import Knowledge"
         }
     },
     "VizExport": {

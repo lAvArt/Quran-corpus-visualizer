@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { usePwaInstall } from "@/components/providers/PwaProvider";
+import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import {
   COLOR_THEME_PRESETS,
@@ -52,7 +53,22 @@ export default function DisplaySettingsPanel({
   const { canInstall, isInstalled, isInstallSupported, promptInstall } = usePwaInstall();
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const activePalette = customColorTheme[theme];
+  const { exportKnowledge, importKnowledge, stats } = useKnowledge();
+
+  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const count = await importKnowledge(text, true);
+      alert(`Imported ${count} roots successfully.`);
+    } catch {
+      alert('Failed to import. Please check the file format.');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [importKnowledge]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -267,6 +283,26 @@ export default function DisplaySettingsPanel({
                 )}
               </>
             )}
+          </div>
+
+          <div className="display-settings-section custom-colors">
+            <div className="display-settings-title">{t("knowledge.title")}</div>
+            <p className="display-settings-note">
+              {t("knowledge.stats", { total: stats.total, learning: stats.learning, learned: stats.learned })}
+            </p>
+            <button type="button" className="custom-reset-btn" onClick={exportKnowledge}>
+              {t("knowledge.export")}
+            </button>
+            <button type="button" className="custom-reset-btn" onClick={() => fileInputRef.current?.click()}>
+              {t("knowledge.import")}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={handleImport}
+            />
           </div>
         </div>
       )}
