@@ -37,15 +37,20 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 ### Advanced Search & Analysis
 
-- **Morphological Search** — Filter by Root, Lemma, Part-of-Speech (POS), or specific Ayah.
+- **Persistent Search** — Search state survives sidebar tab switches; query context is never lost.
+- **Morphological Search** — Filter by Root, Lemma, Part-of-Speech (POS), or specific Ayah via the Advanced Search panel.
+- **Inline Quick Search** — The Inspector tab includes a quick search bar for instant root/word lookups.
+- **Mobile Search** — Floating search overlay accessible from the mobile bottom bar.
+- **Root Lock** — When searching for a root, graph interactions won't override your active search context.
 - **Cross-Reference** — Instantly see where else a root or word appears in the Quran.
 - **Full-Text Search** — Search both Arabic text and English translations.
 
 ### Modern UX/UI
 
 - **Immersive Design** — A "neural" dark mode interface designed for deep focus.
+- **Unified Inspector Panel** — Morphology details and search in one tab, with Advanced Search as a dedicated secondary tab.
 - **Knowledge Tracker** — Track Arabic roots as "learning" or "learned", add notes, and import/export your progress as JSON.
-- **Responsive** — Fully optimized for Desktop, Tablet, and Mobile with collapsible panels.
+- **Responsive** — Fully optimized for Desktop, Tablet, and Mobile with collapsible panels and mobile search overlay.
 - **Internationalization** — Full support for English and Arabic interfaces (RTL).
 - **Progressive Web App (PWA)** — Installable app shell with offline-first static assets and network-first page updates.
 
