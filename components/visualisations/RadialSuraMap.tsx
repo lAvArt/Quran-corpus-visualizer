@@ -45,6 +45,21 @@ interface RootConnection {
   color: string;
 }
 
+interface AyahRootEntry {
+  root: string;
+  count: number;
+  globalCount: number;
+}
+
+interface AyahRootNode extends AyahRootEntry {
+  x: number;
+  y: number;
+  r: number;
+  labelX: number;
+  labelY: number;
+  baseColor: string;
+}
+
 export default function RadialSuraMap({
   tokens,
   suraId,
@@ -137,7 +152,9 @@ export default function RadialSuraMap({
     uniqueRoots,
     rootOccurrences,
     ayahRootCounts,
+    ayahRootEntriesByAyah,
     ayahRootMax,
+    maxRootsPerAyah,
     rootTokenTotals,
     maxRootTokenCount,
   } = useMemo(() => {
@@ -175,6 +192,30 @@ export default function RadialSuraMap({
     const ayahCount = ayahTokens.size || 1;
     const maxTokens = Math.max(...Array.from(ayahTokens.values()).map((t) => t.length), 1);
     const maxRootTokenCount = Math.max(1, ...Array.from(rootTokenTotals.values()));
+    const densityCompression = Math.max(0.38, Math.min(1, 120 / ayahCount));
+
+    const maxByAyah = new Map<number, number>();
+    const rootEntriesByAyah = new Map<number, AyahRootEntry[]>();
+    let maxRootsPerAyah = 1;
+    rootCountsByAyah.forEach((counts, ayahNum) => {
+      let max = 1;
+      counts.forEach((count) => {
+        if (count > max) max = count;
+      });
+      maxByAyah.set(ayahNum, max);
+
+      const entries = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([root, count]) => ({
+          root,
+          count,
+          globalCount: rootTokenTotals.get(root) ?? count,
+        }));
+      rootEntriesByAyah.set(ayahNum, entries);
+      if (entries.length > maxRootsPerAyah) {
+        maxRootsPerAyah = entries.length;
+      }
+    });
 
     // Create ayah bars
     const bars: AyahBar[] = [];
@@ -187,7 +228,16 @@ export default function RadialSuraMap({
       const dominantPOS = [...posCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "N";
 
       const angle = ((ayahNum - 1) / ayahCount) * 360 - 90; // Start from top
-      const barHeight = 30 + (ayahTokensList.length / maxTokens) * 120;
+      const rootCountsForAyah = rootCountsByAyah.get(ayahNum);
+      const rootVariantCount = rootCountsForAyah?.size ?? 0;
+
+      // Calculate token height based on length relative to max tokens in sura
+      const tokenHeight = 60 + (ayahTokensList.length / maxTokens) * 220;
+
+      // Calculate absolute minimum height required to strictly prevent nodes from squashing together
+      const minRequiredForRoots = 45 + (rootVariantCount * 24);
+
+      const barHeight = Math.min(450, Math.max(tokenHeight, minRequiredForRoots));
 
       // Determine if ayah contains the highlighted root
       const containsRoot = highlightRoot
@@ -196,7 +246,6 @@ export default function RadialSuraMap({
 
       // Adjust color if we are highlighting a root
       let barColor = getNodeColor(dominantPOS);
-      const rootCountsForAyah = rootCountsByAyah.get(ayahNum);
       let dominantRoot: string | null = null;
       let dominantRootCount = 0;
       if (rootCountsForAyah) {
@@ -269,17 +318,6 @@ export default function RadialSuraMap({
       }
     });
 
-    const highlightList = highlightRoot ? (rootOccurrences.get(highlightRoot) ?? []) : [];
-    highlightList.sort((a, b) => a - b);
-    const maxByAyah = new Map<number, number>();
-    rootCountsByAyah.forEach((counts, ayahNum) => {
-      let max = 1;
-      counts.forEach((count) => {
-        if (count > max) max = count;
-      });
-      maxByAyah.set(ayahNum, max);
-    });
-
     return {
       ayahBars: bars,
       rootConnections: connections,
@@ -287,7 +325,9 @@ export default function RadialSuraMap({
       uniqueRoots: [...rootOccurrences.keys()],
       rootOccurrences,
       ayahRootCounts: rootCountsByAyah,
+      ayahRootEntriesByAyah: rootEntriesByAyah,
       ayahRootMax: maxByAyah,
+      maxRootsPerAyah,
       rootTokenTotals,
       maxRootTokenCount,
     };
@@ -325,6 +365,37 @@ export default function RadialSuraMap({
     return map;
   }, [activeAyahRootCounts, activeAyahMaxCount, lexicalColorMode, rootTokenTotals, maxRootTokenCount, theme]);
 
+  const { ayahTokenIdByAyah, ayahTokenIdByAyahRoot } = useMemo(() => {
+    const byAyah = new Map<number, string>();
+    const byAyahRoot = new Map<string, string>();
+
+    for (const token of tokens) {
+      if (token.sura !== suraId) continue;
+      if (!byAyah.has(token.ayah)) {
+        byAyah.set(token.ayah, token.id);
+      }
+      if (token.root) {
+        const key = `${token.ayah}::${token.root}`;
+        if (!byAyahRoot.has(key)) {
+          byAyahRoot.set(key, token.id);
+        }
+      }
+    }
+
+    return {
+      ayahTokenIdByAyah: byAyah,
+      ayahTokenIdByAyahRoot: byAyahRoot,
+    };
+  }, [tokens, suraId]);
+
+  const getRootBaseColor = useCallback((root: string, globalCount: number) => {
+    if (lexicalColorMode === "frequency") {
+      const ratio = Math.log1p(globalCount) / Math.log1p(maxRootTokenCount);
+      return getFrequencyColor(ratio, theme);
+    }
+    return getIdentityColor(root, theme);
+  }, [lexicalColorMode, maxRootTokenCount, theme]);
+
   // Update dimensions on resize
   useEffect(() => {
     if (!containerRef.current) return;
@@ -355,7 +426,38 @@ export default function RadialSuraMap({
 
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
-  const innerRadius = Math.min(dimensions.width, dimensions.height) * 0.25;
+  const minDimension = Math.min(dimensions.width, dimensions.height);
+  const maxBarHeight = useMemo(
+    () => Math.max(24, ...ayahBars.map((bar) => bar.barHeight)),
+    [ayahBars]
+  );
+  const desiredArcSpacing = 16.0 + Math.min(6.0, maxRootsPerAyah * 0.4);
+  const radiusForAyahDensity = (ayahCount * desiredArcSpacing) / (2 * Math.PI);
+  const outerPadding = 80;
+  const maxInnerFromCanvas = Math.max(100, minDimension / 2 - maxBarHeight - outerPadding);
+  const baseInnerRadius = minDimension * 0.35;
+  const desiredInnerRadius = Math.max(baseInnerRadius, radiusForAyahDensity);
+
+  // By omitting the maxInnerFromCanvas clamp, we allow dense suras to scale up past screen boundaries, using zoom map layout
+  const innerRadius = Math.max(maxInnerFromCanvas, desiredInnerRadius);
+  const radiansPerAyah = (2 * Math.PI) / Math.max(ayahCount, 1);
+  const arcSpacing = innerRadius * radiansPerAyah;
+  const compactLayout = arcSpacing < 10.0;
+  const barStrokeWidth = compactLayout ? 2.4 : arcSpacing < 14 ? 3.0 : 3.6;
+  const endpointRadius = compactLayout ? 3.6 : 5.0;
+  const rootDetailLevel = zoomScale >= 3.0 ? 3 : zoomScale >= 1.4 ? 2 : 1;
+  const maxRootsPerAyahVisible =
+    rootDetailLevel === 1
+      ? compactLayout
+        ? 1
+        : 2
+      : rootDetailLevel === 2
+        ? compactLayout
+          ? 3
+          : 4
+        : Number.POSITIVE_INFINITY;
+  const showContextRootLabels = rootDetailLevel >= 2;
+  const showAllRootLabels = rootDetailLevel >= 3;
 
   // Generate arc path for connections
   const generateConnectionPath = useCallback(
@@ -384,8 +486,10 @@ export default function RadialSuraMap({
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
     rootConnections.forEach((conn) => {
-      const key = `${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`;
-      map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (!map.has(key)) {
+        map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
+      }
     });
     return map;
   }, [rootConnections, generateConnectionPath]);
@@ -397,14 +501,56 @@ export default function RadialSuraMap({
       const startY = centerY + Math.sin(angleRad) * innerRadius;
       const endX = centerX + Math.cos(angleRad) * (innerRadius + bar.barHeight);
       const endY = centerY + Math.sin(angleRad) * (innerRadius + bar.barHeight);
-      return { bar, angleRad, startX, startY, endX, endY };
+      const rootEntries = ayahRootEntriesByAyah.get(bar.ayah) ?? [];
+      const maxCountForAyah = ayahRootMax.get(bar.ayah) ?? 1;
+      const minNodeRadius = compactLayout ? 2.8 : 3.8;
+      const maxNodeRadius = compactLayout ? 6.0 : 8.5;
+      const rootRadiusScale = d3
+        .scaleSqrt<number, number>()
+        .domain([1, Math.max(1, maxCountForAyah)])
+        .range([minNodeRadius, maxNodeRadius]);
+
+      const rootStartPadding = Math.min(32, Math.max(16, bar.barHeight * 0.20));
+      const rootEndPadding = Math.min(24, Math.max(14, bar.barHeight * 0.15));
+      const rootBandLength = Math.max(15, bar.barHeight - rootStartPadding - rootEndPadding);
+      const rootNodes: AyahRootNode[] = rootEntries.map((entry, index) => {
+        const positionRatio =
+          rootEntries.length <= 1 ? 0.6 : (index + 1) / (rootEntries.length + 1);
+        const distance = rootStartPadding + rootBandLength * positionRatio;
+        const x = startX + Math.cos(angleRad) * distance;
+        const y = startY + Math.sin(angleRad) * distance;
+        const r = rootRadiusScale(entry.count);
+        const labelOffset = r + 3;
+
+        // Alternate perpendicular offset so texts don't stack directly on top of each other
+        const flip = index % 2 === 0 ? 1 : -1;
+        const perpOffset = rootEntries.length > 1 ? flip * (r + 4.5) : 0;
+        const pX = Math.cos(angleRad + Math.PI / 2);
+        const pY = Math.sin(angleRad + Math.PI / 2);
+
+        return {
+          ...entry,
+          x,
+          y,
+          r,
+          labelX: x + Math.cos(angleRad) * labelOffset + pX * perpOffset,
+          labelY: y + Math.sin(angleRad) * (labelOffset + 0.5) + pY * perpOffset,
+          baseColor: getRootBaseColor(entry.root, entry.globalCount),
+        };
+      });
+
+      return { bar, angleRad, startX, startY, endX, endY, rootNodes };
     });
-  }, [ayahBars, centerX, centerY, innerRadius]);
+  }, [ayahBars, centerX, centerY, innerRadius, ayahRootEntriesByAyah, ayahRootMax, compactLayout, getRootBaseColor]);
 
   const selectedAyahData = useMemo(
     () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),
     [selectedAyah, ayahBars]
   );
+  const selectedAyahRootEntries = useMemo(() => {
+    if (!selectedAyah) return [];
+    return ayahRootEntriesByAyah.get(selectedAyah) ?? [];
+  }, [selectedAyah, ayahRootEntriesByAyah]);
 
   const visibleConnections = useMemo(() => {
     if (!selectedConnection) return rootConnections;
@@ -416,15 +562,59 @@ export default function RadialSuraMap({
     );
   }, [rootConnections, selectedConnection]);
 
-  const handleBarHover = (ayah: number | null) => {
-    setHoveredAyah(ayah);
+  const renderedConnections = useMemo(() => {
+    return visibleConnections;
+  }, [visibleConnections]);
+
+  const barsForRender = useMemo(() => {
+    return barsWithGeometry.map((entry) => {
+      const isFocusedAyah =
+        entry.bar.ayah === selectedAyah ||
+        entry.bar.ayah === hoveredAyah ||
+        highlightAyahSet.has(entry.bar.ayah);
+
+      let visibleRootNodes = entry.rootNodes;
+      if (!isFocusedAyah && Number.isFinite(maxRootsPerAyahVisible)) {
+        visibleRootNodes = entry.rootNodes.slice(0, maxRootsPerAyahVisible);
+      }
+
+      if (highlightRoot) {
+        const highlightedNode = entry.rootNodes.find((node) => node.root === highlightRoot);
+        if (highlightedNode && !visibleRootNodes.some((node) => node.root === highlightRoot)) {
+          visibleRootNodes = [...visibleRootNodes, highlightedNode];
+        }
+      }
+
+      return {
+        ...entry,
+        isFocusedAyah,
+        visibleRootNodes,
+      };
+    });
+  }, [barsWithGeometry, selectedAyah, hoveredAyah, highlightAyahSet, maxRootsPerAyahVisible, highlightRoot]);
+
+  const handleAyahSelect = useCallback((ayah: number, preferredRoot?: string) => {
+    setSelectedAyah(ayah);
+    const tokenId =
+      (preferredRoot ? ayahTokenIdByAyahRoot.get(`${ayah}::${preferredRoot}`) : undefined) ??
+      ayahTokenIdByAyah.get(ayah);
+    if (tokenId) onTokenFocus(tokenId);
+  }, [ayahTokenIdByAyahRoot, ayahTokenIdByAyah, onTokenFocus]);
+
+  const handleBarHover = useCallback((ayah: number | null) => {
+    setHoveredAyah((prev) => (prev === ayah ? prev : ayah));
     if (ayah) {
-      const token = tokens.find((t) => t.sura === suraId && t.ayah === ayah);
-      if (token) onTokenHover(token.id);
+      const tokenId = ayahTokenIdByAyah.get(ayah);
+      if (tokenId) onTokenHover(tokenId);
     } else {
       onTokenHover(null);
     }
-  };
+  }, [ayahTokenIdByAyah, onTokenHover]);
+
+  const handleRootNodeHover = useCallback((ayah: number | null, root: string | null) => {
+    setHoveredRoot((prev) => (prev === root ? prev : root));
+    handleBarHover(ayah);
+  }, [handleBarHover]);
 
   const handleConnectionHover = (connection: RootConnection | null) => {
     setHoveredConnection(connection);
@@ -449,9 +639,26 @@ export default function RadialSuraMap({
     if (onRootSelect) onRootSelect(connection.root);
   };
 
+  const handleRootNodeSelect = (
+    event: MouseEvent<SVGCircleElement | SVGTextElement>,
+    ayah: number,
+    root: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedConnection(null);
+    setHoveredConnection(null);
+    setHoveredRoot(root);
+    if (onRootSelect) onRootSelect(root);
+    handleAyahSelect(ayah, root);
+  };
+
   const handleZoomStep = useCallback((factor: number) => {
     zoomBy(factor);
   }, [zoomBy]);
+
+  const allowConnectionAnimation = shouldAnimateConnections && renderedConnections.length <= 280;
+  const allowBarAnimation = shouldAnimateBars && ayahCount <= 120;
 
   return (
     <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -583,6 +790,62 @@ export default function RadialSuraMap({
                     <span className="viz-tooltip-label">{ts("dominantPOS")}</span>
                     <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
                   </div>
+                  {selectedAyahRootEntries.length > 0 && (
+                    <div style={{ marginTop: "0.7rem", display: "grid", gap: "0.45rem" }}>
+                      <span
+                        className="viz-tooltip-label"
+                        style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}
+                      >
+                        {ts("roots")}
+                      </span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                        {selectedAyahRootEntries.map((entry) => {
+                          const chipColor = getRootBaseColor(entry.root, entry.globalCount);
+                          const isDimmed = !!highlightRoot && entry.root !== highlightRoot;
+                          return (
+                            <button
+                              type="button"
+                              key={`${selectedAyah}-${entry.root}`}
+                              onClick={() => {
+                                if (!selectedAyah) return;
+                                setSelectedConnection(null);
+                                setHoveredConnection(null);
+                                setHoveredRoot(entry.root);
+                                if (onRootSelect) onRootSelect(entry.root);
+                                handleAyahSelect(selectedAyah, entry.root);
+                              }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.28rem",
+                                borderRadius: 999,
+                                border: "1px solid var(--line)",
+                                background: "color-mix(in srgb, var(--surface), transparent 18%)",
+                                color: "var(--ink-secondary)",
+                                padding: "0.12rem 0.44rem",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                                opacity: isDimmed ? 0.45 : 1,
+                              }}
+                            >
+                              <span
+                                aria-hidden
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  background: isDimmed
+                                    ? (theme === "dark" ? "rgba(255,255,255,0.2)" : "rgba(31, 28, 25, 0.2)")
+                                    : chipColor,
+                                }}
+                              />
+                              <span className="arabic-text">{entry.root}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -815,36 +1078,52 @@ export default function RadialSuraMap({
 
               {/* Root connections (flowing curves inside the circle) */}
               <g className="connections">
-                {visibleConnections.map((conn, idx) => {
+                {renderedConnections.map((conn, idx) => {
                   const isActiveAyah =
                     !!activeAyah && (conn.sourceAyah === activeAyah || conn.targetAyah === activeAyah);
                   const countColor = isActiveAyah ? activeRootColorMap?.get(conn.root) ?? null : null;
                   const isHighlighted = hoveredRoot === conn.root || isActiveAyah;
-                  const pathKey = `${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`;
+                  const pathKey = `${conn.sourceAyah}-${conn.targetAyah}`;
                   const pathD = connectionPaths.get(pathKey) ?? "";
+
+                  const strokeColor = countColor ??
+                    (isHighlighted
+                      ? themeColors.accent
+                      : lexicalColorMode === "theme"
+                        ? "url(#connectionGrad)"
+                        : conn.color);
+
                   return (
                     <g key={`${conn.sourceAyah}-${conn.targetAyah}-${conn.root}`}>
-                      <motion.path
-                        d={pathD}
-                        className={`connection ${isHighlighted ? "highlighted" : ""}`}
-                        stroke={
-                          countColor ??
-                          (isHighlighted
-                            ? themeColors.accent
-                            : lexicalColorMode === "theme"
-                              ? "url(#connectionGrad)"
-                              : conn.color)
-                        }
-                        strokeWidth={isHighlighted ? 2.5 : 1.5}
-                        fill="none"
-                        pointerEvents="none"
-                        initial={shouldAnimateConnections ? { pathLength: 0, opacity: 0 } : false}
-                        animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
-                        transition={shouldAnimateConnections ? { duration: 1.5, delay: idx * 0.02 } : { duration: 0 }}
-                        filter={isHighlighted ? "url(#glow)" : undefined}
-                        onMouseEnter={() => handleConnectionHover(conn)}
-                        onMouseLeave={() => handleConnectionHover(null)}
-                      />
+                      {allowConnectionAnimation ? (
+                        <motion.path
+                          d={pathD}
+                          className={`connection ${isHighlighted ? "highlighted" : ""}`}
+                          stroke={strokeColor}
+                          strokeWidth={isHighlighted ? 2.5 : 1.5}
+                          fill="none"
+                          pointerEvents="none"
+                          initial={{ pathLength: 0, opacity: 0 }}
+                          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
+                          transition={{ duration: 1.1, delay: idx * 0.012 }}
+                          filter={isHighlighted ? "url(#glow)" : undefined}
+                          onMouseEnter={() => handleConnectionHover(conn)}
+                          onMouseLeave={() => handleConnectionHover(null)}
+                        />
+                      ) : (
+                        <path
+                          d={pathD}
+                          className={`connection ${isHighlighted ? "highlighted" : ""}`}
+                          stroke={strokeColor}
+                          strokeWidth={isHighlighted ? 2.5 : 1.5}
+                          style={{ opacity: isHighlighted ? 1 : 0.3 }}
+                          fill="none"
+                          pointerEvents="none"
+                          filter={isHighlighted ? "url(#glow)" : undefined}
+                          onMouseEnter={() => handleConnectionHover(conn)}
+                          onMouseLeave={() => handleConnectionHover(null)}
+                        />
+                      )}
                       <path
                         d={pathD}
                         stroke="transparent"
@@ -864,16 +1143,12 @@ export default function RadialSuraMap({
 
               {/* Ayah bars radiating outward */}
               <g className="ayah-bars">
-                {barsWithGeometry.map(({ bar, angleRad, startX, startY, endX, endY }) => {
+                {barsForRender.map(({ bar, angleRad, startX, startY, endX, endY, visibleRootNodes, isFocusedAyah }, barIndex) => {
                   const isSelected = selectedAyah === bar.ayah;
+                  const labelAnchor = angleRad > Math.PI / 2 && angleRad < (3 * Math.PI) / 2 ? "end" : "start";
 
-                  return (
-                    <motion.g
-                      key={bar.ayah}
-                      initial={shouldAnimateBars ? { opacity: 0 } : false}
-                      animate={{ opacity: 1 }}
-                      transition={shouldAnimateBars ? { delay: bar.ayah * 0.03 } : { duration: 0 }}
-                    >
+                  const barContent = (
+                    <>
                       <line
                         x1={startX}
                         y1={startY}
@@ -881,7 +1156,7 @@ export default function RadialSuraMap({
                         y2={endY}
                         className="bar colored"
                         stroke={isSelected ? themeColors.accent : bar.color}
-                        strokeWidth={isSelected ? 4 : 2.5}
+                        strokeWidth={isSelected ? barStrokeWidth + 1.4 : barStrokeWidth}
                         strokeLinecap="round"
                         filter={isSelected ? "url(#strongGlow)" : undefined}
                         style={{ cursor: "pointer" }}
@@ -889,16 +1164,73 @@ export default function RadialSuraMap({
                         onMouseLeave={() => handleBarHover(null)}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelectedAyah(bar.ayah);
-                          const token = tokens.find((t) => t.sura === suraId && t.ayah === bar.ayah);
-                          if (token) onTokenFocus(token.id);
+                          setSelectedConnection(null);
+                          setHoveredConnection(null);
+                          handleAyahSelect(bar.ayah);
                         }}
                       />
+                      {visibleRootNodes.map((node, nodeIndex) => {
+                        const isRootHighlighted = hoveredRoot === node.root || highlightRoot === node.root;
+                        const isDimmed = !!highlightRoot && node.root !== highlightRoot;
+                        const displayRadius = isRootHighlighted ? node.r + 0.7 : node.r;
+                        const tintColor = isDimmed
+                          ? (theme === "dark" ? "rgba(255,255,255,0.14)" : "rgba(31, 28, 25, 0.2)")
+                          : node.baseColor;
+                        const highlightedRootColor = theme === "dark" ? "#FFD166" : "#E27B13";
+
+                        const shouldShowRootLabel =
+                          isRootHighlighted ||
+                          (showAllRootLabels && displayRadius >= 1.75) ||
+                          (showContextRootLabels && isFocusedAyah && displayRadius >= 1.55);
+                        const labelYOffset = showAllRootLabels ? (nodeIndex % 2 === 0 ? -0.75 : 0.75) : 0;
+                        const rootLabelFontSize = showAllRootLabels
+                          ? (compactLayout ? 7.6 : 8.2)
+                          : (compactLayout ? 6.8 : 7.2);
+
+                        return (
+                          <g key={`${bar.ayah}-${node.root}`}>
+                            <circle
+                              cx={node.x}
+                              cy={node.y}
+                              r={displayRadius}
+                              fill="transparent"
+                              stroke={isRootHighlighted ? highlightedRootColor : tintColor}
+                              strokeWidth={isRootHighlighted ? 2.5 : 1.8}
+                              opacity={isDimmed ? 0.35 : 0.9}
+                              filter={isRootHighlighted ? "url(#glow)" : undefined}
+                              style={{ cursor: "pointer" }}
+                              onMouseEnter={() => handleRootNodeHover(bar.ayah, node.root)}
+                              onMouseLeave={() => handleRootNodeHover(null, null)}
+                              onClick={(event) => handleRootNodeSelect(event, bar.ayah, node.root)}
+                            />
+                            {shouldShowRootLabel && (
+                              <text
+                                x={node.labelX}
+                                y={node.labelY + labelYOffset}
+                                textAnchor={labelAnchor}
+                                className="arabic-text"
+                                fill={
+                                  isRootHighlighted
+                                    ? highlightedRootColor
+                                    : theme === "dark"
+                                      ? "rgba(255,255,255,0.78)"
+                                      : "rgba(31, 28, 25, 0.78)"
+                                }
+                                fontSize={rootLabelFontSize}
+                                fontWeight={isRootHighlighted ? 600 : 500}
+                                pointerEvents="none"
+                              >
+                                {node.root}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
                       {/* Small circle at the end of bar */}
                       <circle
                         cx={endX}
                         cy={endY}
-                        r={isSelected ? 5 : 3}
+                        r={isSelected ? endpointRadius + 1.5 : endpointRadius}
                         fill={isSelected ? themeColors.accent : bar.color}
                         filter={isSelected ? "url(#glow)" : undefined}
                       />
@@ -912,34 +1244,45 @@ export default function RadialSuraMap({
                         onMouseLeave={() => handleBarHover(null)}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelectedAyah(bar.ayah);
-                          const token = tokens.find((t) => t.sura === suraId && t.ayah === bar.ayah);
-                          if (token) onTokenFocus(token.id);
+                          setSelectedConnection(null);
+                          setHoveredConnection(null);
+                          handleAyahSelect(bar.ayah);
                         }}
                       />
                       {(() => {
-                        const labelRadius = innerRadius + bar.barHeight + 18;
+                        const labelRadius = innerRadius + bar.barHeight + (compactLayout ? 14 : 18);
                         const labelX = centerX + Math.cos(angleRad) * labelRadius;
                         const labelY = centerY + Math.sin(angleRad) * labelRadius;
                         const isEmphasized =
                           highlightAyahSet.has(bar.ayah) ||
                           bar.ayah === selectedAyah ||
                           bar.ayah === hoveredAyah;
+                        const sparseInterval =
+                          ayahCount > 180 ? 12 :
+                            ayahCount > 120 ? 8 :
+                              ayahCount > 80 ? 6 :
+                                ayahCount > 50 ? 4 : 2;
+                        const passesSparseFilter = barIndex % sparseInterval === 0;
+                        const shouldShowAyahLabel =
+                          isEmphasized ||
+                          zoomScale >= 2.4 ||
+                          (zoomScale >= 1.5 && passesSparseFilter);
+                        if (!shouldShowAyahLabel) return null;
                         return (
                           <text
                             x={labelX}
                             y={labelY}
-                            textAnchor={angleRad > Math.PI / 2 && angleRad < (3 * Math.PI) / 2 ? "end" : "start"}
+                            textAnchor={labelAnchor}
                             fill={
                               isEmphasized
                                 ? theme === "dark"
-                                  ? "rgba(255,255,255,0.45)"
-                                  : "rgba(31, 28, 25, 0.62)"
+                                  ? "rgba(255,255,255,0.95)"
+                                  : "rgba(31, 28, 25, 0.95)"
                                 : theme === "dark"
                                   ? "rgba(255,255,255,0.22)"
                                   : "rgba(31, 28, 25, 0.36)"
                             }
-                            fontSize={isEmphasized ? "8.5" : "8"}
+                            fontSize={isEmphasized ? (compactLayout ? "9.5" : "11.5") : (compactLayout ? "8.5" : "10")}
                             fontWeight={isEmphasized ? 600 : 400}
                             style={{ pointerEvents: "none" }}
                           >
@@ -947,7 +1290,22 @@ export default function RadialSuraMap({
                           </text>
                         );
                       })()}
+                    </>
+                  );
+
+                  return allowBarAnimation ? (
+                    <motion.g
+                      key={bar.ayah}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: bar.ayah * 0.012 }}
+                    >
+                      {barContent}
                     </motion.g>
+                  ) : (
+                    <g key={bar.ayah}>
+                      {barContent}
+                    </g>
                   );
                 })}
               </g>
