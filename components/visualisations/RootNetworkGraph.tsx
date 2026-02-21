@@ -3,7 +3,7 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import * as d3 from "d3";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
@@ -303,23 +303,25 @@ export default function RootNetworkGraph({
     const g = d3.select(gRef.current);
 
     const dragBehavior = d3.drag<SVGGElement, unknown>()
+      .subject((event) => {
+        const el = (event.sourceEvent?.target as Element)?.closest?.(".rn-node");
+        const id = el?.getAttribute("data-node-id");
+        return { id };
+      })
       .on("start", (event) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
-        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
-        const nodeId = el?.getAttribute("data-node-id");
+        const nodeId = event.subject?.id;
         const node = liveNodesRef.current.find((n) => n.id === nodeId);
         if (node) { node.fx = node.x; node.fy = node.y; }
       })
       .on("drag", (event) => {
-        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
-        const nodeId = el?.getAttribute("data-node-id");
+        const nodeId = event.subject?.id;
         const node = liveNodesRef.current.find((n) => n.id === nodeId);
         if (node) { node.fx = event.x; node.fy = event.y; }
       })
       .on("end", (event) => {
         if (!event.active) simulation.alphaTarget(0);
-        const el = event.sourceEvent?.target?.closest?.(".rn-node") as SVGGElement | null;
-        const nodeId = el?.getAttribute("data-node-id");
+        const nodeId = event.subject?.id;
         const node = liveNodesRef.current.find((n) => n.id === nodeId);
         if (node) { node.fx = null; node.fy = null; }
       });
@@ -368,6 +370,11 @@ export default function RootNetworkGraph({
       return sourceId === highlightId || targetId === highlightId;
     },
     [hoveredNode, selectedNode, highlightRootNodeId]
+  );
+
+  const sidebarNode = useMemo(
+    () => nodes.find((n) => n.id === (hoveredNode ?? selectedNode)) ?? null,
+    [nodes, hoveredNode, selectedNode]
   );
 
   return (
@@ -586,10 +593,16 @@ export default function RootNetworkGraph({
                         <text
                           className="node-label arabic-text"
                           y={node.radius + 16}
+                          textAnchor="middle"
+                          paintOrder="stroke"
+                          stroke="var(--bg)"
+                          strokeWidth={3}
+                          strokeLinejoin="round"
                           style={{
                             opacity: isHighlighted ? 1 : 0.7,
                             fontSize: isRoot ? "14px" : "11px",
                             fontWeight: isRoot ? 600 : 400,
+                            fill: "var(--ink)",
                           }}
                         >
                           {node.label}
@@ -602,126 +615,101 @@ export default function RootNetworkGraph({
             </g>
           </svg>
         )}
-
-        {/* Tooltip */}
-        <AnimatePresence>
-          {(hoveredNode || selectedNode) && (
-            <motion.div
-              className="viz-tooltip"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              style={{
-                position: "absolute",
-                top: 20,
-                left: 20,
-                transform: "none",
-              }}
-            >
-              {(() => {
-                const node = nodes.find(
-                  (n) => n.id === (hoveredNode ?? selectedNode)
-                );
-                if (!node) return null;
-
-                return (
-                  <>
-                    <div className="viz-tooltip-title arabic-text">
-                      {node.label}
-                    </div>
-                    <div className="viz-tooltip-subtitle">
-                      {node.type === "root" ? ts("root") : ts("lemma")}
-                    </div>
-                    <div className="viz-tooltip-row">
-                      <span className="viz-tooltip-label">{ts("occurrences")}</span>
-                      <span className="viz-tooltip-value">{node.frequency}</span>
-                    </div>
-                    {node.tokens[0] && (
-                      <>
-                        <div className="viz-tooltip-row">
-                          <span className="viz-tooltip-label">{ts("example")}</span>
-                          <span className="viz-tooltip-value arabic-text">
-                            {node.tokens[0].text}
-                          </span>
-                        </div>
-                        <div className="viz-tooltip-row">
-                          <span className="viz-tooltip-label">{ts("gloss")}</span>
-                          <span className="viz-tooltip-value">
-                            {node.tokens[0].morphology.gloss ?? "—"}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
-        <div className="viz-legend" data-tour-id="viz-legend">
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{
-                background: themeColors.nodeColors.default,
-                width: 16,
-                height: 16,
-              }}
-            />
-            <span>{lexicalColorMode === "theme" ? t("rootTrilateral") : t("rootNodes")}</span>
-          </div>
-          {lexicalColorMode === "theme" ? (
-            <>
-              <div className="viz-legend-item">
-                <div
-                  className="viz-legend-dot"
-                  style={{ background: getNodeColor("N"), width: 10, height: 10 }}
-                />
-                <span>{t("nounLemma")}</span>
+        <div className="viz-left-stack">
+          {sidebarNode && (
+            <div className="viz-left-panel">
+              <div className="viz-tooltip-title arabic-text">{sidebarNode.label}</div>
+              <div className="viz-tooltip-subtitle">
+                {sidebarNode.type === "root" ? ts("root") : ts("lemma")}
               </div>
-              <div className="viz-legend-item">
-                <div
-                  className="viz-legend-dot"
-                  style={{ background: getNodeColor("V"), width: 10, height: 10 }}
-                />
-                <span>{t("verbLemma")}</span>
+              <div className="viz-tooltip-row">
+                <span className="viz-tooltip-label">{ts("occurrences")}</span>
+                <span className="viz-tooltip-value">{sidebarNode.frequency}</span>
               </div>
-            </>
-          ) : lexicalColorMode === "frequency" ? (
-            <>
-              <div className="viz-legend-item">
-                <div
-                  className="viz-legend-dot"
-                  style={{ background: getFrequencyColor(0.2, theme), width: 10, height: 10 }}
-                />
-                <span>{ts("lowerFrequency")}</span>
-              </div>
-              <div className="viz-legend-item">
-                <div
-                  className="viz-legend-dot"
-                  style={{ background: getFrequencyColor(0.9, theme), width: 10, height: 10 }}
-                />
-                <span>{ts("higherFrequency")}</span>
-              </div>
-            </>
-          ) : (
+              {sidebarNode.tokens[0] && (
+                <>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("example")}</span>
+                    <span className="viz-tooltip-value arabic-text">
+                      {sidebarNode.tokens[0].text}
+                    </span>
+                  </div>
+                  <div className="viz-tooltip-row">
+                    <span className="viz-tooltip-label">{ts("gloss")}</span>
+                    <span className="viz-tooltip-value">
+                      {sidebarNode.tokens[0].morphology?.gloss ?? "-"}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="viz-legend" data-tour-id="viz-legend">
             <div className="viz-legend-item">
               <div
                 className="viz-legend-dot"
-                style={{ background: getIdentityColor("root-color-seed", theme), width: 10, height: 10 }}
+                style={{
+                  background: themeColors.nodeColors.default,
+                  width: 16,
+                  height: 16,
+                }}
               />
-              <span>{ts("uniqueLexicalIdentity")}</span>
+              <span>{lexicalColorMode === "theme" ? t("rootTrilateral") : t("rootNodes")}</span>
             </div>
-          )}
-          <div className="viz-legend-item">
-            <div
-              className="viz-legend-dot"
-              style={{ background: themeColors.accent, width: 12, height: 12 }}
-            />
-            <span>{ts("highlighted")}</span>
+            {lexicalColorMode === "theme" ? (
+              <>
+                <div className="viz-legend-item">
+                  <div
+                    className="viz-legend-dot"
+                    style={{ background: getNodeColor("N"), width: 10, height: 10 }}
+                  />
+                  <span>{t("nounLemma")}</span>
+                </div>
+                <div className="viz-legend-item">
+                  <div
+                    className="viz-legend-dot"
+                    style={{ background: getNodeColor("V"), width: 10, height: 10 }}
+                  />
+                  <span>{t("verbLemma")}</span>
+                </div>
+              </>
+            ) : lexicalColorMode === "frequency" ? (
+              <>
+                <div className="viz-legend-item">
+                  <div
+                    className="viz-legend-dot"
+                    style={{ background: getFrequencyColor(0.2, theme), width: 10, height: 10 }}
+                  />
+                  <span>{ts("lowerFrequency")}</span>
+                </div>
+                <div className="viz-legend-item">
+                  <div
+                    className="viz-legend-dot"
+                    style={{ background: getFrequencyColor(0.9, theme), width: 10, height: 10 }}
+                  />
+                  <span>{ts("higherFrequency")}</span>
+                </div>
+              </>
+            ) : (
+              <div className="viz-legend-item">
+                <div
+                  className="viz-legend-dot"
+                  style={{ background: getIdentityColor("root-color-seed", theme), width: 10, height: 10 }}
+                />
+                <span>{ts("uniqueLexicalIdentity")}</span>
+              </div>
+            )}
+            <div className="viz-legend-item">
+              <div
+                className="viz-legend-dot"
+                style={{ background: themeColors.accent, width: 12, height: 12 }}
+              />
+              <span>{ts("highlighted")}</span>
+            </div>
           </div>
         </div>,
         document.getElementById('viz-sidebar-portal')!
@@ -729,3 +717,4 @@ export default function RootNetworkGraph({
     </section>
   );
 }
+

@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import type { CorpusToken } from "@/lib/schema/types";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { normalizeArabicForSearch } from "@/lib/search/indexes";
 
 interface GlobalSearchProps {
   tokens: CorpusToken[];
@@ -61,13 +62,20 @@ export default function GlobalSearch({
   const results = useMemo<SearchResult[]>(() => {
     if (!debouncedQuery.trim() || debouncedQuery.length < 2) return [];
 
-    const q = debouncedQuery.toLowerCase().trim();
+    const queryTrimmed = debouncedQuery.trim();
+    const q = queryTrimmed.toLowerCase();
+    const normalizedQuery = normalizeArabicForSearch(queryTrimmed);
     const matches: SearchResult[] = [];
     const seen = new Set<string>();
 
     // Search by root
     for (const [root, rootTokens] of byRoot) {
-      if (root.includes(q) || root.replace(/ /g, "").includes(q)) {
+      const normalizedRoot = normalizeArabicForSearch(root);
+      if (
+        root.includes(queryTrimmed) ||
+        root.replace(/ /g, "").includes(queryTrimmed.replace(/ /g, "")) ||
+        normalizedRoot.includes(normalizedQuery)
+      ) {
         const token = rootTokens[0];
         if (!seen.has(token.id)) {
           seen.add(token.id);
@@ -82,7 +90,8 @@ export default function GlobalSearch({
 
     // Search by lemma
     for (const [lemma, lemmaTokens] of byLemma) {
-      if (lemma.includes(q)) {
+      const normalizedLemma = normalizeArabicForSearch(lemma);
+      if (lemma.includes(queryTrimmed) || normalizedLemma.includes(normalizedQuery)) {
         const token = lemmaTokens[0];
         if (!seen.has(token.id)) {
           seen.add(token.id);
@@ -97,7 +106,8 @@ export default function GlobalSearch({
 
     // Search by Arabic text
     for (const token of tokens) {
-      if (token.text.includes(q) && !seen.has(token.id)) {
+      const normalizedText = normalizeArabicForSearch(token.text);
+      if ((token.text.includes(queryTrimmed) || normalizedText.includes(normalizedQuery)) && !seen.has(token.id)) {
         seen.add(token.id);
         matches.push({
           token,

@@ -6,12 +6,15 @@ interface VizControlContextType {
     isLeftSidebarOpen: boolean;
     isRightSidebarOpen: boolean;
     isMobileNavOpen: boolean;
+    isMobileSearchOpen: boolean;
     toggleLeftSidebar: () => void;
     toggleRightSidebar: () => void;
     toggleMobileNav: () => void;
+    toggleMobileSearch: () => void;
     setLeftSidebarOpen: (isOpen: boolean) => void;
     setRightSidebarOpen: (isOpen: boolean) => void;
     setMobileNavOpen: (isOpen: boolean) => void;
+    setMobileSearchOpen: (isOpen: boolean) => void;
 }
 
 const VizControlContext = createContext<VizControlContextType | undefined>(undefined);
@@ -20,8 +23,9 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
     // Start closed, then sync to viewport after mount:
     // desktop => open, mobile => closed
     const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false); // Tools sidebar usually starts closed or controlled by page
+    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+    const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -41,6 +45,7 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
     const toggleLeftSidebar = useCallback(() => setIsLeftSidebarOpen(prev => !prev), []);
     const toggleRightSidebar = useCallback(() => setIsRightSidebarOpen(prev => !prev), []);
     const toggleMobileNav = useCallback(() => setIsMobileNavOpen(prev => !prev), []);
+    const toggleMobileSearch = useCallback(() => setIsMobileSearchOpen(prev => !prev), []);
 
     return (
         <VizControlContext.Provider
@@ -48,12 +53,15 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
                 isLeftSidebarOpen,
                 isRightSidebarOpen,
                 isMobileNavOpen,
+                isMobileSearchOpen,
                 toggleLeftSidebar,
                 toggleRightSidebar,
                 toggleMobileNav,
+                toggleMobileSearch,
                 setLeftSidebarOpen: setIsLeftSidebarOpen,
                 setRightSidebarOpen: setIsRightSidebarOpen,
                 setMobileNavOpen: setIsMobileNavOpen,
+                setMobileSearchOpen: setIsMobileSearchOpen,
             }}
         >
             {children}

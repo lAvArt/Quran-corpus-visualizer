@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { normalizeArabicForSearch } from "@/lib/search/indexes";
 
 
 interface CorpusIndexProps {
@@ -62,7 +63,8 @@ export default function CorpusIndex({
     }, [tokens, selectedSurahId, activeTab]);
 
     const filteredItems = useMemo(() => {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase().trim();
+        const normalizedQuery = normalizeArabicForSearch(searchQuery);
 
         if (activeTab === "surah") {
             return Object.entries(SURAH_NAMES)
@@ -74,7 +76,11 @@ export default function CorpusIndex({
                     tokenCount: 0, // Placeholder, actual count is in computed data
                     value: parseInt(id),
                 }))
-                .filter((item) => item.label.toLowerCase().includes(query))
+                .filter((item) => {
+                    if (!query) return true;
+                    const normalizedSubLabel = normalizeArabicForSearch(item.subLabel);
+                    return item.label.toLowerCase().includes(query) || normalizedSubLabel.includes(normalizedQuery);
+                })
                 .sort((a, b) => a.id - b.id);
         } else if (activeTab === "root") {
             return Array.from(data.rootCounts.entries())
@@ -85,7 +91,10 @@ export default function CorpusIndex({
                     count: count,
                     value: root,
                 }))
-                .filter((item) => item.label.includes(query))
+                .filter((item) => {
+                    if (!query) return true;
+                    return item.label.includes(searchQuery) || normalizeArabicForSearch(item.label).includes(normalizedQuery);
+                })
                 .sort((a, b) => b.count - a.count);
         } else {
             return Array.from(data.lemmaCounts.entries())
@@ -96,7 +105,10 @@ export default function CorpusIndex({
                     count: count,
                     value: lemma,
                 }))
-                .filter((item) => item.label.includes(query))
+                .filter((item) => {
+                    if (!query) return true;
+                    return item.label.includes(searchQuery) || normalizeArabicForSearch(item.label).includes(normalizedQuery);
+                })
                 .sort((a, b) => b.count - a.count);
         }
     }, [activeTab, searchQuery, data, t]);

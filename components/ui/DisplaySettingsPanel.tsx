@@ -507,13 +507,15 @@ export default function DisplaySettingsPanel({
 
           .display-settings-panel {
             position: fixed;
-            top: 52px;
+            top: var(--header-clearance);
             right: 8px;
             left: 8px;
+            bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance));
             min-width: 0;
             width: auto;
-            max-height: calc(100vh - 60px);
+            max-height: none;
             overflow-y: auto;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
           }
         }
       `}</style>

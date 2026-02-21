@@ -19,6 +19,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
+import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import GuidedWalkthroughOverlay from "@/components/ui/GuidedWalkthroughOverlay";
@@ -96,6 +97,7 @@ function HomePageContent() {
   const [selectedSurahId, setSelectedSurahId] = useState<number>(1);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
+  const [searchLockedRoot, setSearchLockedRoot] = useState<string | null>(null);
 
   // Corpus loading state
   const [tokens, setTokens] = useState<CorpusToken[]>(() => getSampleData());
@@ -400,9 +402,21 @@ function HomePageContent() {
   );
 
   const handleRootSelect = useCallback((root: string | null) => {
+    // When a search-locked root is active, graph clicks do not override it
+    if (searchLockedRoot && root && root !== searchLockedRoot) return;
     setSelectedRoot(root);
     // When a root is explicitly selected from a visualization, clear the
     // previously focused token so the inspector shows the new root's data
+    if (root) {
+      setFocusedTokenId(null);
+      setSelectedLemma(null);
+    }
+  }, [searchLockedRoot]);
+
+  // Callback for search panel: locks the root so graph clicks can't override it
+  const handleSearchRootSelect = useCallback((root: string | null) => {
+    setSearchLockedRoot(root);
+    setSelectedRoot(root);
     if (root) {
       setFocusedTokenId(null);
       setSelectedLemma(null);
@@ -694,10 +708,13 @@ function HomePageContent() {
             setFocusedTokenId(null);
             setSelectedRoot(null);
             setSelectedLemma(null);
+            setSearchLockedRoot(null);
           }}
           onTokenHover={setHoverTokenId}
           onTokenFocus={setFocusedTokenId}
+          onTokenSelect={handleTokenSelect}
           onRootSelect={handleRootSelect}
+          onSearchRootSelect={handleSearchRootSelect}
           onSelectSurah={(surahId) => handleSurahSelect(surahId)}
           onLemmaSelect={handleLemmaSelect}
           selectedSurahId={selectedSurahId}
@@ -705,6 +722,12 @@ function HomePageContent() {
       </div>
 
       <MobileBottomBar />
+      <MobileSearchOverlay
+        tokens={allTokens}
+        onTokenSelect={handleTokenSelect}
+        onTokenHover={setHoverTokenId}
+        onRootSelect={handleRootSelect}
+      />
 
       <OnboardingOverlay
         isOpen={experiencePhase === "onboarding"}

@@ -17,6 +17,19 @@ interface MorphologyInspectorProps {
 export default function MorphologyInspector({ token, mode, onClearFocus, allTokens, onRootSelect, onSelectSurah }: MorphologyInspectorProps) {
     const t = useTranslations('MorphologyInspector');
 
+    // Safe translation helper for dynamic keys
+    const translateFeature = (type: 'keys' | 'values' | 'pos', term: string) => {
+        try {
+            const path = `featuresMap.${type}.${term}` as any;
+            if (t.has(path)) {
+                return t(path);
+            }
+            return term;
+        } catch {
+            return term;
+        }
+    };
+
     // Compute root distribution when a token with a root is shown
     const rootDistribution = useMemo(() => {
         if (!token?.root) return null;
@@ -150,7 +163,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                     </div>
                     <div className="data-item">
                         <span className="label">{t('labels.pos')}</span>
-                        <span className="value">{token.pos}</span>
+                        <span className="value">{translateFeature('pos', token.pos)}</span>
                     </div>
                 </div>
             </div>
@@ -166,8 +179,8 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                     <div className="features-list">
                         {Object.entries(token.morphology.features).map(([key, value]) => (
                             <div key={key} className="feature-tag">
-                                <span className="f-key">{key}</span>
-                                <span className="f-val">{value}</span>
+                                <span className="f-key">{translateFeature('keys', key)}</span>
+                                <span className="f-val">{translateFeature('values', String(value))}</span>
                             </div>
                         ))}
                     </div>
@@ -206,7 +219,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                         <div className="root-dist-pos">
                             {rootDistribution.posBreakdown.map(([posKey, count]) => (
                                 <span key={posKey} className="feature-tag">
-                                    <span className="f-key">{posKey}</span>
+                                    <span className="f-key">{translateFeature('pos', posKey)}</span>
                                     <span className="f-val">{count}</span>
                                 </span>
                             ))}

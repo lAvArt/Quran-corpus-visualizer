@@ -4,7 +4,7 @@ import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { useTranslations } from "next-intl";
 
 export default function MobileBottomBar() {
-    const { isLeftSidebarOpen, toggleLeftSidebar, isRightSidebarOpen, toggleRightSidebar } = useVizControl();
+    const { isLeftSidebarOpen, toggleLeftSidebar, isRightSidebarOpen, toggleRightSidebar, isMobileSearchOpen, toggleMobileSearch } = useVizControl();
     const t = useTranslations("MobileBottomBar");
 
     return (
@@ -14,6 +14,19 @@ export default function MobileBottomBar() {
                 onClick={toggleLeftSidebar}
             >
                 <span>{isLeftSidebarOpen ? t("hideLegend") : t("showLegend")}</span>
+            </button>
+
+            <div className="bottom-bar-divider" />
+
+            <button
+                className={`bottom-bar-btn bottom-bar-search-btn ${isMobileSearchOpen ? "active" : ""}`}
+                onClick={toggleMobileSearch}
+                aria-label={t("search")}
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="M21 21l-4.35-4.35" />
+                </svg>
             </button>
 
             <div className="bottom-bar-divider" />
@@ -67,6 +80,13 @@ export default function MobileBottomBar() {
         .bottom-bar-btn.active {
             background: var(--accent);
             color: white;
+        }
+
+        .bottom-bar-search-btn {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .bottom-bar-divider {
