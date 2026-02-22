@@ -81,7 +81,7 @@ export default function RadialSuraMap({
     minScale: 0.3,
     maxScale: 6,
     ready: isMounted,
-    onZoom: (transform) => setZoomScale(transform.k),
+    onZoomEnd: (transform) => setZoomScale(transform.k),
   });
   const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });

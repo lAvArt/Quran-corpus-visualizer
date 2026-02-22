@@ -48,26 +48,18 @@ export default function CorpusArchitectureMap({
     const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
     const zoomTransformRef = useRef(d3.zoomIdentity);
-    const zoomRafRef = useRef<number | null>(null);
-    const handleZoom = useCallback((transform: d3.ZoomTransform) => {
-        zoomTransformRef.current = transform;
-        if (zoomRafRef.current) return;
-        zoomRafRef.current = requestAnimationFrame(() => {
-            zoomRafRef.current = null;
-            setZoomTransform(zoomTransformRef.current);
-        });
-    }, []);
 
     const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 12,
         initialScale: 1.4,
-        onZoom: handleZoom,
-        onZoomEnd: (transform) =>
+        onZoomEnd: (transform) => {
+            setZoomTransform(transform);
             setZoomLevel((prev) => {
                 const next = Math.round(transform.k * 20) / 20;
                 return prev === next ? prev : next;
-            }),
+            });
+        },
     });
 
     const [dimensions] = useState({ width: 1600, height: 1600 });
@@ -95,11 +87,7 @@ export default function CorpusArchitectureMap({
     }, [selectedSurahId]);
 
     useEffect(() => {
-        return () => {
-            if (zoomRafRef.current) {
-                cancelAnimationFrame(zoomRafRef.current);
-            }
-        };
+        // cleanup not needed anymore
     }, []);
 
     // Pre-compute surah root counts (stable across focus changes)
@@ -529,12 +517,12 @@ export default function CorpusArchitectureMap({
         return map;
     }, [nodes, getNodeAngle, getNodeRadius]);
 
-    // Defer zoom transform updates for smoother zooming
-    const deferredZoom = useDeferredValue(zoomTransform);
+    // Use zoomTransform directly (state updates are now batched via onZoomEnd)
+    const deferredZoom = zoomTransform;
 
     const visibleNodes = useMemo(() => {
         // Use very generous bounds when a surah is focused to avoid culling roots
-        const padding = focusSurahNodeId ? 500 : 160;
+        const padding = focusSurahNodeId ? 1400 : 800;
         const minX = -viewRadius - padding;
         const maxX = viewRadius + padding;
         const minY = -viewRadius - padding;
