@@ -7,6 +7,7 @@ import MorphologyInspector from "@/components/inspectors/MorphologyInspector";
 import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import CorpusIndex from "@/components/ui/CorpusIndex";
+import LiveScanner from "@/components/ui/LiveScanner";
 import type { CorpusToken } from "@/lib/schema/types";
 
 interface AppSidebarProps {
@@ -38,7 +39,7 @@ export default function AppSidebar({
   onLemmaSelect,
   selectedSurahId,
 }: AppSidebarProps) {
-  const [activeTab, setActiveTab] = useState<"inspector" | "advanced-search" | "index">("inspector");
+  const [activeTab, setActiveTab] = useState<"inspector" | "scan" | "advanced-search" | "index">("inspector");
   const t = useTranslations('AppSidebar');
 
   return (
@@ -53,6 +54,16 @@ export default function AppSidebar({
           id="sidebar-tab-inspector"
         >
           {t('inspector')}
+        </button>
+        <button
+          className={`sidebar-tab ${activeTab === "scan" ? "active" : ""}`}
+          onClick={() => setActiveTab("scan")}
+          role="tab"
+          aria-selected={activeTab === "scan"}
+          aria-controls="sidebar-tabpanel-scan"
+          id="sidebar-tab-scan"
+        >
+          {t('scan')}
         </button>
         <button
           className={`sidebar-tab ${activeTab === "advanced-search" ? "active" : ""}`}
@@ -92,6 +103,16 @@ export default function AppSidebar({
           onRootSelect={onRootSelect}
           onSelectSurah={onSelectSurah}
         />
+      </div>
+
+      <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-scan" aria-labelledby="sidebar-tab-scan" style={{ display: activeTab === "scan" ? undefined : "none" }}>
+        {activeTab === "scan" && (
+          <LiveScanner
+            allTokens={allTokens}
+            onTokenSelect={onTokenSelect}
+            onRootSelect={onRootSelect}
+          />
+        )}
       </div>
 
       <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-advanced-search" aria-labelledby="sidebar-tab-advanced-search" style={{ display: activeTab === "advanced-search" ? undefined : "none" }}>

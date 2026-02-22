@@ -384,9 +384,7 @@ function HomePageContent() {
   // Clear stale selection context when switching visualization modes
   const handleVizModeChange = useCallback((newMode: VisualizationMode) => {
     setVizMode(newMode);
-    // Clear selection state that is contextual to the previous graph
-    setSelectedRoot(null);
-    setSelectedLemma(null);
+    // Don't clear selectedRoot and selectedLemma to make them persistent across graphs
     setFocusedTokenId(null);
     setHoverTokenId(null);
   }, []);

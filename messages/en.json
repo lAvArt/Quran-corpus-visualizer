@@ -56,6 +56,7 @@
     },
     "AppSidebar": {
         "inspector": "Inspector",
+        "scan": "Scan",
         "search": "Search",
         "advancedSearch": "Advanced Search",
         "index": "Index",
