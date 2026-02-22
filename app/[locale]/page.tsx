@@ -377,6 +377,9 @@ function HomePageContent() {
     const token = tokenById.get(tokenId);
     if (token) {
       setSelectedSurahId(token.sura);
+      setSelectedRoot(token.root || null);
+      setSelectedLemma(token.lemma || null);
+      setSearchLockedRoot(null);
     }
     setIsSidebarOpen(true);
   }, [tokenById, setIsSidebarOpen]);

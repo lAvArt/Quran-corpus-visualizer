@@ -110,7 +110,6 @@ export default function AppSidebar({
           <LiveScanner
             allTokens={allTokens}
             onTokenSelect={onTokenSelect}
-            onRootSelect={onRootSelect}
           />
         )}
       </div>
