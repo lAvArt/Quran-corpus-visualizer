@@ -230,7 +230,9 @@
             "formsLabel": "Forms",
             "lemmasLabel": "Lemmas",
             "surahDistribution": "Surah Distribution",
-            "clickToFocus": "Click to focus"
+            "clickToFocus": "Click to focus",
+            "sortByOccurrence": "Sort by occurrences",
+            "sortByOrder": "Sort by surah order"
         },
         "featuresMap": {
             "keys": {

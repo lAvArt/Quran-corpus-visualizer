@@ -230,7 +230,9 @@
             "formsLabel": "الصيغ",
             "lemmasLabel": "الكلمات",
             "surahDistribution": "توزيع السور",
-            "clickToFocus": "اضغط للتركيز"
+            "clickToFocus": "اضغط للتركيز",
+            "sortByOccurrence": "فرز حسب التكرار",
+            "sortByOrder": "فرز حسب ترتيب السور"
         },
         "featuresMap": {
             "keys": {
