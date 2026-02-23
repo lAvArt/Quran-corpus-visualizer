@@ -11,7 +11,7 @@ interface MorphologyInspectorProps {
     onClearFocus: () => void;
     allTokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
-    onSelectSurah?: (surahId: number) => void;
+    onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
 }
 
 export default function MorphologyInspector({ token, mode, onClearFocus, allTokens, onRootSelect, onSelectSurah }: MorphologyInspectorProps) {
@@ -276,7 +276,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                                         type="button"
                                         className="root-dist-surah-btn"
                                         onClick={() => {
-                                            if (onSelectSurah) onSelectSurah(s.suraId);
+                                            if (onSelectSurah) onSelectSurah(s.suraId, "radial-sura");
                                             if (onRootSelect) onRootSelect(rootDistribution.root);
                                         }}
                                     >

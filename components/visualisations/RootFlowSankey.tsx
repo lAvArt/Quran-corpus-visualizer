@@ -245,7 +245,8 @@ export default function RootFlowSankey({
         {hasVisibleFlows ? (
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${SVG_WIDTH} ${height}`}
+            viewBox={`0 0 ${SVG_WIDTH} 800`}
+            preserveAspectRatio="xMidYMin meet"
             className="sankey"
             role="img"
             aria-label="Root to lemma flow chart"

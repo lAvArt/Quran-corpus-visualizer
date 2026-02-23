@@ -716,7 +716,7 @@ function HomePageContent() {
           onTokenSelect={handleTokenSelect}
           onRootSelect={handleRootSelect}
           onSearchRootSelect={handleSearchRootSelect}
-          onSelectSurah={(surahId) => handleSurahSelect(surahId)}
+          onSelectSurah={handleSurahSelect}
           onLemmaSelect={handleLemmaSelect}
           selectedSurahId={selectedSurahId}
         />

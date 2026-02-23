@@ -20,7 +20,7 @@ interface AppSidebarProps {
   onTokenSelect: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
   onSearchRootSelect?: (root: string | null) => void;
-  onSelectSurah?: (surahId: number) => void;
+  onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
   onLemmaSelect?: (lemma: string) => void;
   selectedSurahId?: number;
 }
