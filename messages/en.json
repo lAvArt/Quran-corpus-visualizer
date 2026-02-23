@@ -122,6 +122,10 @@
             "knowledge-graph": {
                 "label": "Knowledge Graph",
                 "description": "Neural map of your tracked roots and learning progress"
+            },
+            "collocation-network": {
+                "label": "Collocation Network",
+                "description": "Analyze co-occurring roots and semantic neighborhoods"
             }
         }
     },
@@ -596,6 +600,44 @@
                 "distanceText": "Shorter links indicate a stronger, more frequent connection between a Root and a Lemma.",
                 "sizeLabel": "Node Size",
                 "sizeText": "Proportional to the total frequency of occurrences in the selected scope (Surah or full Quran)."
+            }
+        },
+        "CollocationNetwork": {
+            "title": "Collocation Network",
+            "proximityControls": "Proximity Controls",
+            "windowType": "Context Scope",
+            "ayahWindow": "Whole Ayah Context",
+            "distanceWindow": "Nearby Words Window",
+            "windowTypeHintAyah": "Uses the full ayah as context, so collocates reflect broader themes.",
+            "windowTypeHintDistance": "Uses only nearby words around each match, so collocates reflect local phrasing.",
+            "distanceRange": "Range: +/- {distance} words",
+            "minFrequency": "Min Co-occurrence",
+            "pmi": "PMI (Pointwise Mutual Information) Score",
+            "rawCount": "Co-occurrences",
+            "noData": "Select a root from the search or graph to see collocations.",
+            "targetNode": "Target Root",
+            "collocateNode": "Collocated Root",
+            "tertiaryNode": "Tertiary Context Node",
+            "contextWindowRef": "Context Window Reference",
+            "contextWindowRefFormat": "Reference Format",
+            "contextWindowRefFormatAyah": "surah:ayah",
+            "contextWindowRefFormatDistance": "surah:ayah:position",
+            "contextWindowRefHelpAyah": "This reference points to the ayah where this tertiary context appears with the selected root.",
+            "contextWindowRefHelpDistance": "This reference points to the exact token position used as the center of the word-distance context window.",
+            "highPmiCollocate": "High PMI Collocate",
+            "lowPmiCollocate": "Low PMI Collocate",
+            "legendTitle": "About This Graph",
+            "pmiHigher": "Higher PMI (stronger association)",
+            "pmiLower": "Lower PMI (weaker association)",
+            "Help": {
+                "title": "Collocation Network",
+                "description": "Visualizes the semantic neighborhood of a selected root by mapping which other roots frequently appear near it.",
+                "pmiLabel": "PMI (Pointwise Mutual Information)",
+                "pmiText": "Nodes are sized and colored by PMI, which highlights unusually strong associations rather than just frequent words.",
+                "graphLabel": "What This Graph Shows",
+                "graphText": "The center is your target root. First-ring roots are strong collocates, and outer branches are tertiary lexical neighbors.",
+                "windowLabel": "Context Window",
+                "windowText": "Use Same Ayah for thematic context, or Word Distance for phrase-level proximity around the target."
             }
         }
     },

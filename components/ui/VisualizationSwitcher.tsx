@@ -60,6 +60,12 @@ const VISUALIZATION_OPTIONS: Array<{
       icon: "\u224B",
     },
     {
+      mode: "collocation-network",
+      label: "Collocation Network",
+      description: "Analyze co-occurring roots and semantic neighborhoods",
+      icon: "🕸️",
+    },
+    {
       mode: "knowledge-graph",
       label: "Knowledge Graph",
       description: "Neural map of your tracked roots and learning progress",

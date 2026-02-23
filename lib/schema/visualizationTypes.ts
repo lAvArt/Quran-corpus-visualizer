@@ -17,6 +17,7 @@ export type VisualizationMode =
   | "surah-distribution" // Spiral view of all surahs
   | "corpus-architecture" // Global corpus hierarchy map
   | "knowledge-graph"  // Neural network of tracked roots
+  | "collocation-network" // Network map for root collocations and PMI
   | "heatmap";         // Frequency heatmap grid
 
 export interface VisualizationConfig {

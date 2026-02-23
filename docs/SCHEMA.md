@@ -63,6 +63,21 @@ UI components must consume only this internal model, never raw upstream payloads
 - key: POS tag
 - value: token IDs and ayah IDs containing that tag
 
+### CollocationResult (Derived Analytics)
+
+Calculated at runtime from normalized `Token` data (not stored as a primary corpus entity).
+
+- `root`: string (collocated root)
+- `count`: integer (co-occurrence count within selected context scope)
+- `pmi`: number (Pointwise Mutual Information score)
+- `sampleLemmas`: string[] (sample lemmas observed for the collocated root)
+- `sampleWindows`: string[] (sample context references used by tertiary nodes)
+
+`sampleWindows` format depends on scope mode:
+
+- `Whole Ayah Context` (`windowType: "ayah"`): `{sura}:{ayah}`
+- `Nearby Words Window` (`windowType: "distance"`): `{sura}:{ayah}:{position}`
+
 ### TrackedRoot (Knowledge Tracker)
 
 Persisted in IndexedDB (`qcv-knowledge` store). Not part of the upstream corpus — this is user-generated learning state.

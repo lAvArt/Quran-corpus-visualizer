@@ -46,6 +46,7 @@ const AyahDependencyGraph = lazy(() => import("@/components/visualisations/AyahD
 const RootFlowSankey = lazy(() => import("@/components/visualisations/RootFlowSankey"));
 const CorpusArchitectureMap = lazy(() => import("@/components/visualisations/CorpusArchitectureMap"));
 const KnowledgeGraphViz = lazy(() => import("@/components/visualisations/KnowledgeGraphViz"));
+const CollocationNetworkGraph = lazy(() => import("@/components/visualisations/CollocationNetworkGraph"));
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 const EXPERIENCE_STORAGE_KEY = "quran-corpus-onboarding";
@@ -559,6 +560,19 @@ function HomePageContent() {
               selectedSurahId={selectedSurahId}
               theme={theme}
               lexicalColorMode={lexicalColorMode}
+            />
+          );
+
+        case "collocation-network":
+          return (
+            <CollocationNetworkGraph
+              tokens={allTokens}
+              onTokenHover={setHoverTokenId}
+              onTokenFocus={setFocusedTokenId}
+              onRootSelect={handleRootSelect}
+              highlightRoot={selectedRoot}
+              selectedSurahId={selectedSurahId}
+              theme={theme}
             />
           );
 
