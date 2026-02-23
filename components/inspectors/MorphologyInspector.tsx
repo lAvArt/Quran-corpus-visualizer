@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
@@ -11,11 +11,12 @@ interface MorphologyInspectorProps {
     onClearFocus: () => void;
     allTokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
-    onSelectSurah?: (surahId: number) => void;
+    onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
 }
 
 export default function MorphologyInspector({ token, mode, onClearFocus, allTokens, onRootSelect, onSelectSurah }: MorphologyInspectorProps) {
     const t = useTranslations('MorphologyInspector');
+    const [sortBy, setSortBy] = useState<"occurrence" | "order">("occurrence");
 
     // Safe translation helper for dynamic keys
     const translateFeature = (type: 'keys' | 'values' | 'pos', term: string) => {
@@ -87,7 +88,10 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                     }))
                     .sort((a, b) => a.ayah - b.ayah),
             }))
-            .sort((a, b) => b.count - a.count);
+            .sort((a, b) => {
+                if (sortBy === "order") return a.suraId - b.suraId;
+                return b.count - a.count;
+            });
 
         return {
             root: rootStr,
@@ -100,7 +104,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
             posBreakdown: Array.from(posBreakdown.entries()).sort((a, b) => b[1] - a[1]),
             surahDistribution,
         };
-    }, [token?.root, allTokens]);
+    }, [token?.root, allTokens, sortBy]);
 
     if (!token) {
         return (
@@ -247,7 +251,18 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                     <div className="root-dist-divider" />
 
                     <div className="root-dist-list-header">
-                        <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>{t('rootDistribution.surahDistribution')}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.78rem' }}>{t('rootDistribution.surahDistribution')}</span>
+                            <select
+                                className="inspector-sort-select"
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as "occurrence" | "order")}
+                                aria-label="Sort distribution"
+                            >
+                                <option value="occurrence">{t('rootDistribution.sortByOccurrence')}</option>
+                                <option value="order">{t('rootDistribution.sortByOrder')}</option>
+                            </select>
+                        </div>
                         <span className="rds-label">{t('rootDistribution.clickToFocus')}</span>
                     </div>
 
@@ -261,7 +276,7 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
                                         type="button"
                                         className="root-dist-surah-btn"
                                         onClick={() => {
-                                            if (onSelectSurah) onSelectSurah(s.suraId);
+                                            if (onSelectSurah) onSelectSurah(s.suraId, "radial-sura");
                                             if (onRootSelect) onRootSelect(rootDistribution.root);
                                         }}
                                     >
@@ -525,6 +540,21 @@ export default function MorphologyInspector({ token, mode, onClearFocus, allToke
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0.5rem;
+        }
+
+        .inspector-sort-select {
+            background: var(--bg-1);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            color: var(--ink);
+            font-size: 0.65rem;
+            padding: 2px 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .inspector-sort-select:hover {
+            border-color: var(--ink-muted);
         }
 
         .root-dist-list {

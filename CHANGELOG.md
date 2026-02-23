@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Root Network Graph**: Corrected link highlighting Z-index priority (using SVG DOM sort) so active root connections render above dimmed connections.
+- **Radial Sura Map**: Fixed root connections to highlight all paths associated with a selected root across the entire Quran, and heavily dim overlapping unassociated links.
+- **Sankey Flow Graph**: Bound the SVG `viewBox` height parameter to a fixed responsive scale to eliminate layout breaking during dense root zooming.
+- **Semantic Search & Morphology Panels**: Fixed the "Click to Focus" behavior so that selecting an Ayah correctly zeroes out active node properties and reroutes back to the `radial-sura` map state.
+
 ## [0.5.0] - 2026-02-21
 
 ### Added

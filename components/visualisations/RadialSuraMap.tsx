@@ -81,7 +81,7 @@ export default function RadialSuraMap({
     minScale: 0.3,
     maxScale: 6,
     ready: isMounted,
-    onZoom: (transform) => setZoomScale(transform.k),
+    onZoomEnd: (transform) => setZoomScale(transform.k),
   });
   const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
@@ -552,19 +552,10 @@ export default function RadialSuraMap({
     return ayahRootEntriesByAyah.get(selectedAyah) ?? [];
   }, [selectedAyah, ayahRootEntriesByAyah]);
 
-  const visibleConnections = useMemo(() => {
-    if (!selectedConnection) return rootConnections;
-    return rootConnections.filter(
-      (conn) =>
-        conn.root === selectedConnection.root &&
-        conn.sourceAyah === selectedConnection.sourceAyah &&
-        conn.targetAyah === selectedConnection.targetAyah
-    );
-  }, [rootConnections, selectedConnection]);
-
   const renderedConnections = useMemo(() => {
-    return visibleConnections;
-  }, [visibleConnections]);
+    if (!selectedConnection) return rootConnections;
+    return rootConnections.filter((conn) => conn.root === selectedConnection.root);
+  }, [rootConnections, selectedConnection]);
 
   const barsForRender = useMemo(() => {
     return barsWithGeometry.map((entry) => {
@@ -1082,7 +1073,9 @@ export default function RadialSuraMap({
                   const isActiveAyah =
                     !!activeAyah && (conn.sourceAyah === activeAyah || conn.targetAyah === activeAyah);
                   const countColor = isActiveAyah ? activeRootColorMap?.get(conn.root) ?? null : null;
-                  const isHighlighted = hoveredRoot === conn.root || isActiveAyah;
+                  const isHighlighted = highlightRoot
+                    ? (conn.root === highlightRoot || hoveredRoot === conn.root)
+                    : (hoveredRoot === conn.root || isActiveAyah);
                   const pathKey = `${conn.sourceAyah}-${conn.targetAyah}`;
                   const pathD = connectionPaths.get(pathKey) ?? "";
 

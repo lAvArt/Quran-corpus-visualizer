@@ -377,6 +377,9 @@ function HomePageContent() {
     const token = tokenById.get(tokenId);
     if (token) {
       setSelectedSurahId(token.sura);
+      setSelectedRoot(token.root || null);
+      setSelectedLemma(token.lemma || null);
+      setSearchLockedRoot(null);
     }
     setIsSidebarOpen(true);
   }, [tokenById, setIsSidebarOpen]);
@@ -384,9 +387,7 @@ function HomePageContent() {
   // Clear stale selection context when switching visualization modes
   const handleVizModeChange = useCallback((newMode: VisualizationMode) => {
     setVizMode(newMode);
-    // Clear selection state that is contextual to the previous graph
-    setSelectedRoot(null);
-    setSelectedLemma(null);
+    // Don't clear selectedRoot and selectedLemma to make them persistent across graphs
     setFocusedTokenId(null);
     setHoverTokenId(null);
   }, []);
@@ -715,7 +716,7 @@ function HomePageContent() {
           onTokenSelect={handleTokenSelect}
           onRootSelect={handleRootSelect}
           onSearchRootSelect={handleSearchRootSelect}
-          onSelectSurah={(surahId) => handleSurahSelect(surahId)}
+          onSelectSurah={handleSurahSelect}
           onLemmaSelect={handleLemmaSelect}
           selectedSurahId={selectedSurahId}
         />

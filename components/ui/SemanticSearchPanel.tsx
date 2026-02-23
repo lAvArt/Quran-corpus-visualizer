@@ -12,7 +12,7 @@ interface SemanticSearchPanelProps {
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
-  onSelectSurah?: (surahId: number) => void;
+  onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
   scope?: { type: "global" } | { type: "surah"; surahId: number };
 }
 
@@ -245,7 +245,7 @@ export default function SemanticSearchPanel({
                   type="button"
                   className="surah-dist-item"
                   onClick={() => {
-                    if (onSelectSurah) onSelectSurah(s.suraId);
+                    if (onSelectSurah) onSelectSurah(s.suraId, "radial-sura");
                     if (onRootSelect) onRootSelect(root.trim());
                   }}
                 >
@@ -264,37 +264,37 @@ export default function SemanticSearchPanel({
 
       {/* Token list — show when NOT in root-only mode, or as secondary view */}
       {(!isRootSearch || lemma || pos || ayah) && (
-      <div className="search-results-list">
-        {results.length === 0 ? (
-          <div className="empty-search">
-            <p>{t('empty')}</p>
-          </div>
-        ) : (
-          results.slice(0, 50).map((token) => (
-            <button
-              type="button"
-              key={token.id}
-              className="result-item"
-              onMouseEnter={() => onTokenHover(token.id)}
-              onMouseLeave={() => onTokenHover(null)}
-              onClick={() => {
-                if (scope.type === "global" && onSelectSurah) {
-                  onSelectSurah(token.sura);
-                }
-                if (root && token.root && onRootSelect) {
-                  onRootSelect(token.root);
-                }
-                onTokenFocus(token.id);
-              }}
-            >
-              <span className="res-arabic" lang="ar" dir="rtl">{token.text}</span>
-              <span className="res-meta">
-                {token.sura}:{token.ayah} - {token.pos}
-              </span>
-            </button>
-          ))
-        )}
-      </div>
+        <div className="search-results-list">
+          {results.length === 0 ? (
+            <div className="empty-search">
+              <p>{t('empty')}</p>
+            </div>
+          ) : (
+            results.slice(0, 50).map((token) => (
+              <button
+                type="button"
+                key={token.id}
+                className="result-item"
+                onMouseEnter={() => onTokenHover(token.id)}
+                onMouseLeave={() => onTokenHover(null)}
+                onClick={() => {
+                  if (scope.type === "global" && onSelectSurah) {
+                    onSelectSurah(token.sura);
+                  }
+                  if (root && token.root && onRootSelect) {
+                    onRootSelect(token.root);
+                  }
+                  onTokenFocus(token.id);
+                }}
+              >
+                <span className="res-arabic" lang="ar" dir="rtl">{token.text}</span>
+                <span className="res-meta">
+                  {token.sura}:{token.ayah} - {token.pos}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
       )}
 
       <style jsx>{`
