@@ -16,7 +16,9 @@
 
 ---
 
-<img width="2558" height="1266" alt="Quran Corpus Visualizer – Radial Surah Map" src="https://github.com/user-attachments/assets/6127e2ef-69e2-43ba-9ade-4a9a160f257a" />
+<!-- GRAPH:RADIAL_SURA -->
+<img width="2560" height="1260" alt="Quran Corpus Visualizer – Radial Surah Map" src="public/docs/images/radial-sura.png" />
+<!-- END:GRAPH -->
 
 A sophisticated interactive tool for exploring the linguistic and morphological structure of the Quran. Built upon the [Quranic Arabic Corpus](https://corpus.quran.com) API, this project transforms linear text into dynamic, explorable graphs.
 
@@ -58,13 +60,33 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 <summary><strong>📸 More Screenshots</strong></summary>
 <br/>
 
-<img width="2553" height="1258" alt="Root Network Graph" src="https://github.com/user-attachments/assets/fab1fc07-f131-4f7b-8816-d30030b8cb93" />
+<!-- GRAPH:ROOT_NETWORK -->
+<img width="2560" height="1260" alt="Root Network Graph" src="public/docs/images/root-network.png" />
+<!-- END:GRAPH -->
 
-<img width="2552" height="1246" alt="Surah Distribution" src="https://github.com/user-attachments/assets/2f89bef1-86b3-4b7b-ad9f-8570b6d6cea3" />
+<!-- GRAPH:SURAH_DISTRIBUTION -->
+<img width="2560" height="1260" alt="Surah Distribution" src="public/docs/images/surah-distribution.png" />
+<!-- END:GRAPH -->
 
-<img width="2559" height="1260" alt="Arc Flow Diagram" src="https://github.com/user-attachments/assets/40970f66-0c43-4532-a37f-d656a2ef9783" />
+<!-- GRAPH:ARC_FLOW -->
+<img width="2560" height="1260" alt="Arc Flow Diagram" src="public/docs/images/arc-flow.png" />
+<!-- END:GRAPH -->
 
-<img width="2554" height="1253" alt="Ayah Dependency Graph" src="https://github.com/user-attachments/assets/14579b20-74d4-47ce-9e65-8352d9791099" />
+<!-- GRAPH:DEPENDENCY_TREE -->
+<img width="2560" height="1260" alt="Ayah Dependency Graph" src="public/docs/images/dependency-tree.png" />
+<!-- END:GRAPH -->
+
+<!-- GRAPH:SANKEY_FLOW -->
+<img width="2560" height="1260" alt="Root Flow Sankey" src="public/docs/images/sankey-flow.png" />
+<!-- END:GRAPH -->
+
+<!-- GRAPH:CORPUS_ARCHITECTURE -->
+<img width="2560" height="1260" alt="Corpus Architecture Map" src="public/docs/images/corpus-architecture.png" />
+<!-- END:GRAPH -->
+
+<!-- GRAPH:KNOWLEDGE_GRAPH -->
+<img width="2560" height="1260" alt="Knowledge Graph Visualization" src="public/docs/images/knowledge-graph.png" />
+<!-- END:GRAPH -->
 
 <img width="2558" height="1260" alt="Morphology Inspector" src="https://github.com/user-attachments/assets/06ea15df-22d7-441f-9669-e171cb8d7b3e" />
 

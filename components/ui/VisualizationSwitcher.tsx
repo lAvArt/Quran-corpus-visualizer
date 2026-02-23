@@ -142,6 +142,7 @@ export default function VisualizationSwitcher({
                 type="button"
                 key={option.mode}
                 className={`viz-switcher-option ${currentMode === option.mode ? "active" : ""}`}
+                data-mode={option.mode}
                 onClick={() => handleModeSelect(option.mode)}
               >
                 <span className="viz-switcher-icon">{option.icon}</span>
