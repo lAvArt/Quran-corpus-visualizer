@@ -60,12 +60,55 @@ const BUCKWALTER_TO_ARABIC: Record<string, string> = {
 };
 
 const BUCKWALTER_STRIP = new Set(["^", "@", "_", ".", ",", "2", "[", "]"]);
+const ARABIC_HAMZA_ON_YA = "ئ";
+const ARABIC_HAMZA_ON_WAW = "ؤ";
+const ARABIC_HAMZA_ABOVE = "أ";
+const ARABIC_HAMZA = "ء";
+const ARABIC_YA = "ي";
+const ARABIC_ALIF_MAQSURA = "ى";
+const ARABIC_WAW = "و";
+const LAST_HARAKA_KASRA = "i";
+const LAST_HARAKA_DAMMA = "u";
 
 function buckwalterToArabic(input: string): string {
   let output = "";
-  for (const ch of input) {
+  let lastHaraka: string | null = null;
+  let lastBaseArabic: string | null = null;
+
+  for (let idx = 0; idx < input.length; idx++) {
+    const ch = input[idx];
     if (BUCKWALTER_STRIP.has(ch)) continue;
+
+    if (ch === "#") {
+      const next = input[idx + 1] ?? "";
+      let hamza = ARABIC_HAMZA;
+
+      // Quranic corpus uses "_#" sequences where "#" is a contextual hamza placeholder.
+      // Pick a readable seat based on nearby vocalization/base letters.
+      if (lastHaraka === LAST_HARAKA_KASRA || lastBaseArabic === ARABIC_YA || lastBaseArabic === ARABIC_ALIF_MAQSURA) {
+        hamza = ARABIC_HAMZA_ON_YA;
+      } else if (lastHaraka === LAST_HARAKA_DAMMA || lastBaseArabic === ARABIC_WAW) {
+        hamza = ARABIC_HAMZA_ON_WAW;
+      } else if (next === "a" || next === "A") {
+        hamza = ARABIC_HAMZA_ABOVE;
+      }
+
+      output += hamza;
+      lastHaraka = null;
+      lastBaseArabic = hamza;
+      continue;
+    }
+
+    if (ch === "a" || ch === "u" || ch === "i" || ch === "o" || ch === "~" || ch === "F" || ch === "N" || ch === "K" || ch === "`") {
+      lastHaraka = ch;
+    } else {
+      lastHaraka = null;
+    }
+
     output += BUCKWALTER_TO_ARABIC[ch] ?? ch;
+    if (ch !== "a" && ch !== "u" && ch !== "i" && ch !== "o" && ch !== "~" && ch !== "F" && ch !== "N" && ch !== "K" && ch !== "`") {
+      lastBaseArabic = BUCKWALTER_TO_ARABIC[ch] ?? ch;
+    }
   }
   return output;
 }

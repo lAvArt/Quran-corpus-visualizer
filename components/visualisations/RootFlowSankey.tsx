@@ -10,6 +10,7 @@ import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 
 interface RootFlowSankeyProps {
   flows: RootWordFlow[];
@@ -30,12 +31,50 @@ const COLUMN_WIDTH = 190;
 const LEMMA_COLUMN_X = 800;
 const FLOW_START_X = ROOT_COLUMN_X + COLUMN_WIDTH;
 const FLOW_END_X = LEMMA_COLUMN_X;
-const FLOW_MID_LEFT = 430;
-const FLOW_MID_RIGHT = 650;
+const FLOW_TOP_PADDING = 96;
+const FLOW_BOTTOM_PADDING = 72;
+const FLOW_LANE_GAP = 3;
+const NODE_GAP = 14;
+const NODE_VERTICAL_PAD = 8;
+
+interface SankeyNodeLayout {
+  id: string;
+  total: number;
+  y: number;
+  height: number;
+  stackHeight: number;
+}
+
+interface SankeyFlowLayout {
+  key: string;
+  flow: RootWordFlow;
+  width: number;
+  startY: number;
+  endY: number;
+}
 
 function pathWidth(weightRatio: number): number {
   const normalized = Math.max(0, Math.min(1, weightRatio));
-  return 4 + normalized * 16;
+  return 4 + normalized * 14;
+}
+
+function ribbonPath(startX: number, endX: number, startY: number, endY: number, thickness: number): string {
+  const half = Math.max(1, thickness / 2);
+  const c1x = startX + (endX - startX) * 0.34;
+  const c2x = startX + (endX - startX) * 0.66;
+
+  return [
+    `M ${startX} ${startY - half}`,
+    `C ${c1x} ${startY - half}, ${c2x} ${endY - half}, ${endX} ${endY - half}`,
+    `L ${endX} ${endY + half}`,
+    `C ${c2x} ${endY + half}, ${c1x} ${startY + half}, ${startX} ${startY + half}`,
+    "Z",
+  ].join(" ");
+}
+
+function sortNodes(a: [string, { total: number; stackHeight: number }], b: [string, { total: number; stackHeight: number }]): number {
+  if (b[1].total !== a[1].total) return b[1].total - a[1].total;
+  return a[0].localeCompare(b[0]);
 }
 
 export default function RootFlowSankey({
@@ -54,13 +93,8 @@ export default function RootFlowSankey({
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [hoveredFlowKey, setHoveredFlowKey] = useState<string | null>(null);
   const { isLeftSidebarOpen } = useVizControl();
-
-  const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
-    minScale: 0.2,
-    maxScale: 4,
-    initialScale: 0.9,
-  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -122,6 +156,25 @@ export default function RootFlowSankey({
     [filteredFlows, visibleCount]
   );
 
+  const zoomRootCount = selectedRoot === "all" ? availableRoots.length : 1;
+  const zoomDensity = Math.max(zoomRootCount, Math.ceil(filteredFlows.length / 10));
+  const zoomMinScale =
+    zoomDensity >= 120 ? 0.12 :
+      zoomDensity >= 80 ? 0.14 :
+        zoomDensity >= 50 ? 0.16 : 0.2;
+  const zoomMaxScale =
+    zoomDensity >= 180 ? 10 :
+      zoomDensity >= 120 ? 9 :
+        zoomDensity >= 80 ? 8 :
+          zoomDensity >= 50 ? 7 : 6;
+
+  const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
+    minScale: zoomMinScale,
+    maxScale: zoomMaxScale,
+    initialScale: 0.9,
+    ready: `${isMounted}:${selectedRoot}:${selectedSurahId ?? 0}:${filteredFlows.length}:${zoomDensity}`,
+  });
+
   const hasMore = filteredFlows.length > visibleCount;
   const totalFlows = filteredFlows.length;
   // Calculate scope-aware ratio (visible flows vs total flows IN SCOPE)
@@ -130,9 +183,9 @@ export default function RootFlowSankey({
   const scopeLabel = selectedSurahId ? ts("surah") + " " + selectedSurahId : ts("global");
   const selectedRootLabel = selectedRoot === "all" ? t("allRoots") + " (" + availableRoots.length + ")" : selectedRoot;
   const maxCount = Math.max(...visibleFlows.map((flow) => flow.count), 1);
-  const height = Math.max(420, visibleFlows.length * 56 + 170);
+  const themeColors = resolveVisualizationTheme(theme);
 
-  const flowStrokeFor = useCallback(
+  const flowColorFor = useCallback(
     (flow: RootWordFlow): string => {
       if (lexicalColorMode === "theme") return "url(#flowGrad)";
       if (lexicalColorMode === "identity") return getIdentityColor(flow.root, theme);
@@ -142,6 +195,138 @@ export default function RootFlowSankey({
     [lexicalColorMode, maxCount, theme]
   );
 
+  const sankeyLayout = useMemo(() => {
+    const rootStats = new Map<string, { total: number; stackHeight: number; flowCount: number }>();
+    const lemmaStats = new Map<string, { total: number; stackHeight: number; flowCount: number }>();
+    const flowWidths = visibleFlows.map((flow) => Math.max(4, pathWidth(flow.count / maxCount)));
+
+    visibleFlows.forEach((flow, index) => {
+      const width = flowWidths[index];
+
+      const root = rootStats.get(flow.root) ?? { total: 0, stackHeight: 0, flowCount: 0 };
+      root.total += flow.count;
+      root.stackHeight += width;
+      root.flowCount += 1;
+      rootStats.set(flow.root, root);
+
+      const lemma = lemmaStats.get(flow.lemma) ?? { total: 0, stackHeight: 0, flowCount: 0 };
+      lemma.total += flow.count;
+      lemma.stackHeight += width;
+      lemma.flowCount += 1;
+      lemmaStats.set(flow.lemma, lemma);
+    });
+
+    rootStats.forEach((stat) => {
+      stat.stackHeight += Math.max(0, stat.flowCount - 1) * FLOW_LANE_GAP;
+    });
+    lemmaStats.forEach((stat) => {
+      stat.stackHeight += Math.max(0, stat.flowCount - 1) * FLOW_LANE_GAP;
+    });
+
+    const rootEntries = [...rootStats.entries()].sort(sortNodes);
+    const lemmaEntries = [...lemmaStats.entries()].sort(sortNodes);
+
+    const rootNodesHeight = rootEntries.reduce((sum, [, stat]) => sum + Math.max(24, stat.stackHeight + NODE_VERTICAL_PAD * 2), 0)
+      + Math.max(0, rootEntries.length - 1) * NODE_GAP;
+    const lemmaNodesHeight = lemmaEntries.reduce((sum, [, stat]) => sum + Math.max(24, stat.stackHeight + NODE_VERTICAL_PAD * 2), 0)
+      + Math.max(0, lemmaEntries.length - 1) * NODE_GAP;
+
+    const contentHeight = Math.max(340, rootNodesHeight, lemmaNodesHeight);
+    const height = Math.max(420, FLOW_TOP_PADDING + contentHeight + FLOW_BOTTOM_PADDING);
+
+    const buildColumn = (
+      entries: Array<[string, { total: number; stackHeight: number }]>,
+      columnHeight: number
+    ) => {
+      const list: SankeyNodeLayout[] = [];
+      const map = new Map<string, SankeyNodeLayout>();
+      let cursor = FLOW_TOP_PADDING + (contentHeight - columnHeight) / 2;
+
+      for (const [id, stat] of entries) {
+        const nodeHeight = Math.max(24, stat.stackHeight + NODE_VERTICAL_PAD * 2);
+        const node: SankeyNodeLayout = {
+          id,
+          total: stat.total,
+          y: cursor + nodeHeight / 2,
+          height: nodeHeight,
+          stackHeight: stat.stackHeight,
+        };
+        list.push(node);
+        map.set(id, node);
+        cursor += nodeHeight + NODE_GAP;
+      }
+
+      return { list, map };
+    };
+
+    const roots = buildColumn(rootEntries, rootNodesHeight);
+    const lemmas = buildColumn(lemmaEntries, lemmaNodesHeight);
+
+    const rootOrder = new Map(roots.list.map((node, index) => [node.id, index]));
+    const lemmaOrder = new Map(lemmas.list.map((node, index) => [node.id, index]));
+
+    const flowOrder = visibleFlows
+      .map((flow, index) => ({ flow, index }))
+      .sort((a, b) => {
+        const rootDelta = (rootOrder.get(a.flow.root) ?? 0) - (rootOrder.get(b.flow.root) ?? 0);
+        if (rootDelta !== 0) return rootDelta;
+
+        const lemmaDelta = (lemmaOrder.get(a.flow.lemma) ?? 0) - (lemmaOrder.get(b.flow.lemma) ?? 0);
+        if (lemmaDelta !== 0) return lemmaDelta;
+
+        return b.flow.count - a.flow.count;
+      });
+
+    const rootOffsets = new Map(roots.list.map((node) => [node.id, -node.stackHeight / 2]));
+    const lemmaOffsets = new Map(lemmas.list.map((node) => [node.id, -node.stackHeight / 2]));
+    const flowLayouts: SankeyFlowLayout[] = [];
+
+    for (const { flow, index } of flowOrder) {
+      const rootNode = roots.map.get(flow.root);
+      const lemmaNode = lemmas.map.get(flow.lemma);
+      if (!rootNode || !lemmaNode) continue;
+
+      const width = flowWidths[index];
+      const rootOffset = rootOffsets.get(flow.root) ?? 0;
+      const lemmaOffset = lemmaOffsets.get(flow.lemma) ?? 0;
+
+      const startY = rootNode.y + rootOffset + width / 2;
+      const endY = lemmaNode.y + lemmaOffset + width / 2;
+
+      rootOffsets.set(flow.root, rootOffset + width + FLOW_LANE_GAP);
+      lemmaOffsets.set(flow.lemma, lemmaOffset + width + FLOW_LANE_GAP);
+
+      flowLayouts.push({
+        key: `${flow.root}-${flow.lemma}-${index}`,
+        flow,
+        width,
+        startY,
+        endY,
+      });
+    }
+
+    return {
+      height,
+      rootNodes: roots.list,
+      lemmaNodes: lemmas.list,
+      flowLayouts,
+    };
+  }, [visibleFlows, maxCount]);
+
+  useEffect(() => {
+    if (!hoveredFlowKey) return;
+    const stillExists = sankeyLayout.flowLayouts.some((flow) => flow.key === hoveredFlowKey);
+    if (!stillExists) {
+      setHoveredFlowKey(null);
+      onTokenHover(null);
+    }
+  }, [hoveredFlowKey, sankeyLayout.flowLayouts, onTokenHover]);
+
+  const hoveredFlow = useMemo(
+    () => sankeyLayout.flowLayouts.find((flow) => flow.key === hoveredFlowKey) ?? null,
+    [hoveredFlowKey, sankeyLayout.flowLayouts]
+  );
+
   const handleLoadMore = useCallback(() => {
     setVisibleCount((prev) => prev + LOAD_MORE_COUNT);
   }, []);
@@ -149,7 +334,9 @@ export default function RootFlowSankey({
   const handleRootChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     setSelectedRoot(event.target.value);
     setVisibleCount(INITIAL_VISIBLE);
-  }, []);
+    setHoveredFlowKey(null);
+    onTokenHover(null);
+  }, [onTokenHover]);
 
   const sidebarCards = (
     <div className={`viz-left-stack sankey-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
@@ -245,7 +432,7 @@ export default function RootFlowSankey({
         {hasVisibleFlows ? (
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${SVG_WIDTH} 800`}
+            viewBox={`0 0 ${SVG_WIDTH} ${sankeyLayout.height}`}
             preserveAspectRatio="xMidYMin meet"
             className="sankey"
             role="img"
@@ -260,15 +447,15 @@ export default function RootFlowSankey({
           >
             <defs>
               <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#2dd4bf" />
-                <stop offset="48%" stopColor="#38bdf8" />
-                <stop offset="100%" stopColor="#f472b6" />
+                <stop offset="0%" stopColor={themeColors.accentSecondary} />
+                <stop offset="48%" stopColor={themeColors.accent} />
+                <stop offset="100%" stopColor="var(--accent-3)" />
               </linearGradient>
             </defs>
 
             <g ref={gRef}>
-              <rect x={ROOT_COLUMN_X} y="26" width={COLUMN_WIDTH} height={height - 56} rx="20" className="column root-column" />
-              <rect x={LEMMA_COLUMN_X} y="26" width={COLUMN_WIDTH} height={height - 56} rx="20" className="column lemma-column" />
+              <rect x={ROOT_COLUMN_X} y="26" width={COLUMN_WIDTH} height={sankeyLayout.height - 56} rx="20" className="column root-column" />
+              <rect x={LEMMA_COLUMN_X} y="26" width={COLUMN_WIDTH} height={sankeyLayout.height - 56} rx="20" className="column lemma-column" />
               <text x={ROOT_COLUMN_X + COLUMN_WIDTH / 2} y="58" className="column-title">
                 {t("rootNode")}
               </text>
@@ -276,37 +463,91 @@ export default function RootFlowSankey({
                 {t("lemmaNode")}
               </text>
 
-              {visibleFlows.map((flow, index) => {
-                const y = 106 + index * 56;
-                const width = pathWidth(flow.count / maxCount);
+              {sankeyLayout.flowLayouts.map((layout) => {
+                const flow = layout.flow;
+                const isActive = hoveredFlowKey === layout.key;
+                const isDimmed = hoveredFlowKey !== null && !isActive;
+                const shellOpacity = isDimmed ? 0.06 : isActive ? 0.65 : 0.28;
+                const coreOpacity = isDimmed ? 0.08 : isActive ? 0.92 : 0.72;
                 const sampleToken = (flow.tokenIds[0] && tokenById.get(flow.tokenIds[0])?.text) ?? "";
                 return (
-                  <g key={`${flow.root}-${flow.lemma}`}>
+                  <g key={layout.key}>
                     <path
-                      d={`M ${FLOW_START_X} ${y} C ${FLOW_MID_LEFT} ${y}, ${FLOW_MID_RIGHT} ${y}, ${FLOW_END_X} ${y}`}
-                      stroke={flowStrokeFor(flow)}
-                      strokeWidth={width}
-                      fill="none"
-                      strokeLinecap="round"
-                      opacity={0.8}
-                      onMouseEnter={() => onTokenHover(flow.tokenIds[0] ?? null)}
-                      onMouseLeave={() => onTokenHover(null)}
+                      d={ribbonPath(FLOW_START_X, FLOW_END_X, layout.startY, layout.endY, layout.width + 3)}
+                      className="flow-band-base"
+                      opacity={shellOpacity}
+                    />
+                    <path
+                      d={ribbonPath(FLOW_START_X, FLOW_END_X, layout.startY, layout.endY, layout.width)}
+                      fill={flowColorFor(flow)}
+                      opacity={coreOpacity}
+                      onMouseEnter={() => {
+                        setHoveredFlowKey(layout.key);
+                        onTokenHover(flow.tokenIds[0] ?? null);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredFlowKey(null);
+                        onTokenHover(null);
+                      }}
                       onClick={() => {
                         if (flow.tokenIds[0]) onTokenFocus(flow.tokenIds[0]);
                       }}
                       className="flow-path"
+                    >
+                      <title>{`${flow.root} -> ${flow.lemma} (${flow.count})${sampleToken ? ` | ${sampleToken}` : ""}`}</title>
+                    </path>
+                    {isActive && (
+                      <text
+                        x={(FLOW_START_X + FLOW_END_X) / 2}
+                        y={(layout.startY + layout.endY) / 2 - 4}
+                        className="count-label"
+                      >
+                        {flow.count}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {sankeyLayout.rootNodes.map((node) => {
+                const isDimmed = hoveredFlow !== null && hoveredFlow.flow.root !== node.id;
+                return (
+                  <g key={`root-${node.id}`} className={isDimmed ? "flow-node is-muted" : "flow-node"}>
+                    <rect
+                      x={ROOT_COLUMN_X + 12}
+                      y={node.y - node.height / 2}
+                      width={COLUMN_WIDTH - 24}
+                      height={node.height}
+                      rx="12"
+                      className="node-chip"
                     />
-                    <text x={ROOT_COLUMN_X + COLUMN_WIDTH / 2} y={y + 5} className="node-label">
-                      {flow.root}
+                    <text x={ROOT_COLUMN_X + COLUMN_WIDTH / 2} y={node.y + 5} className="node-label root-label">
+                      {node.id}
                     </text>
-                    <text x={LEMMA_COLUMN_X + 20} y={y + 5} className="node-label lemma-label">
-                      {flow.lemma}
+                    <text x={ROOT_COLUMN_X + COLUMN_WIDTH - 22} y={node.y + 4} className="node-count">
+                      {node.total}
                     </text>
-                    <text x={540} y={y - 10} className="count-label">
-                      {flow.count}
+                  </g>
+                );
+              })}
+
+              {sankeyLayout.lemmaNodes.map((node) => {
+                const isDimmed = hoveredFlow !== null && hoveredFlow.flow.lemma !== node.id;
+                return (
+                  <g key={`lemma-${node.id}`} className={isDimmed ? "flow-node is-muted" : "flow-node"}>
+                    <rect
+                      x={LEMMA_COLUMN_X + 12}
+                      y={node.y - node.height / 2}
+                      width={COLUMN_WIDTH - 24}
+                      height={node.height}
+                      rx="12"
+                      className="node-chip"
+                    />
+                    <text x={LEMMA_COLUMN_X + 18} y={node.y + 5} className="node-label lemma-label">
+                      {node.id}
                     </text>
-                    <text x={540} y={y + 15} className="flow-token-label">
-                      {sampleToken}
+                    <text x={LEMMA_COLUMN_X + COLUMN_WIDTH - 22} y={node.y + 4} className="node-count">
+                      {node.total}
                     </text>
                   </g>
                 );
@@ -337,7 +578,10 @@ export default function RootFlowSankey({
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          box-sizing: border-box;
+          position: relative;
           padding-top: calc(var(--header-dock-height, 42px) + 20px);
+          padding-bottom: calc(var(--footer-height, 42px) + env(safe-area-inset-bottom) + 12px);
           background:
             radial-gradient(circle at 12% 18%, rgba(245, 158, 11, 0.12), transparent 34%),
             radial-gradient(circle at 84% 16%, rgba(15, 118, 110, 0.1), transparent 36%),
@@ -364,6 +608,7 @@ export default function RootFlowSankey({
 
         .sankey-scroll-area {
           flex: 1;
+          min-height: 0;
           overflow: hidden;
           padding: 8px 0 14px;
           display: flex;
@@ -400,27 +645,128 @@ export default function RootFlowSankey({
         }
 
         .node-label {
-          text-anchor: middle;
           font-family: "Amiri", serif;
-          font-size: 1.25rem;
+          font-size: 1.02rem;
           fill: var(--ink);
           pointer-events: none;
+        }
+
+        .root-label {
+          text-anchor: middle;
         }
 
         .lemma-label {
           text-anchor: start;
         }
 
+        .node-chip {
+          fill: rgba(255, 255, 255, 0.42);
+          stroke: rgba(148, 163, 184, 0.34);
+          stroke-width: 1;
+          transition: opacity 0.18s ease;
+        }
+
+        .node-count {
+          fill: var(--ink-secondary);
+          font-size: 0.66rem;
+          font-weight: 700;
+          text-anchor: end;
+          pointer-events: none;
+        }
+
+        .flow-node {
+          transition: opacity 0.18s ease;
+        }
+
+        .flow-node.is-muted {
+          opacity: 0.34;
+        }
+
+        .flow-band-base {
+          fill: var(--accent-2-glow);
+          pointer-events: none;
+        }
+
         .flow-path {
           cursor: pointer;
-          transition: opacity 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
-          filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4));
+          transition: opacity 0.16s ease, filter 0.16s ease;
+          filter: saturate(1.06);
         }
 
         .flow-path:hover {
-          opacity: 1;
-          stroke-width: 22px;
-          filter: drop-shadow(0 0 9px rgba(34, 211, 238, 0.6));
+          filter: drop-shadow(0 0 6px var(--accent-glow)) brightness(1.08) saturate(1.2);
+        }
+
+        .sankey-select-menu {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          z-index: 40;
+          max-height: 280px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 6px;
+          border-radius: 12px;
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(24px) saturate(1.5);
+          -webkit-backdrop-filter: blur(24px) saturate(1.5);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        .sankey-select-menu::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .sankey-select-menu::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .sankey-select-menu::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        .sankey-option {
+          width: 100%;
+          border: 0;
+          border-radius: 6px;
+          background: transparent;
+          color: rgba(255, 255, 255, 0.75);
+          padding: 8px 12px;
+          font-size: 0.85rem;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sankey-option:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+          transform: translateX(2px);
+        }
+
+        .sankey-option.active {
+          background: rgba(56, 189, 248, 0.15);
+          color: #38bdf8;
+          font-weight: 600;
+        }
+
+        .sankey-option.arabic-text {
+          direction: rtl;
+          text-align: right;
+          font-family: "Amiri", serif;
+          font-size: 1.1rem;
+        }
+
+        .sankey-option.arabic-text:hover {
+          transform: translateX(-2px);
         }
 
         .count-label {
@@ -428,19 +774,21 @@ export default function RootFlowSankey({
           font-size: 0.72rem;
           fill: var(--ink-secondary);
           font-weight: 700;
-          letter-spacing: 0.02em;
-        }
-
-        .flow-token-label {
-          text-anchor: middle;
-          font-family: "Amiri", serif;
-          font-size: 0.84rem;
-          fill: var(--ink-muted);
+          paint-order: stroke;
+          stroke: rgba(255, 255, 255, 0.75);
+          stroke-width: 3;
         }
 
         .load-more-container {
-          padding: 0.75rem 1.25rem 0.95rem 320px;
-          border-top: 1px solid var(--line);
+          position: absolute;
+          left: 18px;
+          bottom: calc(var(--footer-height, 42px) + env(safe-area-inset-bottom) + 2px);
+          z-index: 6;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          backdrop-filter: none;
+          pointer-events: none;
         }
 
         .load-more-btn {
@@ -453,6 +801,7 @@ export default function RootFlowSankey({
           font-weight: 600;
           cursor: pointer;
           transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+          pointer-events: auto;
         }
 
         .load-more-btn:hover {
@@ -615,10 +964,14 @@ export default function RootFlowSankey({
           stroke: rgba(255, 255, 255, 0.16);
         }
 
-        :global([data-theme="dark"]) .sankey-control-card {
-          background:
-            linear-gradient(160deg, rgba(20, 20, 30, 0.94), rgba(14, 14, 22, 0.82)),
-            radial-gradient(circle at 10% 12%, rgba(249, 115, 22, 0.14), transparent 46%);
+        :global([data-theme="dark"]) .node-chip {
+          fill: rgba(30, 41, 59, 0.5);
+          stroke: rgba(148, 163, 184, 0.24);
+        }
+
+        :global([data-theme="dark"]) .count-label {
+          stroke: rgba(2, 6, 23, 0.75);
+          fill: #dbeafe;
         }
 
         :global([data-theme="dark"]) .load-more-btn {
@@ -635,7 +988,7 @@ export default function RootFlowSankey({
           }
 
           .load-more-container {
-            padding-left: 18px;
+            left: 12px;
           }
         }
       `}</style>

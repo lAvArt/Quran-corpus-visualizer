@@ -57,6 +57,17 @@ interface StarPoint {
     color: string;
 }
 
+interface LemmaBloomItem {
+    id: string;
+    label: string;
+    x: number;
+    y: number;
+    anchorX: number;
+    anchorY: number;
+    textAnchor: "start" | "end";
+    color: string;
+}
+
 const FALLBACK_NEON_PALETTE = ["#66F8FF", "#92A7FF", "#D493FF", "#76FFC7", "#FFD39D", "#7CC2FF"];
 
 function hashString(value: string): number {
@@ -208,6 +219,10 @@ export default function CollocationNetworkGraph({
     const targetNodeFill = theme === "dark" ? "#E7F2FF" : tuneForTheme(themeColors.nodeColors.default, theme, 0.04);
     const legendStrong = withAlpha(themeColors.accentSecondary, theme === "dark" ? 0.88 : 0.8);
     const legendSoft = withAlpha(themeColors.edgeColors.default, theme === "dark" ? 0.75 : 0.6);
+    const lemmaBloomColor = useMemo(
+        () => tuneForTheme(themeColors.accentSecondary, theme, theme === "dark" ? 0.24 : 0.1),
+        [theme, themeColors.accentSecondary]
+    );
 
     const vizId = useMemo(() => `colloc-neural-${hashString(highlightRoot ?? "none")}`, [highlightRoot]);
 
@@ -577,6 +592,17 @@ export default function CollocationNetworkGraph({
     const handleNodeClick = useCallback(
         (node: CollocationNode) => {
             if (node.type === "tendril") return;
+            if (node.type === "collocate") {
+                // First click/tap selects the collocate (details + lemma bloom),
+                // second click/tap pivots the graph root to that collocate.
+                if (selectedNode !== node.id) {
+                    setSelectedNode(node.id);
+                    return;
+                }
+                if (onRootSelect) onRootSelect(node.label);
+                return;
+            }
+
             const next = selectedNode === node.id ? null : node.id;
             setSelectedNode(next);
             if (onRootSelect) onRootSelect(next ? node.label : null);
@@ -618,6 +644,65 @@ export default function CollocationNetworkGraph({
         return nodes.find((n) => n.id === sidebarNode.parentId) ?? null;
     }, [sidebarNode, nodes]);
     const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+    const lemmaBloomItems = useMemo(() => {
+        const getActiveCollocateId = () => {
+            if (isTouchPrimaryInput) {
+                if (!selectedNode) return null;
+                const node = nodeById.get(selectedNode);
+                return node?.type === "collocate" ? node.id : null;
+            }
+
+            const hoverNode = hoveredNode ? nodeById.get(hoveredNode) : null;
+            if (hoverNode?.type === "collocate") return hoverNode.id;
+
+            const selected = selectedNode ? nodeById.get(selectedNode) : null;
+            return selected?.type === "collocate" ? selected.id : null;
+        };
+
+        const collocateId = getActiveCollocateId();
+        if (!collocateId) return [] as LemmaBloomItem[];
+
+        const parent = nodeById.get(collocateId);
+        if (!parent || parent.type !== "collocate" || parent.x === undefined || parent.y === undefined) {
+            return [] as LemmaBloomItem[];
+        }
+
+        const uniqueLemmas = Array.from(new Set(parent.sampleLemmas.filter(Boolean)));
+        if (uniqueLemmas.length === 0) return [] as LemmaBloomItem[];
+
+        const maxVisible = 5;
+        const labels = uniqueLemmas.slice(0, maxVisible);
+        if (uniqueLemmas.length > maxVisible) {
+            labels.push(`+${uniqueLemmas.length - maxVisible}`);
+        }
+
+        const centerX = dimensions.width / 2;
+        const centerY = dimensions.height / 2;
+        const baseAngle = Math.atan2(parent.y - centerY, parent.x - centerX);
+        const spread = Math.min(Math.PI * 0.86, Math.PI * 0.32 + labels.length * 0.2);
+        const start = baseAngle - spread / 2;
+        const step = labels.length <= 1 ? 0 : spread / (labels.length - 1);
+
+        return labels.map((label, index) => {
+            const angle = labels.length <= 1 ? baseAngle : start + index * step;
+            const branchDist = parent.radius + 8;
+            const labelDist = parent.radius + 28 + (index % 2) * 6;
+            const anchorX = parent.x! + Math.cos(angle) * branchDist;
+            const anchorY = parent.y! + Math.sin(angle) * branchDist;
+            const x = parent.x! + Math.cos(angle) * labelDist;
+            const y = parent.y! + Math.sin(angle) * labelDist;
+            return {
+                id: `lemma-bloom-${parent.id}-${index}`,
+                label,
+                x,
+                y,
+                anchorX,
+                anchorY,
+                textAnchor: Math.cos(angle) >= 0 ? "start" : "end",
+                color: d3.interpolateRgb(parent.color, lemmaBloomColor)(0.72),
+            } satisfies LemmaBloomItem;
+        });
+    }, [dimensions.height, dimensions.width, hoveredNode, isTouchPrimaryInput, lemmaBloomColor, nodeById, selectedNode]);
 
     if (!highlightRoot) {
         return (
@@ -940,6 +1025,52 @@ export default function CollocationNetworkGraph({
                                     );
                                 })}
                             </g>
+
+                            {/* Lemma overlays (always on top of nodes/links) */}
+                            <g className="lemma-bloom" style={{ pointerEvents: "none" }}>
+                                {lemmaBloomItems.map((item) => {
+                                    const controlX = (item.anchorX + item.x) / 2;
+                                    const controlY = (item.anchorY + item.y) / 2;
+                                    const textX = item.textAnchor === "start" ? item.x + 6 : item.x - 6;
+                                    return (
+                                        <g key={item.id}>
+                                            <path
+                                                d={`M ${item.anchorX} ${item.anchorY} Q ${controlX} ${controlY} ${item.x} ${item.y}`}
+                                                stroke={withAlpha(item.color, 0.44)}
+                                                strokeWidth={1}
+                                                fill="none"
+                                                strokeLinecap="round"
+                                            />
+                                            <circle
+                                                cx={item.x}
+                                                cy={item.y}
+                                                r={2.2}
+                                                fill={withAlpha(item.color, 0.9)}
+                                                stroke={withAlpha(themeColors.background, theme === "dark" ? 0.75 : 0.6)}
+                                                strokeWidth={0.8}
+                                            />
+                                            <text
+                                                x={textX}
+                                                y={item.y + 3}
+                                                textAnchor={item.textAnchor}
+                                                paintOrder="stroke"
+                                                stroke={labelStroke}
+                                                strokeWidth={2.6}
+                                                strokeLinejoin="round"
+                                                style={{
+                                                    fontSize: "10px",
+                                                    fontWeight: 600,
+                                                    fill: item.color,
+                                                    letterSpacing: "0.02em",
+                                                }}
+                                                className="arabic-text"
+                                            >
+                                                {item.label}
+                                            </text>
+                                        </g>
+                                    );
+                                })}
+                            </g>
                         </g>
                     </svg>
                 )}
@@ -1005,7 +1136,7 @@ export default function CollocationNetworkGraph({
                                     </div>
                                     {sidebarNode.sampleLemmas.length > 0 && (
                                         <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
-                                            <span className="viz-tooltip-label" style={{ display: "block", marginBottom: 4 }}>Lemmas</span>
+                                            <span className="viz-tooltip-label" style={{ display: "block", marginBottom: 4 }}>{t("lemmasLabel")}</span>
                                             <span className="viz-tooltip-value arabic-text" style={{ fontSize: "1rem", display: "flex", gap: 6, flexWrap: "wrap" }}>
                                                 {sidebarNode.sampleLemmas.map((lemma) => (
                                                     <span
@@ -1047,6 +1178,10 @@ export default function CollocationNetworkGraph({
                         <div className="viz-legend-item">
                             <div className="viz-legend-line" style={{ background: legendSoft, height: 2 }} />
                             <span>{t("pmiLower")}</span>
+                        </div>
+                        <div className="viz-legend-item">
+                            <div className="viz-legend-line" style={{ background: withAlpha(themeColors.edgeColors.default, 0.36), height: 1.5 }} />
+                            <span>{t("lemmaLayerHint")}</span>
                         </div>
                     </div>
                 </div>,

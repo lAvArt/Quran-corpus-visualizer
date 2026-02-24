@@ -1084,7 +1084,7 @@ export default function ArcFlowDiagram({
               </div>
               {activeGroupBy === "pos" ? (
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">POS meaning</span>
+                  <span className="viz-tooltip-label">{t("posMeaning")}</span>
                   <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label, ts)}</span>
                 </div>
               ) : null}
@@ -1094,7 +1094,7 @@ export default function ArcFlowDiagram({
               </div>
               {hoveredNodeData.matchCount > 0 && (
                 <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">Context matches</span>
+                  <span className="viz-tooltip-label">{t("contextMatches")}</span>
                   <span className="viz-tooltip-value">{hoveredNodeData.matchCount}</span>
                 </div>
               )}

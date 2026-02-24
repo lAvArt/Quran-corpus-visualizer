@@ -196,7 +196,7 @@ export function getCollocations(
       root: collocateRoot,
       count,
       pmi,
-      sampleLemmas: Array.from(collocateLemmas.get(collocateRoot) || []).slice(0, 3),
+      sampleLemmas: Array.from(collocateLemmas.get(collocateRoot) || []).slice(0, 8),
       sampleWindows: Array.from(collocateWindows.get(collocateRoot) || []).slice(0, 8),
     });
   }
