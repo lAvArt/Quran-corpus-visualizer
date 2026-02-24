@@ -30,6 +30,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 - **Radial Surah Map** — Visualize the entire Quran or specific Surahs as a radial tree, highlighting relationships between Ayahs and roots.
 - **Root Network Graph** — Explore the connectivity of Arabic roots across the corpus using force-directed graphs.
+- **Collocation Network** — Explore semantic co-occurrence around a selected root using PMI, contextual scopes, and tertiary context nodes.
 - **Knowledge Graph** — Neural-style map of your tracked roots and learning progress, with force-directed and flow layout modes.
 - **Surah Distribution** — Analyze the distribution of specific roots or lemmas across all Surahs.
 - **Arc Flow Diagram** — Trace the flow of roots and grammatical connections within an Ayah.
@@ -46,6 +47,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 - **Root Lock** — When searching for a root, graph interactions won't override your active search context.
 - **Cross-Reference** — Instantly see where else a root or word appears in the Quran.
 - **Full-Text Search** — Search both Arabic text and English translations.
+- **Collocation Scope Controls** — Switch between Whole Ayah Context and Nearby Words Window to compare thematic vs phrase-level proximity.
 
 ### Modern UX/UI
 
@@ -171,7 +173,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 │   ├── data/             # Static data (Surah names, help text)
 │   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)
 │   ├── schema/           # TypeScript types and validation
-│   └── search/           # Search indexing and root flows
+│   └── search/           # Search indexing, root flows, and collocation analytics
 ├── messages/             # i18n translation files (en, ar)
 ├── public/               # Static assets and corpus data
 ├── scripts/              # Build/dev helper scripts

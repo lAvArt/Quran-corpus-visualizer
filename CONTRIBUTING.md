@@ -1,4 +1,4 @@
-# Contributing to Quran Corpus Visualizer
+﻿# Contributing to Quran Corpus Visualizer
 
 Thank you for your interest in contributing! This project aims to make the linguistic structure of the Quran more accessible through interactive visualizations.
 
@@ -60,9 +60,10 @@ npm run dev
 
 Use explicit names that encode purpose:
 
-- `RootFlowSankey` — not `GraphView`
-- `AyahDependencyGraph` — not `DataPanel`
-- `MorphologyInspector` — not `Analyzer`
+- `RootFlowSankey` â€” not `GraphView`
+- `CollocationNetworkGraph` - not `ContextMap`
+- `AyahDependencyGraph` â€” not `DataPanel`
+- `MorphologyInspector` â€” not `Analyzer`
 
 ### Architecture
 

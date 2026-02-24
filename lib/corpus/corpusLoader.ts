@@ -24,6 +24,7 @@ export type ProgressCallback = (progress: LoadingProgress) => void;
 
 const sampleMorphologyMap = buildSampleMorphologyMap(SAMPLE_MORPHOLOGY_DATA);
 const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
+const MORPHOLOGY_CACHE_VERSION = "qac-0.4.1-hamza-fix";
 let cachePolicyInFlight: Promise<void> | null = null;
 
 async function ensureQuranComCachePolicy(): Promise<void> {
@@ -158,6 +159,8 @@ export async function loadFullCorpus(
         const cachedCount = await corpusCache.getTokenCount();
         const cacheMeta = await corpusCache.getMetadata('corpus');
         const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
+        const cacheMorphologyVersion = cacheMeta?.morphologyVersion;
+        const cacheMorphologyMatches = cacheMorphologyVersion === MORPHOLOGY_CACHE_VERSION;
 
         if (cachedCount > 0) {
             console.log(`[CorpusLoader] Found ${cachedCount} cached tokens`);
@@ -167,7 +170,7 @@ export async function loadFullCorpus(
             const tokens = await corpusCache.getAllTokens() as CorpusToken[];
             const hasRoots = tokens.some(t => t.root && t.root.trim().length > 0);
 
-            if ((cacheHasMorphology && hasRoots) || !morphologyMap) {
+            if ((cacheHasMorphology && hasRoots && cacheMorphologyMatches) || !morphologyMap) {
                 progress.status = 'complete';
                 progress.totalTokens = tokens.length;
                 progress.currentTokens = tokens.length;
@@ -177,7 +180,7 @@ export async function loadFullCorpus(
                 return tokens;
             }
 
-            console.warn('[CorpusLoader] Cache missing morphology. Rebuilding...');
+            console.warn('[CorpusLoader] Cache morphology missing/outdated. Rebuilding...');
             await corpusCache.clearCorpusData();
         }
 
@@ -260,7 +263,7 @@ export async function loadFullCorpus(
         await corpusCache.setMetadata('corpus', {
             tokenCount: allTokens.length,
             hasMorphology: Boolean(morphologyMap),
-            morphologyVersion: morphologyMap ? 'qac-0.4' : undefined,
+            morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,
         });
 
         progress.status = 'complete';
@@ -309,6 +312,8 @@ export async function loadSurahs(
 
     const cacheMeta = await corpusCache.getMetadata('corpus');
     const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
+    const cacheMorphologyVersion = cacheMeta?.morphologyVersion;
+    const cacheMorphologyMatches = cacheMorphologyVersion === MORPHOLOGY_CACHE_VERSION;
     for (let i = 0; i < suraIds.length; i++) {
         const suraId = suraIds[i];
         progress.currentSura = i + 1;
@@ -319,10 +324,10 @@ export async function loadSurahs(
         const cached = await corpusCache.getTokensBySura(suraId) as CorpusToken[];
 
         const cachedHasRoots = cached.some(t => t.root && t.root.trim().length > 0);
-        if (cached.length > 0 && ((cacheHasMorphology && cachedHasRoots) || !morphologyMap)) {
+        if (cached.length > 0 && ((cacheHasMorphology && cachedHasRoots && cacheMorphologyMatches) || !morphologyMap)) {
             allTokens.push(...cached);
         } else {
-            if (cached.length > 0 && !cachedHasRoots) {
+            if (cached.length > 0 && (!cachedHasRoots || !cacheMorphologyMatches)) {
                 await corpusCache.clearCorpusData();
             }
 
@@ -371,7 +376,7 @@ export async function loadSurahs(
     await corpusCache.setMetadata('corpus', {
         tokenCount: allTokens.length,
         hasMorphology: Boolean(morphologyMap),
-        morphologyVersion: morphologyMap ? 'qac-0.4' : undefined,
+        morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,
     });
 
     progress.status = 'complete';

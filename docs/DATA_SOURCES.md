@@ -21,6 +21,7 @@ This project uses curated linguistic annotation sources for Quranic text analysi
 - Normalize all data into internal schema (`docs/SCHEMA.md`).
 - Do not bind frontend components directly to source payload shapes.
 - Cache normalized artifacts for deterministic rendering and reproducibility.
+- Derived metrics (for example PMI-based collocation windows used by the Collocation Network) are computed locally from normalized tokens.
 
 ## Licensing and Redistribution
 

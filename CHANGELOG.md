@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Collocation Network**: Expanded documentation for PMI semantics, context scopes (`Whole Ayah Context` vs `Nearby Words Window`), tertiary context nodes, and context-window references.
+- **Schema docs**: Added `CollocationResult` derived-analytics shape (`pmi`, `count`, `sampleLemmas`, `sampleWindows`) and window-reference formats.
+
+### Changed
+
+- **Version alignment**: Synchronized app/package version metadata to `0.5.0` to match current release documentation.
+
 ### Fixed
 
 - **Root Network Graph**: Corrected link highlighting Z-index priority (using SVG DOM sort) so active root connections render above dimmed connections.

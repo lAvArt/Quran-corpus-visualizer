@@ -35,6 +35,7 @@ Goal: ship a polished, accurate first release focused on linguistic graph explor
 ## v0.5 ✅ (Current)
 
 - Knowledge Graph visualization (neural force-directed + flow layout)
+- Collocation Network visualization (PMI-based semantic neighborhoods with context scope controls)
 - Knowledge Tracker with IndexedDB persistence (learning states, notes, import/export)
 - Dual dictionary integration (Doha Historical Dictionary, Al-Maany)
 - Visual polish across all graph modes

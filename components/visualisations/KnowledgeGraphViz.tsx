@@ -8,6 +8,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import type { TrackedRoot } from "@/lib/cache/knowledgeCache";
+import { useTranslations } from "next-intl";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -57,6 +58,8 @@ export default function KnowledgeGraphViz({
     theme = "dark",
 }: KnowledgeGraphVizProps) {
     const { roots: trackedRoots, stats, trackRoot } = useKnowledge();
+    const ts = useTranslations("Visualizations.Shared");
+    const tk = useTranslations("CurrentSelectionPanel.knowledge");
     const themeColors = resolveVisualizationTheme(theme);
 
     const svgRef = useRef<SVGSVGElement>(null);
@@ -712,15 +715,15 @@ export default function KnowledgeGraphViz({
                                 if (!node) return null;
                                 const isGhost = node.type === "ghost-root";
                                 const statusLabel = node.type === "tracked-root"
-                                    ? node.state === "learned" ? "✓ Learned" : "Learning…"
-                                    : isGhost ? "Untracked" : "Lemma";
+                                    ? node.state === "learned" ? ts("learned") : ts("learning")
+                                    : isGhost ? ts("untracked") : ts("lemma");
                                 return (
                                     <>
                                         <span className="kg-info-word arabic-text">{node.label}</span>
                                         <span className="kg-info-divider">·</span>
                                         <span className="kg-info-meta">{statusLabel}</span>
                                         <span className="kg-info-divider">·</span>
-                                        <span className="kg-info-meta">{node.frequency}×</span>
+                                        <span className="kg-info-meta">{node.frequency}x</span>
                                         {isGhost && (
                                             <button
                                                 className="kg-info-track-btn"
@@ -731,7 +734,7 @@ export default function KnowledgeGraphViz({
                                                     setHoveredNode(null);
                                                 }}
                                             >
-                                                + Track
+                                                {tk("markLearning")}
                                             </button>
                                         )}
                                     </>
@@ -753,28 +756,28 @@ export default function KnowledgeGraphViz({
                                 className="viz-legend-dot"
                                 style={{ background: palette.learningNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learningGlow}` }}
                             />
-                            <span>Learning</span>
+                            <span>{ts("learning")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: palette.learnedNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learnedGlow}` }}
                             />
-                            <span>Learned</span>
+                            <span>{ts("learned")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: palette.ghostNode, width: 10, height: 10, borderRadius: "50%", border: `1px solid ${palette.ghostStroke}` }}
                             />
-                            <span>Untracked</span>
+                            <span>{ts("untracked")}</span>
                         </div>
                         <div className="viz-legend-item">
                             <div
                                 className="viz-legend-dot"
                                 style={{ background: palette.lemmaNode, width: 8, height: 8, borderRadius: "50%" }}
                             />
-                            <span>Lemma</span>
+                            <span>{ts("lemma")}</span>
                         </div>
                     </div>,
                     document.getElementById("viz-sidebar-portal")!

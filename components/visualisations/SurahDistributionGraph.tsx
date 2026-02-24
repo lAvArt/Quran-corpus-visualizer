@@ -26,6 +26,7 @@ interface SurahDistributionGraphProps {
 interface SurahNode {
     id: number;
     name: string;
+    arabicName: string;
     tokenCount: number;
     ayahCount: number;
     x: number;
@@ -144,6 +145,7 @@ export default function SurahDistributionGraph({
             nodes.push({
                 id: suraId,
                 name: SURAH_NAMES[suraId]?.name || `Surah ${suraId}`,
+                arabicName: SURAH_NAMES[suraId]?.arabic || "",
                 tokenCount: data.tokens.length,
                 ayahCount: data.ayahs.size,
                 x: xScale(suraId),
@@ -486,11 +488,9 @@ export default function SurahDistributionGraph({
 
                                         return (
                                             <>
-                                                <div className="viz-tooltip-title">
-                                                    {node.name}
-                                                </div>
+                                                <div className="viz-tooltip-title arabic-text">{node.arabicName}</div>
                                                 <div className="viz-tooltip-subtitle">
-                                                    {t("surah")} {node.id}
+                                                    {t("surah")} {node.id} · {node.name}
                                                 </div>
                                                 <div className="viz-tooltip-row">
                                                     <span className="viz-tooltip-label">{t("words")}</span>
