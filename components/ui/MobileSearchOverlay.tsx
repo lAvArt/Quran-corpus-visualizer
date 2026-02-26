@@ -6,12 +6,16 @@ import { useEffect, useRef } from "react";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import type { CorpusToken } from "@/lib/schema/types";
 import { createPortal } from "react-dom";
+import type { SearchMatchType } from "@/lib/analytics/events";
 
 interface MobileSearchOverlayProps {
     tokens: CorpusToken[];
     onTokenSelect: (tokenId: string) => void;
     onTokenHover: (tokenId: string | null) => void;
     onRootSelect?: (root: string | null) => void;
+    onSearchOpened?: () => void;
+    onSearchQuerySubmitted?: (query: string) => void;
+    onSearchResultSelected?: (matchType: SearchMatchType) => void;
 }
 
 export default function MobileSearchOverlay({
@@ -19,6 +23,9 @@ export default function MobileSearchOverlay({
     onTokenSelect,
     onTokenHover,
     onRootSelect,
+    onSearchOpened,
+    onSearchQuerySubmitted,
+    onSearchResultSelected,
 }: MobileSearchOverlayProps) {
     const { isMobileSearchOpen, setMobileSearchOpen } = useVizControl();
     const overlayRef = useRef<HTMLDivElement>(null);
@@ -78,6 +85,9 @@ export default function MobileSearchOverlay({
                                 }}
                                 onTokenHover={onTokenHover}
                                 onRootSelect={onRootSelect}
+                                onSearchOpened={onSearchOpened}
+                                onSearchQuerySubmitted={onSearchQuerySubmitted}
+                                onSearchResultSelected={onSearchResultSelected}
                             />
                         </div>
 

@@ -26,6 +26,8 @@ interface DisplaySettingsPanelProps {
   customColorTheme: CustomColorTheme;
   onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   onResetCustomColorTheme: (appearance: "light" | "dark") => void;
+  experienceLevel: "beginner" | "advanced";
+  onExperienceLevelChange: (level: "beginner" | "advanced") => void;
   onReplayExperience: () => void;
   exportTargetRef?: RefObject<HTMLElement | null>;
   vizMode?: VisualizationMode;
@@ -42,6 +44,8 @@ export default function DisplaySettingsPanel({
   customColorTheme,
   onCustomColorThemeChange,
   onResetCustomColorTheme,
+  experienceLevel,
+  onExperienceLevelChange,
   onReplayExperience,
   exportTargetRef,
   vizMode,
@@ -73,7 +77,7 @@ export default function DisplaySettingsPanel({
   useEffect(() => {
     if (!isOpen) return;
 
-    const closeOnOutside = (event: MouseEvent | TouchEvent) => {
+    const closeOnOutside = (event: PointerEvent) => {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -86,13 +90,12 @@ export default function DisplaySettingsPanel({
       }
     };
 
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("touchstart", closeOnOutside, { passive: true });
+    // Capture phase makes outside taps reliable on mobile before other handlers run.
+    document.addEventListener("pointerdown", closeOnOutside, true);
     document.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("touchstart", closeOnOutside);
+      document.removeEventListener("pointerdown", closeOnOutside, true);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [isOpen]);
@@ -258,6 +261,23 @@ export default function DisplaySettingsPanel({
               />
             </div>
           )}
+
+          <div className="display-settings-section custom-colors">
+            <div className="display-settings-title">{t("experienceLevel.title")}</div>
+            <div className="display-theme-list">
+              {(["beginner", "advanced"] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`display-theme-item ${experienceLevel === level ? "active" : ""}`}
+                  onClick={() => onExperienceLevelChange(level)}
+                  aria-pressed={experienceLevel === level}
+                >
+                  <span>{t(`experienceLevel.options.${level}`)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="display-settings-section custom-colors">
             <div className="display-settings-title">{t("actions.title")}</div>

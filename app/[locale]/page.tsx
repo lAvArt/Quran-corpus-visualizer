@@ -23,7 +23,22 @@ import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import GuidedWalkthroughOverlay from "@/components/ui/GuidedWalkthroughOverlay";
-import { WALKTHROUGH_STEPS } from "@/lib/data/walkthroughSteps";
+import VizBreadcrumbs from "@/components/ui/VizBreadcrumbs";
+import { MOBILE_WALKTHROUGH_STEPS, WALKTHROUGH_STEPS } from "@/lib/data/walkthroughSteps";
+import {
+  trackBreadcrumbUsed,
+  trackFirstTaskCompleted,
+  trackFirstTaskFeedback,
+  trackModeSwitched,
+  trackOnboardingCompleted,
+  trackOnboardingSkipped,
+  trackOnboardingStarted,
+  trackSearchOpened,
+  trackSearchQuerySubmitted,
+  trackSearchResultSelected,
+  trackVizChanged,
+  type SearchMatchType,
+} from "@/lib/analytics/events";
 import {
   DEFAULT_COLOR_THEME_ID,
   DEFAULT_CUSTOM_COLOR_THEME,
@@ -50,8 +65,16 @@ const CollocationNetworkGraph = lazy(() => import("@/components/visualisations/C
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 const EXPERIENCE_STORAGE_KEY = "quran-corpus-onboarding";
+const FIRST_TASK_STORAGE_KEY = "quran-corpus-first-task-completed";
+const FIRST_TASK_FEEDBACK_DISMISSED_KEY = "quran-corpus-first-task-feedback-dismissed";
+const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
+  "radial-sura",
+  "surah-distribution",
+  "root-network",
+];
 
 type ExperiencePhase = "none" | "onboarding" | "walkthrough";
+type DataReadinessStatus = "sample" | "loading" | "full" | "fallback";
 
 interface ExperienceStorageState {
   version: string;
@@ -73,11 +96,14 @@ function VizFallback() {
 
 function HomePageContent() {
   const t = useTranslations('Index');
+  const tViz = useTranslations("VisualizationSwitcher.modes");
   const { isLeftSidebarOpen, isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   // Initialize with defaults to avoid hydration mismatch
-  const [vizMode, setVizMode] = useState<VisualizationMode>("corpus-architecture");
+  const [vizMode, setVizMode] = useState<VisualizationMode>("radial-sura");
+  const [experienceLevel, setExperienceLevel] = useState<"beginner" | "advanced">("beginner");
+  const [showAdvancedModes, setShowAdvancedModes] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
   const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
@@ -88,6 +114,9 @@ function HomePageContent() {
   const [lastCompletedAt, setLastCompletedAt] = useState<string | undefined>(undefined);
   const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [dataStatus, setDataStatus] = useState<DataReadinessStatus>("sample");
+  const [hasCompletedFirstTask, setHasCompletedFirstTask] = useState(false);
+  const [showFirstTaskFeedbackPrompt, setShowFirstTaskFeedbackPrompt] = useState(false);
   const mainVizRef = useRef<HTMLElement>(null);
 
   // Use context now
@@ -112,6 +141,12 @@ function HomePageContent() {
       if (stored) {
         const saved = JSON.parse(stored);
         if (saved.vizMode) setVizMode(saved.vizMode);
+        if (saved.experienceLevel === "beginner" || saved.experienceLevel === "advanced") {
+          setExperienceLevel(saved.experienceLevel);
+        }
+        if (typeof saved.showAdvancedModes === "boolean") {
+          setShowAdvancedModes(saved.showAdvancedModes);
+        }
         if (saved.theme) setTheme(saved.theme);
         if (isValidColorThemeId(saved.colorThemeId)) setColorThemeId(saved.colorThemeId);
         if (isValidLexicalColorMode(saved.lexicalColorMode)) setLexicalColorMode(saved.lexicalColorMode);
@@ -120,6 +155,10 @@ function HomePageContent() {
         if (saved.selectedRoot !== undefined) setSelectedRoot(saved.selectedRoot);
         if (saved.selectedLemma !== undefined) setSelectedLemma(saved.selectedLemma);
       }
+      const firstTaskCompleted = localStorage.getItem(FIRST_TASK_STORAGE_KEY) === "1";
+      const feedbackDismissed = localStorage.getItem(FIRST_TASK_FEEDBACK_DISMISSED_KEY) === "1";
+      setHasCompletedFirstTask(firstTaskCompleted);
+      setShowFirstTaskFeedbackPrompt(firstTaskCompleted && !feedbackDismissed);
     } catch {
       // Ignore localStorage errors
     }
@@ -138,6 +177,8 @@ function HomePageContent() {
         STORAGE_KEY,
         JSON.stringify({
           vizMode,
+          experienceLevel,
+          showAdvancedModes,
           theme,
           colorThemeId,
           lexicalColorMode,
@@ -150,7 +191,7 @@ function HomePageContent() {
     } catch {
       // Ignore localStorage errors
     }
-  }, [vizMode, theme, colorThemeId, lexicalColorMode, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
+  }, [vizMode, experienceLevel, showAdvancedModes, theme, colorThemeId, lexicalColorMode, customColorTheme, selectedSurahId, selectedRoot, selectedLemma]);
 
   const handleCustomColorThemeChange = useCallback(
     (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => {
@@ -261,14 +302,26 @@ function HomePageContent() {
     setExperiencePhase("none");
   }, []);
 
-  const handleStartWalkthrough = useCallback(() => {
-    if (isMobileViewport) {
-      markExperienceCompleted();
-      return;
+  useEffect(() => {
+    if (experiencePhase === "onboarding") {
+      trackOnboardingStarted();
     }
+  }, [experiencePhase]);
+
+  const activeWalkthroughSteps = useMemo(
+    () => (isMobileViewport ? MOBILE_WALKTHROUGH_STEPS : WALKTHROUGH_STEPS),
+    [isMobileViewport]
+  );
+
+  const handleStartWalkthrough = useCallback(() => {
     setExperiencePhase("walkthrough");
     setWalkthroughStepIndex(0);
-  }, [isMobileViewport, markExperienceCompleted]);
+  }, []);
+
+  const handleOnboardingSkip = useCallback(() => {
+    trackOnboardingSkipped();
+    markExperienceCompleted();
+  }, [markExperienceCompleted]);
 
   const handleReplayExperience = useCallback(() => {
     setExperienceCompleted(false);
@@ -279,18 +332,16 @@ function HomePageContent() {
   }, [persistExperienceState, showOnStartup]);
 
   const handleWalkthroughNext = useCallback(() => {
-    setWalkthroughStepIndex((prev) => Math.min(WALKTHROUGH_STEPS.length - 1, prev + 1));
-  }, []);
+    setWalkthroughStepIndex((prev) => Math.min(activeWalkthroughSteps.length - 1, prev + 1));
+  }, [activeWalkthroughSteps.length]);
 
   const handleWalkthroughBack = useCallback(() => {
     setWalkthroughStepIndex((prev) => Math.max(0, prev - 1));
   }, []);
 
   useEffect(() => {
-    if (experiencePhase === "walkthrough" && isMobileViewport) {
-      markExperienceCompleted();
-    }
-  }, [experiencePhase, isMobileViewport, markExperienceCompleted]);
+    setWalkthroughStepIndex((prev) => Math.min(prev, Math.max(0, activeWalkthroughSteps.length - 1)));
+  }, [activeWalkthroughSteps.length]);
 
   // Load full corpus on mount (background)
   useEffect(() => {
@@ -298,6 +349,7 @@ function HomePageContent() {
 
     const loadCorpus = async () => {
       setIsLoadingCorpus(true);
+      setDataStatus("loading");
       console.log('[Page] Starting corpus load...');
       try {
         const corpusTokens = await loadFullCorpus((progress) => {
@@ -309,9 +361,15 @@ function HomePageContent() {
         if (!cancelled && corpusTokens.length > 0) {
           console.log(`[Page] Corpus loaded: ${corpusTokens.length} tokens`);
           setTokens(corpusTokens);
+          setDataStatus("full");
+        } else if (!cancelled) {
+          setDataStatus("fallback");
         }
       } catch (err) {
         console.error('[Page] Failed to load corpus:', err);
+        if (!cancelled) {
+          setDataStatus("fallback");
+        }
       } finally {
         if (!cancelled) setIsLoadingCorpus(false);
       }
@@ -387,11 +445,51 @@ function HomePageContent() {
 
   // Clear stale selection context when switching visualization modes
   const handleVizModeChange = useCallback((newMode: VisualizationMode) => {
+    if (newMode !== vizMode) {
+      trackVizChanged(vizMode, newMode, experienceLevel);
+    }
     setVizMode(newMode);
     // Don't clear selectedRoot and selectedLemma to make them persistent across graphs
     setFocusedTokenId(null);
     setHoverTokenId(null);
-  }, []);
+  }, [experienceLevel, vizMode]);
+
+  const visibleVizModes = useMemo<VisualizationMode[]>(
+    () => (experienceLevel === "advanced" || showAdvancedModes
+      ? [
+        "corpus-architecture",
+        "surah-distribution",
+        "radial-sura",
+        "root-network",
+        "arc-flow",
+        "dependency-tree",
+        "sankey-flow",
+        "collocation-network",
+        "knowledge-graph",
+      ]
+      : BEGINNER_PRIMARY_MODES),
+    [experienceLevel, showAdvancedModes]
+  );
+
+  const handleExperienceLevelChange = useCallback((level: "beginner" | "advanced") => {
+    if (level !== experienceLevel) {
+      trackModeSwitched(experienceLevel, level);
+    }
+    setExperienceLevel(level);
+    if (level === "advanced") {
+      setShowAdvancedModes(true);
+      return;
+    }
+    setShowAdvancedModes(false);
+    if (!BEGINNER_PRIMARY_MODES.includes(vizMode)) {
+      setVizMode("radial-sura");
+    }
+  }, [experienceLevel, vizMode]);
+
+  useEffect(() => {
+    if (visibleVizModes.includes(vizMode)) return;
+    setVizMode(visibleVizModes[0] ?? "radial-sura");
+  }, [visibleVizModes, vizMode]);
 
   const handleSurahSelect = useCallback(
     (suraId: number, preferredView?: "root-network" | "radial-sura") => {
@@ -430,13 +528,109 @@ function HomePageContent() {
   }, []);
 
   const handleWalkthroughEnd = useCallback(() => {
-    handleVizModeChange("corpus-architecture");
+    handleVizModeChange("radial-sura");
     markExperienceCompleted();
   }, [handleVizModeChange, markExperienceCompleted]);
 
+  const handleWalkthroughSkip = useCallback(() => {
+    trackOnboardingSkipped();
+    handleWalkthroughEnd();
+  }, [handleWalkthroughEnd]);
+
+  const handleWalkthroughComplete = useCallback(() => {
+    trackOnboardingCompleted();
+    handleWalkthroughEnd();
+  }, [handleWalkthroughEnd]);
+
+  const isHierarchicalMode = useMemo(
+    () => ["corpus-architecture", "radial-sura", "surah-distribution", "dependency-tree"].includes(vizMode),
+    [vizMode]
+  );
+
+  const handleBreadcrumbNavigate = useCallback((level: "quran" | "surah" | "ayah" | "root") => {
+    trackBreadcrumbUsed(level);
+    if (level === "quran") {
+      setSelectedSurahId(1);
+      setFocusedTokenId(null);
+      setSelectedRoot(null);
+      setSelectedLemma(null);
+      setSearchLockedRoot(null);
+      return;
+    }
+
+    if (level === "surah") {
+      setFocusedTokenId(null);
+      setSelectedRoot(null);
+      setSelectedLemma(null);
+      setSearchLockedRoot(null);
+      return;
+    }
+
+    if (level === "ayah") {
+      if (selectedAyahInSurah) {
+        const ayahToken = allTokens.find((token) => token.sura === selectedSurahId && token.ayah === selectedAyahInSurah);
+        if (ayahToken) {
+          setFocusedTokenId(ayahToken.id);
+        }
+      }
+      setSelectedRoot(null);
+      setSelectedLemma(null);
+      setSearchLockedRoot(null);
+      return;
+    }
+
+    if (selectedRootValue) {
+      setFocusedTokenId(null);
+      setSelectedRoot(selectedRootValue);
+      setSelectedLemma(null);
+      setSearchLockedRoot(selectedRootValue);
+    }
+  }, [selectedAyahInSurah, allTokens, selectedSurahId, selectedRootValue]);
+
+  const handleSearchOpened = useCallback((surface: "header" | "sidebar" | "mobile") => {
+    trackSearchOpened(surface);
+  }, []);
+
+  const handleSearchQuerySubmitted = useCallback((query: string, surface: "header" | "sidebar" | "mobile") => {
+    trackSearchQuerySubmitted(query, surface);
+  }, []);
+
+  const handleSearchResultSelected = useCallback((matchType: SearchMatchType, surface: "header" | "sidebar" | "mobile") => {
+    trackSearchResultSelected(matchType, surface);
+    if (!hasCompletedFirstTask) {
+      setHasCompletedFirstTask(true);
+      setShowFirstTaskFeedbackPrompt(true);
+      trackFirstTaskCompleted();
+      try {
+        localStorage.setItem(FIRST_TASK_STORAGE_KEY, "1");
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+  }, [hasCompletedFirstTask]);
+
+  const handleFirstTaskFeedback = useCallback((rating: "helpful" | "not_helpful") => {
+    trackFirstTaskFeedback(rating);
+    setShowFirstTaskFeedbackPrompt(false);
+    try {
+      localStorage.setItem(FIRST_TASK_FEEDBACK_DISMISSED_KEY, "1");
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
+  const handleDismissFirstTaskFeedback = useCallback(() => {
+    setShowFirstTaskFeedbackPrompt(false);
+    try {
+      localStorage.setItem(FIRST_TASK_FEEDBACK_DISMISSED_KEY, "1");
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
   useEffect(() => {
     if (experiencePhase !== "walkthrough") return;
-    const step = WALKTHROUGH_STEPS[walkthroughStepIndex];
+    const step = activeWalkthroughSteps[walkthroughStepIndex];
     if (!step) return;
 
     if (step.action === "set-viz-mode" && step.actionMode) {
@@ -445,7 +639,7 @@ function HomePageContent() {
     if (step.openToolsSidebar) {
       setIsSidebarOpen(true);
     }
-  }, [experiencePhase, walkthroughStepIndex, handleVizModeChange, setIsSidebarOpen]);
+  }, [experiencePhase, walkthroughStepIndex, activeWalkthroughSteps, handleVizModeChange, setIsSidebarOpen]);
 
   // Render the active visualization
   const renderVisualization = () => {
@@ -613,6 +807,9 @@ function HomePageContent() {
               onTokenSelect={handleTokenSelect}
               onTokenHover={setHoverTokenId}
               onRootSelect={handleRootSelect}
+              onSearchOpened={() => handleSearchOpened("header")}
+              onSearchQuerySubmitted={(query) => handleSearchQuerySubmitted(query, "header")}
+              onSearchResultSelected={(matchType) => handleSearchResultSelected(matchType, "header")}
             />
           </div>
 
@@ -626,27 +823,32 @@ function HomePageContent() {
             </div>
 
             <div data-tour-id="display-settings">
-              <DisplaySettingsPanel
-                theme={theme}
-                onThemeChange={setTheme}
-                colorTheme={colorThemeId}
-                onColorThemeChange={setColorThemeId}
-                lexicalColorMode={lexicalColorMode}
-                onLexicalColorModeChange={setLexicalColorMode}
-                customColorTheme={customColorTheme}
-                onCustomColorThemeChange={handleCustomColorThemeChange}
-                onResetCustomColorTheme={handleResetCustomColorTheme}
-                onReplayExperience={handleReplayExperience}
-                exportTargetRef={mainVizRef}
-                vizMode={vizMode}
-                selectedSurahId={selectedSurahId}
-              />
+                <DisplaySettingsPanel
+                  theme={theme}
+                  onThemeChange={setTheme}
+                  colorTheme={colorThemeId}
+                  onColorThemeChange={setColorThemeId}
+                  lexicalColorMode={lexicalColorMode}
+                  onLexicalColorModeChange={setLexicalColorMode}
+                  customColorTheme={customColorTheme}
+                  onCustomColorThemeChange={handleCustomColorThemeChange}
+                  onResetCustomColorTheme={handleResetCustomColorTheme}
+                  experienceLevel={experienceLevel}
+                  onExperienceLevelChange={handleExperienceLevelChange}
+                  onReplayExperience={handleReplayExperience}
+                  exportTargetRef={mainVizRef}
+                  vizMode={vizMode}
+                  selectedSurahId={selectedSurahId}
+                />
             </div>
 
             <div data-tour-id="viz-switcher">
               <VisualizationSwitcher
                 currentMode={vizMode}
                 onModeChange={handleVizModeChange}
+                experienceLevel={experienceLevel}
+                showAdvancedModes={showAdvancedModes}
+                onToggleAdvancedModes={setShowAdvancedModes}
                 theme={theme}
                 onThemeChange={setTheme}
               />
@@ -676,9 +878,9 @@ function HomePageContent() {
       </header>
 
       {/* Loading indicator */}
-      {
-        isLoadingCorpus && loadingProgress && (
-          <div className="loading-indicator">
+        {
+          isLoadingCorpus && loadingProgress && (
+            <div className="loading-indicator">
             <div className="loading-bar">
               <div
                 className="loading-progress"
@@ -688,14 +890,43 @@ function HomePageContent() {
               />
             </div>
             <span className="loading-text">{loadingProgress.message}</span>
-          </div>
-        )
-      }
+            </div>
+          )
+        }
+        <div className={`data-status-badge data-status-${dataStatus}`}>
+          <strong>{t(`dataStatus.${dataStatus}.title`)}</strong>
+          <span>{t(`dataStatus.${dataStatus}.description`)}</span>
+        </div>
+        <VizBreadcrumbs
+          isHierarchical={isHierarchicalMode}
+          viewLabel={tViz(`${vizMode}.label`)}
+          surahId={selectedSurahId}
+          surahName={SURAH_NAMES[selectedSurahId]?.name ?? `${selectedSurahId}`}
+          ayah={selectedAyahInSurah}
+          root={selectedRootValue}
+          onNavigate={handleBreadcrumbNavigate}
+        />
 
       {/* Main Full-Screen Visualization */}
       <main ref={mainVizRef} className="immersive-viewport viz-fullwidth" data-tour-id="main-viewport">
         {renderVisualization()}
       </main>
+      {showFirstTaskFeedbackPrompt && (
+        <div className="first-task-feedback" role="status" aria-live="polite">
+          <p>{t("feedbackPrompt.question")}</p>
+          <div className="first-task-feedback-actions">
+            <button type="button" onClick={() => handleFirstTaskFeedback("helpful")}>
+              {t("feedbackPrompt.helpful")}
+            </button>
+            <button type="button" onClick={() => handleFirstTaskFeedback("not_helpful")}>
+              {t("feedbackPrompt.notHelpful")}
+            </button>
+            <button type="button" onClick={handleDismissFirstTaskFeedback}>
+              {t("feedbackPrompt.dismiss")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {(!isMobileViewport || isLeftSidebarOpen) && (
         <div id="viz-sidebar-portal" className="viz-sidebar-stack">
@@ -733,6 +964,9 @@ function HomePageContent() {
           onSelectSurah={handleSurahSelect}
           onLemmaSelect={handleLemmaSelect}
           selectedSurahId={selectedSurahId}
+          onSearchOpened={() => handleSearchOpened("sidebar")}
+          onSearchQuerySubmitted={(query) => handleSearchQuerySubmitted(query, "sidebar")}
+          onSearchResultSelected={(matchType) => handleSearchResultSelected(matchType, "sidebar")}
         />
       </div>
 
@@ -742,6 +976,9 @@ function HomePageContent() {
         onTokenSelect={handleTokenSelect}
         onTokenHover={setHoverTokenId}
         onRootSelect={handleRootSelect}
+        onSearchOpened={() => handleSearchOpened("mobile")}
+        onSearchQuerySubmitted={(query) => handleSearchQuerySubmitted(query, "mobile")}
+        onSearchResultSelected={(matchType) => handleSearchResultSelected(matchType, "mobile")}
       />
 
       <OnboardingOverlay
@@ -749,17 +986,17 @@ function HomePageContent() {
         showOnStartup={showOnStartup}
         onShowOnStartupChange={handleOnboardingStartupChange}
         onComplete={handleOnboardingComplete}
-        onSkip={markExperienceCompleted}
+        onSkip={handleOnboardingSkip}
         onStartWalkthrough={handleStartWalkthrough}
       />
       <GuidedWalkthroughOverlay
-        isOpen={experiencePhase === "walkthrough" && !isMobileViewport}
-        steps={WALKTHROUGH_STEPS}
+        isOpen={experiencePhase === "walkthrough"}
+        steps={activeWalkthroughSteps}
         stepIndex={walkthroughStepIndex}
         onNext={handleWalkthroughNext}
         onBack={handleWalkthroughBack}
-        onSkip={handleWalkthroughEnd}
-        onComplete={handleWalkthroughEnd}
+        onSkip={handleWalkthroughSkip}
+        onComplete={handleWalkthroughComplete}
       />
 
       <style jsx>{`
@@ -797,6 +1034,106 @@ function HomePageContent() {
           font-size: 0.75rem;
           color: rgba(255, 255, 255, 0.8);
         }
+
+        .data-status-badge {
+          position: fixed;
+          top: calc(var(--header-clearance) + 44px);
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 40;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          max-width: min(calc(100vw - 24px), 620px);
+          border-radius: 999px;
+          border: 1px solid var(--line);
+          background: rgba(8, 10, 16, 0.72);
+          backdrop-filter: blur(8px);
+          color: var(--ink-secondary);
+          font-size: 0.74rem;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+
+        .data-status-badge strong {
+          flex: 0 0 auto;
+          color: var(--ink);
+          font-weight: 700;
+        }
+
+        .data-status-badge span {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .data-status-badge.data-status-full {
+          border-color: rgba(14, 165, 233, 0.4);
+        }
+
+        .data-status-badge.data-status-fallback {
+          border-color: rgba(251, 191, 36, 0.55);
+        }
+
+        @media (max-width: 1100px) {
+          .data-status-badge {
+            top: calc(var(--header-clearance) + 6px);
+            max-width: calc(100vw - 20px);
+            width: auto;
+            padding: 4px 8px;
+            font-size: 0.62rem;
+            gap: 5px;
+          }
+
+          .data-status-badge span {
+            display: none;
+          }
+        }
+
+        .first-task-feedback {
+          position: fixed;
+          bottom: calc(var(--footer-height) + 18px);
+          right: 18px;
+          z-index: 101;
+          width: min(340px, calc(100vw - 24px));
+          border-radius: 12px;
+          border: 1px solid var(--line);
+          background: rgba(8, 10, 16, 0.86);
+          backdrop-filter: blur(8px);
+          padding: 10px;
+          color: var(--ink-secondary);
+          font-size: 0.78rem;
+        }
+
+        .first-task-feedback p {
+          margin: 0 0 8px;
+          color: var(--ink);
+        }
+
+        .first-task-feedback-actions {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .first-task-feedback button {
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          background: transparent;
+          color: var(--ink-secondary);
+          padding: 6px 8px;
+          font: inherit;
+          cursor: pointer;
+        }
+
+        .first-task-feedback button:hover,
+        .first-task-feedback button:focus-visible {
+          border-color: var(--accent);
+          color: var(--ink);
+          outline: none;
+        }
+
       `}</style>
     </div>
   );

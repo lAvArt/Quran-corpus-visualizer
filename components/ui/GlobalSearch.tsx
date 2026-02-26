@@ -4,18 +4,24 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import type { CorpusToken } from "@/lib/schema/types";
 import { useDebounce } from "@/lib/hooks/useDebounce";
-import { normalizeArabicForSearch } from "@/lib/search/indexes";
+import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
+import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+import { parseSearchQuery } from "@/lib/search/queryParser";
+import type { SearchMatchType } from "@/lib/analytics/events";
 
 interface GlobalSearchProps {
   tokens: CorpusToken[];
   onTokenSelect: (tokenId: string) => void;
   onTokenHover: (tokenId: string | null) => void;
   onRootSelect?: (root: string | null) => void;
+  onSearchOpened?: () => void;
+  onSearchQuerySubmitted?: (query: string) => void;
+  onSearchResultSelected?: (matchType: SearchMatchType) => void;
 }
 
 interface SearchResult {
   token: CorpusToken;
-  matchType: "text" | "root" | "lemma" | "gloss";
+  matchType: SearchMatchType;
   matchText: string;
 }
 
@@ -24,6 +30,9 @@ export default function GlobalSearch({
   onTokenSelect,
   onTokenHover,
   onRootSelect,
+  onSearchOpened,
+  onSearchQuerySubmitted,
+  onSearchResultSelected,
 }: GlobalSearchProps) {
   const t = useTranslations('GlobalSearch');
   const typeLabelMap: Record<SearchResult["matchType"], string> = {
@@ -40,11 +49,13 @@ export default function GlobalSearch({
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Build search indexes
-  const { byRoot, byLemma } = useMemo(() => {
+  const { byRoot, byLemma, byId, phaseOne } = useMemo(() => {
     const rootMap = new Map<string, CorpusToken[]>();
     const lemmaMap = new Map<string, CorpusToken[]>();
+    const byIdMap = new Map<string, CorpusToken>();
 
     for (const token of tokens) {
+      byIdMap.set(token.id, token);
       if (token.root) {
         if (!rootMap.has(token.root)) rootMap.set(token.root, []);
         rootMap.get(token.root)!.push(token);
@@ -55,18 +66,60 @@ export default function GlobalSearch({
       }
     }
 
-    return { byRoot: rootMap, byLemma: lemmaMap };
+    return { byRoot: rootMap, byLemma: lemmaMap, byId: byIdMap, phaseOne: buildPhaseOneIndexes(tokens) };
   }, [tokens]);
 
   // Search function
   const results = useMemo<SearchResult[]>(() => {
     if (!debouncedQuery.trim() || debouncedQuery.length < 2) return [];
 
-    const queryTrimmed = debouncedQuery.trim();
+    const parsed = parseSearchQuery(debouncedQuery);
+    const queryTrimmed = parsed.freeText || parsed.raw;
     const q = queryTrimmed.toLowerCase();
     const normalizedQuery = normalizeArabicForSearch(queryTrimmed);
     const matches: SearchResult[] = [];
     const seen = new Set<string>();
+
+    if (parsed.root || parsed.lemma || parsed.pos || parsed.ayah) {
+      const ids = queryPhaseOne(phaseOne, {
+        root: parsed.root,
+        lemma: parsed.lemma,
+        pos: parsed.pos,
+        ayah: parsed.ayah,
+      });
+
+      for (const id of ids) {
+        const token = byId.get(id);
+        if (!token || seen.has(id)) continue;
+        seen.add(id);
+
+        const matchType: SearchMatchType = parsed.root
+          ? "root"
+          : parsed.lemma
+          ? "lemma"
+          : parsed.gloss
+          ? "gloss"
+          : "text";
+        const matchText =
+          parsed.root
+            ? t("matchRoot", { root: token.root, count: (byRoot.get(token.root)?.length ?? 1) })
+            : parsed.lemma
+            ? t("matchLemma", { lemma: token.lemma })
+            : parsed.ayah
+            ? `${token.sura}:${token.ayah}`
+            : token.text;
+
+        matches.push({
+          token,
+          matchType,
+          matchText,
+        });
+      }
+    }
+
+    if (!queryTrimmed) {
+      return matches.slice(0, 20);
+    }
 
     // Search by root
     for (const [root, rootTokens] of byRoot) {
@@ -131,7 +184,7 @@ export default function GlobalSearch({
     }
 
     return matches.slice(0, 20);
-  }, [debouncedQuery, tokens, byRoot, byLemma, t]);
+  }, [debouncedQuery, tokens, byRoot, byLemma, byId, phaseOne, t]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -146,6 +199,7 @@ export default function GlobalSearch({
         e.preventDefault();
         const r = results[selectedIndex];
         onTokenSelect(r.token.id);
+        onSearchResultSelected?.(r.matchType);
         if (r.matchType === "root" && r.token.root && onRootSelect) {
           onRootSelect(r.token.root);
         }
@@ -155,7 +209,7 @@ export default function GlobalSearch({
         inputRef.current?.blur();
       }
     },
-    [results, selectedIndex, onTokenSelect]
+    [results, selectedIndex, onTokenSelect, onRootSelect, onSearchResultSelected]
   );
 
   // Reset selection when results change
@@ -170,6 +224,11 @@ export default function GlobalSearch({
       selected?.scrollIntoView({ block: "nearest" });
     }
   }, [selectedIndex, results.length]);
+
+  useEffect(() => {
+    if (!debouncedQuery.trim() || debouncedQuery.trim().length < 2) return;
+    onSearchQuerySubmitted?.(debouncedQuery.trim());
+  }, [debouncedQuery, onSearchQuerySubmitted]);
 
   return (
     <div className="global-search" data-tour-id="global-search-root">
@@ -192,6 +251,7 @@ export default function GlobalSearch({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          onFocusCapture={() => onSearchOpened?.()}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           onKeyDown={handleKeyDown}
           role="combobox"
@@ -232,6 +292,7 @@ export default function GlobalSearch({
               onMouseLeave={() => onTokenHover(null)}
               onClick={() => {
                 onTokenSelect(result.token.id);
+                onSearchResultSelected?.(result.matchType);
                 if (result.matchType === "root" && result.token.root && onRootSelect) {
                   onRootSelect(result.token.root);
                 }

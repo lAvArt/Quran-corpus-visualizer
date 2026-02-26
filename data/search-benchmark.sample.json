@@ -1,0 +1,83 @@
+{
+  "dataset": "sample-corpus-v1",
+  "version": 1,
+  "topK": 10,
+  "thresholds": {
+    "precisionAtK": 0.45,
+    "recallAtK": 0.9,
+    "mrr": 0.85
+  },
+  "cases": [
+    {
+      "id": "root-hmd",
+      "query": "root:حمد",
+      "expectedTokenIds": ["1:2:1"]
+    },
+    {
+      "id": "lemma-alhamd",
+      "query": "lemma:الحمد",
+      "expectedTokenIds": ["1:2:1"]
+    },
+    {
+      "id": "root-rhm",
+      "query": "root:رحم",
+      "expectedTokenIds": ["1:3:1", "1:3:2"]
+    },
+    {
+      "id": "lemma-rahim",
+      "query": "lemma:رحيم",
+      "expectedTokenIds": ["1:3:2"]
+    },
+    {
+      "id": "ayah-1-5-verbs",
+      "query": "ayah:1:5 pos:v",
+      "expectedTokenIds": ["1:5:2", "1:5:3"]
+    },
+    {
+      "id": "root-hdy",
+      "query": "root:هدي",
+      "expectedTokenIds": ["1:6:1", "2:2:3"]
+    },
+    {
+      "id": "lemma-huda",
+      "query": "lemma:هدى",
+      "expectedTokenIds": ["1:6:1", "2:2:3"]
+    },
+    {
+      "id": "text-rzqna",
+      "query": "رزقناهم",
+      "expectedTokenIds": ["2:3:4"]
+    },
+    {
+      "id": "root-iya",
+      "query": "root:ايا",
+      "expectedTokenIds": ["1:5:1"]
+    },
+    {
+      "id": "alias-root-abd",
+      "query": "r:عبد",
+      "expectedTokenIds": ["1:5:2"]
+    },
+    {
+      "id": "alias-lemma-istaan",
+      "query": "l:استعان",
+      "expectedTokenIds": ["1:5:3"]
+    },
+    {
+      "id": "ayah-2-3",
+      "query": "ayah:2:3",
+      "expectedTokenIds": ["2:3:1", "2:3:4"]
+    },
+    {
+      "id": "ayah-1-2-nouns",
+      "query": "ayah:1:2 pos:n",
+      "expectedTokenIds": ["1:2:1", "1:2:2"]
+    },
+    {
+      "id": "gloss-praise",
+      "query": "praise",
+      "expectedTokenIds": ["1:2:1"]
+    }
+  ]
+}
+

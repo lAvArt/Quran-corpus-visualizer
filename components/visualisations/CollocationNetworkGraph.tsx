@@ -4,10 +4,17 @@ import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
-import type { CorpusToken } from "@/lib/schema/types";
+import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useTranslations } from "next-intl";
-import { calculateRootFrequencies, getCollocations, type CollocationOptions } from "@/lib/search/collocation";
+import { getAyah } from "@/lib/corpus/corpusLoader";
+import {
+    calculateRootFrequencies,
+    getCollocations,
+    getPairCooccurrence,
+    type CollocationOptions,
+    type CollocationTermKind,
+} from "@/lib/search/collocation";
 import { HelpIcon, VizExplainerDialog } from "@/components/ui/VizExplainerDialog";
 
 interface CollocationNetworkGraphProps {
@@ -69,6 +76,30 @@ interface LemmaBloomItem {
 }
 
 const FALLBACK_NEON_PALETTE = ["#66F8FF", "#92A7FF", "#D493FF", "#76FFC7", "#FFD39D", "#7CC2FF"];
+const POS_OPTIONS: Array<PartOfSpeech> = ["N", "V", "P", "ADJ", "PRON"];
+const ARABIC_DIACRITICS_REGEX = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+const TATWEEL_REGEX = /\u0640/g;
+
+function normalizeArabicForMatch(value: string): string {
+    if (!value) return "";
+    return value
+        .normalize("NFKC")
+        .replace(TATWEEL_REGEX, "")
+        .replace(ARABIC_DIACRITICS_REGEX, "")
+        .trim();
+}
+
+function extractAyahRef(value: string): string | null {
+    const match = value.match(/^(\d+):(\d+)(?::\d+)?$/);
+    if (!match) return null;
+    return `${match[1]}:${match[2]}`;
+}
+
+function parseAyahRef(value: string): { sura: number; ayah: number } | null {
+    const match = value.match(/^(\d+):(\d+)(?::\d+)?$/);
+    if (!match) return null;
+    return { sura: Number(match[1]), ayah: Number(match[2]) };
+}
 
 function hashString(value: string): number {
     let hash = 0;
@@ -162,7 +193,14 @@ export default function CollocationNetworkGraph({
     const [windowType, setWindowType] = useState<CollocationOptions["windowType"]>("ayah");
     const [distance, setDistance] = useState<number>(3);
     const [minFrequency, setMinFrequency] = useState<number>(2);
+    const [targetKind, setTargetKind] = useState<CollocationTermKind>("root");
+    const [targetValue, setTargetValue] = useState<string>(highlightRoot ?? "");
+    const [groupBy, setGroupBy] = useState<CollocationTermKind>("root");
+    const [filterPos, setFilterPos] = useState<PartOfSpeech | "">("");
+    const [pairKind, setPairKind] = useState<CollocationTermKind>("lemma");
+    const [pairValue, setPairValue] = useState<string>("");
     const [showHelp, setShowHelp] = useState(false);
+    const [sidebarAyahText, setSidebarAyahText] = useState<string | null>(null);
 
     const themeColors = resolveVisualizationTheme(theme);
     const neonPalette = useMemo(() => {
@@ -223,15 +261,93 @@ export default function CollocationNetworkGraph({
         () => tuneForTheme(themeColors.accentSecondary, theme, theme === "dark" ? 0.24 : 0.1),
         [theme, themeColors.accentSecondary]
     );
+    const controlRowSurface = theme === "dark" ? "rgba(10, 18, 34, 0.78)" : "rgba(236, 244, 255, 0.9)";
+    const controlFieldStyle = {
+        background: theme === "dark" ? "rgba(17, 26, 48, 0.94)" : "rgba(255,255,255,0.98)",
+        color: theme === "dark" ? "#e4f0ff" : "#10284b",
+        border: `1px solid ${theme === "dark" ? "rgba(151, 186, 255, 0.42)" : "rgba(53, 94, 162, 0.35)"}`,
+        borderRadius: 7,
+        padding: "4px 8px",
+        fontSize: "0.76rem",
+        lineHeight: 1.25,
+        minHeight: 28,
+    } as const;
+    const controlLabelStyle = {
+        fontSize: "0.72rem",
+        color: theme === "dark" ? "#9cb4df" : "#335785",
+        letterSpacing: "0.01em",
+        minWidth: 82,
+    } as const;
 
-    const vizId = useMemo(() => `colloc-neural-${hashString(highlightRoot ?? "none")}`, [highlightRoot]);
+    const normalizedTargetValue = useMemo(() => targetValue.trim(), [targetValue]);
+    const normalizedPairValue = useMemo(() => pairValue.trim(), [pairValue]);
+    const activeTargetValue = normalizedTargetValue || (targetKind === "root" ? (highlightRoot ?? "") : "");
+    const activePairValue = normalizedPairValue;
+    const targetTerm = useMemo(
+        () => (activeTargetValue ? { kind: targetKind, value: activeTargetValue } : null),
+        [activeTargetValue, targetKind]
+    );
+    const pairTerm = useMemo(
+        () => (activePairValue ? { kind: pairKind, value: activePairValue } : null),
+        [activePairValue, pairKind]
+    );
+
+    const vizId = useMemo(
+        () => `colloc-neural-${hashString(`${targetKind}:${activeTargetValue || "none"}:${groupBy}`)}`,
+        [targetKind, activeTargetValue, groupBy]
+    );
 
     const freqData = useMemo(() => calculateRootFrequencies(tokens), [tokens]);
 
-    const { initialNodes, initialLinks } = useMemo(() => {
-        if (!highlightRoot) return { initialNodes: [], initialLinks: [] };
+    useEffect(() => {
+        if (!highlightRoot || targetKind !== "root") return;
+        setTargetValue((current) => (current.trim() ? current : highlightRoot));
+    }, [highlightRoot, targetKind]);
 
-        const results = getCollocations(highlightRoot, tokens, freqData, { windowType, distance, minFrequency });
+    const targetCount = useMemo(() => {
+        if (!targetTerm) return 0;
+        const normalized = normalizeArabicForMatch(targetTerm.value);
+        if (!normalized) return 0;
+
+        if (windowType === "ayah") {
+            const windowSet = new Set<string>();
+            for (const token of tokens) {
+                const tokenValue = targetTerm.kind === "lemma" ? token.lemma : token.root;
+                if (normalizeArabicForMatch(tokenValue) === normalized) {
+                    windowSet.add(`${token.sura}:${token.ayah}`);
+                }
+            }
+            return windowSet.size;
+        }
+
+        let total = 0;
+        for (const token of tokens) {
+            const tokenValue = targetTerm.kind === "lemma" ? token.lemma : token.root;
+            if (normalizeArabicForMatch(tokenValue) === normalized) {
+                total++;
+            }
+        }
+        return total;
+    }, [targetTerm, windowType, tokens]);
+
+    const pairMetrics = useMemo(() => {
+        if (!targetTerm || !pairTerm) return null;
+        return getPairCooccurrence(targetTerm, pairTerm, tokens, { windowType, distance });
+    }, [targetTerm, pairTerm, tokens, windowType, distance]);
+
+    const { initialNodes, initialLinks } = useMemo(() => {
+        if (!targetTerm) return { initialNodes: [], initialLinks: [] };
+
+        const results = getCollocations(targetTerm, tokens, freqData, {
+            windowType,
+            distance,
+            minFrequency,
+            groupBy,
+            filter: {
+                pos: filterPos ? [filterPos] : undefined,
+            },
+            pairTerm,
+        });
         if (results.length === 0) return { initialNodes: [], initialLinks: [] };
 
         const topResults = results.slice(0, 34);
@@ -255,10 +371,10 @@ export default function CollocationNetworkGraph({
             .map((idx) => (-Math.PI * 0.95) + (idx * Math.PI * 1.9) / Math.max(1, sectorCount - 1));
 
         nodesResult.push({
-            id: `root-${highlightRoot}`,
-            label: highlightRoot,
+            id: `root-${targetTerm.value}`,
+            label: targetTerm.value,
             type: "target",
-            count: windowType === "ayah" ? (freqData.rootAyahFrequencies.get(highlightRoot) || 0) : (freqData.rootFrequencies.get(highlightRoot) || 0),
+            count: targetCount,
             pmi: pmiDomain[1],
             radius: 13,
             color: themeColors.accent,
@@ -270,17 +386,18 @@ export default function CollocationNetworkGraph({
 
         for (let index = 0; index < topResults.length; index++) {
             const res = topResults[index];
-            const rng = mulberry32(hashString(`${highlightRoot}:${res.root}:${index}`));
-            const cluster = hashString(res.root) % sectorCount;
+            const collocateLabel = res.label;
+            const rng = mulberry32(hashString(`${targetTerm.value}:${collocateLabel}:${index}`));
+            const cluster = hashString(collocateLabel) % sectorCount;
             const angle = sectorAngles[cluster] + (rng() - 0.5) * 0.52;
             const anchorDistance = distanceScale(res.pmi) + rng() * 40;
-            const baseColor = neonPalette[(hashString(res.root + highlightRoot) + index) % neonPalette.length];
+            const baseColor = neonPalette[(hashString(collocateLabel + targetTerm.value) + index) % neonPalette.length];
             const intensity = pmiNorm(res.pmi);
             const nodeColor = brighten(baseColor, 0.2 + intensity * 0.45);
 
             nodesResult.push({
-                id: `root-${res.root}`,
-                label: res.root,
+                id: `root-${collocateLabel}`,
+                label: collocateLabel,
                 type: "collocate",
                 count: res.count,
                 pmi: res.pmi,
@@ -293,8 +410,8 @@ export default function CollocationNetworkGraph({
             });
 
             linksResult.push({
-                source: `root-${highlightRoot}`,
-                target: `root-${res.root}`,
+                source: `root-${targetTerm.value}`,
+                target: `root-${collocateLabel}`,
                 pmi: res.pmi,
                 weight: res.count,
                 kind: "trunk",
@@ -310,8 +427,8 @@ export default function CollocationNetworkGraph({
                 const tendrilDistance = anchorDistance + 28 + rng() * 110;
                 const tendrilRadius = 1.2 + rng() * 1.9 + intensity * 0.8;
                 const tendrilColor = brighten(baseColor, 0.35 + rng() * 0.4);
-                const tendrilId = `tendril-${res.root}-${i}`;
-                const tendrilLabel = branchLabels[i] ?? `${res.root}:${i + 1}`;
+                const tendrilId = `tendril-${collocateLabel}-${i}`;
+                const tendrilLabel = branchLabels[i] ?? `${collocateLabel}:${i + 1}`;
 
                 nodesResult.push({
                     id: tendrilId,
@@ -325,11 +442,11 @@ export default function CollocationNetworkGraph({
                     cluster,
                     anchorAngle: tendrilAngle,
                     anchorDistance: tendrilDistance,
-                    parentId: `root-${res.root}`,
+                    parentId: `root-${collocateLabel}`,
                 });
 
                 linksResult.push({
-                    source: `root-${res.root}`,
+                    source: `root-${collocateLabel}`,
                     target: tendrilId,
                     pmi: res.pmi,
                     weight: 1 + rng(),
@@ -341,10 +458,10 @@ export default function CollocationNetworkGraph({
         }
 
         return { initialNodes: nodesResult, initialLinks: linksResult };
-    }, [highlightRoot, tokens, freqData, windowType, distance, minFrequency, themeColors.accent, neonPalette]);
+    }, [targetTerm, tokens, freqData, windowType, distance, minFrequency, themeColors.accent, neonPalette, groupBy, filterPos, pairTerm, targetCount]);
 
     const stars = useMemo(() => {
-        const seed = hashString(`${highlightRoot ?? "none"}:${dimensions.width}:${dimensions.height}`);
+        const seed = hashString(`${activeTargetValue || "none"}:${dimensions.width}:${dimensions.height}`);
         const rng = mulberry32(seed);
         const count = Math.max(120, Math.round((dimensions.width * dimensions.height) / 13000));
         const points: StarPoint[] = [];
@@ -360,7 +477,7 @@ export default function CollocationNetworkGraph({
         }
 
         return points;
-    }, [highlightRoot, dimensions.width, dimensions.height, starPalette]);
+    }, [activeTargetValue, dimensions.width, dimensions.height, starPalette]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -429,7 +546,7 @@ export default function CollocationNetworkGraph({
         const linksCopy = initialLinks.map((link) => ({ ...link }));
 
         for (const node of nodesCopy) {
-            const rng = mulberry32(hashString(`${highlightRoot ?? "none"}:${node.id}`));
+            const rng = mulberry32(hashString(`${activeTargetValue || "none"}:${node.id}`));
             const anchorX = centerX + Math.cos(node.anchorAngle) * node.anchorDistance;
             const anchorY = centerY + Math.sin(node.anchorAngle) * node.anchorDistance;
             node.x = anchorX + (rng() - 0.5) * 18;
@@ -505,7 +622,7 @@ export default function CollocationNetworkGraph({
         return () => {
             simulation.stop();
         };
-    }, [initialNodes, initialLinks, dimensions, highlightRoot]);
+    }, [initialNodes, initialLinks, dimensions, activeTargetValue]);
 
     // Setup Zoom/Pan
     useEffect(() => {
@@ -599,19 +716,19 @@ export default function CollocationNetworkGraph({
                     setSelectedNode(node.id);
                     return;
                 }
-                if (onRootSelect) onRootSelect(node.label);
+                if (onRootSelect && groupBy === "root") onRootSelect(node.label);
                 return;
             }
 
             const next = selectedNode === node.id ? null : node.id;
             setSelectedNode(next);
-            if (onRootSelect) onRootSelect(next ? node.label : null);
+            if (onRootSelect && targetKind === "root") onRootSelect(next ? node.label : null);
         },
-        [selectedNode, onRootSelect]
+        [selectedNode, onRootSelect, groupBy, targetKind]
     );
 
     const sidebarNode = useMemo(() => {
-        const targetId = highlightRoot ? `root-${highlightRoot}` : null;
+        const targetId = targetTerm ? `root-${targetTerm.value}` : null;
         const currentId = isTouchPrimaryInput
             ? (selectedNode ?? targetId)
             : (hoveredNode ?? selectedNode ?? targetId);
@@ -619,14 +736,12 @@ export default function CollocationNetworkGraph({
 
         const current = nodes.find((n) => n.id === currentId);
         if (!current) {
-            if (!highlightRoot) return null;
+            if (!targetTerm) return null;
             return {
                 id: targetId!,
-                label: highlightRoot,
+                label: targetTerm.value,
                 type: "target",
-                count: windowType === "ayah"
-                    ? (freqData.rootAyahFrequencies.get(highlightRoot) || 0)
-                    : (freqData.rootFrequencies.get(highlightRoot) || 0),
+                count: targetCount,
                 pmi: 0,
                 anchorAngle: 0,
                 anchorDistance: 0,
@@ -638,11 +753,36 @@ export default function CollocationNetworkGraph({
         }
 
         return current;
-    }, [nodes, hoveredNode, selectedNode, highlightRoot, windowType, freqData, themeColors.accent, isTouchPrimaryInput]);
+    }, [nodes, hoveredNode, selectedNode, targetTerm, targetCount, themeColors.accent, isTouchPrimaryInput]);
     const sidebarParentNode = useMemo(() => {
         if (!sidebarNode || sidebarNode.type !== "tendril" || !sidebarNode.parentId) return null;
         return nodes.find((n) => n.id === sidebarNode.parentId) ?? null;
     }, [sidebarNode, nodes]);
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadAyah = async () => {
+            if (!sidebarNode || sidebarNode.type !== "tendril") {
+                setSidebarAyahText(null);
+                return;
+            }
+
+            const parsed = parseAyahRef(sidebarNode.label);
+            if (!parsed) {
+                setSidebarAyahText(null);
+                return;
+            }
+
+            const ayahRecord = await getAyah(parsed.sura, parsed.ayah);
+            if (cancelled) return;
+            setSidebarAyahText(ayahRecord?.textUthmani || ayahRecord?.textSimple || null);
+        };
+
+        void loadAyah();
+        return () => {
+            cancelled = true;
+        };
+    }, [sidebarNode]);
     const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
     const lemmaBloomItems = useMemo(() => {
         const getActiveCollocateId = () => {
@@ -704,26 +844,6 @@ export default function CollocationNetworkGraph({
         });
     }, [dimensions.height, dimensions.width, hoveredNode, isTouchPrimaryInput, lemmaBloomColor, nodeById, selectedNode]);
 
-    if (!highlightRoot) {
-        return (
-            <section
-                className="immersive-viz"
-                data-theme={theme}
-                style={{
-                    width: "100%",
-                    height: "100%",
-                    position: "relative",
-                    background: canvasSurface.section,
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "#9bb8ff" }}>0</div>
-                    <p style={{ color: "#b7c3e2", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
-                </div>
-            </section>
-        );
-    }
-
     return (
         <section
             className="immersive-viz"
@@ -750,71 +870,6 @@ export default function CollocationNetworkGraph({
                 }}
                 theme={theme}
             />
-
-
-            <div className="viz-controls floating-controls">
-                <div className="ayah-meta-wrapper" style={{ background: panelBg, borderColor: panelBorder }}>
-                    <button
-                        className="kg-reset-btn"
-                        onClick={() => {
-                            if (svgRef.current && zoomBehaviorRef.current) {
-                                d3.select(svgRef.current).transition().duration(650)
-                                    .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-                            }
-                        }}
-                        title={ts("reset")}
-                        style={{ background: "rgba(26, 36, 66, 0.55)", color: "#d5e6ff" }}
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                        </svg>
-                    </button>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 12 }}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                            <span style={{ fontSize: "0.75rem", color: "#9cb4df" }}>{t("windowType")}</span>
-                            <select
-                                value={windowType}
-                                onChange={e => setWindowType(e.target.value as "ayah" | "distance")}
-                                style={{
-                                    background: "rgba(17, 26, 48, 0.85)",
-                                    color: "#e4f0ff",
-                                    border: "1px solid rgba(151, 186, 255, 0.4)",
-                                    borderRadius: 6,
-                                    padding: "2px 6px",
-                                    fontSize: "0.75rem",
-                                }}
-                            >
-                                <option value="ayah">{t("ayahWindow")}</option>
-                                <option value="distance">{t("distanceWindow")}</option>
-                            </select>
-                        </div>
-                        <div style={{ fontSize: "0.73rem", color: "#a8bfeb", maxWidth: 260, lineHeight: 1.35 }}>
-                            {windowType === "ayah" ? t("windowTypeHintAyah") : t("windowTypeHintDistance")}
-                        </div>
-
-                        <AnimatePresence>
-                            {windowType === "distance" && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    style={{ overflow: "hidden", display: "flex", alignItems: "center", gap: 8 }}
-                                >
-                                    <span style={{ fontSize: "0.75rem", color: "#9cb4df" }}>
-                                        {t("distanceRange", { distance })}
-                                    </span>
-                                    <input type="range" min={1} max={10} value={distance} onChange={e => setDistance(parseInt(e.target.value, 10))} style={{ width: 68 }} />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 4 }}>
-                            <span style={{ fontSize: "0.75rem", color: "#9cb4df" }}>{t("minFrequency")} ({minFrequency})</span>
-                            <input type="range" min={1} max={20} value={minFrequency} onChange={e => setMinFrequency(parseInt(e.target.value, 10))} style={{ width: 68 }} />
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
                 {!isMounted ? null : (
@@ -1075,90 +1130,283 @@ export default function CollocationNetworkGraph({
                     </svg>
                 )}
             </div>
+            {!targetTerm && (
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        pointerEvents: "none",
+                    }}
+                >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+                        <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "#9bb8ff" }}>0</div>
+                        <p style={{ color: "#b7c3e2", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
+                    </div>
+                </div>
+            )}
 
             {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
                 <div className="viz-left-stack">
-                    {sidebarNode && (
-                        <div className="viz-left-panel" style={{ background: panelBg, borderColor: panelBorder }}>
-                            <div className="viz-tooltip-title arabic-text">{sidebarNode.label}</div>
-                            <div className="viz-tooltip-subtitle">
-                                {sidebarNode.type === "target"
-                                    ? t("targetNode")
-                                    : sidebarNode.type === "collocate"
-                                        ? t("collocateNode")
-                                        : t("tertiaryNode")}
-                            </div>
-                            {sidebarNode.type !== "tendril" && (
-                                <div className="viz-tooltip-row">
-                                    <span className="viz-tooltip-label">{t("rawCount")}</span>
-                                    <span className="viz-tooltip-value">{sidebarNode.count}</span>
+                    <div className="viz-left-panel" style={{ background: panelBg, borderColor: panelBorder }}>
+                        {sidebarNode ? (
+                            <>
+                                <div className="viz-tooltip-title arabic-text">{sidebarNode.label}</div>
+                                <div className="viz-tooltip-subtitle">
+                                    {sidebarNode.type === "target"
+                                        ? t("targetNode")
+                                        : sidebarNode.type === "collocate"
+                                            ? t("collocateNode")
+                                            : t("tertiaryNode")}
                                 </div>
-                            )}
+                                {sidebarNode.type !== "tendril" && (
+                                    <div className="viz-tooltip-row">
+                                        <span className="viz-tooltip-label">{t("rawCount")}</span>
+                                        <span className="viz-tooltip-value">{sidebarNode.count}</span>
+                                    </div>
+                                )}
                             {sidebarNode.type === "tendril" && (
                                 <>
                                     <div className="viz-tooltip-row">
                                         <span className="viz-tooltip-label">{t("contextWindowRef")}</span>
                                         <span className="viz-tooltip-value">{sidebarNode.label}</span>
-                                    </div>
-                                    <div className="viz-tooltip-row">
-                                        <span className="viz-tooltip-label">{t("contextWindowRefFormat")}</span>
-                                        <span className="viz-tooltip-value">
-                                            {windowType === "ayah"
-                                                ? t("contextWindowRefFormatAyah")
-                                                : t("contextWindowRefFormatDistance")}
-                                        </span>
-                                    </div>
+                                        </div>
+                                        <div className="viz-tooltip-row">
+                                            <span className="viz-tooltip-label">{t("contextWindowRefFormat")}</span>
+                                            <span className="viz-tooltip-value">
+                                                {windowType === "ayah"
+                                                    ? t("contextWindowRefFormatAyah")
+                                                    : windowType === "surah"
+                                                        ? t("contextWindowRefFormatSurah")
+                                                        : t("contextWindowRefFormatDistance")}
+                                            </span>
+                                        </div>
                                     <div
                                         style={{
                                             marginTop: 6,
                                             fontSize: "0.8rem",
-                                            lineHeight: 1.45,
-                                            color: themeColors.textColors.secondary,
-                                        }}
+                                                lineHeight: 1.45,
+                                                color: themeColors.textColors.secondary,
+                                            }}
                                     >
                                         {windowType === "ayah"
                                             ? t("contextWindowRefHelpAyah")
-                                            : t("contextWindowRefHelpDistance")}
+                                            : windowType === "surah"
+                                                ? t("contextWindowRefHelpSurah")
+                                                : t("contextWindowRefHelpDistance")}
                                     </div>
+                                    {extractAyahRef(sidebarNode.label) && sidebarAyahText && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <div className="viz-tooltip-label" style={{ marginBottom: 4 }}>
+                                                {t("ayahText")}
+                                            </div>
+                                            <div
+                                                className="arabic-text"
+                                                lang="ar"
+                                                dir="rtl"
+                                                style={{
+                                                    fontSize: "1rem",
+                                                    lineHeight: 1.65,
+                                                    color: themeColors.textColors.primary,
+                                                    background: "rgba(16, 24, 46, 0.86)",
+                                                    border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                    borderRadius: 6,
+                                                    padding: "8px 10px",
+                                                }}
+                                            >
+                                                {sidebarAyahText}
+                                            </div>
+                                        </div>
+                                    )}
                                     {sidebarParentNode && (
                                         <div className="viz-tooltip-row">
                                             <span className="viz-tooltip-label">{t("collocateNode")}</span>
                                             <span className="viz-tooltip-value arabic-text">{sidebarParentNode.label}</span>
                                         </div>
-                                    )}
-                                </>
-                            )}
-                            {sidebarNode.type === "collocate" && (
-                                <>
-                                    <div className="viz-tooltip-row">
-                                        <span className="viz-tooltip-label">{t("Help.pmiLabel")}</span>
-                                        <span className="viz-tooltip-value">{sidebarNode.pmi.toFixed(2)}</span>
-                                    </div>
-                                    {sidebarNode.sampleLemmas.length > 0 && (
-                                        <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
-                                            <span className="viz-tooltip-label" style={{ display: "block", marginBottom: 4 }}>{t("lemmasLabel")}</span>
-                                            <span className="viz-tooltip-value arabic-text" style={{ fontSize: "1rem", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                                {sidebarNode.sampleLemmas.map((lemma) => (
-                                                    <span
-                                                        key={lemma}
-                                                        style={{
-                                                            background: "rgba(16, 24, 46, 0.86)",
-                                                            padding: "2px 6px",
-                                                            borderRadius: 4,
-                                                            border: "1px solid rgba(120, 158, 236, 0.35)",
-                                                            letterSpacing: "0.06em",
-                                                        }}
-                                                    >
-                                                        {lemma}
-                                                    </span>
-                                                ))}
-                                            </span>
+                                        )}
+                                    </>
+                                )}
+                                {sidebarNode.type === "collocate" && (
+                                    <>
+                                        <div className="viz-tooltip-row">
+                                            <span className="viz-tooltip-label">{t("Help.pmiLabel")}</span>
+                                            <span className="viz-tooltip-value">{sidebarNode.pmi.toFixed(2)}</span>
                                         </div>
-                                    )}
-                                </>
+                                        {sidebarNode.sampleLemmas.length > 0 && (
+                                            <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
+                                                <span className="viz-tooltip-label" style={{ display: "block", marginBottom: 4 }}>{t("lemmasLabel")}</span>
+                                                <span className="viz-tooltip-value arabic-text" style={{ fontSize: "1rem", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                    {sidebarNode.sampleLemmas.map((lemma) => (
+                                                        <span
+                                                            key={lemma}
+                                                            style={{
+                                                                background: "rgba(16, 24, 46, 0.86)",
+                                                                padding: "2px 6px",
+                                                                borderRadius: 4,
+                                                                border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                                letterSpacing: "0.06em",
+                                                            }}
+                                                        >
+                                                            {lemma}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <div className="viz-tooltip-title">{t("title")}</div>
+                                <div className="viz-tooltip-subtitle">{t("noData")}</div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="viz-left-panel" style={{ background: panelBg, borderColor: panelBorder }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                            <div style={{ fontSize: "0.75rem", color: themeColors.textColors.secondary, letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                                {t("proximityControls")}
+                            </div>
+                            <button
+                                className="kg-reset-btn"
+                                onClick={() => {
+                                    if (svgRef.current && zoomBehaviorRef.current) {
+                                        d3.select(svgRef.current).transition().duration(650)
+                                            .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+                                    }
+                                }}
+                                title={ts("reset")}
+                                style={{ background: "rgba(26, 36, 66, 0.55)", color: "#d5e6ff" }}
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                                <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("targetTerm")}</div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <select
+                                        value={targetKind}
+                                        onChange={e => setTargetKind(e.target.value as CollocationTermKind)}
+                                        style={{ ...controlFieldStyle, flexShrink: 0, width: 86 }}
+                                    >
+                                        <option value="root">{t("groupByRoot")}</option>
+                                        <option value="lemma">{t("groupByLemma")}</option>
+                                    </select>
+                                    <input
+                                        value={targetValue}
+                                        onChange={(e) => setTargetValue(e.target.value)}
+                                        placeholder={targetKind === "root" ? t("targetRootPlaceholder") : t("targetLemmaPlaceholder")}
+                                        style={{ ...controlFieldStyle, flex: 1, minWidth: 0 }}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                                <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("pairTerm")}</div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <select
+                                        value={pairKind}
+                                        onChange={e => setPairKind(e.target.value as CollocationTermKind)}
+                                        style={{ ...controlFieldStyle, flexShrink: 0, width: 86 }}
+                                    >
+                                        <option value="root">{t("groupByRoot")}</option>
+                                        <option value="lemma">{t("groupByLemma")}</option>
+                                    </select>
+                                    <input
+                                        value={pairValue}
+                                        onChange={(e) => setPairValue(e.target.value)}
+                                        placeholder={pairKind === "root" ? t("pairRootPlaceholder") : t("pairLemmaPlaceholder")}
+                                        style={{ ...controlFieldStyle, flex: 1, minWidth: 0 }}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+                                    <div>
+                                        <div style={{ ...controlLabelStyle, marginBottom: 6, minHeight: 34, display: "flex", alignItems: "flex-end" }}>{t("groupBy")}</div>
+                                        <select
+                                            value={groupBy}
+                                            onChange={e => setGroupBy(e.target.value as CollocationTermKind)}
+                                            style={{ ...controlFieldStyle, width: "100%" }}
+                                        >
+                                            <option value="root">{t("groupByRoot")}</option>
+                                            <option value="lemma">{t("groupByLemma")}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style={{ ...controlLabelStyle, marginBottom: 6, minHeight: 34, display: "flex", alignItems: "flex-end" }}>{t("posFilter")}</div>
+                                        <select
+                                            value={filterPos}
+                                            onChange={e => setFilterPos(e.target.value as PartOfSpeech | "")}
+                                            style={{ ...controlFieldStyle, width: "100%" }}
+                                        >
+                                            <option value="">{t("posAll")}</option>
+                                            {POS_OPTIONS.map((pos) => (
+                                                <option key={pos} value={pos}>{pos}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                                <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("windowType")}</div>
+                                <select
+                                    value={windowType}
+                                    onChange={e => setWindowType(e.target.value as "ayah" | "distance" | "surah")}
+                                    style={{ ...controlFieldStyle, width: "100%" }}
+                                >
+                                    <option value="ayah">{t("ayahWindow")}</option>
+                                    <option value="surah">{t("surahWindow")}</option>
+                                    <option value="distance">{t("distanceWindow")}</option>
+                                </select>
+                            </div>
+                            <div style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}>
+                                {windowType === "ayah"
+                                    ? t("windowTypeHintAyah")
+                                    : windowType === "surah"
+                                        ? t("windowTypeHintSurah")
+                                        : t("windowTypeHintDistance")}
+                            </div>
+                            <AnimatePresence>
+                                {windowType === "distance" && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        style={{ overflow: "hidden", display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                                    >
+                                        <span style={{ ...controlLabelStyle, minWidth: "auto" }}>
+                                            {t("distanceRange", { distance })}
+                                        </span>
+                                        <input type="range" min={1} max={50} value={distance} onChange={e => setDistance(parseInt(e.target.value, 10))} style={{ flex: 1, accentColor: themeColors.accentSecondary }} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                            <div style={{ marginTop: 2, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                                <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("minFrequency")} ({minFrequency})</div>
+                                <input type="range" min={1} max={20} value={minFrequency} onChange={e => setMinFrequency(parseInt(e.target.value, 10))} style={{ width: "100%", accentColor: themeColors.accentSecondary }} />
+                            </div>
+                            {pairMetrics && (
+                                <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                        {t("pairWindowsA", { count: pairMetrics.countA })}
+                                    </div>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                        {t("pairWindowsB", { count: pairMetrics.countB })}
+                                    </div>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accentSecondary, 0.35)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.74rem", fontWeight: 600, color: themeColors.textColors.primary }}>
+                                        {t("pairSharedWindows", { count: pairMetrics.cooccurrenceCount })}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    )}
+                    </div>
 
                     <div className="viz-legend" style={{ background: panelBg, borderColor: panelBorder }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>

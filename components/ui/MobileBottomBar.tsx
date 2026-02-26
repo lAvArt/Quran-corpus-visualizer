@@ -4,14 +4,25 @@ import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { useTranslations } from "next-intl";
 
 export default function MobileBottomBar() {
-    const { isLeftSidebarOpen, toggleLeftSidebar, isRightSidebarOpen, toggleRightSidebar, isMobileSearchOpen, toggleMobileSearch } = useVizControl();
+    const {
+        isLeftSidebarOpen,
+        setLeftSidebarOpen,
+        isRightSidebarOpen,
+        setRightSidebarOpen,
+        isMobileSearchOpen,
+        toggleMobileSearch
+    } = useVizControl();
     const t = useTranslations("MobileBottomBar");
 
     return (
         <div className="mobile-bottom-bar mobile-only">
             <button
                 className={`bottom-bar-btn ${isLeftSidebarOpen ? "active" : ""}`}
-                onClick={toggleLeftSidebar}
+                onClick={() => {
+                    const next = !isLeftSidebarOpen;
+                    setLeftSidebarOpen(next);
+                    if (next) setRightSidebarOpen(false);
+                }}
             >
                 <span>{isLeftSidebarOpen ? t("hideLegend") : t("showLegend")}</span>
             </button>
@@ -33,7 +44,11 @@ export default function MobileBottomBar() {
 
             <button
                 className={`bottom-bar-btn ${isRightSidebarOpen ? "active" : ""}`}
-                onClick={toggleRightSidebar}
+                onClick={() => {
+                    const next = !isRightSidebarOpen;
+                    setRightSidebarOpen(next);
+                    if (next) setLeftSidebarOpen(false);
+                }}
             >
                 <span>{isRightSidebarOpen ? t("hideTools") : t("showTools")}</span>
             </button>
@@ -41,7 +56,7 @@ export default function MobileBottomBar() {
             <style jsx>{`
         .mobile-bottom-bar {
             position: fixed;
-            bottom: calc(var(--footer-height) + 16px + env(safe-area-inset-bottom));
+            bottom: calc(var(--footer-height) + 8px + env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -53,9 +68,9 @@ export default function MobileBottomBar() {
             border-radius: 999px;
             padding: 6px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-            z-index: 1000;
+            z-index: 90;
             width: auto;
-            max-width: 90vw;
+            max-width: min(560px, 94vw);
         }
 
         :global([data-theme="dark"]) .mobile-bottom-bar {
@@ -67,8 +82,8 @@ export default function MobileBottomBar() {
         .bottom-bar-btn {
             background: transparent;
             border: none;
-            padding: 10px 20px;
-            font-size: 0.9rem;
+            padding: 9px 16px;
+            font-size: 0.84rem;
             font-weight: 600;
             color: var(--ink-secondary);
             cursor: pointer;
@@ -83,7 +98,7 @@ export default function MobileBottomBar() {
         }
 
         .bottom-bar-search-btn {
-            padding: 10px 14px;
+            padding: 9px 12px;
             display: flex;
             align-items: center;
             justify-content: center;

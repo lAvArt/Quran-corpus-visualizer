@@ -35,6 +35,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:search-validation": "vitest run lib/search/arabicNormalize.test.ts lib/search/queryParser.test.ts lib/search/indexes.test.ts lib/search/searchValidation.test.ts lib/search/collocation.test.ts",
+    "eval:search": "tsx scripts/eval-search.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "i18n:check": "node scripts/check-i18n.js",

@@ -8,7 +8,9 @@ import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
 import GlobalSearch from "@/components/ui/GlobalSearch";
 import CorpusIndex from "@/components/ui/CorpusIndex";
 import LiveScanner from "@/components/ui/LiveScanner";
+import GlossaryChips from "@/components/ui/GlossaryChips";
 import type { CorpusToken } from "@/lib/schema/types";
+import type { SearchMatchType } from "@/lib/analytics/events";
 
 interface AppSidebarProps {
   allTokens: CorpusToken[];
@@ -23,6 +25,9 @@ interface AppSidebarProps {
   onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
   onLemmaSelect?: (lemma: string) => void;
   selectedSurahId?: number;
+  onSearchOpened?: () => void;
+  onSearchQuerySubmitted?: (query: string) => void;
+  onSearchResultSelected?: (matchType: SearchMatchType) => void;
 }
 
 export default function AppSidebar({
@@ -38,6 +43,9 @@ export default function AppSidebar({
   onSelectSurah,
   onLemmaSelect,
   selectedSurahId,
+  onSearchOpened,
+  onSearchQuerySubmitted,
+  onSearchResultSelected,
 }: AppSidebarProps) {
   const [activeTab, setActiveTab] = useState<"inspector" | "scan" | "advanced-search" | "index">("inspector");
   const t = useTranslations('AppSidebar');
@@ -87,12 +95,19 @@ export default function AppSidebar({
         </button>
       </div>
 
+      <div className="sidebar-glossary">
+        <GlossaryChips />
+      </div>
+
       <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-inspector" aria-labelledby="sidebar-tab-inspector" style={{ display: activeTab === "inspector" ? undefined : "none" }}>
         <GlobalSearch
           tokens={allTokens}
           onTokenSelect={onTokenSelect}
           onTokenHover={onTokenHover}
           onRootSelect={onRootSelect}
+          onSearchOpened={onSearchOpened}
+          onSearchQuerySubmitted={onSearchQuerySubmitted}
+          onSearchResultSelected={onSearchResultSelected}
         />
         <div className="inspector-search-divider" />
         <MorphologyInspector
@@ -187,6 +202,12 @@ export default function AppSidebar({
             flex: 1;
             overflow-y: auto;
             padding: 16px 16px calc(16px + var(--footer-height, 48px));
+        }
+
+        .sidebar-glossary {
+            padding: 10px 12px 8px;
+            border-bottom: 1px solid var(--line);
+            background: color-mix(in srgb, var(--panel), white 4%);
         }
 
         .inspector-search-divider {

@@ -95,7 +95,8 @@
         "placeholders": {
             "root": "[!! Ṛôôť (è.ġ., هدي) !!]",
             "lemma": "[!! Ļèṁṁâ (è.ġ., هُدًى) !!]",
-            "ayah": "[!! Âýâħ (è.ġ., 1:5) !!]"
+            "ayah": "[!! Âýâħ (è.ġ., 1:5) !!]",
+            "query": "[!! Advanced query (e.g., root:??? pos:n ayah:20:17) !!]"
         },
         "pos": {
             "all": "[!! Âļļ ṖÔṠ !!]",
@@ -447,6 +448,20 @@
             "windowTypeHintDistance": "[!! Ûṡèṡ ôñļý ñèâṛḃý ŵôṛḋṡ âṛôûñḋ èâçħ ṁâťçħ, ŝô çôļļôçâťèṡ ṙèḟļèçť ļôçâļ ṗħṛâṡîñġ. !!]",
             "distanceRange": "[!! Ṛâñġè: +/- {distance} ŵôṛḋṡ !!]",
             "minFrequency": "[!! Ṁîñ Çô-ôççûṛṛèñçè !!]",
+            "targetTerm": "Target term",
+            "targetRootPlaceholder": "Target root",
+            "targetLemmaPlaceholder": "Target lemma",
+            "pairTerm": "Pair term (optional)",
+            "pairRootPlaceholder": "Pair root",
+            "pairLemmaPlaceholder": "Pair lemma",
+            "groupBy": "Group branches by",
+            "groupByRoot": "Roots",
+            "groupByLemma": "Words",
+            "posFilter": "POS filter",
+            "posAll": "All",
+            "pairWindowsA": "A windows: {count}",
+            "pairWindowsB": "B windows: {count}",
+            "pairSharedWindows": "Shared windows: {count}",
             "pmi": "[!! ṖṀÎ (Ṗôîñťŵîṡè Ṁûťûâļ Îñḟôṛṁâťîôñ) Ṡçôṛè !!]",
             "rawCount": "[!! Çô-ôççûṛṛèñçèṡ !!]",
             "noData": "[!! Ṡèļèçť â ṛôôť ḟṛôṁ ťħè ṡèâṛçħ ôṛ ġṛâṗħ ťô ṡèè çôļļôçâťîôñṡ. !!]",
@@ -456,6 +471,7 @@
             "tertiaryNode": "[!! Ťèṛťîâṛý Çôñťèẋť Ñôḋè !!]",
             "contextWindowRef": "[!! Çôñťèẋť Ŵîñḋôŵ Ṛèḟèṛèñçè !!]",
             "contextWindowRefFormat": "[!! Ṛèḟèṛèñçè Ḟôṛṁâť !!]",
+            "ayahText": "[!! Âýâħ ťèẋť !!]",
             "contextWindowRefFormatAyah": "[!! ŝûṛâħ:âýâħ !!]",
             "contextWindowRefFormatDistance": "[!! ŝûṛâħ:âýâħ:ṗôṡîťîôñ !!]",
             "contextWindowRefHelpAyah": "[!! Ťħîṡ ṛèḟèṛèñçè ṗôîñťṡ ťô ťħè âýâħ ŵħèṛè ťħîṡ ťèṛťîâṛý çôñťèẋť âṗṗèâṛṡ ŵîťħ ťħè ṡèļèçťèḋ ṛôôť. !!]",
@@ -475,7 +491,11 @@
                 "graphText": "[!! Ťħè çèñťèṛ îṡ ťħè ťâṛġèť ṛôôť. Ḟîṛṡť-ṛîñġ ṛôôťṡ âṛè ṡťṛôñġ çôļļôçâťèṡ; ôûťèṛ ḃṛâñçħèṡ âṛè ťèṛťîâṛý ņèîġħḃôṛṡ. !!]",
                 "windowLabel": "[!! Çôñťèẋť Ŵîñḋôŵ !!]",
                 "windowText": "[!! Ûṡè Ṡâṁè Âýâħ ḟôṛ ťħèṁâťîç çôñťèẋť, ôṛ Ŵôṛḋ Ḋîṡťâñçè ḟôṛ ṗħṛâṡè-ļèṽèļ ṗṛôẋîṁîťý. !!]"
-            }
+            },
+            "surahWindow": "[!! ???? ????? (??????? ???????) !!]",
+            "windowTypeHintSurah": "[!! ???? ??? ????? ?? ??? ???? ?????, ???????????? ???????-??v?? ???????? ???????????. !!]",
+            "contextWindowRefFormatSurah": "[!! ????? !!]",
+            "contextWindowRefHelpSurah": "[!! ???? ?????? ?? ??? ????? ????? ??? ???????? ??????? ??-?????? ???? ??? ???????? ????. !!]"
         }
     },
     "DisplaySettings": {

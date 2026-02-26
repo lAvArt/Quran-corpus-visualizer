@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Guided Walkthroughs**: Introduced interactive, step-by-step guided walkthroughs (`walkthroughSteps.ts`, `walkthrough.ts`) for complex visualizations, to help users navigate features like the Collocation Network and Radial Sura Map.
+- **UI Components**: Added `GlossaryChips.tsx` and `VizBreadcrumbs.tsx` to improve context tracking and vocabulary explanation within graphs.
 - **Collocation Network**: Expanded documentation for PMI semantics, context scopes (`Whole Ayah Context` vs `Nearby Words Window`), tertiary context nodes, and context-window references.
 - **Schema docs**: Added `CollocationResult` derived-analytics shape (`pmi`, `count`, `sampleLemmas`, `sampleWindows`) and window-reference formats.
+
+### Changed
+
+- **UI Improvements**: Refined `AppSidebar.tsx`, `MobileBottomBar.tsx`, and `VisualizationSwitcher.tsx` to streamline the user experience across desktop and mobile.
+- **Search overlays**: Improved `SemanticSearchPanel.tsx` and `MobileSearchOverlay.tsx` layout and behavior.
+- **Translations**: Updated English, Arabic, and pseudo-localization files with strings for new walkthrough and UI components.
 
 ### Changed
 
