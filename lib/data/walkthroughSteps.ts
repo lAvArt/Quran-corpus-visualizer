@@ -87,3 +87,27 @@ export const WALKTHROUGH_STEPS: WalkthroughStepConfig[] = [
     openToolsSidebar: true,
   },
 ];
+
+export const MOBILE_WALKTHROUGH_STEPS: WalkthroughStepConfig[] = [
+  {
+    id: "mobile-welcome",
+    titleKey: "Walkthrough.steps.mobileWelcome.title",
+    bodyKey: "Walkthrough.steps.mobileWelcome.body",
+    placement: "center",
+    action: "none",
+  },
+  {
+    id: "mobile-search",
+    titleKey: "Walkthrough.steps.mobileSearch.title",
+    bodyKey: "Walkthrough.steps.mobileSearch.body",
+    placement: "center",
+    action: "none",
+  },
+  {
+    id: "mobile-tools",
+    titleKey: "Walkthrough.steps.mobileTools.title",
+    bodyKey: "Walkthrough.steps.mobileTools.body",
+    placement: "center",
+    action: "none",
+  },
+];

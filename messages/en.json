@@ -52,13 +52,46 @@
         "eyebrow": "Quran Corpus Visualizer",
         "brand": "quran.pluragate.org",
         "hideTools": "Hide Tools ->",
-        "showTools": "Show Tools <-"
+        "showTools": "Show Tools <-",
+        "dataStatus": {
+            "sample": {
+                "title": "Sample data",
+                "description": "Quick preview is active."
+            },
+            "loading": {
+                "title": "Loading full corpus",
+                "description": "Results may expand after full data loads."
+            },
+            "full": {
+                "title": "Full corpus ready",
+                "description": "All available corpus data is loaded."
+            },
+            "fallback": {
+                "title": "Full corpus unavailable",
+                "description": "Using sample data for now."
+            }
+        },
+        "navigation": {
+            "breadcrumbsLabel": "Visualization breadcrumbs",
+            "contextLabel": "Current visualization context",
+            "quran": "Entire Quran",
+            "surahWithName": "Surah {id}: {name}",
+            "surahValue": "Surah {id}",
+            "ayahValue": "Ayah {ayah}",
+            "rootValue": "Root {root}"
+        },
+        "feedbackPrompt": {
+            "question": "Was this first task helpful?",
+            "helpful": "Yes",
+            "notHelpful": "Not yet",
+            "dismiss": "Dismiss"
+        }
     },
     "AppSidebar": {
-        "inspector": "Inspector",
+        "inspector": "Word Details",
         "scan": "Scan",
         "search": "Search",
-        "advancedSearch": "Advanced Search",
+        "advancedSearch": "Detailed Search",
         "index": "Index",
         "attribution": "Morphology source:",
         "label": "Sidebar",
@@ -88,11 +121,13 @@
     "VisualizationSwitcher": {
         "select": "Select",
         "dropdownTitle": "Choose Visualization",
+        "moreVisualizations": "More visualizations",
+        "lessVisualizations": "Fewer visualizations",
         "lightTheme": "Light theme",
         "darkTheme": "Dark theme",
         "modes": {
             "corpus-architecture": {
-                "label": "Corpus Architecture",
+                "label": "Quran Structure Map",
                 "description": "Global corpus hierarchy map showing structure overview"
             },
             "surah-distribution": {
@@ -530,7 +565,7 @@
             }
         },
         "CorpusArchitecture": {
-            "title": "Corpus Architecture",
+            "title": "Quran Structure Map",
             "subtitle": "Center -> Surahs -> Roots",
             "structuralView": "Structural View",
             "inSurah": "In this Surah",
@@ -547,7 +582,7 @@
             "searchRootHint": "{count} unique roots available. Search to highlight any root across surahs.",
             "noRootFound": "No matching root found. Try a different Arabic root.",
             "Help": {
-                "title": "Corpus Architecture Map",
+                "title": "Quran Structure Map",
                 "description": "A radial hierarchy from the full corpus to surahs and their roots.",
                 "hierarchyLabel": "Hierarchy Levels",
                 "hierarchyText": "Center = corpus, first ring = surahs, outer ring = roots.",
@@ -618,6 +653,20 @@
             "windowTypeHintDistance": "Uses only nearby words around each match, highlighting local phrasing.",
             "distanceRange": "Word distance: +/- {distance}",
             "minFrequency": "Minimum co-occurrence count",
+            "targetTerm": "Target term",
+            "targetRootPlaceholder": "Target root",
+            "targetLemmaPlaceholder": "Target lemma",
+            "pairTerm": "Pair term (optional)",
+            "pairRootPlaceholder": "Pair root",
+            "pairLemmaPlaceholder": "Pair lemma",
+            "groupBy": "Group branches by",
+            "groupByRoot": "Roots",
+            "groupByLemma": "Words",
+            "posFilter": "POS filter",
+            "posAll": "All",
+            "pairWindowsA": "A windows: {count}",
+            "pairWindowsB": "B windows: {count}",
+            "pairSharedWindows": "Shared windows: {count}",
             "pmi": "PMI (Pointwise Mutual Information) Score",
             "rawCount": "Co-occurrence count",
             "noData": "Select a root (from search or graph) to display collocations.",
@@ -627,6 +676,7 @@
             "tertiaryNode": "Tertiary context node",
             "contextWindowRef": "Context Window Reference (Marja Nafithat al-Siyaq)",
             "contextWindowRefFormat": "Reference format",
+            "ayahText": "Ayah text",
             "contextWindowRefFormatAyah": "surah:ayah",
             "contextWindowRefFormatDistance": "surah:ayah:position",
             "contextWindowRefHelpAyah": "This points to the ayah where the tertiary context co-occurs with the selected root.",
@@ -654,6 +704,13 @@
         "panelLabel": "Display settings",
         "appearance": "Appearance",
         "export": "Export",
+        "experienceLevel": {
+            "title": "Complexity level",
+            "options": {
+                "beginner": "Beginner",
+                "advanced": "Advanced"
+            }
+        },
         "palette": "Color theme",
         "coloring": {
             "title": "Lexical coloring",
@@ -726,7 +783,7 @@
     },
     "Onboarding": {
         "title": "Welcome to Quran Corpus Visualizer",
-        "subtitle": "A short walkthrough to help you read and use the graphs effectively.",
+        "subtitle": "Start with one practical task, then follow a short guided walkthrough.",
         "close": "Close onboarding",
         "progress": "Step {current} of {total}",
         "showOnStartup": "Show on startup",
@@ -751,6 +808,21 @@
             "insights": {
                 "title": "How to get better insights",
                 "body": "Apply lexical coloring modes and theme palettes to reveal patterns in frequency, identity, and structure across surahs, roots, and lemmas."
+            }
+        },
+        "prompt": "What should I do first?",
+        "tasks": {
+            "findRoot": {
+                "title": "Find a root",
+                "body": "Use search to find a root, then jump directly to matching words."
+            },
+            "seeAcrossSurahs": {
+                "title": "See it across surahs",
+                "body": "Switch to distribution views to compare where that root appears most."
+            },
+            "inspectGrammar": {
+                "title": "Inspect one ayah's grammar",
+                "body": "Open word details to review lemma, POS, and morphology for a selected token."
             }
         }
     },
@@ -783,7 +855,7 @@
                 "body": "Most visualizations support hover for preview, click for focus, drag to pan, and wheel to zoom."
             },
             "corpusArchitecture": {
-                "title": "Corpus Architecture Map"
+                "title": "Quran Structure Map"
             },
             "rootNetwork": {
                 "title": "Root Network Graph"
@@ -797,7 +869,40 @@
                 "body": "This legend explains colors and symbols for the current graph, so you can read relationships faster and avoid misinterpretation."
             },
             "dependencyTree": {
-                "title": "Dependency Tree + Inspector"
+                "title": "Dependency Tree + Word Details"
+            },
+            "mobileWelcome": {
+                "title": "Mobile quick tour",
+                "body": "This short tour shows the fastest way to search and navigate on touch devices."
+            },
+            "mobileSearch": {
+                "title": "Search first",
+                "body": "Use the search button in the bottom bar to find roots, lemmas, and tokens quickly."
+            },
+            "mobileTools": {
+                "title": "Open tools when needed",
+                "body": "Use the tools toggle to inspect details and switch views without losing context."
+            }
+        }
+    },
+    "Glossary": {
+        "label": "Linguistic glossary",
+        "terms": {
+            "root": {
+                "label": "Root",
+                "description": "Base Arabic letters a word family comes from."
+            },
+            "lemma": {
+                "label": "Lemma",
+                "description": "Dictionary base form of a word."
+            },
+            "pos": {
+                "label": "POS",
+                "description": "Part of speech, such as noun, verb, or particle."
+            },
+            "collocation": {
+                "label": "Collocation",
+                "description": "Words or roots that frequently appear together."
             }
         }
     }

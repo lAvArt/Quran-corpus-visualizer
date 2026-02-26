@@ -1042,7 +1042,7 @@ button.site-footer-link {
   }
 
   .immersive-viewport {
-    padding: var(--header-clearance) 16px 16px;
+    padding: var(--header-clearance) 16px calc(var(--mobile-tools-bar-clearance) + 12px);
   }
 
   /* Keep header horizontal, just tighter */
@@ -1799,7 +1799,7 @@ button.site-footer-link {
   .viz-left-stack {
     top: auto;
     inset-inline-end: 1rem;
-    bottom: calc(var(--footer-height) + 0.75rem);
+    bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance));
     inset-inline-start: 1rem;
     width: 100%;
     max-width: none;
@@ -1809,7 +1809,7 @@ button.site-footer-link {
   .viz-legend {
     top: auto;
     right: 1rem;
-    bottom: calc(var(--footer-height) + 0.75rem);
+    bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance));
     width: auto;
     max-height: 38vh;
   }

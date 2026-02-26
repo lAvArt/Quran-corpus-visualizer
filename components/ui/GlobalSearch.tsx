@@ -5,17 +5,21 @@ import { useTranslations } from "next-intl";
 import type { CorpusToken } from "@/lib/schema/types";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { normalizeArabicForSearch } from "@/lib/search/indexes";
+import type { SearchMatchType } from "@/lib/analytics/events";
 
 interface GlobalSearchProps {
   tokens: CorpusToken[];
   onTokenSelect: (tokenId: string) => void;
   onTokenHover: (tokenId: string | null) => void;
   onRootSelect?: (root: string | null) => void;
+  onSearchOpened?: () => void;
+  onSearchQuerySubmitted?: (query: string) => void;
+  onSearchResultSelected?: (matchType: SearchMatchType) => void;
 }
 
 interface SearchResult {
   token: CorpusToken;
-  matchType: "text" | "root" | "lemma" | "gloss";
+  matchType: SearchMatchType;
   matchText: string;
 }
 
@@ -24,6 +28,9 @@ export default function GlobalSearch({
   onTokenSelect,
   onTokenHover,
   onRootSelect,
+  onSearchOpened,
+  onSearchQuerySubmitted,
+  onSearchResultSelected,
 }: GlobalSearchProps) {
   const t = useTranslations('GlobalSearch');
   const typeLabelMap: Record<SearchResult["matchType"], string> = {
@@ -146,6 +153,7 @@ export default function GlobalSearch({
         e.preventDefault();
         const r = results[selectedIndex];
         onTokenSelect(r.token.id);
+        onSearchResultSelected?.(r.matchType);
         if (r.matchType === "root" && r.token.root && onRootSelect) {
           onRootSelect(r.token.root);
         }
@@ -155,7 +163,7 @@ export default function GlobalSearch({
         inputRef.current?.blur();
       }
     },
-    [results, selectedIndex, onTokenSelect]
+    [results, selectedIndex, onTokenSelect, onRootSelect, onSearchResultSelected]
   );
 
   // Reset selection when results change
@@ -170,6 +178,11 @@ export default function GlobalSearch({
       selected?.scrollIntoView({ block: "nearest" });
     }
   }, [selectedIndex, results.length]);
+
+  useEffect(() => {
+    if (!debouncedQuery.trim() || debouncedQuery.trim().length < 2) return;
+    onSearchQuerySubmitted?.(debouncedQuery.trim());
+  }, [debouncedQuery, onSearchQuerySubmitted]);
 
   return (
     <div className="global-search" data-tour-id="global-search-root">
@@ -192,6 +205,7 @@ export default function GlobalSearch({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          onFocusCapture={() => onSearchOpened?.()}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           onKeyDown={handleKeyDown}
           role="combobox"
@@ -232,6 +246,7 @@ export default function GlobalSearch({
               onMouseLeave={() => onTokenHover(null)}
               onClick={() => {
                 onTokenSelect(result.token.id);
+                onSearchResultSelected?.(result.matchType);
                 if (result.matchType === "root" && result.token.root && onRootSelect) {
                   onRootSelect(result.token.root);
                 }

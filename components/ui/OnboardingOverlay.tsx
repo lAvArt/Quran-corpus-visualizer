@@ -31,20 +31,16 @@ export default function OnboardingOverlay({
   const steps = useMemo(
     () => [
       {
-        title: t("cards.purpose.title"),
-        body: t("cards.purpose.body"),
+        title: t("tasks.findRoot.title"),
+        body: t("tasks.findRoot.body"),
       },
       {
-        title: t("cards.navigation.title"),
-        body: t("cards.navigation.body"),
+        title: t("tasks.seeAcrossSurahs.title"),
+        body: t("tasks.seeAcrossSurahs.body"),
       },
       {
-        title: t("cards.graphs.title"),
-        body: t("cards.graphs.body"),
-      },
-      {
-        title: t("cards.insights.title"),
-        body: t("cards.insights.body"),
+        title: t("tasks.inspectGrammar.title"),
+        body: t("tasks.inspectGrammar.body"),
       },
     ],
     [t]
@@ -90,6 +86,7 @@ export default function OnboardingOverlay({
         <div className="onboarding-head">
           <h2 id="onboarding-title">{t("title")}</h2>
           <p>{t("subtitle")}</p>
+          <p className="onboarding-prompt">{t("prompt")}</p>
           <div className="onboarding-lang-switch">
             <LanguageSwitcher />
           </div>
@@ -207,6 +204,12 @@ export default function OnboardingOverlay({
           margin: 8px 0 0;
           color: var(--ink-secondary);
           font-size: 0.9rem;
+        }
+
+        .onboarding-prompt {
+          margin-top: 10px;
+          font-weight: 600;
+          color: var(--ink);
         }
 
         .onboarding-progress {

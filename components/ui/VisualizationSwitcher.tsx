@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
+import GlossaryChips from "@/components/ui/GlossaryChips";
 
 interface VisualizationSwitcherProps {
   currentMode: VisualizationMode;
   onModeChange: (mode: VisualizationMode) => void;
+  experienceLevel: "beginner" | "advanced";
+  showAdvancedModes: boolean;
+  onToggleAdvancedModes: (value: boolean) => void;
   theme: "light" | "dark";
   onThemeChange: (theme: "light" | "dark") => void;
 }
@@ -73,9 +77,18 @@ const VISUALIZATION_OPTIONS: Array<{
     },
   ];
 
+const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
+  "radial-sura",
+  "surah-distribution",
+  "root-network",
+];
+
 export default function VisualizationSwitcher({
   currentMode,
   onModeChange,
+  experienceLevel,
+  showAdvancedModes,
+  onToggleAdvancedModes,
   theme: _theme,
   onThemeChange: _onThemeChange,
 }: VisualizationSwitcherProps) {
@@ -83,12 +96,18 @@ export default function VisualizationSwitcher({
   const [isExpanded, setIsExpanded] = useState(false);
   const dropdownId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isExpanded) return;
 
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const clickedInsideTrigger = !!triggerRef.current?.contains(target);
+      const clickedInsideDropdown = !!dropdownRef.current?.contains(target);
+      if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setIsExpanded(false);
       }
     };
@@ -99,13 +118,11 @@ export default function VisualizationSwitcher({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isExpanded]);
@@ -119,11 +136,16 @@ export default function VisualizationSwitcher({
   );
 
   const currentOption = VISUALIZATION_OPTIONS.find((opt) => opt.mode === currentMode);
+  const visibleOptions =
+    experienceLevel === "advanced" || showAdvancedModes
+      ? VISUALIZATION_OPTIONS
+      : VISUALIZATION_OPTIONS.filter((option) => BEGINNER_PRIMARY_MODES.includes(option.mode));
 
   return (
     <div className="viz-switcher-container" ref={containerRef} data-tour-id="viz-switcher-root">
       <div className="viz-switcher-header">
         <button
+          ref={triggerRef}
           type="button"
           className="viz-switcher-current"
           aria-expanded={isExpanded}
@@ -141,9 +163,12 @@ export default function VisualizationSwitcher({
 
       {
         isExpanded && (
-          <div className="viz-switcher-dropdown" id={dropdownId}>
+          <div ref={dropdownRef} className="viz-switcher-dropdown" id={dropdownId}>
             <div className="viz-dropdown-title">{t('dropdownTitle')}</div>
-            {VISUALIZATION_OPTIONS.map((option) => (
+            <div className="viz-switcher-glossary">
+              <GlossaryChips vizMode={currentMode} />
+            </div>
+            {visibleOptions.map((option) => (
               <button
                 type="button"
                 key={option.mode}
@@ -159,6 +184,15 @@ export default function VisualizationSwitcher({
 
               </button>
             ))}
+            {experienceLevel === "beginner" && (
+              <button
+                type="button"
+                className="viz-switcher-advanced-toggle"
+                onClick={() => onToggleAdvancedModes(!showAdvancedModes)}
+              >
+                {showAdvancedModes ? t("lessVisualizations") : t("moreVisualizations")}
+              </button>
+            )}
           </div>
         )
       }
@@ -282,6 +316,10 @@ export default function VisualizationSwitcher({
           overflow-y: auto;
         }
 
+        .viz-switcher-glossary {
+          padding: 2px 2px 6px;
+        }
+
         .viz-switcher-option {
           display: flex;
           align-items: center;
@@ -309,6 +347,23 @@ export default function VisualizationSwitcher({
 
         .viz-switcher-option.active .viz-switcher-desc {
           color: rgba(255, 255, 255, 0.8);
+        }
+
+        .viz-switcher-advanced-toggle {
+          margin-top: 4px;
+          border: 1px dashed var(--line);
+          border-radius: 10px;
+          background: transparent;
+          color: var(--ink-secondary);
+          font-size: 0.78rem;
+          padding: 9px 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .viz-switcher-advanced-toggle:hover {
+          border-color: var(--accent);
+          color: var(--ink);
         }
 
         @media (max-width: 1280px) {

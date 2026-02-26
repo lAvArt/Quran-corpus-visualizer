@@ -10,7 +10,10 @@ export type WalkthroughStepId =
   | "root-network"
   | "current-selection"
   | "legend"
-  | "dependency-tree";
+  | "dependency-tree"
+  | "mobile-welcome"
+  | "mobile-search"
+  | "mobile-tools";
 
 export type WalkthroughAction = "none" | "set-viz-mode";
 

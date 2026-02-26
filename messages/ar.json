@@ -52,13 +52,46 @@
         "eyebrow": "مرئيات المدونة القرآنية",
         "brand": "quran.pluragate.org",
         "hideTools": "إخفاء الأدوات ->",
-        "showTools": "عرض الأدوات <-"
+        "showTools": "عرض الأدوات <-",
+        "dataStatus": {
+            "sample": {
+                "title": "بيانات تجريبية",
+                "description": "يتم عرض معاينة سريعة حالياً."
+            },
+            "loading": {
+                "title": "جار تحميل المدونة الكاملة",
+                "description": "قد تتوسع النتائج بعد اكتمال تحميل البيانات."
+            },
+            "full": {
+                "title": "المدونة الكاملة جاهزة",
+                "description": "تم تحميل جميع بيانات المدونة المتاحة."
+            },
+            "fallback": {
+                "title": "المدونة الكاملة غير متاحة",
+                "description": "يتم استخدام بيانات تجريبية حالياً."
+            }
+        },
+        "navigation": {
+            "breadcrumbsLabel": "مسار التنقل في العرض",
+            "contextLabel": "سياق العرض الحالي",
+            "quran": "القرآن كله",
+            "surahWithName": "سورة {id}: {name}",
+            "surahValue": "سورة {id}",
+            "ayahValue": "آية {ayah}",
+            "rootValue": "جذر {root}"
+        },
+        "feedbackPrompt": {
+            "question": "?? ???? ??? ?????? ?????? ??????",
+            "helpful": "???",
+            "notHelpful": "??? ???",
+            "dismiss": "?????"
+        }
     },
     "AppSidebar": {
-        "inspector": "التفاصيل",
+        "inspector": "تفاصيل الكلمة",
         "scan": "مسح",
         "search": "بحث",
-        "advancedSearch": "بحث متقدم",
+        "advancedSearch": "بحث تفصيلي",
         "index": "فهرس",
         "label": "الشريط الجانبي",
         "panelLabel": "لوحات الشريط الجانبي",
@@ -75,12 +108,12 @@
         "placeholder": "بحث عن جذور، كلمات، معاني...",
         "noResults": "لم توجد نتائج",
         "matchRoot": "جذر: {root} ({count} مرة)",
-        "matchLemma": "ليما: {lemma}",
+        "matchLemma": "الجذع: {lemma}",
         "clearSearch": "مسح البحث",
         "resultsAriaLabel": "نتائج البحث",
         "types": {
             "root": "جذر",
-            "lemma": "كلمة",
+            "lemma": "الجذع",
             "text": "نص",
             "gloss": "معنى"
         }
@@ -92,7 +125,7 @@
         "darkTheme": "الوضع الداكن",
         "modes": {
             "corpus-architecture": {
-                "label": "هيكلية المدونة",
+                "label": "خريطة بنية القرآن",
                 "description": "خريطة هرمية للمدونة تعرض نظرة عامة على الهيكل"
             },
             "surah-distribution": {
@@ -127,7 +160,9 @@
                 "label": "شبكة التلازم التعبيري",
                 "description": "تحليل الجذور المتلازمة والجوار الدلالي"
             }
-        }
+        },
+        "moreVisualizations": "مزيد من الرسوم",
+        "lessVisualizations": "رسوم أقل"
     },
     "LanguageSwitcher": {
         "switchLabel": "التبديل إلى {locale}"
@@ -136,7 +171,7 @@
         "tabs": {
             "surah": "سورة",
             "root": "جذر",
-            "lemma": "كلمة"
+            "lemma": "الجذع"
         },
         "searchPlaceholder": "تصفية...",
         "verses": "آيات",
@@ -150,7 +185,7 @@
             "surah": "السورة",
             "ayah": "الآية",
             "root": "الجذر",
-            "lemma": "الكلمة",
+            "lemma": "الجذع",
             "token": "اللفظ"
         },
         "ayahTokens": "كلمات الآية",
@@ -168,7 +203,7 @@
     "SemanticSearchPanel": {
         "placeholders": {
             "root": "الجذر (مثال: هدي)",
-            "lemma": "الكلمة (مثال: هُدًى)",
+            "lemma": "الجذع",
             "ayah": "الآية (مثال: 1:5)"
         },
         "pos": {
@@ -190,7 +225,7 @@
             "meaning": "المعنى",
             "stats": {
                 "surahs": "سور",
-                "lemmas": "كلمات",
+                "lemmas": "جذوع",
                 "forms": "صيغ"
             },
             "formsLabel": "الصيغ",
@@ -218,7 +253,7 @@
         },
         "labels": {
             "root": "الجذر",
-            "lemma": "الكلمة",
+            "lemma": "الجذع",
             "stem": "الجذع",
             "pos": "القسم"
         },
@@ -230,10 +265,10 @@
                 "occurrences": "التكرارات",
                 "surahs": "السور",
                 "ayahs": "الآيات",
-                "lemmas": "الكلمات"
+                "lemmas": "جذوع"
             },
             "formsLabel": "الصيغ",
-            "lemmasLabel": "الكلمات",
+            "lemmasLabel": "الجذوع",
             "surahDistribution": "توزيع السور",
             "clickToFocus": "اضغط للتركيز",
             "sortByOccurrence": "فرز حسب التكرار",
@@ -340,7 +375,7 @@
             "surah": "سورة",
             "ayah": "آية",
             "root": "جذر",
-            "lemma": "كلمة",
+            "lemma": "الجذع",
             "pos": "قسم",
             "gloss": "تفسير",
             "occurrences": "تكرار",
@@ -361,7 +396,7 @@
             "verb": "فعل",
             "adjective": "صفة",
             "preposition": "حرف جر",
-            "lemmas": "كلمات",
+            "lemmas": "جذوع",
             "panAndZoom": "التحريك والتكبير",
             "connections": "روابط",
             "ref": "مرجع",
@@ -530,7 +565,7 @@
             }
         },
         "CorpusArchitecture": {
-            "title": "هيكلية المدونة",
+            "title": "خريطة بنية القرآن",
             "subtitle": "المركز ← السور ← الجذور الأساسية",
             "structuralView": "النظرة الهيكلية",
             "inSurah": "في هذه السورة",
@@ -547,7 +582,7 @@
             "searchRootHint": "{count} جذر فريد متاح. اكتب للبحث عن أي جذر عبر جميع السور.",
             "noRootFound": "لم يتم العثور على جذر مطابق. جرب جذراً عربياً مختلفاً.",
             "Help": {
-                "title": "خريطة هيكلية المدونة",
+                "title": "خريطة بنية القرآن",
                 "description": "رسم شجري دائري شعاعي تفاعلي يعرض البنية الهرمية للقرآن الكريم، من المدونة كاملة وصولاً إلى السور وجذورها الأكثر تكراراً.",
                 "hierarchyLabel": "مستويات الهرمية",
                 "hierarchyText": "تمثل العقدة المركزية القرآن كاملاً. الحلقة الأولى هي السور الـ 114. وتتفرع من كل سورة جذورها الأكثر تكراراً. تظهر فقط الجذور الأكثر شيوعاً افتراضياً — استخدم حقل البحث للعثور على أي جذر وتمييزه.",
@@ -571,7 +606,7 @@
             "helpThickness": "الأشرطة السميكة تعني تردداً أعلى في النطاق الحالي.",
             "helpHover": "مرر فوق الشريط لمعاينة عينة، واضغط لفحصها.",
             "rootNode": "عقود الجذور",
-            "lemmaNode": "عقود الكلمات",
+            "lemmaNode": "عقدة الجذع",
             "Help": {
                 "title": "تدفق الجذر إلى الكلمة",
                 "description": "مخطط سانكي يتتبع التدفق من الجذور العربية الفريدة إلى الكلمات المشتقة المختلفة، ليظهر الإنتاجية الصرفية.",
@@ -590,12 +625,12 @@
             "noTokens": "لم يتم تحميل بيانات الكلمات لهذه السورة بعد. انتظر تحميل المدونة، ثم أعد المحاولة.",
             "noMorphology": "بيانات الصرف غير متاحة لهذه السورة. الجذور/الكلمات تتطلب مجموعة بيانات كاملة.",
             "rootTrilateral": "جذر (ثلاثي)",
-            "nounLemma": "كلمة (اسم)",
-            "verbLemma": "كلمة (فعل)",
+            "nounLemma": "الجذع (اسم)",
+            "verbLemma": "الجذع (فعل)",
             "complexity": "التعقيد",
             "totalAvailable": "الإجمالي المتاح",
             "rootNodes": "عقود الجذور",
-            "lemmaNodes": "عقود الكلمات",
+            "lemmaNodes": "عقد الجذوع",
             "tokenNodes": "عقود الألفاظ",
             "Help": {
                 "title": "رسم شبكة الجذور",
@@ -618,15 +653,30 @@
             "windowTypeHintDistance": "يستخدم الكلمات القريبة فقط حول كل موضع، لذلك تعكس التلازمات صياغة محلية.",
             "distanceRange": "المدى: +/- {distance} كلمات",
             "minFrequency": "الحد الأدنى للتكرار المشترك",
+            "targetTerm": "Target term",
+            "targetRootPlaceholder": "Target root",
+            "targetLemmaPlaceholder": "Target lemma",
+            "pairTerm": "Pair term (optional)",
+            "pairRootPlaceholder": "Pair root",
+            "pairLemmaPlaceholder": "Pair lemma",
+            "groupBy": "Group branches by",
+            "groupByRoot": "Roots",
+            "groupByLemma": "Words",
+            "posFilter": "POS filter",
+            "posAll": "All",
+            "pairWindowsA": "A windows: {count}",
+            "pairWindowsB": "B windows: {count}",
+            "pairSharedWindows": "Shared windows: {count}",
             "pmi": "درجة PMI (المعلومات المتبادلة النقطية)",
             "rawCount": "تكرارات مشتركة",
             "noData": "اختر جذراً من البحث أو الرسم البياني لرؤية التلازم.",
             "targetNode": "الجذر المستهدف",
             "collocateNode": "الجذر المتلازم",
-            "lemmasLabel": "اللِّمات",
+            "lemmasLabel": "الجذوع",
             "tertiaryNode": "عقدة سياق من المستوى الثالث",
             "contextWindowRef": "مرجع نافذة السياق",
             "contextWindowRefFormat": "صيغة المرجع",
+            "ayahText": "نص الآية",
             "contextWindowRefFormatAyah": "سورة:آية",
             "contextWindowRefFormatDistance": "سورة:آية:موضع",
             "contextWindowRefHelpAyah": "هذا المرجع يشير إلى الآية التي يظهر فيها هذا السياق من المستوى الثالث مع الجذر المحدد.",
@@ -636,7 +686,7 @@
             "legendTitle": "حول هذا الرسم",
             "pmiHigher": "PMI أعلى (ترابط أقوى)",
             "pmiLower": "PMI أقل (ترابط أضعف)",
-            "lemmaLayerHint": "مرِّر/المس الجذر المتلازم لعرض عينات اللِّمات",
+            "lemmaLayerHint": "مرِّر/المس الجذر المتلازم لعرض عينات الجذوع",
             "Help": {
                 "title": "شبكة التلازم التعبيري",
                 "description": "يعرض الجوار الدلالي لجذر محدد عن طريق تعيين الجذور الأخرى التي تظهر غالباً بالقرب منه.",
@@ -701,6 +751,13 @@
             "stats": "{total} متتبع · {learning} قيد التعلم · {learned} مكتسب",
             "export": "تصدير المعرفة (JSON)",
             "import": "استيراد المعرفة"
+        },
+        "experienceLevel": {
+            "title": "مستوى التعقيد",
+            "options": {
+                "beginner": "مبتدئ",
+                "advanced": "متقدم"
+            }
         }
     },
     "VizExport": {
@@ -726,7 +783,7 @@
     },
     "Onboarding": {
         "title": "مرحباً بك في عارض المدونة القرآنية",
-        "subtitle": "جولة قصيرة لمساعدتك على فهم الرسوم البيانية واستخدامها بفعالية.",
+        "subtitle": "ابدأ بمهمة عملية واحدة ثم اتبع جولة إرشادية قصيرة.",
         "close": "إغلاق الجولة",
         "progress": "الخطوة {current} من {total}",
         "showOnStartup": "إظهار عند التشغيل",
@@ -751,6 +808,21 @@
             "insights": {
                 "title": "استخراج أفضل للأنماط",
                 "body": "استخدم أوضاع التلوين المعجمي وسمات الألوان لإبراز أنماط التكرار والهوية والبنية عبر السور والجذور والكلمات."
+            }
+        },
+        "prompt": "بماذا أبدأ أولاً؟",
+        "tasks": {
+            "findRoot": {
+                "title": "اعثر على جذر",
+                "body": "استخدم البحث للعثور على جذر ثم انتقل مباشرة إلى الكلمات المطابقة."
+            },
+            "seeAcrossSurahs": {
+                "title": "شاهده عبر السور",
+                "body": "انتقل إلى عروض التوزيع لمقارنة السور التي يظهر فيها الجذر أكثر."
+            },
+            "inspectGrammar": {
+                "title": "افحص نحو آية واحدة",
+                "body": "افتح تفاصيل الكلمة لمراجعة الجذع والنوع والخصائص الصرفية."
             }
         }
     },
@@ -783,7 +855,7 @@
                 "body": "معظم الرسوم تدعم المرور للمعاينة، والنقر للتثبيت، والسحب للتحريك، والعجلة للتكبير."
             },
             "corpusArchitecture": {
-                "title": "خريطة هيكلية المدونة"
+                "title": "خريطة بنية القرآن"
             },
             "rootNetwork": {
                 "title": "شبكة الجذور"
@@ -797,8 +869,44 @@
                 "body": "توضح وسيلة الإيضاح ألوان ورموز الرسم الحالي لتقرأ العلاقات بسرعة ودون لبس."
             },
             "dependencyTree": {
-                "title": "شجرة الإعراب + التفاصيل"
+                "title": "شجرة الإعراب + تفاصيل الكلمة"
+            },
+            "mobileWelcome": {
+                "title": "جولة جوال سريعة",
+                "body": "هذه الجولة القصيرة توضح أسرع طريقة للبحث والتنقل على الأجهزة اللمسية."
+            },
+            "mobileSearch": {
+                "title": "ابدأ بالبحث",
+                "body": "استخدم زر البحث في الشريط السفلي للعثور بسرعة على الجذور والجذع والكلمات."
+            },
+            "mobileTools": {
+                "title": "افتح الأدوات عند الحاجة",
+                "body": "استخدم زر الأدوات لفحص التفاصيل وتبديل العروض دون فقدان السياق."
+            }
+        }
+    },
+    "Glossary": {
+        "label": "مسرد لغوي",
+        "terms": {
+            "root": {
+                "label": "الجذر",
+                "description": "الحروف الأساسية التي تتفرع منها عائلة الكلمة."
+            },
+            "lemma": {
+                "label": "الجذع",
+                "description": "صيغة المعجم الأساسية للكلمة."
+            },
+            "pos": {
+                "label": "النوع",
+                "description": "قسم الكلام مثل اسم، فعل، أو حرف."
+            },
+            "collocation": {
+                "label": "تلازم",
+                "description": "كلمات أو جذور تتكرر معاً بشكل ملحوظ."
             }
         }
     }
 }
+
+
+

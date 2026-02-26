@@ -49,6 +49,7 @@ interface AyahRootEntry {
   root: string;
   count: number;
   globalCount: number;
+  lemmas: string[];
 }
 
 interface AyahRootNode extends AyahRootEntry {
@@ -161,6 +162,7 @@ export default function RadialSuraMap({
     const ayahTokens = new Map<number, CorpusToken[]>();
     const rootOccurrences = new Map<string, number[]>(); // root -> list of ayahs
     const rootCountsByAyah = new Map<number, Map<string, number>>();
+    const rootLemmasByAyah = new Map<number, Map<string, Set<string>>>();
     const rootTokenTotals = new Map<string, number>();
 
     // Group tokens by ayah
@@ -186,6 +188,17 @@ export default function RadialSuraMap({
         }
         const rootCounts = rootCountsByAyah.get(token.ayah)!;
         rootCounts.set(token.root, (rootCounts.get(token.root) ?? 0) + 1);
+
+        if (!rootLemmasByAyah.has(token.ayah)) {
+          rootLemmasByAyah.set(token.ayah, new Map<string, Set<string>>());
+        }
+        const lemmasByRoot = rootLemmasByAyah.get(token.ayah)!;
+        if (!lemmasByRoot.has(token.root)) {
+          lemmasByRoot.set(token.root, new Set<string>());
+        }
+        if (token.lemma) {
+          lemmasByRoot.get(token.root)!.add(token.lemma);
+        }
       }
     }
 
@@ -210,6 +223,7 @@ export default function RadialSuraMap({
           root,
           count,
           globalCount: rootTokenTotals.get(root) ?? count,
+          lemmas: Array.from(rootLemmasByAyah.get(ayahNum)?.get(root) ?? []).sort((a, b) => a.localeCompare(b)),
         }));
       rootEntriesByAyah.set(ayahNum, entries);
       if (entries.length > maxRootsPerAyah) {
@@ -553,9 +567,13 @@ export default function RadialSuraMap({
   }, [selectedAyah, ayahRootEntriesByAyah]);
 
   const renderedConnections = useMemo(() => {
-    if (!selectedConnection) return rootConnections;
-    return rootConnections.filter((conn) => conn.root === selectedConnection.root);
-  }, [rootConnections, selectedConnection]);
+    const selectedRoot = selectedConnection?.root ?? highlightRoot ?? null;
+    return rootConnections.filter((conn) => {
+      if (selectedRoot && conn.root !== selectedRoot) return false;
+      if (selectedAyah && conn.sourceAyah !== selectedAyah && conn.targetAyah !== selectedAyah) return false;
+      return true;
+    });
+  }, [rootConnections, selectedConnection, highlightRoot, selectedAyah]);
 
   const barsForRender = useMemo(() => {
     return barsWithGeometry.map((entry) => {
@@ -647,6 +665,13 @@ export default function RadialSuraMap({
   const handleZoomStep = useCallback((factor: number) => {
     zoomBy(factor);
   }, [zoomBy]);
+
+  const formatLemmaLabel = useCallback((lemmas: string[]) => {
+    if (lemmas.length === 0) return "";
+    const preview = lemmas.slice(0, 3);
+    const remainder = lemmas.length - preview.length;
+    return remainder > 0 ? `${preview.join(" · ")} +${remainder}` : preview.join(" · ");
+  }, []);
 
   const allowConnectionAnimation = shouldAnimateConnections && renderedConnections.length <= 280;
   const allowBarAnimation = shouldAnimateBars && ayahCount <= 120;
@@ -1175,16 +1200,47 @@ export default function RadialSuraMap({
                           isRootHighlighted ||
                           (showAllRootLabels && displayRadius >= 1.75) ||
                           (showContextRootLabels && isFocusedAyah && displayRadius >= 1.55);
+                        const isSelectedLemmaLabel =
+                          Boolean(highlightRoot) && node.root === highlightRoot && node.lemmas.length > 0;
+                        const rootLabelText =
+                          isSelectedLemmaLabel
+                            ? formatLemmaLabel(node.lemmas)
+                            : node.root;
+                        const selectedPerpDirection = nodeIndex % 2 === 0 ? 1 : -1;
+                        const selectedCirclePerpNudge = isSelectedLemmaLabel ? (compactLayout ? 6.5 : 8.5) : 0;
+                        const selectedCircleRadialNudge = isSelectedLemmaLabel ? (compactLayout ? 2.6 : 3.4) : 0;
+                        const circleX =
+                          node.x +
+                          Math.cos(angleRad) * selectedCircleRadialNudge +
+                          Math.cos(angleRad + Math.PI / 2) * selectedPerpDirection * selectedCirclePerpNudge;
+                        const circleY =
+                          node.y +
+                          Math.sin(angleRad) * selectedCircleRadialNudge +
+                          Math.sin(angleRad + Math.PI / 2) * selectedPerpDirection * selectedCirclePerpNudge;
                         const labelYOffset = showAllRootLabels ? (nodeIndex % 2 === 0 ? -0.75 : 0.75) : 0;
-                        const rootLabelFontSize = showAllRootLabels
+                        const baseRootLabelFontSize = showAllRootLabels
                           ? (compactLayout ? 7.6 : 8.2)
                           : (compactLayout ? 6.8 : 7.2);
+                        const rootLabelFontSize = isSelectedLemmaLabel
+                          ? baseRootLabelFontSize + (compactLayout ? 12.8 : 16.4)
+                          : baseRootLabelFontSize;
+                        const selectedLabelPerpNudge = isSelectedLemmaLabel ? (compactLayout ? 5.5 : 7.2) : 0;
+                        const selectedLabelX = isSelectedLemmaLabel
+                          ? circleX +
+                          Math.cos(angleRad) * (displayRadius + 4) +
+                          Math.cos(angleRad + Math.PI / 2) * selectedPerpDirection * selectedLabelPerpNudge
+                          : node.labelX;
+                        const selectedLabelY = isSelectedLemmaLabel
+                          ? circleY +
+                          Math.sin(angleRad) * (displayRadius + 4) +
+                          Math.sin(angleRad + Math.PI / 2) * selectedPerpDirection * selectedLabelPerpNudge
+                          : node.labelY;
 
                         return (
                           <g key={`${bar.ayah}-${node.root}`}>
                             <circle
-                              cx={node.x}
-                              cy={node.y}
+                              cx={circleX}
+                              cy={circleY}
                               r={displayRadius}
                               fill="transparent"
                               stroke={isRootHighlighted ? highlightedRootColor : tintColor}
@@ -1198,8 +1254,8 @@ export default function RadialSuraMap({
                             />
                             {shouldShowRootLabel && (
                               <text
-                                x={node.labelX}
-                                y={node.labelY + labelYOffset}
+                                x={selectedLabelX}
+                                y={selectedLabelY + labelYOffset}
                                 textAnchor={labelAnchor}
                                 className="arabic-text"
                                 fill={
@@ -1211,9 +1267,12 @@ export default function RadialSuraMap({
                                 }
                                 fontSize={rootLabelFontSize}
                                 fontWeight={isRootHighlighted ? 600 : 500}
+                                stroke={isSelectedLemmaLabel ? (theme === "dark" ? "rgba(6, 9, 18, 0.9)" : "rgba(248, 246, 238, 0.92)") : "transparent"}
+                                strokeWidth={isSelectedLemmaLabel ? 1.8 : 0}
+                                paintOrder="stroke fill"
                                 pointerEvents="none"
                               >
-                                {node.root}
+                                {rootLabelText}
                               </text>
                             )}
                           </g>
@@ -1250,6 +1309,7 @@ export default function RadialSuraMap({
                           highlightAyahSet.has(bar.ayah) ||
                           bar.ayah === selectedAyah ||
                           bar.ayah === hoveredAyah;
+                        const isSelectedAyahLabel = bar.ayah === selectedAyah;
                         const sparseInterval =
                           ayahCount > 180 ? 12 :
                             ayahCount > 120 ? 8 :
@@ -1275,7 +1335,13 @@ export default function RadialSuraMap({
                                   ? "rgba(255,255,255,0.22)"
                                   : "rgba(31, 28, 25, 0.36)"
                             }
-                            fontSize={isEmphasized ? (compactLayout ? "9.5" : "11.5") : (compactLayout ? "8.5" : "10")}
+                            fontSize={
+                              isSelectedAyahLabel
+                                ? (compactLayout ? "14.5" : "18.5")
+                                : isEmphasized
+                                  ? (compactLayout ? "9.5" : "11.5")
+                                  : (compactLayout ? "8.5" : "10")
+                            }
                             fontWeight={isEmphasized ? 600 : 400}
                             style={{ pointerEvents: "none" }}
                           >
@@ -1310,3 +1376,4 @@ export default function RadialSuraMap({
     </section >
   );
 }
+
