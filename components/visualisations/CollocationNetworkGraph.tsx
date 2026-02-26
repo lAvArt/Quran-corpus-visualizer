@@ -1178,7 +1178,9 @@ export default function CollocationNetworkGraph({
                                             <span className="viz-tooltip-value">
                                                 {windowType === "ayah"
                                                     ? t("contextWindowRefFormatAyah")
-                                                    : t("contextWindowRefFormatDistance")}
+                                                    : windowType === "surah"
+                                                        ? t("contextWindowRefFormatSurah")
+                                                        : t("contextWindowRefFormatDistance")}
                                             </span>
                                         </div>
                                     <div
@@ -1191,7 +1193,9 @@ export default function CollocationNetworkGraph({
                                     >
                                         {windowType === "ayah"
                                             ? t("contextWindowRefHelpAyah")
-                                            : t("contextWindowRefHelpDistance")}
+                                            : windowType === "surah"
+                                                ? t("contextWindowRefHelpSurah")
+                                                : t("contextWindowRefHelpDistance")}
                                     </div>
                                     {extractAyahRef(sidebarNode.label) && sidebarAyahText && (
                                         <div style={{ marginTop: 8 }}>
@@ -1354,15 +1358,20 @@ export default function CollocationNetworkGraph({
                                 <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("windowType")}</div>
                                 <select
                                     value={windowType}
-                                    onChange={e => setWindowType(e.target.value as "ayah" | "distance")}
+                                    onChange={e => setWindowType(e.target.value as "ayah" | "distance" | "surah")}
                                     style={{ ...controlFieldStyle, width: "100%" }}
                                 >
                                     <option value="ayah">{t("ayahWindow")}</option>
+                                    <option value="surah">{t("surahWindow")}</option>
                                     <option value="distance">{t("distanceWindow")}</option>
                                 </select>
                             </div>
                             <div style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}>
-                                {windowType === "ayah" ? t("windowTypeHintAyah") : t("windowTypeHintDistance")}
+                                {windowType === "ayah"
+                                    ? t("windowTypeHintAyah")
+                                    : windowType === "surah"
+                                        ? t("windowTypeHintSurah")
+                                        : t("windowTypeHintDistance")}
                             </div>
                             <AnimatePresence>
                                 {windowType === "distance" && (

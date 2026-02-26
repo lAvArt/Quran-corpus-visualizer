@@ -103,6 +103,22 @@ describe("collocation search", () => {
         expect(r3!.count).toBe(2);
     });
 
+    it("finds collocations within a surah window correctly", () => {
+        const data = calculateRootFrequencies(mockTokens);
+        const collocations = getCollocations("R-1", mockTokens, data, { windowType: "surah" });
+
+        // Surahs containing R-1: surah 1 and 2
+        // Surah 1 contributes R-2,R-3,R-4,R-5
+        // Surah 2 contributes R-3,R-4,R-6
+        // Counts are once per surah window.
+        expect(collocations.length).toBe(5);
+        expect(collocations.find(c => c.root === "R-2")?.count).toBe(1);
+        expect(collocations.find(c => c.root === "R-3")?.count).toBe(2);
+        expect(collocations.find(c => c.root === "R-4")?.count).toBe(2);
+        expect(collocations.find(c => c.root === "R-5")?.count).toBe(1);
+        expect(collocations.find(c => c.root === "R-6")?.count).toBe(1);
+    });
+
     it("applies POS filter to collocates", () => {
         const posTokens: CorpusToken[] = [
             createToken("1:1:1", 1, 1, 1, "R-1", "L-1", "N"),

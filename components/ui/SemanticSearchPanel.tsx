@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
+import { parseSearchQuery } from "@/lib/search/queryParser";
+import { normalizeRootFamily } from "@/lib/search/arabicNormalize";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
 import { useDebounce } from "@/lib/hooks/useDebounce";
@@ -24,15 +26,18 @@ export default function SemanticSearchPanel({
   onSelectSurah,
   scope = { type: "global" },
 }: SemanticSearchPanelProps) {
+  const [query, setQuery] = useState("");
   const [root, setRoot] = useState("");
   const [lemma, setLemma] = useState("");
   const [pos, setPos] = useState<PartOfSpeech | "">("");
   const [ayah, setAyah] = useState("");
   const t = useTranslations('SemanticSearchPanel');
 
+  const debouncedQuery = useDebounce(query, 250);
   const debouncedRoot = useDebounce(root, 250);
   const debouncedLemma = useDebounce(lemma, 250);
   const debouncedAyah = useDebounce(ayah, 250);
+  const parsedQuery = useMemo(() => parseSearchQuery(debouncedQuery), [debouncedQuery]);
 
   const scopedTokens = useMemo(() => {
     if (scope.type === "surah") {
@@ -55,15 +60,43 @@ export default function SemanticSearchPanel({
     return debouncedAyah;
   }, [debouncedAyah, scope]);
 
+  const effectiveRoot = useMemo(() => {
+    if (debouncedRoot.trim()) return debouncedRoot.trim();
+    if (parsedQuery.root?.trim()) return parsedQuery.root.trim();
+    if (parsedQuery.freeText && !parsedQuery.lemma && !parsedQuery.root) return parsedQuery.freeText;
+    return "";
+  }, [debouncedRoot, parsedQuery]);
+
+  const effectiveLemma = useMemo(() => {
+    if (debouncedLemma.trim()) return debouncedLemma.trim();
+    return parsedQuery.lemma?.trim() || "";
+  }, [debouncedLemma, parsedQuery]);
+
+  const effectivePos = useMemo<PartOfSpeech | "">(() => {
+    if (pos) return pos;
+    return parsedQuery.pos || "";
+  }, [pos, parsedQuery]);
+
+  const effectiveAyah = useMemo(() => {
+    if (normalizedAyahQuery) return normalizedAyahQuery;
+    if (parsedQuery.ayah) {
+      if (scope.type === "surah" && !parsedQuery.ayah.includes(":")) {
+        return `${scope.surahId}:${parsedQuery.ayah}`;
+      }
+      return parsedQuery.ayah;
+    }
+    return "";
+  }, [normalizedAyahQuery, parsedQuery, scope]);
+
   const results = useMemo(() => {
     const ids = queryPhaseOne(index, {
-      root: debouncedRoot || undefined,
-      lemma: debouncedLemma || undefined,
-      pos: pos || undefined,
-      ayah: normalizedAyahQuery || undefined
+      root: effectiveRoot || undefined,
+      lemma: effectiveLemma || undefined,
+      pos: effectivePos || undefined,
+      ayah: effectiveAyah || undefined
     });
     return [...ids].map((id) => tokenById.get(id)).filter((token): token is CorpusToken => !!token);
-  }, [index, debouncedLemma, pos, debouncedRoot, tokenById, normalizedAyahQuery]);
+  }, [index, effectiveRoot, effectiveLemma, effectivePos, effectiveAyah, tokenById]);
 
   const scopeLabel = useMemo(() => {
     if (scope.type === "surah") {
@@ -74,10 +107,11 @@ export default function SemanticSearchPanel({
 
   // Root info: when searching by root, compute aggregated stats
   const rootInfo = useMemo(() => {
-    if (!debouncedRoot.trim()) return null;
+    if (!effectiveRoot.trim()) return null;
+    const rootFamily = normalizeRootFamily(effectiveRoot.trim());
 
     // Find all tokens with this exact root across the entire corpus
-    const matchingTokens = tokens.filter(tk => tk.root === debouncedRoot.trim());
+    const matchingTokens = tokens.filter(tk => normalizeRootFamily(tk.root) === rootFamily);
     if (matchingTokens.length === 0) return null;
 
     // Surah distribution
@@ -115,7 +149,7 @@ export default function SemanticSearchPanel({
       .sort((a, b) => b.count - a.count);
 
     return {
-      root: root.trim(),
+      root: effectiveRoot.trim(),
       totalOccurrences: matchingTokens.length,
       surahCount: surahMap.size,
       gloss,
@@ -124,10 +158,10 @@ export default function SemanticSearchPanel({
       posBreakdown: Array.from(posBreakdown.entries()).sort((a, b) => b[1] - a[1]),
       surahDistribution,
     };
-  }, [root, tokens]);
+  }, [effectiveRoot, tokens]);
 
   // Whether we're in "root search mode" (show distribution) vs token list mode
-  const isRootSearch = !!root.trim() && !!rootInfo;
+  const isRootSearch = !!effectiveRoot.trim() && !!rootInfo;
 
   return (
     <div className="search-panel">
@@ -142,6 +176,12 @@ export default function SemanticSearchPanel({
       */}
 
       <div className="search-controls">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('placeholders.query')}
+          className="search-input search-input-query"
+        />
         <input
           value={root}
           onChange={(e) => setRoot(e.target.value)}
@@ -281,7 +321,7 @@ export default function SemanticSearchPanel({
                   if (scope.type === "global" && onSelectSurah) {
                     onSelectSurah(token.sura);
                   }
-                  if (root && token.root && onRootSelect) {
+                  if (effectiveRoot && token.root && onRootSelect) {
                     onRootSelect(token.root);
                   }
                   onTokenFocus(token.id);
@@ -308,6 +348,9 @@ export default function SemanticSearchPanel({
             gap: 8px;
             margin-bottom: 16px;
             grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .search-input-query {
+            grid-column: 1 / -1;
         }
         .search-input, .search-select {
             padding: 9px 12px;

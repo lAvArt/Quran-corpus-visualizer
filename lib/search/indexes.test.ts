@@ -28,8 +28,10 @@ describe("buildPhaseOneIndexes", () => {
     const index = buildPhaseOneIndexes([]);
     expect(index.root.size).toBe(0);
     expect(index.rootNormalized.size).toBe(0);
+    expect(index.rootFamilyNormalized.size).toBe(0);
     expect(index.lemma.size).toBe(0);
     expect(index.lemmaNormalized.size).toBe(0);
+    expect(index.lemmaLooseNormalized.size).toBe(0);
     expect(index.textNormalized.size).toBe(0);
     expect(index.pos.size).toBe(0);
     expect(index.ayah.size).toBe(0);

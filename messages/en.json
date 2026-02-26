@@ -202,6 +202,7 @@
     },
     "SemanticSearchPanel": {
         "placeholders": {
+            "query": "Advanced query (e.g., root:عصو pos:n ayah:20:17)",
             "root": "Root (e.g., هدي)",
             "lemma": "Lemma (e.g., هُدًى)",
             "ayah": "Ayah (e.g., 1:5)"
@@ -696,7 +697,11 @@
                 "graphText": "Center node = selected root. Secondary nodes = collocates. Tertiary nodes = sampled context references.",
                 "windowLabel": "Context Window",
                 "windowText": "Use Same Ayah for broader theme-level context, or Nearby Words for phrase-level context."
-            }
+            },
+            "surahWindow": "Same Surah (Chapter Context)",
+            "windowTypeHintSurah": "Uses all words in the same surah, highlighting chapter-level thematic association.",
+            "contextWindowRefFormatSurah": "surah",
+            "contextWindowRefHelpSurah": "This points to the surah where the tertiary context co-occurs with the selected term."
         }
     },
     "DisplaySettings": {

@@ -14,7 +14,7 @@ export interface CollocateFilter {
 }
 
 export interface CollocationOptions {
-  windowType: "ayah" | "distance";
+  windowType: "ayah" | "distance" | "surah";
   distance?: number; // e.g., 3 means +/- 3 tokens
   minFrequency?: number; // Minimum number of times the collocate must appear with the target
   groupBy?: CollocationTermKind;
@@ -38,10 +38,13 @@ export interface CollocationResult {
 export interface RootFrequencyData {
   totalTokens: number;
   totalAyahs: number;
+  totalSurahs: number;
   rootFrequencies: Map<string, number>;
   rootAyahFrequencies: Map<string, number>; // Number of ayahs each root appears in
+  rootSurahFrequencies: Map<string, number>; // Number of surahs each root appears in
   lemmaFrequencies: Map<string, number>;
   lemmaAyahFrequencies: Map<string, number>; // Number of ayahs each lemma appears in
+  lemmaSurahFrequencies: Map<string, number>; // Number of surahs each lemma appears in
 }
 
 export interface PairCooccurrenceResult {
@@ -111,16 +114,22 @@ function lemmaCandidates(value: string): Set<string> {
 export function calculateRootFrequencies(tokens: CorpusToken[]): RootFrequencyData {
   const rootFrequencies = new Map<string, number>();
   const rootAyahFrequencies = new Map<string, number>();
+  const rootSurahFrequencies = new Map<string, number>();
   const lemmaFrequencies = new Map<string, number>();
   const lemmaAyahFrequencies = new Map<string, number>();
+  const lemmaSurahFrequencies = new Map<string, number>();
   
   const ayahIds = new Set<string>();
+  const surahIds = new Set<number>();
   const rootAyahTracker = new Map<string, Set<string>>();
+  const rootSurahTracker = new Map<string, Set<number>>();
   const lemmaAyahTracker = new Map<string, Set<string>>();
+  const lemmaSurahTracker = new Map<string, Set<number>>();
 
   for (const token of tokens) {
     const ayahId = `${token.sura}:${token.ayah}`;
     ayahIds.add(ayahId);
+    surahIds.add(token.sura);
 
     if (token.root) {
       // Total raw root count
@@ -135,6 +144,16 @@ export function calculateRootFrequencies(tokens: CorpusToken[]): RootFrequencyDa
       if (!ayahSet.has(ayahId)) {
         ayahSet.add(ayahId);
         rootAyahFrequencies.set(token.root, (rootAyahFrequencies.get(token.root) || 0) + 1);
+      }
+
+      let surahSet = rootSurahTracker.get(token.root);
+      if (!surahSet) {
+        surahSet = new Set<number>();
+        rootSurahTracker.set(token.root, surahSet);
+      }
+      if (!surahSet.has(token.sura)) {
+        surahSet.add(token.sura);
+        rootSurahFrequencies.set(token.root, (rootSurahFrequencies.get(token.root) || 0) + 1);
       }
     }
 
@@ -152,16 +171,29 @@ export function calculateRootFrequencies(tokens: CorpusToken[]): RootFrequencyDa
         ayahSet.add(ayahId);
         lemmaAyahFrequencies.set(token.lemma, (lemmaAyahFrequencies.get(token.lemma) || 0) + 1);
       }
+
+      let surahSet = lemmaSurahTracker.get(token.lemma);
+      if (!surahSet) {
+        surahSet = new Set<number>();
+        lemmaSurahTracker.set(token.lemma, surahSet);
+      }
+      if (!surahSet.has(token.sura)) {
+        surahSet.add(token.sura);
+        lemmaSurahFrequencies.set(token.lemma, (lemmaSurahFrequencies.get(token.lemma) || 0) + 1);
+      }
     }
   }
 
   return {
     totalTokens: tokens.length,
     totalAyahs: ayahIds.size,
+    totalSurahs: surahIds.size,
     rootFrequencies,
     rootAyahFrequencies,
+    rootSurahFrequencies,
     lemmaFrequencies,
     lemmaAyahFrequencies,
+    lemmaSurahFrequencies,
   };
 }
 
@@ -243,7 +275,11 @@ function getFrequencyForTerm(
   windowType: CollocationOptions["windowType"]
 ): number {
   if (term.kind === "lemma") {
-    const source = windowType === "ayah" ? freqData.lemmaAyahFrequencies : freqData.lemmaFrequencies;
+    const source = windowType === "ayah"
+      ? freqData.lemmaAyahFrequencies
+      : windowType === "surah"
+        ? freqData.lemmaSurahFrequencies
+        : freqData.lemmaFrequencies;
     const candidates = lemmaCandidates(term.value);
     if (candidates.size === 0) return 0;
     let total = 0;
@@ -255,7 +291,11 @@ function getFrequencyForTerm(
     return total;
   }
 
-  const source = windowType === "ayah" ? freqData.rootAyahFrequencies : freqData.rootFrequencies;
+  const source = windowType === "ayah"
+    ? freqData.rootAyahFrequencies
+    : windowType === "surah"
+      ? freqData.rootSurahFrequencies
+      : freqData.rootFrequencies;
   const targetFamily = normalizeRootFamily(term.value);
   if (!targetFamily) return 0;
   let total = 0;
@@ -276,12 +316,16 @@ function getFrequencyForGroupedValue(
   if (groupBy === "lemma") {
     return windowType === "ayah"
       ? getFrequencyFlexible(freqData.lemmaAyahFrequencies, value)
-      : getFrequencyFlexible(freqData.lemmaFrequencies, value);
+      : windowType === "surah"
+        ? getFrequencyFlexible(freqData.lemmaSurahFrequencies, value)
+        : getFrequencyFlexible(freqData.lemmaFrequencies, value);
   }
 
   return windowType === "ayah"
     ? getFrequencyFlexible(freqData.rootAyahFrequencies, value)
-    : getFrequencyFlexible(freqData.rootFrequencies, value);
+    : windowType === "surah"
+      ? getFrequencyFlexible(freqData.rootSurahFrequencies, value)
+      : getFrequencyFlexible(freqData.rootFrequencies, value);
 }
 
 /**
@@ -382,7 +426,7 @@ export function getCollocations(
         if (!tokenMatchesFilter(collocate, filter)) continue;
         countGroupValue(groupValue, collocate.lemma, windowId, windowLabel, windowTracker);
       }
-    } else {
+    } else if (windowType === "distance") {
       // Distance-based window
       const start = Math.max(0, i - distance);
       const end = Math.min(tokens.length - 1, i + distance);
@@ -400,13 +444,41 @@ export function getCollocations(
         if (!tokenMatchesFilter(collocate, filter)) continue;
         countGroupValue(groupValue, collocate.lemma, windowId, windowLabel, windowTracker);
       }
+    } else {
+      // Surah-based window
+      let start = i;
+      while (start > 0 && tokens[start - 1].sura === targetToken.sura) {
+        start--;
+      }
+      let end = i;
+      while (end < tokens.length - 1 && tokens[end + 1].sura === targetToken.sura) {
+        end++;
+      }
+
+      const windowId = `s:${targetToken.sura}`;
+      const windowLabel = `${targetToken.sura}`;
+
+      for (let j = start; j <= end; j++) {
+        const collocate = tokens[j];
+        if (j === i) continue;
+        const groupValue = getTokenValueByKind(collocate, groupBy);
+        if (!groupValue) continue;
+        if (tokenMatchesTerm(collocate, targetTerm)) continue;
+        if (pairTerm && !tokenMatchesTerm(collocate, pairTerm)) continue;
+        if (!tokenMatchesFilter(collocate, filter)) continue;
+        countGroupValue(groupValue, collocate.lemma, windowId, windowLabel, windowTracker);
+      }
     }
   }
 
   const results: CollocationResult[] = [];
   
   // N = total documents/windows in the corpus
-  const N = windowType === "ayah" ? freqData.totalAyahs : freqData.totalTokens;
+  const N = windowType === "ayah"
+    ? freqData.totalAyahs
+    : windowType === "surah"
+      ? freqData.totalSurahs
+      : freqData.totalTokens;
   const targetFreq = getFrequencyForTerm(freqData, targetTerm, windowType);
 
   if (targetFreq === 0) return results; // Should not happen given we found indices
@@ -478,7 +550,7 @@ export function getPairCooccurrence(
     for (const id of windowsA) {
       if (windowsB.has(id)) shared.add(id);
     }
-  } else {
+  } else if (windowType === "distance") {
     for (const i of aIndices) {
       const tokenA = tokens[i];
       const labelA = `${tokenA.sura}:${tokenA.ayah}:${tokenA.position}`;
@@ -498,6 +570,18 @@ export function getPairCooccurrence(
     for (const i of bIndices) {
       const tokenB = tokens[i];
       windowsB.add(`${tokenB.sura}:${tokenB.ayah}:${tokenB.position}`);
+    }
+  } else {
+    for (const i of aIndices) {
+      const token = tokens[i];
+      windowsA.add(`${token.sura}`);
+    }
+    for (const i of bIndices) {
+      const token = tokens[i];
+      windowsB.add(`${token.sura}`);
+    }
+    for (const surah of windowsA) {
+      if (windowsB.has(surah)) shared.add(surah);
     }
   }
 
