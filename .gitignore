@@ -8,4 +8,7 @@ tsconfig.tsbuildinfo
 .env
 .env.*
 !.env.example
+
+# MCP config contains secrets (access tokens)
+.vscode/mcp.json
 arabic-book-corpus-platform/

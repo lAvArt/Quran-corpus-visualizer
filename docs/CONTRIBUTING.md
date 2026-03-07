@@ -19,6 +19,15 @@ By contributing to this repository, you agree that your contributions will be li
 - Avoid unrelated feature expansion in MVP PRs.
 - Do not introduce spatial or semantic claims without citation and confidence modeling.
 
+## Local Setup
+
+```bash
+npm install
+cp .env.example .env.local  # fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY
+supabase db push             # apply migrations (requires Supabase CLI)
+npm run dev
+```
+
 ## Naming Conventions
 
 Use explicit names that encode purpose:

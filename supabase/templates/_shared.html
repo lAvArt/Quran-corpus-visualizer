@@ -1,0 +1,21 @@
+<!--
+  Shared design reference — NOT used directly by Supabase.
+  Actual templates: confirmation.html, recovery.html, magic-link.html,
+                    invite.html, email-change.html, reauthentication.html
+
+  Design tokens:
+    background: #ede8de  (outer)
+    card:        #f7f3ea  (inner)
+    ink:         #1f1c19
+    muted:       rgba(31,28,25,0.5)
+    accent:      #0f766e  (teal CTA)
+    border:      rgba(31,28,25,0.1)
+
+  Supabase template variables:
+    {{ .ConfirmationURL }}  – action link
+    {{ .Token }}            – OTP code (reauthentication)
+    {{ .Email }}            – user's current email
+    {{ .NewEmail }}         – user's new email (email-change)
+    {{ .OldEmail }}         – user's old email (email-change)
+    {{ .SiteURL }}          – site URL
+-->

@@ -910,5 +910,43 @@
                 "description": "Words or roots that frequently appear together."
             }
         }
+    },
+    "Auth": {
+        "signIn": "Sign In",
+        "signUp": "Sign Up",
+        "signOut": "Sign Out",
+        "profile": "Profile",
+        "email": "Email address",
+        "password": "Password",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm password",
+        "forgotPassword": "Forgot password?",
+        "resetPassword": "Reset password",
+        "resetPasswordHint": "Enter your email address and we'll send you a reset link.",
+        "sendResetLink": "Send reset link",
+        "backToSignIn": "Back to Sign In",
+        "updatePassword": "Set new password",
+        "updatePasswordButton": "Update password",
+        "loading": "Please wait…",
+        "passwordMismatch": "Passwords do not match.",
+        "signUpSuccess": "Check your email for a confirmation link.",
+        "resetEmailSent": "Check your email for the password reset link.",
+        "sessionRequired": "Your session has expired. Please sign in again."
+    },
+    "Profile": {
+        "title": "Your Profile",
+        "backToApp": "← Back to App",
+        "loading": "Loading…",
+        "statsTotal": "Total tracked",
+        "statsLearning": "Learning",
+        "statsLearned": "Learned",
+        "trackedRoots": "Tracked roots",
+        "noRoots": "You haven't tracked any roots yet.",
+        "learning": "learning",
+        "learned": "learned",
+        "exportData": "Export data",
+        "importData": "Import data",
+        "importSuccess": "Imported {count} root(s) successfully.",
+        "importError": "Failed to import. Make sure the file is a valid export."
     }
 }

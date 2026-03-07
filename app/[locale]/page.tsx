@@ -11,6 +11,7 @@ import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
 import { VizErrorBoundary } from "@/components/ErrorBoundary";
 import { sampleAyahDependency } from "@/lib/corpus/sampleAyahDependency";
+import { sampleTokens } from "@/lib/corpus/sampleCorpus";
 import { getSampleData, loadFullCorpus, type LoadingProgress } from "@/lib/corpus/corpusLoader";
 import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
@@ -19,6 +20,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
+import { AuthButton } from "@/components/ui/AuthButton";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
@@ -129,8 +131,13 @@ function HomePageContent() {
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
   const [searchLockedRoot, setSearchLockedRoot] = useState<string | null>(null);
 
-  // Corpus loading state
-  const [tokens, setTokens] = useState<CorpusToken[]>(() => getSampleData());
+  // Corpus loading state — seed with both sample datasets so CorpusArchitectureMap
+  // shows multiple surahs (sura 1 + 2) before the full async load completes.
+  const [tokens, setTokens] = useState<CorpusToken[]>(() => {
+    const merged = [...sampleTokens, ...getSampleData()];
+    const byId = new Map(merged.map(t => [t.id, t]));
+    return [...byId.values()].sort((a, b) => a.sura - b.sura || a.ayah - b.ayah || a.position - b.position);
+  });
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
   const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
 
@@ -379,9 +386,10 @@ function HomePageContent() {
     return () => { cancelled = true; };
   }, []);
 
-  // Merge with dependency data for visualization
+  // Merge with dependency data and static sample tokens for visualization.
+  // sampleTokens is intentionally first so API-loaded tokens overwrite it for matching IDs.
   const allTokens = useMemo(() => {
-    const merged = [...tokens, ...sampleAyahDependency.tokens];
+    const merged = [...sampleTokens, ...tokens, ...sampleAyahDependency.tokens];
     const byId = new Map(merged.map((token) => [token.id, token]));
     return [...byId.values()].sort(
       (a, b) => a.sura - b.sura || a.ayah - b.ayah || a.position - b.position
@@ -814,14 +822,6 @@ function HomePageContent() {
           </div>
 
           <div className="header-controls" data-tour-id="header-controls">
-            {/* Desktop Only: Inline Controls */}
-            {/* Desktop Only: Inline Controls */}
-            <div className="desktop-only" style={{ display: 'contents' }}>
-              <div className="header-button-group">
-                <LanguageSwitcher />
-              </div>
-            </div>
-
             <div data-tour-id="display-settings">
                 <DisplaySettingsPanel
                   theme={theme}
@@ -869,6 +869,14 @@ function HomePageContent() {
               >
                 {isSidebarOpen ? t('hideTools') : t('showTools')}
               </button>
+            </div>
+
+            {/* Desktop Only: Auth + Language — far right */}
+            <div className="desktop-only" style={{ display: 'contents' }}>
+              <div className="header-button-group">
+                <AuthButton />
+                <LanguageSwitcher />
+              </div>
             </div>
 
             {/* Mobile Only: Menu */}
