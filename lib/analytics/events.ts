@@ -4,7 +4,10 @@ import { track } from "@vercel/analytics";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 type ScriptClass = "arabic" | "latin" | "mixed" | "other";
-type SearchMatchType = "text" | "root" | "lemma" | "gloss";
+type SearchMatchType = "ayah" | "text" | "root" | "lemma" | "gloss" | "semantic" | "token";
+type CorpusSurface = "explore" | "search" | "shared";
+type SearchSurface = "header" | "sidebar" | "mobile" | "workspace" | "unknown";
+type ClientErrorArea = "corpus" | "search" | "ui" | "auth";
 
 function safeTrack(name: string, properties?: Record<string, string | number | boolean | null | undefined>) {
   try {
@@ -73,6 +76,61 @@ export function trackBreadcrumbUsed(level: "quran" | "surah" | "ayah" | "root") 
 
 export function trackFirstTaskFeedback(rating: "helpful" | "not_helpful") {
   safeTrack("first_task_feedback", { rating });
+}
+
+export function trackCorpusShellReady(surface: CorpusSurface, tokenCount: number, surahCount: number, rootCount: number) {
+  safeTrack("corpus_shell_ready", {
+    surface,
+    token_count: tokenCount,
+    surah_count: surahCount,
+    root_count: rootCount,
+  });
+}
+
+export function trackCorpusDeepReady(surface: CorpusSurface, tokenCount: number, durationMs: number | null) {
+  safeTrack("corpus_deep_ready", {
+    surface,
+    token_count: tokenCount,
+    duration_ms: durationMs,
+  });
+}
+
+export function trackCorpusFallbackUsed(surface: CorpusSurface, tokenCount: number, durationMs: number | null) {
+  safeTrack("corpus_fallback_used", {
+    surface,
+    token_count: tokenCount,
+    duration_ms: durationMs,
+  });
+}
+
+export function trackSearchRecoveryShown(surface: Exclude<CorpusSurface, "shared">) {
+  safeTrack("search_recovery_shown", { surface });
+}
+
+export function trackPerformanceMetric(
+  metric: "shell_render" | "first_search_interaction",
+  surface: CorpusSurface | SearchSurface,
+  durationMs: number,
+  properties?: Record<string, string | number | boolean | null | undefined>
+) {
+  safeTrack("performance_metric", {
+    metric,
+    surface,
+    duration_ms: durationMs,
+    ...properties,
+  });
+}
+
+export function trackClientError(
+  area: ClientErrorArea,
+  code: string,
+  properties?: Record<string, string | number | boolean | null | undefined>
+) {
+  safeTrack("client_error", {
+    area,
+    code,
+    ...properties,
+  });
 }
 
 export type { SearchMatchType };

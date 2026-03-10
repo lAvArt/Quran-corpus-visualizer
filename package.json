@@ -29,12 +29,16 @@
     "graph"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint app components lib i18n tests scripts proxy.ts next.config.ts eslint.config.mjs playwright.config.ts vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build",
+    "verify:release": "npm run verify && npm run test:a11y-smoke && npm run test:e2e",
+    "test:e2e": "playwright test",
+    "test:a11y-smoke": "playwright test tests/e2e/accessibility-smoke.spec.ts",
     "test:search-validation": "vitest run lib/search/arabicNormalize.test.ts lib/search/queryParser.test.ts lib/search/indexes.test.ts lib/search/searchValidation.test.ts lib/search/collocation.test.ts",
     "eval:search": "tsx scripts/eval-search.ts",
     "test:watch": "vitest",

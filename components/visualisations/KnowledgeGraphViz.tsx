@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
-import type { TrackedRoot } from "@/lib/cache/knowledgeCache";
 import { useTranslations } from "next-intl";
 
 // ── Types ──────────────────────────────────────────────────────────

@@ -6,7 +6,11 @@ const withNextIntl = createNextIntlPlugin(
 );
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
+  turbopack: {
+    root: process.cwd(),
+  },
 };
 
 export default withNextIntl(nextConfig);

@@ -198,6 +198,40 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 └── docs/                 # Project documentation
 ```
 
+## Architecture Notes
+
+- **App shell**: localized App Router pages provide the persistent shell, providers, and route-level workspaces for Explore, Search, and Study.
+- **Corpus data**: Supabase is the primary production source; cached local data and sample data keep the experience resilient during cold starts and fallback conditions.
+- **Search**: quick client search supports fast navigation hints, while API-backed search remains the authoritative path for semantic and relational queries.
+- **Visualizations**: D3 graph components should stay isolated behind shared selection and shell state rather than owning app-wide orchestration.
+- **Study/account**: authentication, tracked roots, notes, import/export, and migration flows support the main exploration experience without replacing it.
+
+## Workspace Assumptions
+
+- This repository is the intended Turbopack root.
+- Nested projects and generated artifacts are excluded from linting and should not be treated as part of this app's source of truth.
+- `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` are the expected local quality gates for this app.
+- Operational release guidance lives in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+- Observability event coverage and review guidance live in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+- Phase-by-phase implementation status lives in [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md).
+
+## Release Checklist
+
+- `npm run verify`
+- `npx playwright test tests/e2e/app-smoke.spec.ts`
+- `npm run test:a11y-smoke`
+- `npm run build`
+- Verify Explore, Search, and Study load in both desktop and mobile layouts.
+- Verify shell-ready, full-corpus, fallback, and search-recovery states remain user-readable.
+- Validate metadata, social cards, manifest, and localized routes against the production domain.
+- Verify auth, migration, import/export, and resume-exploration flows with a real Supabase-backed environment before release.
+
+## Observability Notes
+
+- Client analytics now track shell-ready corpus availability, deep-corpus readiness, fallback usage, search-recovery exposure, and core interaction outcomes.
+- Performance analytics currently include shell render timing and first search interaction timing across header, sidebar, mobile, and workspace search surfaces.
+- Release candidates should review analytics dashboards for `corpus_shell_ready`, `corpus_deep_ready`, `corpus_fallback_used`, `search_recovery_shown`, and `performance_metric` before rollout.
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a Pull Request.

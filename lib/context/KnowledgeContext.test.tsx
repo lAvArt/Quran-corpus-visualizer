@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import type { Session, User } from "@supabase/supabase-js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -42,6 +43,52 @@ const mockCacheTrack = vi.mocked(knowledgeCache.trackRoot);
 const mockCacheRemove = vi.mocked(knowledgeCache.removeRoot);
 const mockBatchUpsertRoots = vi.mocked(knowledgeService.batchUpsertRoots);
 
+type MockAuthValue = ReturnType<typeof useAuth>;
+
+function createMockUser(email: string, id = "uid-1"): User {
+    return {
+        id,
+        aud: "authenticated",
+        role: "authenticated",
+        email,
+        email_confirmed_at: undefined,
+        phone: "",
+        confirmed_at: undefined,
+        last_sign_in_at: undefined,
+        app_metadata: {},
+        user_metadata: {},
+        identities: [],
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        is_anonymous: false,
+    };
+}
+
+function createMockSession(user: User): Session {
+    return {
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        expires_at: 1893456000,
+        token_type: "bearer",
+        user,
+    };
+}
+
+function createAuthValue(overrides: Partial<MockAuthValue>): MockAuthValue {
+    return {
+        user: null,
+        session: null,
+        loading: false,
+        signIn: vi.fn(async () => ({ error: null })),
+        signUp: vi.fn(async () => ({ error: null })),
+        signOut: vi.fn(async () => {}),
+        resetPassword: vi.fn(async () => ({ error: null })),
+        updatePassword: vi.fn(async () => ({ error: null })),
+        ...overrides,
+    };
+}
+
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
 function KnowledgeConsumer({ onAction }: { onAction?: string }) {
@@ -71,11 +118,12 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 function anonUser() {
-    mockUseAuth.mockReturnValue({ user: null, session: null, loading: false } as any);
+    mockUseAuth.mockReturnValue(createAuthValue({}));
 }
 
 function authedUser(id = "uid-1", email = "u@test.com") {
-    mockUseAuth.mockReturnValue({ user: { id, email }, session: {}, loading: false } as any);
+    const user = createMockUser(email, id);
+    mockUseAuth.mockReturnValue(createAuthValue({ user, session: createMockSession(user) }));
 }
 
 const fakeRoot = (root: string, state: "learning" | "learned" = "learning") =>
@@ -228,7 +276,7 @@ describe("KnowledgeContext — guard", () => {
             return null;
         }
 
-        mockUseAuth.mockReturnValue({ user: null, session: null, loading: false } as any);
+        mockUseAuth.mockReturnValue(createAuthValue({}));
         const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
         expect(() => render(<Bare />)).toThrow("useKnowledge must be used within a KnowledgeProvider");

@@ -11,6 +11,8 @@ import {
 import type { ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { clearDevAuthUser, readDevAuthUser, readDevSession } from "@/lib/dev/testOverrides";
+import { formatSupabaseError } from "@/lib/supabase/errors";
 
 // ── Context shape ──────────────────────────────────────────────────
 
@@ -36,12 +38,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Hydrate session on mount
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
+        const devUser = readDevAuthUser();
+        if (devUser) {
+            setUser(devUser);
+            setSession(readDevSession());
             setLoading(false);
-        });
+            return;
+        }
+
+        // Hydrate session on mount
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                setSession(session);
+                setUser(session?.user ?? null);
+            })
+            .catch((error) => {
+                console.warn("[AuthProvider] getSession failed", error);
+                setSession(null);
+                setUser(null);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
 
         // Listen for auth state changes (sign-in, sign-out, token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -57,45 +75,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const signIn = useCallback(
         async (email: string, password: string) => {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            return { error: error?.message ?? null };
+            try {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                return { error: error?.message ?? null };
+            } catch (error) {
+                return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+            }
         },
         [supabase]
     );
 
     const signUp = useCallback(
         async (email: string, password: string) => {
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    // Supabase will send a confirmation email automatically
-                    emailRedirectTo: `${location.origin}/auth/callback`,
-                },
-            });
-            return { error: error?.message ?? null };
+            try {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        // Supabase will send a confirmation email automatically
+                        emailRedirectTo: `${location.origin}/auth/callback`,
+                    },
+                });
+                return { error: error?.message ?? null };
+            } catch (error) {
+                return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+            }
         },
         [supabase]
     );
 
     const signOut = useCallback(async () => {
-        await supabase.auth.signOut();
+        if (readDevAuthUser()) {
+            clearDevAuthUser();
+            setSession(null);
+            setUser(null);
+            return;
+        }
+
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.warn("[AuthProvider] signOut failed", error);
+        }
     }, [supabase]);
 
     const resetPassword = useCallback(
         async (email: string) => {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${location.origin}/auth/callback?next=update-password`,
-            });
-            return { error: error?.message ?? null };
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${location.origin}/auth/callback?next=update-password`,
+                });
+                return { error: error?.message ?? null };
+            } catch (error) {
+                return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+            }
         },
         [supabase]
     );
 
     const updatePassword = useCallback(
         async (newPassword: string) => {
-            const { error } = await supabase.auth.updateUser({ password: newPassword });
-            return { error: error?.message ?? null };
+            try {
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                return { error: error?.message ?? null };
+            } catch (error) {
+                return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+            }
         },
         [supabase]
     );

@@ -21,7 +21,6 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as readline from "readline";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
@@ -164,7 +163,15 @@ function parseMorphologyFile(filePath: string): Map<string, MorphEntry> {
     }
 
     const result = new Map<string, MorphEntry>();
-    for (const [k, { hasRoot: _hr, ...e }] of map.entries()) result.set(k, e);
+    for (const [k, entry] of map.entries()) {
+        result.set(k, {
+            root: entry.root,
+            lemma: entry.lemma,
+            pos: entry.pos,
+            features: entry.features,
+            stem: entry.stem,
+        });
+    }
     console.log(`   ✓  ${result.size.toLocaleString()} morphology entries`);
     return result;
 }

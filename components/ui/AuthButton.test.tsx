@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Session, User } from "@supabase/supabase-js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -26,6 +27,52 @@ import { AuthButton } from "./AuthButton";
 
 const mockUseAuth = vi.mocked(useAuth);
 
+type MockAuthValue = ReturnType<typeof useAuth>;
+
+function createMockUser(email: string, id = "uid-1"): User {
+    return {
+        id,
+        aud: "authenticated",
+        role: "authenticated",
+        email,
+        email_confirmed_at: undefined,
+        phone: "",
+        confirmed_at: undefined,
+        last_sign_in_at: undefined,
+        app_metadata: {},
+        user_metadata: {},
+        identities: [],
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        is_anonymous: false,
+    };
+}
+
+function createMockSession(user: User): Session {
+    return {
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        expires_at: 1893456000,
+        token_type: "bearer",
+        user,
+    };
+}
+
+function createAuthValue(overrides: Partial<MockAuthValue>): MockAuthValue {
+    return {
+        user: null,
+        session: null,
+        loading: false,
+        signIn: vi.fn(async () => ({ error: null })),
+        signUp: vi.fn(async () => ({ error: null })),
+        signOut: vi.fn(async () => {}),
+        resetPassword: vi.fn(async () => ({ error: null })),
+        updatePassword: vi.fn(async () => ({ error: null })),
+        ...overrides,
+    };
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe("AuthButton", () => {
@@ -36,11 +83,7 @@ describe("AuthButton", () => {
     });
 
     it("renders nothing while loading", () => {
-        mockUseAuth.mockReturnValue({
-            user: null,
-            session: null,
-            loading: true,
-        } as any);
+        mockUseAuth.mockReturnValue(createAuthValue({ loading: true }));
 
         const { container } = render(<AuthButton />);
 
@@ -48,11 +91,7 @@ describe("AuthButton", () => {
     });
 
     it("renders Sign In link when user is anonymous", () => {
-        mockUseAuth.mockReturnValue({
-            user: null,
-            session: null,
-            loading: false,
-        } as any);
+        mockUseAuth.mockReturnValue(createAuthValue({}));
 
         render(<AuthButton />);
 
@@ -64,12 +103,13 @@ describe("AuthButton", () => {
     });
 
     it("renders user initials button when authenticated", () => {
-        mockUseAuth.mockReturnValue({
-            user: { id: "uid-1", email: "hello@example.com" },
-            session: {},
+        const user = createMockUser("hello@example.com");
+        mockUseAuth.mockReturnValue(createAuthValue({
+            user,
+            session: createMockSession(user),
             loading: false,
             signOut: mockSignOut,
-        } as any);
+        }));
 
         render(<AuthButton />);
 
@@ -78,12 +118,13 @@ describe("AuthButton", () => {
     });
 
     it("shows dropdown with email and profile link on button click", async () => {
-        mockUseAuth.mockReturnValue({
-            user: { id: "uid-1", email: "user@test.com" },
-            session: {},
+        const user = createMockUser("user@test.com");
+        mockUseAuth.mockReturnValue(createAuthValue({
+            user,
+            session: createMockSession(user),
             loading: false,
             signOut: mockSignOut,
-        } as any);
+        }));
 
         render(<AuthButton />);
 
@@ -98,12 +139,13 @@ describe("AuthButton", () => {
     });
 
     it("hides dropdown after clicking Sign Out", async () => {
-        mockUseAuth.mockReturnValue({
-            user: { id: "uid-1", email: "user@test.com" },
-            session: {},
+        const user = createMockUser("user@test.com");
+        mockUseAuth.mockReturnValue(createAuthValue({
+            user,
+            session: createMockSession(user),
             loading: false,
             signOut: mockSignOut,
-        } as any);
+        }));
 
         render(<AuthButton />);
 
@@ -119,12 +161,13 @@ describe("AuthButton", () => {
     });
 
     it("closes dropdown via outside pointer click", async () => {
-        mockUseAuth.mockReturnValue({
-            user: { id: "uid-1", email: "user@test.com" },
-            session: {},
+        const user = createMockUser("user@test.com");
+        mockUseAuth.mockReturnValue(createAuthValue({
+            user,
+            session: createMockSession(user),
             loading: false,
             signOut: mockSignOut,
-        } as any);
+        }));
 
         render(
             <div>
@@ -143,12 +186,13 @@ describe("AuthButton", () => {
     });
 
     it("builds initials from single-char email prefix", () => {
-        mockUseAuth.mockReturnValue({
-            user: { id: "uid-2", email: "a@short.com" },
-            session: {},
+        const user = createMockUser("a@short.com", "uid-2");
+        mockUseAuth.mockReturnValue(createAuthValue({
+            user,
+            session: createMockSession(user),
             loading: false,
             signOut: mockSignOut,
-        } as any);
+        }));
 
         render(<AuthButton />);
 

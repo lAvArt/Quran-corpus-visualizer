@@ -59,6 +59,7 @@ export default function MobileSearchOverlay({
                     <motion.div
                         ref={overlayRef}
                         className="mobile-search-overlay"
+                        data-testid="mobile-search-overlay"
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -67,6 +68,7 @@ export default function MobileSearchOverlay({
                         <div className="mobile-search-header">
                             <button
                                 className="mobile-search-close"
+                                data-testid="mobile-search-close"
                                 onClick={() => setMobileSearchOpen(false)}
                                 aria-label="Close search"
                             >
@@ -79,6 +81,7 @@ export default function MobileSearchOverlay({
                         <div className="mobile-search-content">
                             <GlobalSearch
                                 tokens={tokens}
+                                analyticsSurface="mobile"
                                 onTokenSelect={(tokenId) => {
                                     onTokenSelect(tokenId);
                                     setMobileSearchOpen(false);

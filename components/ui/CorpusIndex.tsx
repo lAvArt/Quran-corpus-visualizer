@@ -120,6 +120,7 @@ export default function CorpusIndex({
                     <button
                         key={mode}
                         className={`index-tab-btn ${activeTab === mode ? "active" : ""}`}
+                        data-testid={`index-tab-${mode}`}
                         onClick={() => setActiveTab(mode)}
                         role="tab"
                         aria-selected={activeTab === mode}
@@ -138,6 +139,7 @@ export default function CorpusIndex({
                 <input
                     type="text"
                     className="index-search-input"
+                    data-testid="index-search-input"
                     placeholder={t('searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -148,6 +150,7 @@ export default function CorpusIndex({
                 {filteredItems.map((item) => (
                     <button
                         key={item.id}
+                        data-testid={`index-item-${String(item.id)}`}
                         onClick={() => {
                             if (activeTab === "surah") onSelectSurah(item.value as number);
                             if (activeTab === "root") onSelectRoot(item.value as string);
@@ -179,150 +182,6 @@ export default function CorpusIndex({
                 }
             </div >
 
-            <style jsx>{`
-                /* ... existing styles ... */
-
-                 /* ... existing styles ... */
-                 
-                 /* RE-INSERTING PREVIOUS STYLES TO ENSURE THEY ARE NOT LOST */
-                .corpus-index {
-                    display: flex;
-                    flex-direction: column;
-                    height: 100%;
-                    background: var(--panel);
-                    font-family: var(--font-sans);
-                }
-
-                .index-tabs {
-                    display: flex;
-                    border-bottom: 1px solid var(--line);
-                    padding: 0 4px;
-                    margin-bottom: 12px;
-                }
-
-                .index-tab-btn {
-                    flex: 1;
-                    background: transparent;
-                    border: none;
-                    padding: 12px 4px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: var(--ink-muted);
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    border-bottom: 2px solid transparent;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-
-                .index-tab-btn:hover {
-                    color: var(--ink);
-                }
-
-                .index-tab-btn.active {
-                    color: var(--accent);
-                    border-bottom-color: var(--accent);
-                }
-
-                .search-container {
-                    padding: 0 16px 12px;
-                    position: relative;
-                }
-
-                .index-search-input {
-                    width: 100%;
-                    background: var(--bg-2);
-                    border: 1px solid var(--line);
-                    border-radius: 8px;
-                    padding: 8px 12px 8px 36px; /* Space for icon */
-                    font-size: 0.9rem;
-                    color: var(--ink);
-                    outline: none;
-                    transition: border-color 0.2s, box-shadow 0.2s;
-                }
-
-                .index-search-input:focus {
-                    border-color: var(--accent);
-                    box-shadow: 0 0 0 2px var(--accent-glow);
-                }
-
-                .search-icon {
-                    position: absolute;
-                    left: 26px;
-                    top: 10px;
-                    color: var(--ink-muted);
-                    width: 16px;
-                    height: 16px;
-                    pointer-events: none;
-                }
-
-                .index-list {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 0 16px 16px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 6px;
-                }
-
-                .index-item {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    width: 100%;
-                    background: transparent;
-                    border: 1px solid transparent;
-                    border-radius: 8px;
-                    padding: 8px 10px;
-                    text-align: left;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                }
-
-                .index-item:hover {
-                    background: var(--bg-1);
-                    border-color: var(--line);
-                    transform: translateX(2px);
-                }
-
-                .item-content {
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                .item-label {
-                    font-size: 0.92rem;
-                    font-weight: 500;
-                    color: var(--ink);
-                }
-
-                .index-item:hover .item-label {
-                    color: var(--accent);
-                }
-
-                .item-sublabel {
-                    font-size: 0.8rem;
-                    color: var(--ink-muted);
-                    margin-top: 2px;
-                }
-
-                .item-count {
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    color: var(--ink-muted);
-                    background: var(--bg-2);
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-family: monospace;
-                }
-
-                .index-empty {
-                    padding: 16px;
-                    text-align: center;
-                    font-size: 0.85rem;
-                    color: var(--ink-muted);
-                }
-            `}</style>
         </div >
     );
 }

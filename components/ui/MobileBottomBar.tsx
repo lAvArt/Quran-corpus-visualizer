@@ -15,9 +15,10 @@ export default function MobileBottomBar() {
     const t = useTranslations("MobileBottomBar");
 
     return (
-        <div className="mobile-bottom-bar mobile-only">
+        <div className="mobile-bottom-bar mobile-only" data-testid="mobile-bottom-bar">
             <button
                 className={`bottom-bar-btn ${isLeftSidebarOpen ? "active" : ""}`}
+                data-testid="mobile-bottom-bar-legend"
                 onClick={() => {
                     const next = !isLeftSidebarOpen;
                     setLeftSidebarOpen(next);
@@ -31,6 +32,7 @@ export default function MobileBottomBar() {
 
             <button
                 className={`bottom-bar-btn bottom-bar-search-btn ${isMobileSearchOpen ? "active" : ""}`}
+                data-testid="mobile-bottom-bar-search"
                 onClick={toggleMobileSearch}
                 aria-label={t("search")}
             >
@@ -44,6 +46,7 @@ export default function MobileBottomBar() {
 
             <button
                 className={`bottom-bar-btn ${isRightSidebarOpen ? "active" : ""}`}
+                data-testid="mobile-bottom-bar-tools"
                 onClick={() => {
                     const next = !isRightSidebarOpen;
                     setRightSidebarOpen(next);

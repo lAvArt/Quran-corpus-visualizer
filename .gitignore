@@ -4,6 +4,7 @@ out/
 dist/
 coverage/
 *.log
+*.err
 tsconfig.tsbuildinfo
 .env
 .env.*
