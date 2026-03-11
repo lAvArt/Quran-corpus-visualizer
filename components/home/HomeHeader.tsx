@@ -153,8 +153,8 @@ export default function HomeHeader(props: HomeHeaderProps) {
           </div>
           <div className="desktop-only" style={{ display: "contents" }}>
             <div className="header-button-group">
-              <AuthButton />
               <LanguageSwitcher />
+              <AuthButton />
             </div>
           </div>
           <MobileNavMenu theme={theme} onThemeChange={setTheme} />

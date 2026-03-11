@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "q param is required" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-
     try {
+        const supabase = await createClient();
+
         if (mode === "trigram") {
             const threshold = Number(searchParams.get("threshold") ?? "0.2");
             const { data, error } = await supabase.rpc("search_corpus_trigram", {
