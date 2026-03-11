@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCorpusOverviewData,
+  buildExploreOverviewPayload,
   buildShellCorpusTokens,
   buildVisualizationCorpusTokens,
   mergeCorpusTokens,
@@ -91,5 +92,15 @@ describe("buildCorpusOverviewData", () => {
     expect(overviewData.overview.tokenCount).toBe(overviewData.visualizationTokens.length);
     expect(overviewData.overview.surahCount).toBeGreaterThan(0);
     expect(overviewData.overview.rootCount).toBeGreaterThan(0);
+  });
+});
+
+describe("buildExploreOverviewPayload", () => {
+  it("returns shell-backed data without requiring deep corpus tokens", () => {
+    const overviewData = buildExploreOverviewPayload();
+
+    expect(overviewData.shellTokens.length).toBeGreaterThan(0);
+    expect(overviewData.visualizationTokens.length).toBeGreaterThanOrEqual(overviewData.shellTokens.length);
+    expect(overviewData.overview.tokenCount).toBe(overviewData.visualizationTokens.length);
   });
 });

@@ -1,4 +1,17 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function waitForEither(page: Page, primary: ReturnType<Page["locator"]>, fallback?: ReturnType<Page["locator"]>) {
+  await expect
+    .poll(
+      async () => {
+        if (await primary.count()) return "primary";
+        if (fallback && await fallback.count()) return "fallback";
+        return "none";
+      },
+      { timeout: 60000 }
+    )
+    .not.toBe("none");
+}
 
 test.describe("app shell smoke", () => {
   test.beforeEach(async ({ page }) => {
@@ -21,9 +34,11 @@ test.describe("app shell smoke", () => {
     await expect(page.locator('[data-tour-id="main-viewport"]')).toBeVisible();
     await expect(page.getByTestId("app-mode-link-explore")).toHaveAttribute("data-active", "true");
 
-    await page.getByTestId("app-mode-link-search").click({ force: true });
+    await Promise.all([
+      page.waitForURL(/\/en\/search$/, { timeout: 60000 }),
+      page.getByTestId("app-mode-link-search").click({ force: true }),
+    ]);
 
-    await expect(page).toHaveURL(/\/en\/search$/);
     await expect(page.getByRole("heading", { name: /find roots, ayahs, lemmas, and glosses faster/i })).toBeVisible();
     await expect(page.getByTestId("app-mode-link-search")).toHaveAttribute("data-active", "true");
   });
@@ -72,6 +87,95 @@ test.describe("app shell smoke", () => {
     await expect(page.getByTestId("selection-row-view")).toContainText(/root network/i);
     await expect(page.getByTestId("selection-row-root")).toHaveText(rootRowText);
     await expect(page.getByTestId("selection-row-surah")).toHaveText(surahRowText);
+  });
+
+  test("root network hides root-limit control for beginners and shows it for advanced users", async ({ page }) => {
+    test.setTimeout(90000);
+    await page.goto("/en");
+
+    await page.getByTestId("viz-switcher-trigger").click();
+    await page.getByTestId("viz-option-root-network").click();
+    await waitForEither(
+      page,
+      page.getByRole("button", { name: /display settings/i }),
+      page.getByText("Loading visualization...")
+    );
+
+    await expect(page.getByTestId("root-network-root-limit-control")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /display settings/i }).click();
+    await page.getByTestId("display-experience-advanced").click();
+
+    await expect(page.getByTestId("root-network-root-limit-control")).toBeVisible({ timeout: 60000 });
+  });
+
+  test("collocation beginner mode keeps only the target control and reveals advanced controls in advanced mode", async ({ page }) => {
+    test.setTimeout(90000);
+    await page.goto("/en");
+
+    const searchInput = page.locator('[data-tour-id="global-search-root"] input').first();
+    await expect(searchInput).toBeVisible();
+
+    await searchInput.fill("praise");
+    await expect(page.locator("#global-search-results")).toBeVisible();
+    await page.locator(".search-result-item").first().click();
+
+    await page.getByTestId("viz-switcher-trigger").click();
+    await page.getByRole("button", { name: /more visualizations/i }).click();
+    await page.getByTestId("viz-option-collocation-network").click();
+
+    await expect(page.getByTestId("collocation-target-control")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("collocation-target-input")).not.toHaveValue("");
+    await expect(page.getByTestId("collocation-pair-control")).toHaveCount(0);
+    await expect(page.getByTestId("collocation-group-filter-control")).toHaveCount(0);
+    await expect(page.getByTestId("collocation-window-type-control")).toHaveCount(0);
+    await expect(page.getByTestId("collocation-distance-control")).toHaveCount(0);
+    await expect(page.getByTestId("collocation-min-frequency-control")).toHaveCount(0);
+    await expect(page.getByTestId("collocation-pair-metrics")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /display settings/i }).click();
+    await page.getByTestId("display-experience-advanced").click();
+
+    await expect(page.getByTestId("collocation-pair-control")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("collocation-group-filter-control")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("collocation-window-type-control")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("collocation-min-frequency-control")).toBeVisible({ timeout: 60000 });
+  });
+
+  test("arc flow hides grouping controls for beginners and reveals them for advanced users", async ({ page }) => {
+    test.setTimeout(90000);
+    await page.goto("/en");
+
+    await page.getByTestId("viz-switcher-trigger").click();
+    await page.getByRole("button", { name: /more visualizations/i }).click();
+    await page.getByTestId("viz-option-arc-flow").click();
+
+    await expect(page.getByTestId("arc-flow-control-card")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("arc-flow-group-controls")).toHaveCount(0);
+    await expect(page.getByTestId("arc-flow-root-search")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /display settings/i }).click();
+    await page.getByTestId("display-experience-advanced").click();
+
+    await expect(page.getByTestId("arc-flow-group-controls")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("arc-flow-root-search")).toBeVisible({ timeout: 60000 });
+  });
+
+  test("sankey flow hides root filtering for beginners and reveals it for advanced users", async ({ page }) => {
+    test.setTimeout(90000);
+    await page.goto("/en");
+
+    await page.getByTestId("viz-switcher-trigger").click();
+    await page.getByRole("button", { name: /more visualizations/i }).click();
+    await page.getByTestId("viz-option-sankey-flow").click();
+
+    await expect(page.getByTestId("sankey-control-card")).toBeVisible({ timeout: 60000 });
+    await expect(page.getByTestId("sankey-root-filter")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /display settings/i }).click();
+    await page.getByTestId("display-experience-advanced").click();
+
+    await expect(page.getByTestId("sankey-root-filter")).toBeVisible({ timeout: 60000 });
   });
 
   test("explore explains context transforms when switching into syntax view", async ({ page }) => {
@@ -537,6 +641,23 @@ test.describe("mobile shell flows", () => {
     expect(recentExploration).not.toBeNull();
     expect(recentExploration.lastSurahId).toBe(1);
     expect(recentExploration.lastRoot || recentExploration.lastLemma).toBeTruthy();
+  });
+
+  test("mobile surfaces stay mutually exclusive", async ({ page }) => {
+    await page.goto("/en");
+
+    await expect(page.getByTestId("mobile-bottom-bar")).toBeVisible();
+
+    await page.getByTestId("mobile-bottom-bar-search").click();
+    await expect(page.getByTestId("mobile-search-overlay")).toBeVisible();
+
+    await page.getByTestId("mobile-bottom-bar-tools").click({ force: true });
+    await expect(page.getByTestId("mobile-search-overlay")).toBeHidden();
+    await expect(page.locator('[data-tour-id="app-sidebar"]')).toBeVisible();
+
+    await page.getByTestId("mobile-nav-menu-trigger").click();
+    await expect(page.getByTestId("mobile-nav-menu-dropdown")).toBeVisible();
+    await expect(page.locator('[data-tour-id="tools-sidebar"]')).not.toHaveClass(/open/);
   });
 });
 

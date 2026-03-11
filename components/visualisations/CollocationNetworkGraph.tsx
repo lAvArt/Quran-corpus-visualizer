@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useTranslations } from "next-intl";
 import { getAyah } from "@/lib/corpus/corpusLoader";
@@ -22,6 +23,7 @@ interface CollocationNetworkGraphProps {
     onTokenHover: (tokenId: string | null) => void;
     onTokenFocus: (tokenId: string) => void;
     onRootSelect?: (root: string | null) => void;
+    experienceLevel?: ExperienceLevel;
     highlightRoot?: string | null;
     selectedSurahId?: number;
     theme?: "light" | "dark";
@@ -168,6 +170,7 @@ export default function CollocationNetworkGraph({
     onTokenHover: _onTokenHover,
     onTokenFocus: _onTokenFocus,
     onRootSelect,
+    experienceLevel = "advanced",
     highlightRoot,
     selectedSurahId: _selectedSurahId,
     theme = "dark",
@@ -201,6 +204,7 @@ export default function CollocationNetworkGraph({
     const [pairValue, setPairValue] = useState<string>("");
     const [showHelp, setShowHelp] = useState(false);
     const [sidebarAyahText, setSidebarAyahText] = useState<string | null>(null);
+    const isBeginner = experienceLevel === "beginner";
 
     const themeColors = resolveVisualizationTheme(theme);
     const neonPalette = useMemo(() => {
@@ -303,6 +307,22 @@ export default function CollocationNetworkGraph({
         if (!highlightRoot || targetKind !== "root") return;
         setTargetValue((current) => (current.trim() ? current : highlightRoot));
     }, [highlightRoot, targetKind]);
+
+    useEffect(() => {
+        if (!isBeginner) return;
+
+        setTargetKind("root");
+        setWindowType("ayah");
+        setDistance(3);
+        setMinFrequency(2);
+        setGroupBy("root");
+        setFilterPos("");
+        setPairKind("lemma");
+        setPairValue("");
+        if (highlightRoot) {
+            setTargetValue(highlightRoot);
+        }
+    }, [highlightRoot, isBeginner]);
 
     const targetCount = useMemo(() => {
         if (!targetTerm) return 0;
@@ -1288,10 +1308,14 @@ export default function CollocationNetworkGraph({
                             </button>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                            <div
+                                data-testid="collocation-target-control"
+                                style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                            >
                                 <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("targetTerm")}</div>
                                 <div style={{ display: "flex", gap: 8 }}>
                                     <select
+                                        data-testid="collocation-target-kind"
                                         value={targetKind}
                                         onChange={e => setTargetKind(e.target.value as CollocationTermKind)}
                                         style={{ ...controlFieldStyle, flexShrink: 0, width: 86 }}
@@ -1300,6 +1324,7 @@ export default function CollocationNetworkGraph({
                                         <option value="lemma">{t("groupByLemma")}</option>
                                     </select>
                                     <input
+                                        data-testid="collocation-target-input"
                                         value={targetValue}
                                         onChange={(e) => setTargetValue(e.target.value)}
                                         placeholder={targetKind === "root" ? t("targetRootPlaceholder") : t("targetLemmaPlaceholder")}
@@ -1307,7 +1332,11 @@ export default function CollocationNetworkGraph({
                                     />
                                 </div>
                             </div>
-                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                            {!isBeginner ? (
+                            <div
+                                data-testid="collocation-pair-control"
+                                style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                            >
                                 <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("pairTerm")}</div>
                                 <div style={{ display: "flex", gap: 8 }}>
                                     <select
@@ -1326,7 +1355,12 @@ export default function CollocationNetworkGraph({
                                     />
                                 </div>
                             </div>
-                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                            ) : null}
+                            {!isBeginner ? (
+                            <div
+                                data-testid="collocation-group-filter-control"
+                                style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                            >
                                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
                                     <div>
                                         <div style={{ ...controlLabelStyle, marginBottom: 6, minHeight: 34, display: "flex", alignItems: "flex-end" }}>{t("groupBy")}</div>
@@ -1354,7 +1388,12 @@ export default function CollocationNetworkGraph({
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                            ) : null}
+                            {!isBeginner ? (
+                            <div
+                                data-testid="collocation-window-type-control"
+                                style={{ padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                            >
                                 <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("windowType")}</div>
                                 <select
                                     value={windowType}
@@ -1366,16 +1405,23 @@ export default function CollocationNetworkGraph({
                                     <option value="distance">{t("distanceWindow")}</option>
                                 </select>
                             </div>
-                            <div style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}>
+                            ) : null}
+                            {!isBeginner ? (
+                            <div
+                                data-testid="collocation-window-hint"
+                                style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}
+                            >
                                 {windowType === "ayah"
                                     ? t("windowTypeHintAyah")
                                     : windowType === "surah"
                                         ? t("windowTypeHintSurah")
                                         : t("windowTypeHintDistance")}
                             </div>
+                            ) : null}
                             <AnimatePresence>
-                                {windowType === "distance" && (
+                                {!isBeginner && windowType === "distance" && (
                                     <motion.div
+                                        data-testid="collocation-distance-control"
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
@@ -1388,12 +1434,17 @@ export default function CollocationNetworkGraph({
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            <div style={{ marginTop: 2, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}>
+                            {!isBeginner ? (
+                            <div
+                                data-testid="collocation-min-frequency-control"
+                                style={{ marginTop: 2, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
+                            >
                                 <div style={{ ...controlLabelStyle, marginBottom: 6 }}>{t("minFrequency")} ({minFrequency})</div>
                                 <input type="range" min={1} max={20} value={minFrequency} onChange={e => setMinFrequency(parseInt(e.target.value, 10))} style={{ width: "100%", accentColor: themeColors.accentSecondary }} />
                             </div>
-                            {pairMetrics && (
-                                <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
+                            ) : null}
+                            {!isBeginner && pairMetrics && (
+                                <div data-testid="collocation-pair-metrics" style={{ marginTop: 4, display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
                                     <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
                                         {t("pairWindowsA", { count: pairMetrics.countA })}
                                     </div>

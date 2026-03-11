@@ -1,6 +1,7 @@
 "use client";
 
 import { track } from "@vercel/analytics";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 type ScriptClass = "arabic" | "latin" | "mixed" | "other";
@@ -38,11 +39,11 @@ export function trackOnboardingSkipped() {
   safeTrack("onboarding_skipped");
 }
 
-export function trackModeSwitched(from: "beginner" | "advanced", to: "beginner" | "advanced") {
+export function trackModeSwitched(from: ExperienceLevel, to: ExperienceLevel) {
   safeTrack("mode_switched", { from, to });
 }
 
-export function trackVizChanged(from: VisualizationMode, to: VisualizationMode, experienceLevel: "beginner" | "advanced") {
+export function trackVizChanged(from: VisualizationMode, to: VisualizationMode, experienceLevel: ExperienceLevel) {
   safeTrack("viz_changed", { from, to, experienceLevel });
 }
 

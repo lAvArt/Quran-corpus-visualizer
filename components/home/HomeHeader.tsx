@@ -9,6 +9,7 @@ import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import { AuthButton } from "@/components/ui/AuthButton";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import AppModeNav from "@/components/ui/AppModeNav";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
@@ -27,8 +28,8 @@ interface HomeHeaderProps {
   customColorTheme: CustomColorTheme;
   handleCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   handleResetCustomColorTheme: (appearance: "light" | "dark") => void;
-  experienceLevel: "beginner" | "advanced";
-  handleExperienceLevelChange: (level: "beginner" | "advanced") => void;
+  experienceLevel: ExperienceLevel;
+  handleExperienceLevelChange: (level: ExperienceLevel) => void;
   handleReplayExperience: () => void;
   mainVizRef: React.RefObject<HTMLElement | null>;
   vizMode: VisualizationMode;

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCorpusData } from "@/lib/hooks/useCorpusData";
+import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import { MOBILE_WALKTHROUGH_STEPS, WALKTHROUGH_STEPS } from "@/lib/data/walkthroughSteps";
 import { readDevSearchStatus } from "@/lib/dev/testOverrides";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/lib/analytics/events";
 import { EXPERIENCE_VERSION } from "@/lib/config/version";
 import { VizControlProvider, useVizControl } from "@/lib/hooks/VizControlContext";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { WalkthroughStepConfig } from "@/lib/schema/walkthrough";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
@@ -114,12 +116,12 @@ interface ExperienceStorageState {
   lastCompletedAt?: string;
 }
 
-export function useHomePageController() {
+export function useHomePageController(initialCorpusData?: CorpusOverviewData) {
   const { isLeftSidebarOpen, isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   const [vizMode, setVizMode] = useState<VisualizationMode>("radial-sura");
-  const [experienceLevel, setExperienceLevel] = useState<"beginner" | "advanced">("beginner");
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>("beginner");
   const [showAdvancedModes, setShowAdvancedModes] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
@@ -140,7 +142,7 @@ export function useHomePageController() {
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [selectedLemma, setSelectedLemma] = useState<string | null>(null);
   const [searchLockedRoot, setSearchLockedRoot] = useState<string | null>(null);
-  const { allTokens, dataStatus, readiness, overview, loadingProgress, isLoadingCorpus } = useCorpusData();
+  const { allTokens, dataStatus, readiness, overview, overviewSource, loadingProgress, isLoadingCorpus } = useCorpusData(initialCorpusData);
   const mainVizRef = useRef<HTMLElement>(null);
   const hasTrackedShellRenderRef = useRef(false);
 
@@ -240,10 +242,11 @@ export function useHomePageController() {
     const navigationEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     const durationMs = navigationEntry ? Math.round(navigationEntry.domContentLoadedEventEnd) : Math.round(performance.now());
     trackPerformanceMetric("shell_render", "explore", durationMs, {
-      shell_ready: readiness.shellReady,
+      shell_ready: readiness.overviewReady,
+      corpus_source: overviewSource,
     });
     hasTrackedShellRenderRef.current = true;
-  }, [readiness.shellReady]);
+  }, [overviewSource, readiness.overviewReady]);
 
   const persistExperienceState = useCallback((showOnStartupValue: boolean, completed: boolean, completedAt?: string) => {
     try {
@@ -456,7 +459,7 @@ export function useHomePageController() {
     [experienceLevel, showAdvancedModes]
   );
 
-  const handleExperienceLevelChange = useCallback((level: "beginner" | "advanced") => {
+  const handleExperienceLevelChange = useCallback((level: ExperienceLevel) => {
     if (level !== experienceLevel) {
       trackModeSwitched(experienceLevel, level);
     }

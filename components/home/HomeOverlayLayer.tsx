@@ -7,6 +7,7 @@ import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
 import GuidedWalkthroughOverlay from "@/components/ui/GuidedWalkthroughOverlay";
 import VizBreadcrumbs from "@/components/ui/VizBreadcrumbs";
+import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { SearchMatchType } from "@/lib/analytics/events";
@@ -15,6 +16,7 @@ import type { CorpusOverviewSummary, CorpusReadinessState, DataReadinessStatus }
 
 interface HomeOverlayLayerProps {
   t: (key: string, values?: Record<string, string | number>) => string;
+  tSearch: (key: string, values?: Record<string, string | number>) => string;
   dataStatus: DataReadinessStatus;
   readiness: CorpusReadinessState;
   overview: CorpusOverviewSummary;
@@ -74,6 +76,7 @@ interface HomeOverlayLayerProps {
 export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
   const {
     t,
+    tSearch,
     dataStatus,
     readiness,
     overview,
@@ -129,6 +132,7 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
     handleWalkthroughSkip,
     handleWalkthroughComplete,
   } = props;
+  const statusPresentation = deriveCorpusStatusPresentation(readiness, dataStatus, isLoadingCorpus);
 
   return (
     <>
@@ -149,7 +153,7 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
         <span>{t(`dataStatus.${dataStatus}.description`)}</span>
       </div>
 
-      {dataStatus === "fallback" ? (
+      {statusPresentation.showFallbackMessage ? (
         <div
           className="ui-overlay-banner ui-overlay-banner-warning"
           data-testid="explore-data-recovery-message"
@@ -158,12 +162,12 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
         >
           <strong>{t("overlay.fallbackTitle")}</strong>
           <span>
-            {t("overlay.fallbackDescription")}
+            {tSearch("fallbackMessage")}
           </span>
         </div>
       ) : null}
 
-      {isLoadingCorpus && dataStatus === "loading" ? (
+      {statusPresentation.showLoadingMessage ? (
         <div
           className="ui-overlay-banner"
           data-testid="explore-data-recovery-message"
@@ -172,12 +176,12 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
         >
           <strong>{t("overlay.loadingTitle")}</strong>
           <span>
-            {t("overlay.loadingDescription", { surahCount: overview.surahCount })}
+            {tSearch("loadingMessage")}
           </span>
         </div>
       ) : null}
 
-      {readiness.uiStatus === "shell-ready" ? (
+      {statusPresentation.showShellReadyMessage ? (
         <div
           className="ui-overlay-banner"
           data-testid="explore-shell-ready-message"
@@ -186,7 +190,7 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
         >
           <strong>{t("overlay.shellReadyTitle")}</strong>
           <span>
-            {t("overlay.shellReadyDescription", {
+            {tSearch("shellReadyMessage", {
               surahCount: overview.surahCount,
               rootCount: overview.rootCount.toLocaleString(),
             })}

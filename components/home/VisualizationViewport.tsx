@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useTranslations } from "next-intl";
 import { VizErrorBoundary } from "@/components/ErrorBoundary";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
 import type { LexicalColorMode } from "@/lib/theme/lexicalColoring";
@@ -19,13 +19,26 @@ function VizFallback({ label }: { label: string }) {
   );
 }
 
-function useVizComponent<T>(loader: Parameters<typeof dynamic<T>>[0], label: string) {
-  return dynamic(loader, { loading: () => <VizFallback label={label} />, ssr: false });
+const VIZ_FALLBACK_LABEL = "Loading visualization...";
+
+function buildVizComponent<T>(loader: Parameters<typeof dynamic<T>>[0]) {
+  return dynamic(loader, { loading: () => <VizFallback label={VIZ_FALLBACK_LABEL} />, ssr: false });
 }
+
+const RadialSuraMap = buildVizComponent(() => import("@/components/visualisations/RadialSuraMap"));
+const RootNetworkGraph = buildVizComponent(() => import("@/components/visualisations/RootNetworkGraph"));
+const SurahDistributionGraph = buildVizComponent(() => import("@/components/visualisations/SurahDistributionGraph"));
+const ArcFlowDiagram = buildVizComponent(() => import("@/components/visualisations/ArcFlowDiagram"));
+const AyahDependencyGraph = buildVizComponent(() => import("@/components/visualisations/AyahDependencyGraph"));
+const RootFlowSankey = buildVizComponent(() => import("@/components/visualisations/RootFlowSankey"));
+const CorpusArchitectureMap = buildVizComponent(() => import("@/components/visualisations/CorpusArchitectureMap"));
+const KnowledgeGraphViz = buildVizComponent(() => import("@/components/visualisations/KnowledgeGraphViz"));
+const CollocationNetworkGraph = buildVizComponent(() => import("@/components/visualisations/CollocationNetworkGraph"));
 
 interface VisualizationViewportProps {
   vizMode: VisualizationMode;
   allTokens: CorpusToken[];
+  experienceLevel: ExperienceLevel;
   selectedSurahId: number;
   selectedAyahInSurah: number | null;
   selectedRoot: string | null;
@@ -46,6 +59,7 @@ interface VisualizationViewportProps {
 export default function VisualizationViewport({
   vizMode,
   allTokens,
+  experienceLevel,
   selectedSurahId,
   selectedAyahInSurah,
   selectedRoot,
@@ -62,17 +76,6 @@ export default function VisualizationViewport({
   handleRootSelect,
   handleSurahSelect,
 }: VisualizationViewportProps) {
-  const t = useTranslations("Index");
-  const fallbackLabel = t("overlay.visualizationLoading");
-  const RadialSuraMap = useVizComponent(() => import("@/components/visualisations/RadialSuraMap"), fallbackLabel);
-  const RootNetworkGraph = useVizComponent(() => import("@/components/visualisations/RootNetworkGraph"), fallbackLabel);
-  const SurahDistributionGraph = useVizComponent(() => import("@/components/visualisations/SurahDistributionGraph"), fallbackLabel);
-  const ArcFlowDiagram = useVizComponent(() => import("@/components/visualisations/ArcFlowDiagram"), fallbackLabel);
-  const AyahDependencyGraph = useVizComponent(() => import("@/components/visualisations/AyahDependencyGraph"), fallbackLabel);
-  const RootFlowSankey = useVizComponent(() => import("@/components/visualisations/RootFlowSankey"), fallbackLabel);
-  const CorpusArchitectureMap = useVizComponent(() => import("@/components/visualisations/CorpusArchitectureMap"), fallbackLabel);
-  const KnowledgeGraphViz = useVizComponent(() => import("@/components/visualisations/KnowledgeGraphViz"), fallbackLabel);
-  const CollocationNetworkGraph = useVizComponent(() => import("@/components/visualisations/CollocationNetworkGraph"), fallbackLabel);
   const vizContent = (() => {
     switch (vizMode) {
       case "radial-sura":
@@ -97,6 +100,7 @@ export default function VisualizationViewport({
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
+            experienceLevel={experienceLevel}
             highlightRoot={selectedRoot}
             selectedSurahId={selectedSurahId}
             theme={theme}
@@ -141,6 +145,7 @@ export default function VisualizationViewport({
             selectedAyah={selectedAyahInSurah}
             selectedRoot={selectedRootValue}
             selectedLemma={selectedLemmaValue}
+            experienceLevel={experienceLevel}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
           />
@@ -169,6 +174,7 @@ export default function VisualizationViewport({
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
             selectedSurahId={selectedSurahId}
+            experienceLevel={experienceLevel}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
           />
@@ -180,6 +186,7 @@ export default function VisualizationViewport({
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
+            experienceLevel={experienceLevel}
             highlightRoot={selectedRoot}
             selectedSurahId={selectedSurahId}
             theme={theme}
@@ -190,5 +197,5 @@ export default function VisualizationViewport({
     }
   })();
 
-  return <VizErrorBoundary name={vizMode}>{vizContent ?? <VizFallback label={fallbackLabel} />}</VizErrorBoundary>;
+  return <VizErrorBoundary name={vizMode}>{vizContent ?? <VizFallback label={VIZ_FALLBACK_LABEL} />}</VizErrorBoundary>;
 }

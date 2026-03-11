@@ -7,6 +7,7 @@ import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog
 
 import type { ChangeEvent } from "react";
 import type { CorpusToken, RootWordFlow } from "@/lib/schema/types";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
@@ -19,6 +20,7 @@ interface RootFlowSankeyProps {
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
   selectedSurahId?: number;
+  experienceLevel?: ExperienceLevel;
   theme?: "light" | "dark";
   lexicalColorMode?: LexicalColorMode;
 }
@@ -84,6 +86,7 @@ export default function RootFlowSankey({
   onTokenHover,
   onTokenFocus,
   selectedSurahId,
+  experienceLevel = "advanced",
   theme = "dark",
   lexicalColorMode = "theme",
 }: RootFlowSankeyProps) {
@@ -95,6 +98,7 @@ export default function RootFlowSankey({
   const [isMounted, setIsMounted] = useState(false);
   const [hoveredFlowKey, setHoveredFlowKey] = useState<string | null>(null);
   const { isLeftSidebarOpen } = useVizControl();
+  const isBeginner = experienceLevel === "beginner";
 
   useEffect(() => {
     setIsMounted(true);
@@ -139,6 +143,12 @@ export default function RootFlowSankey({
       setSelectedRoot("all");
     }
   }, [availableRoots, selectedRoot]);
+
+  useEffect(() => {
+    if (isBeginner) {
+      setSelectedRoot("all");
+    }
+  }, [isBeginner]);
 
   // 3. Apply root filtering
   const filteredFlows = useMemo(() => {
@@ -341,7 +351,7 @@ export default function RootFlowSankey({
   const sidebarCards = (
     <div className={`viz-left-stack sankey-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
 
-      <div className="viz-left-panel sankey-control-card">
+      <div className="viz-left-panel sankey-control-card" data-testid="sankey-control-card">
         <div className="sankey-card-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "8px" }}>
             <p className="eyebrow">{t("title")}</p>
@@ -359,19 +369,21 @@ export default function RootFlowSankey({
           </div>
         </div>
 
-        <label className="sankey-field">
-          <span className="sankey-label">{t("filterByRoot")}</span>
-          <div className="sankey-select-shell">
-            <select value={selectedRoot} onChange={handleRootChange} className="sankey-select">
-              <option value="all">{t("allRoots")} ({availableRoots.length})</option>
-              {availableRoots.slice(0, 300).map((root) => (
-                <option key={root} value={root}>
-                  {root}
-                </option>
-              ))}
-            </select>
-          </div>
-        </label>
+        {isBeginner ? null : (
+          <label className="sankey-field" data-testid="sankey-root-filter">
+            <span className="sankey-label">{t("filterByRoot")}</span>
+            <div className="sankey-select-shell">
+              <select value={selectedRoot} onChange={handleRootChange} className="sankey-select">
+                <option value="all">{t("allRoots")} ({availableRoots.length})</option>
+                {availableRoots.slice(0, 300).map((root) => (
+                  <option key={root} value={root}>
+                    {root}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+        )}
 
         <div className="sankey-meta-row">
           <span className="sankey-meta-key">{ts("scope")}</span>

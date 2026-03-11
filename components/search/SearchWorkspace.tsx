@@ -8,16 +8,26 @@ import CorpusIndex from "@/components/ui/CorpusIndex";
 import AppWorkspaceShell from "@/components/ui/AppWorkspaceShell";
 import { readDevSearchStatus } from "@/lib/dev/testOverrides";
 import { useCorpusData } from "@/lib/hooks/useCorpusData";
+import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
+import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
 
-export default function SearchWorkspace() {
+interface SearchWorkspaceProps {
+  initialCorpusData?: CorpusOverviewData;
+}
+
+export default function SearchWorkspace({ initialCorpusData }: SearchWorkspaceProps) {
   const t = useTranslations("SearchWorkspace");
-  const { allTokens, dataStatus, isLoadingCorpus, overview, readiness } = useCorpusData();
+  const { allTokens, dataStatus, isLoadingCorpus, overview, overviewSource, readiness } = useCorpusData(initialCorpusData);
   const searchStatus = readDevSearchStatus() ?? "available";
   const [selectedToken, setSelectedToken] = useState<CorpusToken | null>(null);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
   const [hasTrackedShellRender, setHasTrackedShellRender] = useState(false);
+  const statusPresentation = useMemo(
+    () => deriveCorpusStatusPresentation(readiness, dataStatus, isLoadingCorpus),
+    [dataStatus, isLoadingCorpus, readiness]
+  );
 
   const summary = useMemo(() => {
     if (!selectedToken) return null;
@@ -35,20 +45,17 @@ export default function SearchWorkspace() {
     const navigationEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     const durationMs = navigationEntry ? Math.round(navigationEntry.domContentLoadedEventEnd) : Math.round(performance.now());
     trackPerformanceMetric("shell_render", "search", durationMs, {
-      shell_ready: readiness.shellReady,
+      shell_ready: readiness.overviewReady,
+      corpus_source: overviewSource,
     });
     setHasTrackedShellRender(true);
-  }, [hasTrackedShellRender, readiness.shellReady]);
+  }, [hasTrackedShellRender, overviewSource, readiness.overviewReady]);
 
   const handleResultSelected = (_matchType: SearchMatchType) => {
     // Intentional no-op for now; workspace keeps context in the panel itself.
   };
 
-  const statusLabel = readiness.deepDataReady
-    ? t("status.full")
-    : readiness.uiStatus === "fallback"
-      ? t("status.fallback")
-      : t("status.shell");
+  const statusLabel = t(`status.${statusPresentation.statusLabel}`);
 
   return (
     <AppWorkspaceShell
@@ -58,7 +65,7 @@ export default function SearchWorkspace() {
       status={<div className="ui-pill">{statusLabel}</div>}
       backgroundVariant="search"
     >
-      {!readiness.deepDataReady ? (
+      {statusPresentation.showShellReadyMessage ? (
         <div className="ui-message workspace-status-message workspace-ready-note" data-testid="search-workspace-ready-message">
           {t("shellReadyMessage", {
             surahCount: overview.surahCount,
@@ -67,7 +74,7 @@ export default function SearchWorkspace() {
         </div>
       ) : null}
 
-      {dataStatus === "fallback" ? (
+      {statusPresentation.showFallbackMessage ? (
         <div
           className="ui-message ui-message-error workspace-status-message"
           data-testid="search-workspace-status-message"
@@ -76,7 +83,7 @@ export default function SearchWorkspace() {
         </div>
       ) : null}
 
-      {isLoadingCorpus ? (
+      {statusPresentation.showLoadingMessage ? (
         <div
           className="ui-message workspace-status-message"
           data-testid="search-workspace-status-message"

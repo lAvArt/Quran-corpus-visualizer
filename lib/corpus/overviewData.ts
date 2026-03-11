@@ -1,4 +1,4 @@
-import { getSampleData } from "@/lib/corpus/corpusLoader";
+import { SAMPLE_MORPHOLOGY_DATA } from "@/lib/corpus/morphologyData";
 import { buildCorpusOverview, type CorpusOverviewSummary } from "@/lib/corpus/readiness";
 import { sampleAyahDependency } from "@/lib/corpus/sampleAyahDependency";
 import { sampleTokens } from "@/lib/corpus/sampleCorpus";
@@ -17,7 +17,7 @@ export function mergeCorpusTokens(...collections: readonly CorpusToken[][]): Cor
 }
 
 export function buildShellCorpusTokens(): CorpusToken[] {
-  return mergeCorpusTokens(sampleTokens, getSampleData());
+  return mergeCorpusTokens(sampleTokens, SAMPLE_MORPHOLOGY_DATA);
 }
 
 export function buildVisualizationCorpusTokens(
@@ -36,4 +36,8 @@ export function buildCorpusOverviewData(deepTokens: CorpusToken[]): CorpusOvervi
     visualizationTokens,
     overview: buildCorpusOverview(visualizationTokens),
   };
+}
+
+export function buildExploreOverviewPayload(): CorpusOverviewData {
+  return buildCorpusOverviewData([]);
 }

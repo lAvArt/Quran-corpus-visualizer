@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import GlossaryChips from "@/components/ui/GlossaryChips";
 
 interface VisualizationSwitcherProps {
   currentMode: VisualizationMode;
   onModeChange: (mode: VisualizationMode) => void;
-  experienceLevel: "beginner" | "advanced";
+  experienceLevel: ExperienceLevel;
   showAdvancedModes: boolean;
   onToggleAdvancedModes: (value: boolean) => void;
   theme: "light" | "dark";

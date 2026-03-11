@@ -16,20 +16,25 @@ import {
   type DataReadinessStatus,
 } from "@/lib/corpus/readiness";
 import { readDevCorpusStatus } from "@/lib/dev/testOverrides";
+import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import type { CorpusToken } from "@/lib/schema/types";
+
+export type CorpusDataSource = "server-payload" | "client-shell" | "deep-corpus";
 
 export interface CorpusDataState {
   shellTokens: CorpusToken[];
   deepTokens: CorpusToken[];
   allTokens: CorpusToken[];
   overview: CorpusOverviewSummary;
+  overviewSource: CorpusDataSource;
+  visualizationSource: CorpusDataSource;
   readiness: CorpusReadinessState;
   loadingProgress: LoadingProgress | null;
   isLoadingCorpus: boolean;
   dataStatus: DataReadinessStatus;
 }
 
-export function useCorpusData(): CorpusDataState {
+export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusDataState {
   const [deepTokens, setDeepTokens] = useState<CorpusToken[]>([]);
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
   const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
@@ -90,10 +95,29 @@ export function useCorpusData(): CorpusDataState {
     };
   }, []);
 
-  const { shellTokens, visualizationTokens: allTokens, overview } = useMemo(
-    () => buildCorpusOverviewData(deepTokens),
-    [deepTokens]
-  );
+  const { shellTokens, visualizationTokens: allTokens, overview, overviewSource, visualizationSource } = useMemo(() => {
+    if (deepTokens.length > 0) {
+      return {
+        ...buildCorpusOverviewData(deepTokens),
+        overviewSource: "deep-corpus" as const,
+        visualizationSource: "deep-corpus" as const,
+      };
+    }
+
+    if (initialOverviewData) {
+      return {
+        ...initialOverviewData,
+        overviewSource: "server-payload" as const,
+        visualizationSource: "server-payload" as const,
+      };
+    }
+
+    return {
+      ...buildCorpusOverviewData([]),
+      overviewSource: "client-shell" as const,
+      visualizationSource: "client-shell" as const,
+    };
+  }, [deepTokens, initialOverviewData]);
   const readiness = useMemo(
     () => deriveCorpusReadiness(dataStatus, isLoadingCorpus),
     [dataStatus, isLoadingCorpus]
@@ -101,11 +125,11 @@ export function useCorpusData(): CorpusDataState {
 
   useEffect(() => {
     if (hasTrackedShellReadyRef.current) return;
-    if (!readiness.shellReady) return;
+    if (!readiness.overviewReady) return;
 
     trackCorpusShellReady("shared", overview.tokenCount, overview.surahCount, overview.rootCount);
     hasTrackedShellReadyRef.current = true;
-  }, [overview.rootCount, overview.surahCount, overview.tokenCount, readiness.shellReady]);
+  }, [overview.rootCount, overview.surahCount, overview.tokenCount, readiness.overviewReady]);
 
   useEffect(() => {
     if (readiness.deepDataReady && !hasTrackedDeepReadyRef.current) {
@@ -130,6 +154,8 @@ export function useCorpusData(): CorpusDataState {
     deepTokens,
     allTokens,
     overview,
+    overviewSource,
+    visualizationSource,
     readiness,
     loadingProgress,
     isLoadingCorpus,

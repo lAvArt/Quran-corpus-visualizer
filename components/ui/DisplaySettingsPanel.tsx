@@ -6,6 +6,7 @@ import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { usePwaInstall } from "@/components/providers/PwaProvider";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import VizExportMenu from "@/components/ui/VizExportMenu";
+import { EXPERIENCE_LEVELS, type ExperienceLevel } from "@/lib/schema/experience";
 import {
   COLOR_THEME_PRESETS,
   type CustomColorTheme,
@@ -26,8 +27,8 @@ interface DisplaySettingsPanelProps {
   customColorTheme: CustomColorTheme;
   onCustomColorThemeChange: (appearance: "light" | "dark", field: keyof CustomColorThemePalette, value: string) => void;
   onResetCustomColorTheme: (appearance: "light" | "dark") => void;
-  experienceLevel: "beginner" | "advanced";
-  onExperienceLevelChange: (level: "beginner" | "advanced") => void;
+  experienceLevel: ExperienceLevel;
+  onExperienceLevelChange: (level: ExperienceLevel) => void;
   onReplayExperience: () => void;
   exportTargetRef?: RefObject<HTMLElement | null>;
   vizMode?: VisualizationMode;
@@ -115,6 +116,7 @@ export default function DisplaySettingsPanel({
       <button
         type="button"
         className={`display-settings-trigger ${isOpen ? "open" : ""}`}
+        data-testid="display-settings-trigger"
         aria-expanded={isOpen}
         aria-controls={panelId}
         aria-label={t("panelLabel")}
@@ -265,10 +267,11 @@ export default function DisplaySettingsPanel({
           <div className="display-settings-section custom-colors">
             <div className="display-settings-title">{t("experienceLevel.title")}</div>
             <div className="display-theme-list">
-              {(["beginner", "advanced"] as const).map((level) => (
+              {EXPERIENCE_LEVELS.map((level) => (
                 <button
                   key={level}
                   type="button"
+                  data-testid={`display-experience-${level}`}
                   className={`display-theme-item ${experienceLevel === level ? "active" : ""}`}
                   onClick={() => onExperienceLevelChange(level)}
                   aria-pressed={experienceLevel === level}

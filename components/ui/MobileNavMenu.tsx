@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 
 export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light" | "dark", onThemeChange: (t: "light" | "dark") => void }) {
-    const { isMobileNavOpen, setMobileNavOpen } = useVizControl();
+    const { isMobileNavOpen, setMobileNavOpen, toggleMobileNav } = useVizControl();
     const btnRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const t = useTranslations('MobileNavMenu');
@@ -55,7 +55,8 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
                 <button
                     ref={btnRef}
                     className={`mobile-menu-btn ${isMobileNavOpen ? "active" : ""}`}
-                    onClick={() => setMobileNavOpen(!isMobileNavOpen)}
+                    data-testid="mobile-nav-menu-trigger"
+                    onClick={toggleMobileNav}
                     aria-label="Menu"
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -72,6 +73,7 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
                         <motion.div
                             ref={dropdownRef}
                             className="mobile-menu-dropdown"
+                            data-testid="mobile-nav-menu-dropdown"
                             style={{
                                 position: "fixed",
                                 top: dropdownPos.top,

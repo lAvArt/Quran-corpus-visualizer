@@ -43,6 +43,7 @@ describe("deriveCorpusReadiness", () => {
     expect(deriveCorpusReadiness("sample", false)).toEqual({
       dataStatus: "sample",
       uiStatus: "shell-ready",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: false,
       canExploreDeeply: false,
@@ -53,6 +54,7 @@ describe("deriveCorpusReadiness", () => {
     expect(deriveCorpusReadiness("loading", true)).toEqual({
       dataStatus: "loading",
       uiStatus: "loading",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: false,
       canExploreDeeply: false,
@@ -63,6 +65,7 @@ describe("deriveCorpusReadiness", () => {
     expect(deriveCorpusReadiness("full", false)).toEqual({
       dataStatus: "full",
       uiStatus: "full",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: true,
       canExploreDeeply: true,
@@ -73,6 +76,7 @@ describe("deriveCorpusReadiness", () => {
     expect(deriveCorpusReadiness("fallback", false)).toEqual({
       dataStatus: "fallback",
       uiStatus: "fallback",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: false,
       canExploreDeeply: false,

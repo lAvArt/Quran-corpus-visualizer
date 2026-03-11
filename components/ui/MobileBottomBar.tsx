@@ -5,12 +5,13 @@ import { useTranslations } from "next-intl";
 
 export default function MobileBottomBar() {
     const {
+        activeMobileSurface,
         isLeftSidebarOpen,
-        setLeftSidebarOpen,
         isRightSidebarOpen,
-        setRightSidebarOpen,
         isMobileSearchOpen,
-        toggleMobileSearch
+        toggleLeftSidebar,
+        toggleRightSidebar,
+        toggleMobileSearch,
     } = useVizControl();
     const t = useTranslations("MobileBottomBar");
 
@@ -19,11 +20,8 @@ export default function MobileBottomBar() {
             <button
                 className={`bottom-bar-btn ${isLeftSidebarOpen ? "active" : ""}`}
                 data-testid="mobile-bottom-bar-legend"
-                onClick={() => {
-                    const next = !isLeftSidebarOpen;
-                    setLeftSidebarOpen(next);
-                    if (next) setRightSidebarOpen(false);
-                }}
+                data-surface-active={activeMobileSurface === "context"}
+                onClick={toggleLeftSidebar}
             >
                 <span>{isLeftSidebarOpen ? t("hideLegend") : t("showLegend")}</span>
             </button>
@@ -33,6 +31,7 @@ export default function MobileBottomBar() {
             <button
                 className={`bottom-bar-btn bottom-bar-search-btn ${isMobileSearchOpen ? "active" : ""}`}
                 data-testid="mobile-bottom-bar-search"
+                data-surface-active={activeMobileSurface === "search"}
                 onClick={toggleMobileSearch}
                 aria-label={t("search")}
             >
@@ -47,11 +46,8 @@ export default function MobileBottomBar() {
             <button
                 className={`bottom-bar-btn ${isRightSidebarOpen ? "active" : ""}`}
                 data-testid="mobile-bottom-bar-tools"
-                onClick={() => {
-                    const next = !isRightSidebarOpen;
-                    setRightSidebarOpen(next);
-                    if (next) setLeftSidebarOpen(false);
-                }}
+                data-surface-active={activeMobileSurface === "tools"}
+                onClick={toggleRightSidebar}
             >
                 <span>{isRightSidebarOpen ? t("hideTools") : t("showTools")}</span>
             </button>
@@ -74,6 +70,7 @@ export default function MobileBottomBar() {
             z-index: 90;
             width: auto;
             max-width: min(560px, 94vw);
+            gap: 2px;
         }
 
         :global([data-theme="dark"]) .mobile-bottom-bar {
@@ -86,13 +83,14 @@ export default function MobileBottomBar() {
             background: transparent;
             border: none;
             padding: 9px 16px;
-            font-size: 0.84rem;
+            font-size: 0.8rem;
             font-weight: 600;
             color: var(--ink-secondary);
             cursor: pointer;
             border-radius: 999px;
             transition: all 0.2s;
             white-space: nowrap;
+            min-width: 0;
         }
 
         .bottom-bar-btn.active {
@@ -109,9 +107,9 @@ export default function MobileBottomBar() {
 
         .bottom-bar-divider {
             width: 1px;
-            height: 24px;
+            height: 18px;
             background: var(--line);
-            margin: 0 4px;
+            margin: 0 2px;
         }
       `}</style>
         </div>

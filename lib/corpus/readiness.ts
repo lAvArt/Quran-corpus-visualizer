@@ -12,6 +12,7 @@ export interface CorpusOverviewSummary {
 export interface CorpusReadinessState {
   dataStatus: DataReadinessStatus;
   uiStatus: CorpusUiReadiness;
+  overviewReady: boolean;
   shellReady: boolean;
   deepDataReady: boolean;
   canExploreDeeply: boolean;
@@ -43,6 +44,7 @@ export function deriveCorpusReadiness(
     return {
       dataStatus,
       uiStatus: "full",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: true,
       canExploreDeeply: true,
@@ -53,6 +55,7 @@ export function deriveCorpusReadiness(
     return {
       dataStatus,
       uiStatus: "fallback",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: false,
       canExploreDeeply: false,
@@ -63,6 +66,7 @@ export function deriveCorpusReadiness(
     return {
       dataStatus,
       uiStatus: "loading",
+      overviewReady: true,
       shellReady: true,
       deepDataReady: false,
       canExploreDeeply: false,
@@ -72,6 +76,7 @@ export function deriveCorpusReadiness(
   return {
     dataStatus,
     uiStatus: "shell-ready",
+    overviewReady: true,
     shellReady: true,
     deepDataReady: false,
     canExploreDeeply: false,
