@@ -11,10 +11,14 @@ import { NextRequest } from "next/server";
 
 // ── Mock @/lib/supabase/server ────────────────────────────────────────────────
 
-const mockRpc = vi.fn();
+const { mockRpc, mockCreateClient } = vi.hoisted(() => {
+    const mockRpc = vi.fn();
+    const mockCreateClient = vi.fn(async () => ({ rpc: mockRpc }));
+    return { mockRpc, mockCreateClient };
+});
 
 vi.mock("@/lib/supabase/server", () => ({
-    createClient: vi.fn(async () => ({ rpc: mockRpc })),
+    createClient: mockCreateClient,
 }));
 
 // ── Import handlers after mock registration ───────────────────────────────────
@@ -32,7 +36,10 @@ function makeRequest(path: string): NextRequest {
 // ── /api/search ───────────────────────────────────────────────────────────────
 
 describe("GET /api/search", () => {
-    beforeEach(() => { vi.clearAllMocks(); });
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockCreateClient.mockResolvedValue({ rpc: mockRpc });
+    });
 
     it("returns 400 when q param is missing", async () => {
         const res = await searchGET(makeRequest("/api/search"));
@@ -82,6 +89,16 @@ describe("GET /api/search", () => {
         expect(body.error).toBe("Search failed");
     });
 
+    it("returns 500 when Supabase client creation fails", async () => {
+        mockCreateClient.mockRejectedValueOnce(new Error("client init failed"));
+
+        const res = await searchGET(makeRequest("/api/search?q=كتب"));
+
+        expect(res.status).toBe(500);
+        const body = await res.json();
+        expect(body.error).toBe("Search failed");
+    });
+
     it("returns empty results array when data is null", async () => {
         mockRpc.mockResolvedValue({ data: null, error: null });
 
@@ -94,7 +111,10 @@ describe("GET /api/search", () => {
 // ── /api/collocations ─────────────────────────────────────────────────────────
 
 describe("GET /api/collocations", () => {
-    beforeEach(() => { vi.clearAllMocks(); });
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockCreateClient.mockResolvedValue({ rpc: mockRpc });
+    });
 
     it("returns 400 when root param is missing", async () => {
         const res = await collocationsGET(makeRequest("/api/collocations"));
@@ -138,7 +158,10 @@ describe("GET /api/collocations", () => {
 // ── /api/cross-reference ─────────────────────────────────────────────────────
 
 describe("GET /api/cross-reference", () => {
-    beforeEach(() => { vi.clearAllMocks(); });
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockCreateClient.mockResolvedValue({ rpc: mockRpc });
+    });
 
     it("returns 400 when root_a is missing", async () => {
         const res = await crossRefGET(makeRequest("/api/cross-reference?root_b=زكو"));
