@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useTranslations } from "next-intl";
@@ -14,6 +15,7 @@ interface RootNetworkGraphProps {
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
+  experienceLevel?: ExperienceLevel;
   highlightRoot?: string | null;
   selectedSurahId?: number;
   theme?: "light" | "dark";
@@ -46,6 +48,7 @@ export default function RootNetworkGraph({
   onTokenHover,
   onTokenFocus,
   onRootSelect,
+  experienceLevel = "advanced",
   highlightRoot,
   selectedSurahId,
   theme = "dark",
@@ -68,6 +71,7 @@ export default function RootNetworkGraph({
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const liveNodesRef = useRef<NetworkNode[]>([]);
+  const effectiveRootLimit = experienceLevel === "beginner" ? 30 : rootLimit;
 
   const themeColors = resolveVisualizationTheme(theme);
 
@@ -92,6 +96,12 @@ export default function RootNetworkGraph({
       setRootLimit(Math.max(5, Math.min(totalRoots, rootLimit)));
     }
   }, [totalRoots, rootLimit]); // rootLimit intentionally only triggers when totalRoots changes
+
+  useEffect(() => {
+    if (experienceLevel === "beginner") {
+      setRootLimit(30);
+    }
+  }, [experienceLevel]);
 
   // Build network data from tokens
   const { initialNodes, initialLinks } = useMemo(() => {
@@ -121,7 +131,7 @@ export default function RootNetworkGraph({
     // Create nodes - limit controlled by slider
     const sortedRoots = [...rootMap.entries()]
       .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, rootLimit);
+      .slice(0, effectiveRootLimit);
 
     const maxFreq = Math.max(...sortedRoots.map(([, d]) => d.count), 1);
     const nodesResult: NetworkNode[] = [];
@@ -129,7 +139,7 @@ export default function RootNetworkGraph({
     const includedLemmas = new Set<string>();
 
     // Add root nodes — scale radius based on how many roots are shown
-    const scaleFactor = rootLimit <= 20 ? 1 : rootLimit <= 50 ? 0.7 : 0.45;
+    const scaleFactor = effectiveRootLimit <= 20 ? 1 : effectiveRootLimit <= 50 ? 0.7 : 0.45;
     for (const [root, data] of sortedRoots) {
       const radius = (8 + (data.count / maxFreq) * 20) * scaleFactor;
       const rootFrequencyRatio = data.count / maxFreq;
@@ -187,7 +197,7 @@ export default function RootNetworkGraph({
     }
 
     return { initialNodes: nodesResult, initialLinks: linksResult };
-  }, [scopedTokens, themeColors.nodeColors.default, rootLimit, lexicalColorMode, theme]);
+  }, [scopedTokens, themeColors.nodeColors.default, effectiveRootLimit, lexicalColorMode, theme]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -410,19 +420,25 @@ export default function RootNetworkGraph({
             {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
           </p>
         </div>
-        <div className="root-limit-control" style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
-          <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
-          <input
-            type="range"
-            min={5}
-            max={Math.max(5, totalRoots)}
-            step={5}
-            value={Math.min(rootLimit, totalRoots || 100)}
-            onChange={(e) => setRootLimit(Number(e.target.value))}
-            style={{ width: 100, accentColor: 'var(--accent)', cursor: 'pointer' }}
-          />
-          <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
-        </div>
+        {experienceLevel === "advanced" ? (
+          <div
+            className="root-limit-control"
+            data-testid="root-network-root-limit-control"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}
+          >
+            <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
+            <input
+              type="range"
+              min={5}
+              max={Math.max(5, totalRoots)}
+              step={5}
+              value={Math.min(rootLimit, totalRoots || 100)}
+              onChange={(e) => setRootLimit(Number(e.target.value))}
+              style={{ width: 100, accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
+          </div>
+        ) : null}
       </div>
 
       <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>

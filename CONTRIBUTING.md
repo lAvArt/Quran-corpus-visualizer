@@ -12,10 +12,17 @@ cd Quran-corpus-visualizer
 # 2. Install dependencies
 npm install
 
-# 3. (Optional) Fetch morphology data for offline dev
+# 3. Configure environment
+cp .env.example .env.local
+# Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# 4. Apply database migrations (requires Supabase CLI)
+supabase db push
+
+# 5. (Optional) Fetch morphology data for offline dev
 npm run fetch:morphology
 
-# 4. Start the dev server
+# 6. Start the dev server
 npm run dev
 ```
 
@@ -31,6 +38,8 @@ npm run dev
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage |
 | `npm run i18n:check` | Validate i18n completeness |
+| `npm run fetch:morphology` | Download morphology data for offline dev |
+| `supabase db push` | Apply database migrations (requires Supabase CLI) |
 
 ## How to Contribute
 

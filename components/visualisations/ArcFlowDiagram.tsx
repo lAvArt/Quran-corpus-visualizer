@@ -11,6 +11,7 @@ import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/li
 import { useLocale, useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
+import type { ExperienceLevel } from "@/lib/schema/experience";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -21,6 +22,7 @@ interface ArcFlowDiagramProps {
   selectedAyah?: number | null;
   selectedRoot?: string | null;
   selectedLemma?: string | null;
+  experienceLevel?: ExperienceLevel;
   theme?: "light" | "dark";
   lexicalColorMode?: LexicalColorMode;
 }
@@ -71,6 +73,7 @@ export default function ArcFlowDiagram({
   selectedAyah,
   selectedRoot,
   selectedLemma,
+  experienceLevel = "advanced",
   theme = "dark",
   lexicalColorMode = "theme",
 }: ArcFlowDiagramProps) {
@@ -94,6 +97,7 @@ export default function ArcFlowDiagram({
   const [rootSearchQuery, setRootSearchQuery] = useState("");
   const deferredRootSearch = useDeferredValue(rootSearchQuery);
   const [internalSelectedRoot, setInternalSelectedRoot] = useState<string | null>(null);
+  const isBeginner = experienceLevel === "beginner";
 
   useEffect(() => {
     if (selectedSurahId && selectedAyah) {
@@ -108,6 +112,13 @@ export default function ArcFlowDiagram({
   useEffect(() => {
     setActiveGroupBy(groupBy);
   }, [groupBy]);
+
+  useEffect(() => {
+    if (!isBeginner) return;
+    setActiveGroupBy(groupBy);
+    setInternalSelectedRoot(null);
+    setRootSearchQuery("");
+  }, [groupBy, isBeginner]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -661,7 +672,7 @@ export default function ArcFlowDiagram({
   const sidebarCards = (
     <div className={`viz-left-stack arcflow-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
 
-      <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }}>
+      <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }} data-testid="arc-flow-control-card">
         <div>
           <p className="eyebrow" style={{ marginBottom: 4 }}>{t("title")}</p>
           <h2 style={{ margin: 0 }}>{t("title")}</h2>
@@ -671,26 +682,28 @@ export default function ArcFlowDiagram({
           {t("groups", { count: nodes.length, linkCount: connections.length })}
         </div>
 
-        <div className="mode-switcher">
-          <button
-            className={`mode-switcher-btn ${activeGroupBy === "root" ? "active" : ""}`}
-            onClick={() => setActiveGroupBy("root")}
-          >
-            {t("byRoot")}
-          </button>
-          <button
-            className={`mode-switcher-btn ${activeGroupBy === "pos" ? "active" : ""}`}
-            onClick={() => setActiveGroupBy("pos")}
-          >
-            {t("byPOS")}
-          </button>
-          <button
-            className={`mode-switcher-btn ${activeGroupBy === "ayah" ? "active" : ""}`}
-            onClick={() => setActiveGroupBy("ayah")}
-          >
-            {t("byAyah")}
-          </button>
-        </div>
+        {isBeginner ? null : (
+          <div className="mode-switcher" data-testid="arc-flow-group-controls">
+            <button
+              className={`mode-switcher-btn ${activeGroupBy === "root" ? "active" : ""}`}
+              onClick={() => setActiveGroupBy("root")}
+            >
+              {t("byRoot")}
+            </button>
+            <button
+              className={`mode-switcher-btn ${activeGroupBy === "pos" ? "active" : ""}`}
+              onClick={() => setActiveGroupBy("pos")}
+            >
+              {t("byPOS")}
+            </button>
+            <button
+              className={`mode-switcher-btn ${activeGroupBy === "ayah" ? "active" : ""}`}
+              onClick={() => setActiveGroupBy("ayah")}
+            >
+              {t("byAyah")}
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "grid", gap: "6px", fontSize: "0.78rem", color: "var(--ink-muted)" }}>
           <span>{t("groupedBy", { value: activeGroupLabel })}</span>
@@ -726,8 +739,8 @@ export default function ArcFlowDiagram({
       </div>
 
       {/* Root Search - only in root mode */}
-      {activeGroupBy === "root" && (
-        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }}>
+      {!isBeginner && activeGroupBy === "root" && (
+        <div className="viz-left-panel" style={{ display: "grid", gap: "8px" }} data-testid="arc-flow-root-search">
           <div className="viz-root-search">
             <span className="viz-root-search-label">{t("searchRoot")}</span>
             <input

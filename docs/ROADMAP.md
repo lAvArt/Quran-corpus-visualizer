@@ -40,12 +40,21 @@ Goal: ship a polished, accurate first release focused on linguistic graph explor
 - Dual dictionary integration (Doha Historical Dictionary, Al-Maany)
 - Visual polish across all graph modes
 
-## v0.6+
+## v0.6 🔄 (In progress)
 
-- Optional vector-based semantic retrieval
-- Explainability layer for semantic matches
-- User-visible rationale for ranking decisions
+- **Supabase database layer** — PostgreSQL 17 with pgvector, pg_trgm, unaccent
+- Full corpus schema: `corpus_tokens`, `ayahs`, `root_embeddings`, `collocations` (matview), `cross_references` (matview)
+- Server-side search functions: full-text (`pg_trgm`), FTS (`tsvector`), vector semantic (`pgvector`)
+- Row Level Security on all tables; privilege lockdown; `search_path` hardening
+- `lib/supabase/` client/server helpers; `knowledgeService` migrated from IndexedDB to Supabase
+- Guided walkthroughs for Collocation Network and Radial Sura Map
+- `GlossaryChips` and `VizBreadcrumbs` context components
+
+## v0.7+
+
+- Explainability layer for semantic matches (user-visible rationale for ranking decisions)
 - Cross-root thematic clustering in Knowledge Graph
+- Vector embedding generation pipeline (`generate-embeddings.ts`)
 
 ## Later: Spatial Layer
 

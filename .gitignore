@@ -3,9 +3,16 @@ node_modules/
 out/
 dist/
 coverage/
+test-results/
 *.log
+*.err
+lint_report*.json
+diff_files.txt
 tsconfig.tsbuildinfo
 .env
 .env.*
 !.env.example
+
+# MCP config contains secrets (access tokens)
+.vscode/mcp.json
 arabic-book-corpus-platform/

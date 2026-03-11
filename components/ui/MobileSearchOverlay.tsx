@@ -59,14 +59,19 @@ export default function MobileSearchOverlay({
                     <motion.div
                         ref={overlayRef}
                         className="mobile-search-overlay"
+                        data-testid="mobile-search-overlay"
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                     >
                         <div className="mobile-search-header">
+                            <div className="mobile-search-title-block">
+                                <span className="mobile-search-kicker">Search</span>
+                            </div>
                             <button
                                 className="mobile-search-close"
+                                data-testid="mobile-search-close"
                                 onClick={() => setMobileSearchOpen(false)}
                                 aria-label="Close search"
                             >
@@ -79,6 +84,7 @@ export default function MobileSearchOverlay({
                         <div className="mobile-search-content">
                             <GlobalSearch
                                 tokens={tokens}
+                                analyticsSurface="mobile"
                                 onTokenSelect={(tokenId) => {
                                     onTokenSelect(tokenId);
                                     setMobileSearchOpen(false);
@@ -128,8 +134,24 @@ export default function MobileSearchOverlay({
 
                             .mobile-search-header {
                                 display: flex;
+                                align-items: center;
                                 justify-content: flex-end;
+                                gap: 8px;
                                 margin-bottom: 8px;
+                            }
+
+                            .mobile-search-title-block {
+                                flex: 1;
+                                min-width: 0;
+                            }
+
+                            .mobile-search-kicker {
+                                display: inline-block;
+                                font-size: 0.74rem;
+                                font-weight: 700;
+                                letter-spacing: 0.08em;
+                                text-transform: uppercase;
+                                color: var(--ink-secondary);
                             }
 
                             .mobile-search-close {

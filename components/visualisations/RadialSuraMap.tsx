@@ -205,8 +205,6 @@ export default function RadialSuraMap({
     const ayahCount = ayahTokens.size || 1;
     const maxTokens = Math.max(...Array.from(ayahTokens.values()).map((t) => t.length), 1);
     const maxRootTokenCount = Math.max(1, ...Array.from(rootTokenTotals.values()));
-    const densityCompression = Math.max(0.38, Math.min(1, 120 / ayahCount));
-
     const maxByAyah = new Map<number, number>();
     const rootEntriesByAyah = new Map<number, AyahRootEntry[]>();
     let maxRootsPerAyah = 1;

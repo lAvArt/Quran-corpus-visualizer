@@ -15,6 +15,16 @@ This project uses curated linguistic annotation sources for Quranic text analysi
 - Retrieval date: 2026-02-06
 - License note (from file header): verbatim copies allowed, changes not allowed; source attribution and link required.
 
+## Storage Layer
+
+Normalized corpus data is stored in a [Supabase](https://supabase.com) PostgreSQL database (project region: `ap-south-1`). Raw upstream data is:
+
+1. Parsed by local adapters in `lib/corpus/`
+2. Normalized into internal schema (see `docs/SCHEMA.md`)
+3. Ingested into Supabase tables via `scripts/seed-corpus.ts` (requires `SUPABASE_SERVICE_ROLE_KEY`)
+
+Derivatives computed from normalized tokens (PMI collocations, FTS vectors, trigram indexes) are then available via PostgreSQL functions — see `supabase/migrations/004_functions.sql`.
+
 ## Source Handling Policy
 
 - Treat upstream payloads as external contracts that may change.

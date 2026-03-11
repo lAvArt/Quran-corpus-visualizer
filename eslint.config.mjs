@@ -22,7 +22,17 @@ export default tseslint.config(
         },
     },
     {
-        ignores: [".next/**", "node_modules/**", "out/**"],
+        ignores: [
+            ".next/**",
+            "node_modules/**",
+            "out/**",
+            "coverage/**",
+            "lint_report.json",
+            "arabic-book-corpus-platform/**",
+            "arabic-book-corpus-platform/**/.next/**",
+            "arabic-book-corpus-platform/**/dist/**",
+            "arabic-book-corpus-platform/**/coverage/**"
+        ],
     },
     {
         files: ["scripts/**/*.js"],

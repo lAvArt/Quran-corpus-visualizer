@@ -106,6 +106,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 - Node.js 18+
 - npm or yarn
+- A [Supabase](https://supabase.com) project (free tier works)
 
 ### Installation
 
@@ -122,24 +123,37 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
     npm install
     ```
 
-3. **Configure feedback email (optional)**
+3. **Configure environment variables**
 
     ```bash
-    BREVO_API_KEY=your_brevo_api_key_here
-    FEEDBACK_TO_EMAIL=info@pluragate.org
-    FEEDBACK_FROM_EMAIL=info@pluragate.org
-    FEEDBACK_FROM_NAME=Quran Corpus Visualizer
+    cp .env.example .env.local
     ```
 
-    `FEEDBACK_TO_EMAIL` can be replaced with `NEXT_PUBLIC_FEEDBACK_EMAIL` for backward compatibility, but server-side `FEEDBACK_TO_EMAIL` is preferred.
+    Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your Supabase project dashboard. See [DEPLOYMENT.md](DEPLOYMENT.md) for all variables.
 
-4. **Fetch Cache Data** (Optional but recommended for offline dev)
+4. **Apply database migrations**
+
+    ```bash
+    supabase db push
+    ```
+
+    Or apply `supabase/migrations/*.sql` (001 → 006) in order via the [Supabase Dashboard](https://supabase.com/dashboard) SQL editor. Requires the [Supabase CLI](https://supabase.com/docs/guides/cli).
+
+5. **(Optional) Seed the corpus**
+
+    ```bash
+    npx tsx scripts/seed-corpus.ts
+    ```
+
+    Requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+
+6. **(Optional) Fetch local morphology data** for offline dev
 
     ```bash
     npm run fetch:morphology
     ```
 
-5. **Run the development server**
+7. **Run the development server**
 
     ```bash
     npm run dev
@@ -151,6 +165,7 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
 - **Language**: TypeScript
+- **Database**: [Supabase](https://supabase.com) / PostgreSQL 17 (pgvector, pg_trgm, unaccent)
 - **Visualization**: [D3.js](https://d3js.org/) for complex graphs
 - **Animation**: Framer Motion
 - **Styling**: Vanilla CSS
@@ -173,12 +188,49 @@ A sophisticated interactive tool for exploring the linguistic and morphological 
 │   ├── data/             # Static data (Surah names, help text)
 │   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)
 │   ├── schema/           # TypeScript types and validation
-│   └── search/           # Search indexing, root flows, and collocation analytics
+│   ├── search/           # Search indexing, root flows, and collocation analytics
+│   └── supabase/         # Supabase client, server helpers, types, knowledge service
+├── supabase/
+│   └── migrations/       # PostgreSQL migrations (001–006)
 ├── messages/             # i18n translation files (en, ar)
 ├── public/               # Static assets and corpus data
 ├── scripts/              # Build/dev helper scripts
 └── docs/                 # Project documentation
 ```
+
+## Architecture Notes
+
+- **App shell**: localized App Router pages provide the persistent shell, providers, and route-level workspaces for Explore, Search, and Study.
+- **Corpus data**: Supabase is the primary production source; cached local data and sample data keep the experience resilient during cold starts and fallback conditions.
+- **Search**: quick client search supports fast navigation hints, while API-backed search remains the authoritative path for semantic and relational queries.
+- **Visualizations**: D3 graph components should stay isolated behind shared selection and shell state rather than owning app-wide orchestration.
+- **Study/account**: authentication, tracked roots, notes, import/export, and migration flows support the main exploration experience without replacing it.
+
+## Workspace Assumptions
+
+- This repository is the intended Turbopack root.
+- Nested projects and generated artifacts are excluded from linting and should not be treated as part of this app's source of truth.
+- `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` are the expected local quality gates for this app.
+- Operational release guidance lives in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+- Observability event coverage and review guidance live in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+- Phase-by-phase implementation status lives in [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md).
+
+## Release Checklist
+
+- `npm run verify`
+- `npx playwright test tests/e2e/app-smoke.spec.ts`
+- `npm run test:a11y-smoke`
+- `npm run build`
+- Verify Explore, Search, and Study load in both desktop and mobile layouts.
+- Verify shell-ready, full-corpus, fallback, and search-recovery states remain user-readable.
+- Validate metadata, social cards, manifest, and localized routes against the production domain.
+- Verify auth, migration, import/export, and resume-exploration flows with a real Supabase-backed environment before release.
+
+## Observability Notes
+
+- Client analytics now track shell-ready corpus availability, deep-corpus readiness, fallback usage, search-recovery exposure, and core interaction outcomes.
+- Performance analytics currently include shell render timing and first search interaction timing across header, sidebar, mobile, and workspace search surfaces.
+- Release candidates should review analytics dashboards for `corpus_shell_ready`, `corpus_deep_ready`, `corpus_fallback_used`, `search_recovery_shown`, and `performance_metric` before rollout.
 
 ## Contributing
 

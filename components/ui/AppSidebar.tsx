@@ -51,10 +51,10 @@ export default function AppSidebar({
   const t = useTranslations('AppSidebar');
 
   return (
-    <aside className="app-sidebar" aria-label={t('label')} data-tour-id="app-sidebar">
-      <div className="sidebar-tabs" role="tablist" aria-label={t('panelLabel')}>
+    <aside className="ui-sidebar-shell" aria-label={t('label')} data-tour-id="app-sidebar">
+      <div className="ui-sidebar-tabs" role="tablist" aria-label={t('panelLabel')}>
         <button
-          className={`sidebar-tab ${activeTab === "inspector" ? "active" : ""}`}
+          className={`ui-sidebar-tab ${activeTab === "inspector" ? "active" : ""}`}
           onClick={() => setActiveTab("inspector")}
           role="tab"
           aria-selected={activeTab === "inspector"}
@@ -64,7 +64,7 @@ export default function AppSidebar({
           {t('inspector')}
         </button>
         <button
-          className={`sidebar-tab ${activeTab === "scan" ? "active" : ""}`}
+          className={`ui-sidebar-tab ${activeTab === "scan" ? "active" : ""}`}
           onClick={() => setActiveTab("scan")}
           role="tab"
           aria-selected={activeTab === "scan"}
@@ -74,7 +74,8 @@ export default function AppSidebar({
           {t('scan')}
         </button>
         <button
-          className={`sidebar-tab ${activeTab === "advanced-search" ? "active" : ""}`}
+          className={`ui-sidebar-tab ${activeTab === "advanced-search" ? "active" : ""}`}
+          data-testid="sidebar-tab-advanced-search"
           onClick={() => setActiveTab("advanced-search")}
           role="tab"
           aria-selected={activeTab === "advanced-search"}
@@ -84,7 +85,8 @@ export default function AppSidebar({
           {t('advancedSearch')}
         </button>
         <button
-          className={`sidebar-tab ${activeTab === "index" ? "active" : ""}`}
+          className={`ui-sidebar-tab ${activeTab === "index" ? "active" : ""}`}
+          data-testid="sidebar-tab-index"
           onClick={() => setActiveTab("index")}
           role="tab"
           aria-selected={activeTab === "index"}
@@ -95,13 +97,14 @@ export default function AppSidebar({
         </button>
       </div>
 
-      <div className="sidebar-glossary">
+      <div className="ui-sidebar-glossary">
         <GlossaryChips />
       </div>
 
-      <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-inspector" aria-labelledby="sidebar-tab-inspector" style={{ display: activeTab === "inspector" ? undefined : "none" }}>
+      <div className="ui-sidebar-content" role="tabpanel" id="sidebar-tabpanel-inspector" aria-labelledby="sidebar-tab-inspector" style={{ display: activeTab === "inspector" ? undefined : "none" }}>
         <GlobalSearch
           tokens={allTokens}
+          analyticsSurface="sidebar"
           onTokenSelect={onTokenSelect}
           onTokenHover={onTokenHover}
           onRootSelect={onRootSelect}
@@ -109,7 +112,7 @@ export default function AppSidebar({
           onSearchQuerySubmitted={onSearchQuerySubmitted}
           onSearchResultSelected={onSearchResultSelected}
         />
-        <div className="inspector-search-divider" />
+        <div className="ui-sidebar-divider" />
         <MorphologyInspector
           token={inspectorToken}
           mode={inspectorMode}
@@ -120,7 +123,7 @@ export default function AppSidebar({
         />
       </div>
 
-      <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-scan" aria-labelledby="sidebar-tab-scan" style={{ display: activeTab === "scan" ? undefined : "none" }}>
+      <div className="ui-sidebar-content" role="tabpanel" id="sidebar-tabpanel-scan" aria-labelledby="sidebar-tab-scan" style={{ display: activeTab === "scan" ? undefined : "none" }}>
         {activeTab === "scan" && (
           <LiveScanner
             allTokens={allTokens}
@@ -129,7 +132,14 @@ export default function AppSidebar({
         )}
       </div>
 
-      <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-advanced-search" aria-labelledby="sidebar-tab-advanced-search" style={{ display: activeTab === "advanced-search" ? undefined : "none" }}>
+      <div
+        className="ui-sidebar-content"
+        role="tabpanel"
+        id="sidebar-tabpanel-advanced-search"
+        data-testid="sidebar-panel-advanced-search"
+        aria-labelledby="sidebar-tab-advanced-search"
+        style={{ display: activeTab === "advanced-search" ? undefined : "none" }}
+      >
         <SemanticSearchPanel
           tokens={allTokens}
           onTokenHover={onTokenHover}
@@ -139,7 +149,14 @@ export default function AppSidebar({
         />
       </div>
 
-      <div className="sidebar-content" role="tabpanel" id="sidebar-tabpanel-index" aria-labelledby="sidebar-tab-index" style={{ display: activeTab === "index" ? undefined : "none" }}>
+      <div
+        className="ui-sidebar-content"
+        role="tabpanel"
+        id="sidebar-tabpanel-index"
+        data-testid="sidebar-panel-index"
+        aria-labelledby="sidebar-tab-index"
+        style={{ display: activeTab === "index" ? undefined : "none" }}
+      >
         <CorpusIndex
           tokens={allTokens}
           onSelectSurah={onSelectSurah || (() => { })}
@@ -149,71 +166,42 @@ export default function AppSidebar({
         />
       </div>
 
-      <style jsx>{`
-        .app-sidebar {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            box-shadow: -4px 0 24px rgba(0,0,0,0.1);
-            backdrop-filter: blur(20px);
-        }
-
-        .sidebar-tabs {
-            display: flex;
-            border-bottom: 1px solid var(--line);
-        }
-
-        .sidebar-tab {
-            flex: 1;
-            padding: 10px 6px;
-            background: transparent;
-            border: none;
-            color: var(--ink-secondary);
-            font-family: inherit;
-            font-size: 0.82rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-bottom: 2px solid transparent;
-        }
-
-        .sidebar-tab:hover {
-            color: var(--ink);
-            background: rgba(255,255,255,0.05);
-        }
-
-        .sidebar-tab.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .sidebar-tab:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: -2px;
-            border-radius: 4px;
-        }
-
-        .sidebar-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 16px calc(16px + var(--footer-height, 48px));
-        }
-
-        .sidebar-glossary {
-            padding: 10px 12px 8px;
-            border-bottom: 1px solid var(--line);
-            background: color-mix(in srgb, var(--panel), white 4%);
-        }
-
-        .inspector-search-divider {
-            height: 1px;
-            background: var(--line);
-            margin: 16px 0;
+      {/* On mobile the GlobalSearch mobile media-query collapses into a compact icon and uses
+          position:absolute overrides that escape the sidebar panel, putting results at the bottom
+          of the screen. The overrides below restore full-width, inline behaviour inside the
+          sidebar, mirroring what MobileSearchOverlay does for its own context. */}
+      <style jsx global>{`
+        @media (max-width: 640px) {
+          .sidebar-content .global-search {
+            position: relative !important;
+          }
+          .sidebar-content .search-input-wrapper {
+            width: auto !important;
+            height: auto !important;
+            padding: 8px 12px !important;
+            background: var(--bg-2) !important;
+            border-color: var(--line) !important;
+          }
+          .sidebar-content .search-input-wrapper:focus-within {
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            z-index: auto !important;
+          }
+          .sidebar-content .search-input {
+            display: block !important;
+            width: 100% !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+          }
+          .sidebar-content .search-clear {
+            display: block !important;
+          }
+          .sidebar-content .search-results-dropdown {
+            position: static !important;
+            margin-top: 6px;
+          }
         }
       `}</style>
     </aside>

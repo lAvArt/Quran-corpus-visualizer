@@ -47,7 +47,6 @@ export default function CorpusArchitectureMap({
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
-    const zoomTransformRef = useRef(d3.zoomIdentity);
 
     const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
         minScale: 0.1,

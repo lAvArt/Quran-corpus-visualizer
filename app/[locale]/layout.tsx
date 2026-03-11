@@ -1,42 +1,17 @@
-import type { Metadata, Viewport } from "next";
-import { Amiri, Fraunces, Space_Grotesk } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Providers } from "./providers";
-import "./globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '../../i18n/routing';
 import { Footer } from "@/components/ui/Footer";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const amiri = Amiri({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "700"],
-  variable: "--font-arabic",
-  display: "swap",
-});
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-};
+function isRoutingLocale(locale: string): locale is (typeof routing.locales)[number] {
+  return routing.locales.includes(locale as (typeof routing.locales)[number]);
+}
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://quran.pluragate.org'),
   title: {
     default: "Quran Corpus Visualizer",
     template: "%s | Quran Corpus Visualizer"
@@ -105,7 +80,7 @@ export default async function RootLayout({
   const { locale } = await params;
 
   // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as (typeof routing.locales)[number])) {
+  if (!isRoutingLocale(locale)) {
     notFound();
   }
 
@@ -116,37 +91,32 @@ export default async function RootLayout({
   const direction = locale === 'ar' ? 'rtl' : 'ltr';
 
   return (
-    <html
-      lang={locale}
-      dir={direction}
-      className={`${spaceGrotesk.variable} ${fraunces.variable} ${amiri.variable}`}
-      suppressHydrationWarning
-    >
-      <body className="body-root">
-        <NextIntlClientProvider messages={messages}>
-          <Providers>
+    <>
+      <NextIntlClientProvider messages={messages}>
+        <Providers>
+          <div dir={direction}>
             {children}
             <Footer />
-          </Providers>
-        </NextIntlClientProvider>
-        <Analytics />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "Quran Corpus Visualizer",
-              "url": "https://quran-corpus-visualizer.vercel.app",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://quran-corpus-visualizer.vercel.app/?q={search_term_string}", // Updated target to match app structure
-                "query-input": "required name=search_term_string"
-              }
-            })
-          }}
-        />
-      </body>
-    </html>
+          </div>
+        </Providers>
+      </NextIntlClientProvider>
+      <Analytics />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Quran Corpus Visualizer",
+            "url": "https://quran.pluragate.org",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://quran.pluragate.org/?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          })
+        }}
+      />
+    </>
   );
 }
