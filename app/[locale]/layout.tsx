@@ -94,7 +94,7 @@ export default async function RootLayout({
     <>
       <NextIntlClientProvider messages={messages}>
         <Providers>
-          <div dir={direction}>
+          <div dir={direction} lang={locale} className="locale-shell">
             {children}
             <Footer />
           </div>
