@@ -28,7 +28,6 @@ import type { WalkthroughStepConfig } from "@/lib/schema/walkthrough";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
 import {
-  DEFAULT_COLOR_THEME_ID,
   DEFAULT_CUSTOM_COLOR_THEME,
   applyColorTheme,
   isValidColorThemeId,
@@ -39,6 +38,12 @@ import {
 } from "@/lib/theme/colorThemes";
 import { isValidLexicalColorMode, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { writeRecentExplorationState as persistRecentExplorationState } from "@/lib/hooks/useRecentExplorationState";
+import {
+  DEFAULT_THEME_PREFERENCE_STATE,
+  THEME_COOKIE_NAME,
+  serializeThemePreferenceCookie,
+  type ThemePreferenceState,
+} from "@/lib/theme/themePreferences";
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 const EXPERIENCE_STORAGE_KEY = "quran-corpus-onboarding";
@@ -116,17 +121,20 @@ interface ExperienceStorageState {
   lastCompletedAt?: string;
 }
 
-export function useHomePageController(initialCorpusData?: CorpusOverviewData) {
+export function useHomePageController(
+  initialCorpusData?: CorpusOverviewData,
+  initialThemePreference: ThemePreferenceState = DEFAULT_THEME_PREFERENCE_STATE
+) {
   const { isLeftSidebarOpen, isRightSidebarOpen, setRightSidebarOpen } = useVizControl();
   const [hoverTokenId, setHoverTokenId] = useState<string | null>(null);
   const [focusedTokenId, setFocusedTokenId] = useState<string | null>(null);
   const [vizMode, setVizMode] = useState<VisualizationMode>("radial-sura");
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>("beginner");
   const [showAdvancedModes, setShowAdvancedModes] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
-  const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(DEFAULT_COLOR_THEME_ID);
+  const [theme, setTheme] = useState<"light" | "dark">(initialThemePreference.theme);
+  const [colorThemeId, setColorThemeId] = useState<ColorThemeId>(initialThemePreference.colorThemeId);
   const [lexicalColorMode, setLexicalColorMode] = useState<LexicalColorMode>("theme");
-  const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(DEFAULT_CUSTOM_COLOR_THEME);
+  const [customColorTheme, setCustomColorTheme] = useState<CustomColorTheme>(initialThemePreference.customColorTheme);
   const [experiencePhase, setExperiencePhase] = useState<ExperiencePhase>("none");
   const [showOnStartup, setShowOnStartup] = useState(true);
   const [experienceCompleted, setExperienceCompleted] = useState(false);
@@ -200,6 +208,11 @@ export function useHomePageController(initialCorpusData?: CorpusOverviewData) {
           selectedLemma,
         })
       );
+      document.cookie = `${THEME_COOKIE_NAME}=${serializeThemePreferenceCookie({
+        theme,
+        colorThemeId,
+        customColorTheme,
+      })}; path=/; max-age=31536000; samesite=lax`;
     } catch {
       // Ignore localStorage errors
     }
