@@ -101,7 +101,23 @@ export function getThemeBootstrapConfig(): ThemeBootstrapConfig {
     storageKey: THEME_LOCAL_STORAGE_KEY,
     cookieName: THEME_COOKIE_NAME,
     presetIds: COLOR_THEME_PRESETS.map((preset) => preset.id),
-    presets: COLOR_THEME_PRESETS.map((preset) => ({ id: preset.id, light: preset.light, dark: preset.dark })),
+    presets: COLOR_THEME_PRESETS.map((preset) => ({
+      id: preset.id,
+      light: {
+        accent: preset.light.accent,
+        accent2: preset.light.accent2,
+        accent3: preset.light.accent3,
+        accentGlow: preset.light.accentGlow,
+        accent2Glow: preset.light.accent2Glow,
+      },
+      dark: {
+        accent: preset.dark.accent,
+        accent2: preset.dark.accent2,
+        accent3: preset.dark.accent3,
+        accentGlow: preset.dark.accentGlow,
+        accent2Glow: preset.dark.accent2Glow,
+      },
+    })),
     defaultState: DEFAULT_THEME_PREFERENCE_STATE,
   };
 }
