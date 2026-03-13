@@ -7,16 +7,18 @@ import VisualizationViewport from "@/components/home/VisualizationViewport";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useHomePageController, VizControlProvider } from "@/lib/hooks/useHomePageController";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
+import type { ThemePreferenceState } from "@/lib/theme/themePreferences";
 
 interface HomePageClientProps {
   initialCorpusData: CorpusOverviewData;
+  initialThemePreference: ThemePreferenceState;
 }
 
-function HomePageContent({ initialCorpusData }: HomePageClientProps) {
+function HomePageContent({ initialCorpusData, initialThemePreference }: HomePageClientProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
   const tSearch = useTranslations("SearchWorkspace");
-  const controller = useHomePageController(initialCorpusData);
+  const controller = useHomePageController(initialCorpusData, initialThemePreference);
 
   return (
     <div className="immersive-dashboard" data-theme={controller.theme}>
@@ -143,10 +145,10 @@ function HomePageContent({ initialCorpusData }: HomePageClientProps) {
   );
 }
 
-export default function HomePageClient({ initialCorpusData }: HomePageClientProps) {
+export default function HomePageClient({ initialCorpusData, initialThemePreference }: HomePageClientProps) {
   return (
     <VizControlProvider>
-      <HomePageContent initialCorpusData={initialCorpusData} />
+      <HomePageContent initialCorpusData={initialCorpusData} initialThemePreference={initialThemePreference} />
     </VizControlProvider>
   );
 }

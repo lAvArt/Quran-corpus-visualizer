@@ -194,6 +194,41 @@ export function isValidCustomColorTheme(value: unknown): value is CustomColorThe
   return isPaletteValid(candidate.light) && isPaletteValid(candidate.dark);
 }
 
+export function resolveColorThemeCssVariables(
+  id: ColorThemeId,
+  appearance: "light" | "dark",
+  customTheme: CustomColorTheme = DEFAULT_CUSTOM_COLOR_THEME
+): Record<string, string> {
+  const tokens =
+    id === "custom"
+      ? {
+          accent: customTheme[appearance].accent,
+          accent2: customTheme[appearance].accent2,
+          accent3: customTheme[appearance].accent3,
+          accentGlow: hexToRgba(customTheme[appearance].accent, appearance === "dark" ? 0.52 : 0.42),
+          accent2Glow: hexToRgba(customTheme[appearance].accent2, appearance === "dark" ? 0.5 : 0.45),
+        }
+      : appearance === "dark"
+        ? getColorThemePreset(id).dark
+        : getColorThemePreset(id).light;
+
+  const cssVariables: Record<string, string> = {
+    "--accent": tokens.accent,
+    "--accent-2": tokens.accent2,
+    "--accent-3": tokens.accent3,
+    "--accent-glow": tokens.accentGlow,
+    "--accent-2-glow": tokens.accent2Glow,
+  };
+
+  if (id === "custom") {
+    cssVariables["--bg-0"] = customTheme[appearance].bg0;
+    cssVariables["--bg-1"] = customTheme[appearance].bg1;
+    cssVariables["--bg-2"] = customTheme[appearance].bg2;
+  }
+
+  return cssVariables;
+}
+
 function clearCustomBackgroundOverrides(root: HTMLElement): void {
   root.style.removeProperty("--bg-0");
   root.style.removeProperty("--bg-1");
@@ -208,30 +243,19 @@ export function applyColorTheme(
   if (typeof document === "undefined") return;
 
   const root = document.documentElement;
-  const tokens =
-    id === "custom"
-      ? {
-          accent: customTheme[appearance].accent,
-          accent2: customTheme[appearance].accent2,
-          accent3: customTheme[appearance].accent3,
-          accentGlow: hexToRgba(customTheme[appearance].accent, appearance === "dark" ? 0.52 : 0.42),
-          accent2Glow: hexToRgba(customTheme[appearance].accent2, appearance === "dark" ? 0.5 : 0.45),
-        }
-      : appearance === "dark"
-        ? getColorThemePreset(id).dark
-        : getColorThemePreset(id).light;
+  const cssVariables = resolveColorThemeCssVariables(id, appearance, customTheme);
 
   root.setAttribute("data-color-theme", id);
-  root.style.setProperty("--accent", tokens.accent);
-  root.style.setProperty("--accent-2", tokens.accent2);
-  root.style.setProperty("--accent-3", tokens.accent3);
-  root.style.setProperty("--accent-glow", tokens.accentGlow);
-  root.style.setProperty("--accent-2-glow", tokens.accent2Glow);
+  root.style.setProperty("--accent", cssVariables["--accent"]);
+  root.style.setProperty("--accent-2", cssVariables["--accent-2"]);
+  root.style.setProperty("--accent-3", cssVariables["--accent-3"]);
+  root.style.setProperty("--accent-glow", cssVariables["--accent-glow"]);
+  root.style.setProperty("--accent-2-glow", cssVariables["--accent-2-glow"]);
 
   if (id === "custom") {
-    root.style.setProperty("--bg-0", customTheme[appearance].bg0);
-    root.style.setProperty("--bg-1", customTheme[appearance].bg1);
-    root.style.setProperty("--bg-2", customTheme[appearance].bg2);
+    root.style.setProperty("--bg-0", cssVariables["--bg-0"]);
+    root.style.setProperty("--bg-1", cssVariables["--bg-1"]);
+    root.style.setProperty("--bg-2", cssVariables["--bg-2"]);
   } else {
     clearCustomBackgroundOverrides(root);
   }
