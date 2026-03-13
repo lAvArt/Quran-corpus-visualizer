@@ -4,9 +4,11 @@ import { Amiri, Fraunces, Space_Grotesk } from "next/font/google";
 import { cookies } from "next/headers";
 import {
   THEME_COOKIE_NAME,
+  THEME_BOOTSTRAP_SOURCE,
   buildThemeDocumentState,
-  getThemeBootstrapScript,
+  getThemeBootstrapConfig,
   parseThemePreferenceCookie,
+  serializeThemeBootstrapConfig,
 } from "@/lib/theme/themePreferences";
 import "./[locale]/globals.css";
 
@@ -43,6 +45,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
   const themeDocumentState = buildThemeDocumentState(
     parseThemePreferenceCookie(cookieStore.get(THEME_COOKIE_NAME)?.value)
   );
+  const themeBootstrapConfig = serializeThemeBootstrapConfig(getThemeBootstrapConfig());
 
   return (
     <html
@@ -54,7 +57,12 @@ export default async function AppLayout({ children }: Readonly<{ children: React
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: getThemeBootstrapScript() }} />
+        <script
+          id="theme-bootstrap-config"
+          type="application/json"
+          dangerouslySetInnerHTML={{ __html: themeBootstrapConfig }}
+        />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SOURCE }} />
       </head>
       <body className="body-root">{children}</body>
     </html>
