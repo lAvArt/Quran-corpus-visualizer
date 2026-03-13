@@ -43,6 +43,45 @@ test.describe("app shell smoke", () => {
     await expect(page.getByTestId("app-mode-link-search")).toHaveAttribute("data-active", "true");
   });
 
+  test("arabic explore keeps pinned panels docked to viewport edges", async ({ page }) => {
+    await page.goto("/ar");
+    await page.getByRole("button", { name: /الأدوات/i }).click();
+
+    const layout = await page.evaluate(() => {
+      const getRect = (selector: string) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+
+        return {
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          flexDirection: style.flexDirection,
+        };
+      };
+
+      return {
+        viewportWidth: window.innerWidth,
+        toolsSidebar: getRect(".floating-sidebar"),
+        selectionPanel: getRect(".viz-sidebar-stack"),
+        selectionHeader: getRect(".ui-context-panel-header"),
+      };
+    });
+
+    expect(layout.toolsSidebar).not.toBeNull();
+    expect(layout.selectionPanel).not.toBeNull();
+    expect(layout.selectionHeader).not.toBeNull();
+
+    expect(layout.toolsSidebar!.left).toBeLessThanOrEqual(24);
+    expect(layout.toolsSidebar!.right).toBeGreaterThan(layout.toolsSidebar!.left);
+    expect(layout.toolsSidebar!.width).toBeGreaterThan(300);
+    expect(layout.selectionPanel!.right).toBeGreaterThanOrEqual(layout.viewportWidth - 24);
+    expect(layout.selectionHeader!.flexDirection).toBe("row-reverse");
+  });
+
   test("search workspace returns a deterministic sample result", async ({ page }) => {
     await page.goto("/en/search");
 
