@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quran Corpus Visualizer — Embed Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f1117;
+      color: #e4e4e7;
+      padding: 2rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.75rem;
+      margin-bottom: .5rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #a1a1aa;
+      margin-bottom: 2rem;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .controls label {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .875rem;
+      color: #a1a1aa;
+    }
+
+    .controls select {
+      background: #1e1e2e;
+      color: #e4e4e7;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      font-size: .875rem;
+    }
+
+    .embed-container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      padding-bottom: 56.25%;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #1e1e2e;
+    }
+
+    .embed-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .snippet {
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      background: #1e1e2e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: "Fira Code", "Cascadia Code", monospace;
+      font-size: .8rem;
+      color: #a5d6ff;
+      white-space: pre-wrap;
+      word-break: break-all;
+      position: relative;
+    }
+
+    .snippet button {
+      position: absolute;
+      top: .5rem;
+      right: .5rem;
+      background: #333;
+      color: #e4e4e7;
+      border: none;
+      border-radius: 4px;
+      padding: .3rem .6rem;
+      font-size: .75rem;
+      cursor: pointer;
+    }
+
+    .snippet button:hover { background: #444; }
+
+    footer {
+      text-align: center;
+      color: #52525b;
+      font-size: .75rem;
+      margin-top: 2rem;
+    }
+
+    footer a { color: #a1a1aa; }
+  </style>
+</head>
+<body>
+
+  <h1>Embed Demo</h1>
+  <p class="subtitle">Preview embeddable Quran Corpus visualizations and grab the iframe snippet.</p>
+
+  <div class="controls">
+    <label>
+      Visualization
+      <select id="vizMode">
+        <option value="root-network">Root Network</option>
+        <option value="radial-sura">Radial Surah Map</option>
+        <option value="arc-flow">Arc Flow</option>
+        <option value="dependency-tree">Dependency Tree</option>
+        <option value="sankey-flow">Sankey Flow</option>
+        <option value="surah-distribution">Surah Distribution</option>
+        <option value="corpus-architecture">Corpus Architecture</option>
+        <option value="knowledge-graph">Knowledge Graph</option>
+        <option value="collocation-network">Collocation Network</option>
+        <option value="heatmap">Heatmap</option>
+      </select>
+    </label>
+
+    <label>
+      Surah
+      <select id="surah"></select>
+    </label>
+
+    <label>
+      Theme
+      <select id="theme">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="embed-container">
+    <iframe id="preview" loading="lazy" allowfullscreen></iframe>
+  </div>
+
+  <div class="snippet">
+    <button id="copy">Copy</button>
+    <code id="code"></code>
+  </div>
+
+  <footer>
+    <a href="https://github.com/lAvArt/Quran-corpus-visualizer" target="_blank">Quran Corpus Visualizer</a>
+    &mdash; see <a href="EMBEDDING.md">docs/EMBEDDING.md</a> for full reference.
+  </footer>
+
+  <script>
+    const BASE = "https://quran.pluragate.org/embed";
+
+    const surahSelect = document.getElementById("surah");
+    for (let i = 1; i <= 114; i++) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = i;
+      if (i === 3) opt.selected = true;
+      surahSelect.appendChild(opt);
+    }
+
+    function update() {
+      const viz   = document.getElementById("vizMode").value;
+      const surah = document.getElementById("surah").value;
+      const theme = document.getElementById("theme").value;
+      const src   = `${BASE}/${viz}?surah=${surah}&theme=${theme}`;
+
+      document.getElementById("preview").src = src;
+
+      const snippet =
+        `<iframe\n` +
+        `  src="${src}"\n` +
+        `  width="800"\n` +
+        `  height="600"\n` +
+        `  style="border:0;border-radius:8px"\n` +
+        `  loading="lazy"\n` +
+        `  allowfullscreen\n` +
+        `></iframe>`;
+
+      document.getElementById("code").textContent = snippet;
+    }
+
+    document.getElementById("vizMode").addEventListener("change", update);
+    document.getElementById("surah").addEventListener("change", update);
+    document.getElementById("theme").addEventListener("change", update);
+
+    document.getElementById("copy").addEventListener("click", function () {
+      navigator.clipboard.writeText(document.getElementById("code").textContent);
+      this.textContent = "Copied!";
+      setTimeout(() => { this.textContent = "Copy"; }, 1500);
+    });
+
+    update();
+  </script>
+</body>
+</html>

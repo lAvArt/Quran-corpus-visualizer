@@ -205,6 +205,7 @@ docs/                Product, schema, roadmap, and release documentation
 - [SECURITY.md](SECURITY.md)
 - [docs/SCHEMA.md](docs/SCHEMA.md)
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)
+- [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Attribution

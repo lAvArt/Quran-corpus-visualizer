@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { VizErrorBoundary } from "@/components/ErrorBoundary";
 import { VizControlProvider } from "@/lib/hooks/VizControlContext";
-import { loadFullCorpus } from "@/lib/corpus/corpusLoader";
+import { loadFullCorpus, loadSurahs } from "@/lib/corpus/corpusLoader";
 import { buildRootWordFlows, uniqueRoots } from "@/lib/search/rootFlows";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
@@ -75,9 +75,15 @@ export default function EmbedClient({ vizMode, initialRoot, initialSurah, initia
   const containerRef = useRef<HTMLDivElement>(null);
 
   /* ---- data loading ------------------------------------------------ */
+  const needsFullCorpus = vizMode === "surah-distribution" || vizMode === "corpus-architecture" || vizMode === "knowledge-graph";
+
   useEffect(() => {
     let cancelled = false;
-    loadFullCorpus().then((tokens) => {
+    const loader = needsFullCorpus
+      ? loadFullCorpus()
+      : loadSurahs([selectedSurahId]);
+
+    loader.then((tokens) => {
       if (!cancelled) {
         setAllTokens(tokens);
         setLoading(false);
@@ -86,7 +92,7 @@ export default function EmbedClient({ vizMode, initialRoot, initialSurah, initia
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [needsFullCorpus, selectedSurahId]);
 
   const flows = useMemo(() => buildRootWordFlows(allTokens), [allTokens]);
   const roots = useMemo(() => uniqueRoots(allTokens), [allTokens]);
