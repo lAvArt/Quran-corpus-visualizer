@@ -175,7 +175,7 @@ export default function CommandBar({
           aria-controls="global-search-results"
           aria-activedescendant={isOpen && results.length > 0 ? `search-result-${selectedIndex}` : undefined}
           aria-autocomplete="list"
-          aria-label={t("placeholder")}
+          aria-label={t("ariaLabel")}
         />
         {query ? (
           <button

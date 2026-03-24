@@ -3,7 +3,7 @@
  * Every answer is derived from the same data the question was generated from.
  */
 
-import type { CorpusToken } from "@/lib/schema/types";
+import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import type { RootFrequencyData } from "@/lib/search/collocation";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -15,10 +15,12 @@ export interface QuizQuestion {
   templateType: QuestionTemplateType;
   difficulty: Difficulty;
   prompt: string;
+  promptValues?: Record<string, string | number>;
   choices: string[];
   correctIndex: number;
   /** Shown after answering — explains the corpus data behind the answer */
   explanation: string;
+  explanationValues?: Record<string, string | number>;
   /** The root this question is about (for personalized quiz weighting) */
   subjectRoot: string | null;
 }
@@ -26,7 +28,6 @@ export interface QuizQuestion {
 export type QuestionTemplateType =
   | "root-frequency"
   | "surah-distribution"
-  | "root-identification"
   | "gloss-matching"
   | "comparative-frequency"
   | "morphology-pos"
@@ -37,6 +38,11 @@ export interface QuizCorpusData {
   freqData: RootFrequencyData;
   glosses: ReadonlyMap<string, string>;
   surahNames: Record<number, { name: string; arabic: string; verses: number }>;
+  locale: string;
+  glossLocale: string | null;
+  formatNumber: (value: number) => string;
+  formatSurahName: (surahId: number) => string;
+  formatPosLabel: (pos: PartOfSpeech) => string;
 }
 
 /** A seeded PRNG function: () => number in [0, 1) */
@@ -48,7 +54,17 @@ export interface QuestionTemplate {
   /** Can this template produce a question given the data? */
   canGenerate: (data: QuizCorpusData) => boolean;
   /** Generate one question. Returns null if it can't find suitable data. */
-  generate: (data: QuizCorpusData, rng: SeededRng, usedRoots: Set<string>) => QuizQuestion | null;
+  generate: (
+    data: QuizCorpusData,
+    rng: SeededRng,
+    usedRoots: Set<string>,
+    preferredRoots?: string[],
+  ) => QuizQuestion | null;
+}
+
+export interface QuizQuestionValidationResult {
+  valid: boolean;
+  reason?: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -68,8 +84,8 @@ function shuffle<T>(arr: T[], rng: SeededRng): T[] {
 }
 
 /** Format a large number with locale-style commas */
-function fmt(n: number): string {
-  return n.toLocaleString("en-US");
+function fmt(data: QuizCorpusData, n: number): string {
+  return data.formatNumber(n);
 }
 
 /**
@@ -91,11 +107,17 @@ function getQuizWorthyRoots(
   return roots;
 }
 
-/** Pick a root not in usedRoots, mark it used, return it. Returns null if none available. */
-function pickFreshRoot(candidates: string[], rng: SeededRng, usedRoots: Set<string>): string | null {
+/** Pick a root not in usedRoots, preferring preferredRoots when possible. */
+function pickFreshRoot(
+  candidates: string[],
+  rng: SeededRng,
+  usedRoots: Set<string>,
+  preferredRoots: string[] = [],
+): string | null {
   const available = candidates.filter((r) => !usedRoots.has(r));
   if (available.length === 0) return null;
-  const root = pick(available, rng);
+  const preferred = available.filter((root) => preferredRoots.includes(root));
+  const root = pick(preferred.length > 0 ? preferred : available, rng);
   usedRoots.add(root);
   return root;
 }
@@ -114,6 +136,142 @@ function buildChoices(correct: string, distractors: string[], rng: SeededRng): {
   return { choices, correctIndex: choices.indexOf(correct) };
 }
 
+function normalizeChoice(value: string): string {
+  return value.normalize("NFKC").trim();
+}
+
+function isChoiceCorrect(question: QuizQuestion, expected: string): boolean {
+  return normalizeChoice(question.choices[question.correctIndex] ?? "") === normalizeChoice(expected);
+}
+
+export function validateQuizQuestion(
+  question: QuizQuestion,
+  data: QuizCorpusData,
+): QuizQuestionValidationResult {
+  if (!Number.isInteger(question.correctIndex) || question.correctIndex < 0 || question.correctIndex >= question.choices.length) {
+    return { valid: false, reason: "correctIndex out of range" };
+  }
+
+  switch (question.templateType) {
+    case "root-frequency": {
+      const root = question.subjectRoot;
+      if (!root) return { valid: false, reason: "missing subject root" };
+      const expected = fmt(data, data.freqData.rootFrequencies.get(root) ?? 0);
+      return isChoiceCorrect(question, expected)
+        ? { valid: true }
+        : { valid: false, reason: "root frequency mismatch" };
+    }
+
+    case "surah-distribution": {
+      const root = question.subjectRoot;
+      if (!root) return { valid: false, reason: "missing subject root" };
+
+      const surahCounts = new Map<number, number>();
+      for (const token of data.tokens) {
+        if (token.root === root) {
+          surahCounts.set(token.sura, (surahCounts.get(token.sura) ?? 0) + 1);
+        }
+      }
+
+      let topSurah = 0;
+      let topCount = -1;
+      for (const [surahId, count] of surahCounts) {
+        if (count > topCount) {
+          topSurah = surahId;
+          topCount = count;
+        }
+      }
+
+      const expected = data.formatSurahName(topSurah);
+      return isChoiceCorrect(question, expected)
+        ? { valid: true }
+        : { valid: false, reason: "surah distribution mismatch" };
+    }
+
+    case "gloss-matching": {
+      const root = question.subjectRoot;
+      if (!root) return { valid: false, reason: "missing subject root" };
+      return isChoiceCorrect(question, root)
+        ? { valid: true }
+        : { valid: false, reason: "gloss root mismatch" };
+    }
+
+    case "comparative-frequency": {
+      const rootA = String(question.promptValues?.rootA ?? "");
+      const rootB = String(question.promptValues?.rootB ?? "");
+      if (!rootA || !rootB) return { valid: false, reason: "missing comparative roots" };
+      const freqA = data.freqData.rootFrequencies.get(rootA) ?? 0;
+      const freqB = data.freqData.rootFrequencies.get(rootB) ?? 0;
+      const expected = freqA >= freqB ? rootA : rootB;
+      return isChoiceCorrect(question, expected)
+        ? { valid: true }
+        : { valid: false, reason: "comparative frequency mismatch" };
+    }
+
+    case "morphology-pos": {
+      const root = question.subjectRoot;
+      if (!root) return { valid: false, reason: "missing subject root" };
+      const posCounts = new Map<PartOfSpeech, number>();
+      for (const token of data.tokens) {
+        if (token.root !== root || !token.pos) continue;
+        posCounts.set(token.pos, (posCounts.get(token.pos) ?? 0) + 1);
+      }
+
+      let topPos: PartOfSpeech | null = null;
+      let topCount = -1;
+      for (const [pos, count] of posCounts) {
+        if (count > topCount) {
+          topPos = pos;
+          topCount = count;
+        }
+      }
+      if (!topPos) return { valid: false, reason: "missing POS winner" };
+
+      const expected = data.formatPosLabel(topPos);
+      return isChoiceCorrect(question, expected)
+        ? { valid: true }
+        : { valid: false, reason: "morphology POS mismatch" };
+    }
+
+    case "collocation": {
+      const root = question.subjectRoot;
+      if (!root) return { valid: false, reason: "missing subject root" };
+
+      const ayahRoots = new Map<string, Set<string>>();
+      for (const token of data.tokens) {
+        const key = `${token.sura}:${token.ayah}`;
+        if (!ayahRoots.has(key)) ayahRoots.set(key, new Set());
+        ayahRoots.get(key)!.add(token.root);
+      }
+
+      const cooccurrence = new Map<string, number>();
+      for (const roots of ayahRoots.values()) {
+        if (!roots.has(root)) continue;
+        for (const value of roots) {
+          if (value !== root) cooccurrence.set(value, (cooccurrence.get(value) ?? 0) + 1);
+        }
+      }
+
+      let topRoot = "";
+      let topCount = -1;
+      for (const [candidate, count] of cooccurrence) {
+        if (count > topCount) {
+          topRoot = candidate;
+          topCount = count;
+        }
+      }
+      if (!topRoot) return { valid: false, reason: "missing collocation winner" };
+
+      return isChoiceCorrect(question, topRoot)
+        ? { valid: true }
+        : { valid: false, reason: "collocation mismatch" };
+    }
+
+    default:
+      return { valid: true };
+  }
+}
+
 // ── Templates ──────────────────────────────────────────────────────
 
 /**
@@ -123,9 +281,9 @@ const rootFrequencyTemplate: QuestionTemplate = {
   type: "root-frequency",
   difficulty: "easy",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!root) return null;
 
     const freq = data.freqData.rootFrequencies.get(root)!;
@@ -139,8 +297,8 @@ const rootFrequencyTemplate: QuestionTemplate = {
     }
 
     const { choices, correctIndex } = buildChoices(
-      fmt(freq),
-      [...distractorNums].map(fmt),
+      fmt(data, freq),
+      [...distractorNums].map((value) => fmt(data, value)),
       rng,
     );
 
@@ -149,9 +307,11 @@ const rootFrequencyTemplate: QuestionTemplate = {
       templateType: "root-frequency",
       difficulty: "easy",
       prompt: `rootFrequency.prompt`,
+      promptValues: { root },
       choices,
       correctIndex,
       explanation: `rootFrequency.explanation`,
+      explanationValues: { root, count: fmt(data, freq) },
       subjectRoot: root,
     };
   },
@@ -164,9 +324,9 @@ const surahDistributionTemplate: QuestionTemplate = {
   type: "surah-distribution",
   difficulty: "easy",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!root) return null;
 
     // Find surah with max occurrences of this root
@@ -183,14 +343,14 @@ const surahDistributionTemplate: QuestionTemplate = {
     for (const [s, c] of surahCounts) {
       if (c > topCount) { topSurah = s; topCount = c; }
     }
-    const correctName = data.surahNames[topSurah]?.name ?? `Surah ${topSurah}`;
+    const correctName = data.formatSurahName(topSurah);
 
     // Pick 3 other surahs that also have this root (but fewer occurrences)
     const otherSurahs = [...surahCounts.keys()].filter((s) => s !== topSurah);
     shuffle(otherSurahs, rng);
     const distractors = otherSurahs
       .slice(0, 3)
-      .map((s) => data.surahNames[s]?.name ?? `Surah ${s}`);
+      .map((s) => data.formatSurahName(s));
     if (distractors.length < 3) return null;
 
     const { choices, correctIndex } = buildChoices(correctName, distractors, rng);
@@ -200,45 +360,11 @@ const surahDistributionTemplate: QuestionTemplate = {
       templateType: "surah-distribution",
       difficulty: "easy",
       prompt: `surahDistribution.prompt`,
+      promptValues: { root },
       choices,
       correctIndex,
       explanation: `surahDistribution.explanation`,
-      subjectRoot: root,
-    };
-  },
-};
-
-/**
- * EASY: "The word X comes from which root?"
- */
-const rootIdentificationTemplate: QuestionTemplate = {
-  type: "root-identification",
-  difficulty: "easy",
-  canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
-    const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
-    if (!root) return null;
-
-    // Pick a random word (token text) derived from this root
-    const rootTokens = data.tokens.filter((t) => t.root === root);
-    if (rootTokens.length === 0) return null;
-    const _token = pick(rootTokens, rng);
-
-    // Distractors: other quiz-worthy roots
-    const distractors = pickDistractors(candidates, root, 3, rng);
-    if (distractors.length < 3) return null;
-
-    const { choices, correctIndex } = buildChoices(root, distractors, rng);
-
-    return {
-      id: `ri-${root}`,
-      templateType: "root-identification",
-      difficulty: "easy",
-      prompt: `rootIdentification.prompt`,
-      choices,
-      correctIndex,
-      explanation: `rootIdentification.explanation`,
+      explanationValues: { root, surah: correctName, count: fmt(data, topCount) },
       subjectRoot: root,
     };
   },
@@ -250,13 +376,13 @@ const rootIdentificationTemplate: QuestionTemplate = {
 const glossMatchingTemplate: QuestionTemplate = {
   type: "gloss-matching",
   difficulty: "medium",
-  canGenerate: (data) => getQuizWorthyRoots(data, true).length >= 4,
-  generate(data, rng, usedRoots) {
+  canGenerate: (data) => data.glossLocale === data.locale && getQuizWorthyRoots(data, true).length >= 4,
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, true);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!root) return null;
 
-    const _gloss = data.glosses.get(root)!;
+    const gloss = data.glosses.get(root)!;
     const distractors = pickDistractors(candidates, root, 3, rng);
     if (distractors.length < 3) return null;
 
@@ -267,9 +393,11 @@ const glossMatchingTemplate: QuestionTemplate = {
       templateType: "gloss-matching",
       difficulty: "medium",
       prompt: `glossMatching.prompt`,
+      promptValues: { gloss },
       choices,
       correctIndex,
       explanation: `glossMatching.explanation`,
+      explanationValues: { root, gloss },
       subjectRoot: root,
     };
   },
@@ -282,11 +410,11 @@ const comparativeFrequencyTemplate: QuestionTemplate = {
   type: "comparative-frequency",
   difficulty: "medium",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, false);
     if (candidates.length < 2) return null;
 
-    const rootA = pickFreshRoot(candidates, rng, usedRoots);
+    const rootA = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!rootA) return null;
     // Pick rootB without adding to usedRoots (only subject root matters)
     const others = candidates.filter((r) => r !== rootA && !usedRoots.has(r));
@@ -297,8 +425,6 @@ const comparativeFrequencyTemplate: QuestionTemplate = {
     const freqB = data.freqData.rootFrequencies.get(rootB) ?? 0;
     const winner = freqA >= freqB ? rootA : rootB;
     const loser = winner === rootA ? rootB : rootA;
-    const _winnerFreq = Math.max(freqA, freqB);
-    const _loserFreq = Math.min(freqA, freqB);
 
     const { choices, correctIndex } = buildChoices(winner, [loser], rng);
 
@@ -307,52 +433,59 @@ const comparativeFrequencyTemplate: QuestionTemplate = {
       templateType: "comparative-frequency",
       difficulty: "medium",
       prompt: `comparativeFrequency.prompt`,
+      promptValues: { rootA, rootB },
       choices,
       correctIndex,
       explanation: `comparativeFrequency.explanation`,
+      explanationValues: {
+        winner,
+        loser,
+        winnerCount: fmt(data, Math.max(freqA, freqB)),
+        loserCount: fmt(data, Math.min(freqA, freqB)),
+      },
       subjectRoot: rootA,
     };
   },
 };
 
 /**
- * HARD: "How many verbs derive from root X?"
+ * HARD: "What is the most common part of speech for root X?"
  */
 const morphologyPosTemplate: QuestionTemplate = {
   type: "morphology-pos",
   difficulty: "hard",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!root) return null;
 
-    const verbCount = data.tokens.filter((t) => t.root === root && t.pos === "V").length;
-    if (verbCount === 0) return null;
-
-    // Generate plausible wrong counts
-    const distractorNums = new Set<number>();
-    while (distractorNums.size < 3) {
-      const offset = Math.floor(rng() * Math.max(10, verbCount)) + 1;
-      const sign = rng() > 0.5 ? 1 : -1;
-      const d = Math.max(0, verbCount + sign * offset);
-      if (d !== verbCount) distractorNums.add(d);
+    const posCounts = new Map<string, number>();
+    for (const token of data.tokens) {
+      if (token.root !== root || !token.pos) continue;
+      posCounts.set(token.pos, (posCounts.get(token.pos) ?? 0) + 1);
     }
 
-    const { choices, correctIndex } = buildChoices(
-      fmt(verbCount),
-      [...distractorNums].map(fmt),
-      rng,
-    );
+    const ranked = [...posCounts.entries()].sort((a, b) => b[1] - a[1]);
+    if (ranked.length < 4) return null;
+
+    const [pos, count] = ranked[0];
+    const distractors = ranked.slice(1).map(([value]) => data.formatPosLabel(value as PartOfSpeech));
+    shuffle(distractors, rng);
+
+    const localizedPos = data.formatPosLabel(pos as PartOfSpeech);
+    const { choices, correctIndex } = buildChoices(localizedPos, distractors.slice(0, 3), rng);
 
     return {
       id: `mp-${root}`,
       templateType: "morphology-pos",
       difficulty: "hard",
       prompt: `morphologyPos.prompt`,
+      promptValues: { root },
       choices,
       correctIndex,
       explanation: `morphologyPos.explanation`,
+      explanationValues: { root, pos: localizedPos, count: fmt(data, count) },
       subjectRoot: root,
     };
   },
@@ -365,9 +498,9 @@ const collocationTemplate: QuestionTemplate = {
   type: "collocation",
   difficulty: "hard",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots) {
+  generate(data, rng, usedRoots, preferredRoots) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
     if (!root) return null;
 
     // Build ayah-level co-occurrence counts for this root
@@ -390,7 +523,7 @@ const collocationTemplate: QuestionTemplate = {
     if (sorted.length < 4) return null;
 
     const topRoot = sorted[0][0];
-    const _topCount = sorted[0][1];
+    const topCount = sorted[0][1];
 
     // Distractors from positions 1–6 (real co-occurring roots, just not #1)
     const distractorPool = sorted.slice(1, 7).map(([r]) => r);
@@ -405,9 +538,11 @@ const collocationTemplate: QuestionTemplate = {
       templateType: "collocation",
       difficulty: "hard",
       prompt: `collocation.prompt`,
+      promptValues: { root },
       choices,
       correctIndex,
       explanation: `collocation.explanation`,
+      explanationValues: { root, collocate: topRoot, count: fmt(data, topCount) },
       subjectRoot: root,
     };
   },
@@ -418,7 +553,6 @@ const collocationTemplate: QuestionTemplate = {
 export const ALL_TEMPLATES: QuestionTemplate[] = [
   rootFrequencyTemplate,
   surahDistributionTemplate,
-  rootIdentificationTemplate,
   glossMatchingTemplate,
   comparativeFrequencyTemplate,
   morphologyPosTemplate,

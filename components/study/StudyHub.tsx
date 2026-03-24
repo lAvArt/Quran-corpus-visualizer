@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
-import { useTranslations } from "next-intl";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import { useRecentExplorationState } from "@/lib/hooks/useRecentExplorationState";
-import type { StudySummary } from "@/lib/schema/appShell";
+import { useQuizProgressSummary } from "@/lib/quiz/useQuizProgressSummary";
+import type { TrackedRoot } from "@/lib/cache/knowledgeCache";
 import AppWorkspaceShell from "@/components/ui/AppWorkspaceShell";
 
 interface StudyHubProps {
@@ -14,7 +15,14 @@ interface StudyHubProps {
   title?: string;
 }
 
+type RootFilter = "all" | "learning" | "learned";
+type StudyPanel = "overview" | "roots" | "account";
+
+const DAY_MS = 1000 * 60 * 60 * 24;
+const WEEK_MS = DAY_MS * 7;
+
 export default function StudyHub({ showBackLink = false, title }: StudyHubProps) {
+  const locale = useLocale();
   const t = useTranslations("Profile");
   const tAuth = useTranslations("Auth");
   const router = useRouter();
@@ -25,6 +33,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     updateRoot,
     exportKnowledge,
     importKnowledge,
+    removeRoot,
     loading: knowledgeLoading,
     pendingMigration,
     acceptMigration,
@@ -32,24 +41,15 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
   } = useKnowledge();
   const importRef = useRef<HTMLInputElement>(null);
   const recentExploration = useRecentExplorationState();
+  const quizProgress = useQuizProgressSummary();
   const [editingRoot, setEditingRoot] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
+  const [activeFilter, setActiveFilter] = useState<RootFilter>("all");
+  const [activePanel, setActivePanel] = useState<StudyPanel>("overview");
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace("/auth/login");
-    }
+    if (!authLoading && !user) router.replace("/auth/login");
   }, [authLoading, router, user]);
-
-  if (authLoading || knowledgeLoading || !user) {
-    return (
-      <main className="ui-page-shell ui-page-shell-centered ui-theme-scope">
-        <div className="ui-panel ui-page-panel ui-page-panel-wide">
-          <p className="study-loading">{t("loading")}</p>
-        </div>
-      </main>
-    );
-  }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -64,15 +64,36 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     event.target.value = "";
   }
 
-  const summary: StudySummary = {
-    trackedRootCount: stats.total,
-    learningCount: stats.learning,
-    learnedCount: stats.learned,
-    recentRoots: Array.from(roots.values()).slice(0, 4).map((root) => root.root),
-    hasPendingMigration: pendingMigration,
-  };
+  const trackedRoots = useMemo(() => sortTrackedRoots(Array.from(roots.values())), [roots]);
+  const learningRoots = useMemo(() => trackedRoots.filter((root) => root.state === "learning"), [trackedRoots]);
+  const learnedRoots = useMemo(() => trackedRoots.filter((root) => root.state === "learned"), [trackedRoots]);
+  const visibleRoots = useMemo(() => {
+    if (activeFilter === "learning") return learningRoots;
+    if (activeFilter === "learned") return learnedRoots;
+    return trackedRoots;
+  }, [activeFilter, learningRoots, learnedRoots, trackedRoots]);
+  const notesCount = useMemo(() => trackedRoots.filter((root) => root.notes.trim()).length, [trackedRoots]);
+  const reviewedThisWeek = useMemo(
+    () => trackedRoots.filter((root) => Date.now() - root.lastReviewedAt <= WEEK_MS).length,
+    [trackedRoots]
+  );
+  const completionPercent = stats.total > 0 ? Math.round((stats.learned / stats.total) * 100) : 0;
+  const nextRoot = learningRoots[0] ?? trackedRoots[0] ?? null;
+  const recentRoots = trackedRoots.slice(0, 3).map((root) => root.root);
+
+  if (authLoading || knowledgeLoading || !user) {
+    return (
+      <main className="ui-page-shell ui-page-shell-centered ui-theme-scope">
+        <div className="ui-panel ui-page-panel ui-page-panel-wide">
+          <p className="study-loading">{t("loading")}</p>
+        </div>
+      </main>
+    );
+  }
 
   const beginEditingRoot = (root: string, notes: string) => {
+    setActivePanel("roots");
+    setActiveFilter("all");
     setEditingRoot(root);
     setNotesDraft(notes);
   };
@@ -88,6 +109,12 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     await updateRoot(root, { state: currentState === "learning" ? "learned" : "learning" });
   };
 
+  const panelTabs: Array<{ key: StudyPanel; label: string; count: number | null }> = [
+    { key: "overview", label: t("studySummary"), count: stats.total },
+    { key: "roots", label: t("trackedRoots"), count: trackedRoots.length },
+    { key: "account", label: t("dataAndAccount"), count: null },
+  ];
+
   return (
     <AppWorkspaceShell
       kicker={t("studyKicker")}
@@ -95,11 +122,13 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
       description={user.email ?? ""}
       panelWidth="wide"
       backgroundVariant="study"
-      status={showBackLink ? (
-        <button type="button" className="ui-btn ui-btn-ghost" onClick={() => router.push("/")}>
-          {t("backToApp")}
-        </button>
-      ) : undefined}
+      status={
+        showBackLink ? (
+          <button type="button" className="ui-btn ui-btn-ghost" onClick={() => router.push("/")}>
+            {t("backToApp")}
+          </button>
+        ) : undefined
+      }
     >
       {pendingMigration ? (
         <div className="migration-banner ui-card-muted">
@@ -108,215 +137,700 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
             <p>{t("migrationDescription")}</p>
           </div>
           <div className="migration-actions">
-            <button
-              type="button"
-              className="ui-btn ui-btn-primary"
-              data-testid="study-migration-merge"
-              onClick={() => void acceptMigration()}
-            >
+            <button type="button" className="ui-btn ui-btn-primary" onClick={() => void acceptMigration()}>
               {t("mergeLocalData")}
             </button>
-            <button
-              type="button"
-              className="ui-btn ui-btn-ghost"
-              data-testid="study-migration-decline"
-              onClick={declineMigration}
-            >
+            <button type="button" className="ui-btn ui-btn-ghost" onClick={declineMigration}>
               {t("keepLocalOnly")}
             </button>
           </div>
         </div>
       ) : null}
 
-      <section className="ui-grid-three study-stats">
-        {[
-          { label: t("statsTotal"), value: stats.total },
-          { label: t("statsLearning"), value: stats.learning },
-          { label: t("statsLearned"), value: stats.learned },
-        ].map(({ label, value }) => (
-          <article key={label} className="ui-stat-card ui-card">
-            <strong>{value}</strong>
-            <span>{label}</span>
-          </article>
+      <nav className="study-panel-switcher section-spacer" aria-label={t("title")}>
+        {panelTabs.map((panel) => (
+          <button
+            key={panel.key}
+            type="button"
+            className={`study-panel-tab ${activePanel === panel.key ? "active" : ""}`}
+            onClick={() => setActivePanel(panel.key)}
+            aria-pressed={activePanel === panel.key}
+          >
+            <span>{panel.label}</span>
+            {panel.count !== null ? <small>{formatNumber(panel.count, locale)}</small> : null}
+          </button>
         ))}
-      </section>
+      </nav>
 
-      <section className="ui-grid-two-wide section-spacer">
-        <section className="ui-card ui-section-card">
-          <div className="ui-card-head">
-            <h2>{t("resumeExploration")}</h2>
-          </div>
-          {recentExploration ? (
-            <div className="ui-info-list">
-              <p className="ui-empty-copy">
-                {t("lastView")} <strong>{recentExploration.lastVisualizationMode}</strong>
-                {recentExploration.lastSurahId ? ` ${t("inSurah", { surahId: recentExploration.lastSurahId })}` : ""}
-              </p>
-              <p className="ui-empty-copy">
-                {recentExploration.lastRoot ? `${t("rootLabel")} ${recentExploration.lastRoot}` : t("noRecentRoot")}
-                {recentExploration.lastLemma ? ` | ${t("lemmaLabel")} ${recentExploration.lastLemma}` : ""}
-              </p>
-              <div className="ui-card-actions">
-                <button type="button" className="ui-btn ui-btn-primary" data-testid="study-resume-explore" onClick={() => router.push("/")}>
-                  {t("resumeInExplore")}
-                </button>
+      {activePanel === "overview" ? (
+        <section className="study-panel-page section-spacer">
+          <section className="ui-card ui-section-card study-summary-card">
+            <div className="ui-card-head">
+              <div className="study-head-copy">
+                <h2>{t("studySummary")}</h2>
+                <p>{t("snapshotDescription")}</p>
               </div>
             </div>
-          ) : (
-            <p className="ui-empty-copy">{t("resumeEmpty")}</p>
-          )}
-        </section>
 
-        <section className="ui-card ui-section-card">
-          <div className="ui-card-head">
-            <h2>{t("studySummary")}</h2>
-          </div>
-          <div className="ui-info-list">
-            <p className="ui-empty-copy">{t("trackedRootsLabel")} {summary.trackedRootCount}</p>
-            <p className="ui-empty-copy">{t("learningLabel")} {summary.learningCount}</p>
-            <p className="ui-empty-copy">{t("learnedLabel")} {summary.learnedCount}</p>
-            <p className="ui-empty-copy">{t("migrationPendingLabel")} {summary.hasPendingMigration ? t("yes") : t("no")}</p>
-            <p className="ui-empty-copy">
-              {t("recentRootsLabel")} {summary.recentRoots.length > 0 ? summary.recentRoots.join(" | ") : t("noneYet")}
-            </p>
-          </div>
-
-          {stats.total > 0 && (
-            <div className="quiz-prompt">
-              <p className="quiz-prompt-copy">{t("quizPromptDesc")}</p>
-              <button
-                type="button"
-                className="ui-btn ui-btn-primary"
-                data-testid="study-go-to-quiz"
-                onClick={() => router.push("/quiz")}
-              >
-                {t("goToQuiz")}
-              </button>
+            <div className="study-summary-strip">
+              <article className="study-metric">
+                <span>{t("statsTotal")}</span>
+                <strong>{formatNumber(stats.total, locale)}</strong>
+              </article>
+              <article className="study-metric">
+                <span>{t("statsLearning")}</span>
+                <strong>{formatNumber(stats.learning, locale)}</strong>
+              </article>
+              <article className="study-metric">
+                <span>{t("statsLearned")}</span>
+                <strong>{formatNumber(stats.learned, locale)}</strong>
+              </article>
+              <article className="study-metric">
+                <span>{t("completionRate")}</span>
+                <strong>{completionPercent}%</strong>
+              </article>
+              <article className="study-metric">
+                <span>{t("quizSessionsCompleted")}</span>
+                <strong>{formatNumber(quizProgress.completedSessions, locale)}</strong>
+              </article>
+              <article className="study-metric">
+                <span>{t("quizAccuracy")}</span>
+                <strong>{quizProgress.averageAccuracy}%</strong>
+              </article>
             </div>
-          )}
-        </section>
-      </section>
 
-      <section className="ui-grid-two-wide">
-        <section className="ui-card ui-section-card">
-          <div className="ui-card-head">
-            <h2>{t("trackedRoots")}</h2>
-            <span>{roots.size}</span>
-          </div>
-          {roots.size === 0 ? (
-            <p className="ui-empty-copy">{t("noRoots")}</p>
-          ) : (
-            <ul className="root-list">
-              {Array.from(roots.values()).map((root) => (
-                <li key={root.root}>
-                  <div className="root-row-main">
-                    <span dir="rtl" className="arabic-root">{root.root}</span>
-                    <span
-                      className={`ui-state-pill ${root.state === "learned" ? "ui-state-pill-success" : "ui-state-pill-warning"}`}
-                      data-testid={`study-root-state-${root.root}`}
-                    >
-                      {root.state === "learned" ? t("learned") : t("learning")}
-                    </span>
-                  </div>
-                  <div className="root-row-actions">
-                    <button
-                      type="button"
-                    className="ui-btn ui-btn-ghost study-root-action"
-                    data-testid={`study-root-toggle-${root.root}`}
-                    onClick={() => void handleToggleRootState(root.root, root.state)}
-                    >
-                      {root.state === "learned" ? t("markLearning") : t("markLearned")}
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-btn ui-btn-ghost study-root-action"
-                      data-testid={`study-root-edit-${root.root}`}
-                      onClick={() => beginEditingRoot(root.root, root.notes)}
-                    >
-                      {t("editNotes")}
-                    </button>
-                  </div>
-                  {editingRoot === root.root ? (
-                    <div className="root-notes-editor">
-                      <textarea
-                        className="root-notes-input"
-                        data-testid={`study-root-notes-input-${root.root}`}
-                        value={notesDraft}
-                        onChange={(event) => setNotesDraft(event.target.value)}
-                        rows={3}
-                      />
+            <div className="study-chip-row">
+              <span className="study-chip">{t("notesSaved")}: {formatNumber(notesCount, locale)}</span>
+              <span className="study-chip">{t("reviewedThisWeek")}: {formatNumber(reviewedThisWeek, locale)}</span>
+              <span className="study-chip">
+                {t("lastQuizLabel")}: {quizProgress.lastCompletedAt ? formatRelativeTime(quizProgress.lastCompletedAt, locale) : t("noQuizActivity")}
+              </span>
+              {recentRoots.length > 0 ? recentRoots.map((root) => (
+                <span key={root} className="study-root-pill" lang="ar" dir="rtl">{root}</span>
+              )) : null}
+            </div>
+          </section>
+
+          <section className="ui-grid-two-wide">
+            <section className="ui-card ui-section-card study-continue-card">
+              <div className="ui-card-head">
+                <div className="study-head-copy">
+                  <h2>{t("reviewNext")}</h2>
+                  <p>{t("reviewNextHint")}</p>
+                </div>
+              </div>
+
+              <div className="study-continue-grid">
+                <article className="study-panel-block">
+                  <span className="study-section-kicker">{t("nextReview")}</span>
+                  {nextRoot ? (
+                    <>
+                      <div className="study-next-head">
+                        <strong className="study-root-value" lang="ar" dir="rtl">{nextRoot.root}</strong>
+                        <span className={`ui-state-pill ${nextRoot.state === "learned" ? "ui-state-pill-success" : "ui-state-pill-warning"}`}>
+                          {nextRoot.state === "learned" ? t("learned") : t("learning")}
+                        </span>
+                      </div>
+                      <p className="study-muted-copy">{nextRoot.notes.trim() || t("notesPrompt")}</p>
+                      <div className="study-chip-row">
+                        <span className="study-chip">{t("lastReviewedLabel")}: {formatRelativeTime(nextRoot.lastReviewedAt, locale)}</span>
+                        <span className="study-chip">{nextRoot.notes.trim() ? t("notesReady") : t("notesMissing")}</span>
+                      </div>
                       <div className="ui-card-actions">
                         <button
                           type="button"
-                          className="ui-btn ui-btn-primary study-root-action"
-                          data-testid={`study-root-save-${root.root}`}
-                          onClick={() => void handleSaveRootNotes()}
+                          className="ui-btn ui-btn-primary"
+                          onClick={() => void handleToggleRootState(nextRoot.root, nextRoot.state)}
                         >
-                          {t("saveNotes")}
+                          {nextRoot.state === "learned" ? t("markLearning") : t("markLearned")}
                         </button>
-                        <button
-                          type="button"
-                          className="ui-btn ui-btn-ghost study-root-action"
-                          onClick={() => {
-                            setEditingRoot(null);
-                            setNotesDraft("");
-                          }}
-                        >
-                          {t("cancel")}
+                        <button type="button" className="ui-btn ui-btn-ghost" onClick={() => beginEditingRoot(nextRoot.root, nextRoot.notes)}>
+                          {t("editNotes")}
                         </button>
                       </div>
-                    </div>
-                  ) : root.notes ? (
-                    <p className="root-notes-copy">{root.notes}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                    </>
+                  ) : (
+                    <p className="ui-empty-copy">{t("reviewNextEmpty")}</p>
+                  )}
+                </article>
 
-        <section className="ui-card ui-section-card">
-          <div className="ui-card-head">
-            <h2>{t("dataAndAccount")}</h2>
-          </div>
-          <p className="ui-empty-copy">{t("dataAndAccountDescription")}</p>
-          <div className="ui-card-actions">
-            <button
-              type="button"
-              className="ui-btn ui-btn-ghost"
-              data-testid="study-export-data"
-              onClick={() => void exportKnowledge()}
-            >
-              {t("exportData")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn ui-btn-ghost"
-              data-testid="study-import-data"
-              onClick={() => importRef.current?.click()}
-            >
-              {t("importData")}
-            </button>
-            <button
-              type="button"
-              className="ui-btn ui-btn-danger"
-              data-testid="study-sign-out"
-              onClick={() => void signOut().then(() => router.push("/"))}
-            >
-              {tAuth("signOut")}
-            </button>
-            <input
-              ref={importRef}
-              data-testid="study-import-input"
-              type="file"
-              accept=".json"
-              hidden
-              onChange={handleImport}
-            />
-          </div>
-        </section>
-      </section>
+                <article className="study-panel-block">
+                  <span className="study-section-kicker">{t("resumeExploration")}</span>
+                  {recentExploration ? (
+                    <>
+                      <div className="study-detail-row">
+                        <span>{t("lastView")}</span>
+                        <strong>
+                          {recentExploration.lastVisualizationMode}
+                          {recentExploration.lastSurahId ? ` ${t("inSurah", { surahId: recentExploration.lastSurahId })}` : ""}
+                        </strong>
+                      </div>
+                      <div className="study-detail-row">
+                        <span>{t("rootLabel")}</span>
+                        <strong>{recentExploration.lastRoot || t("noRecentRoot")}</strong>
+                      </div>
+                      <div className="ui-card-actions">
+                        <button type="button" className="ui-btn ui-btn-primary" onClick={() => router.push("/")}>
+                          {t("resumeInExplore")}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="ui-empty-copy">{t("resumeEmpty")}</p>
+                  )}
+                </article>
+              </div>
+            </section>
 
+            <section className="ui-card ui-section-card study-continue-card">
+              <div className="ui-card-head">
+                <div className="study-head-copy">
+                  <h2>{t("quizProgressTitle")}</h2>
+                  <p>{t("quizProgressDescription")}</p>
+                </div>
+              </div>
+
+              <div className="study-summary-strip study-summary-strip-compact">
+                <article className="study-metric">
+                  <span>{t("dailySessionsLabel")}</span>
+                  <strong>{formatNumber(quizProgress.dailySessions, locale)}</strong>
+                </article>
+                <article className="study-metric">
+                  <span>{t("studySessionsLabel")}</span>
+                  <strong>{formatNumber(quizProgress.studySessions, locale)}</strong>
+                </article>
+              </div>
+              <div className="study-chip-row">
+                <span className="study-chip">{t("questionsAnsweredLabel")}: {formatNumber(quizProgress.questionsAnswered, locale)}</span>
+                <span className="study-chip">{t("correctAnswersLabel")}: {formatNumber(quizProgress.correctAnswers, locale)}</span>
+                <span className="study-chip">
+                  {t("lastSessionTypeLabel")}: {quizProgress.lastSessionType ? t(`quizSessionTypes.${quizProgress.lastSessionType}`) : t("noneYet")}
+                </span>
+              </div>
+              <div className="ui-card-actions">
+                <button type="button" className="ui-btn ui-btn-primary" onClick={() => router.push("/quiz")}>
+                  {t("goToQuiz")}
+                </button>
+              </div>
+            </section>
+          </section>
+        </section>
+      ) : null}
+
+      {activePanel === "roots" ? (
+        <section className="study-panel-page section-spacer">
+          <section className="ui-card ui-section-card">
+            <div className="ui-card-head">
+              <div className="study-head-copy">
+                <h2>{t("trackedRoots")}</h2>
+                <p>{t("trackedRootsDescription", { count: visibleRoots.length, total: trackedRoots.length })}</p>
+              </div>
+              <span>{roots.size}</span>
+            </div>
+
+            {roots.size === 0 ? (
+              <p className="ui-empty-copy">{t("noRoots")}</p>
+            ) : (
+              <>
+                <div className="study-filter-row" role="tablist" aria-label={t("trackedRoots")}>
+                  {([
+                    { key: "all", label: t("filters.all"), count: trackedRoots.length },
+                    { key: "learning", label: t("filters.learning"), count: learningRoots.length },
+                    { key: "learned", label: t("filters.learned"), count: learnedRoots.length },
+                  ] as const).map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      className={`study-filter-btn ${activeFilter === filter.key ? "active" : ""}`}
+                      onClick={() => setActiveFilter(filter.key)}
+                      role="tab"
+                      aria-selected={activeFilter === filter.key}
+                    >
+                      {filter.label} <small>{formatNumber(filter.count, locale)}</small>
+                    </button>
+                  ))}
+                </div>
+
+                <ul className="root-list study-root-list">
+                  {visibleRoots.map((root) => (
+                    <li key={root.root} className="study-root-card">
+                      <div className="study-root-row">
+                        <div className="study-root-main">
+                          <strong className="study-root-inline" lang="ar" dir="rtl">{root.root}</strong>
+                          <div className="study-inline-meta">
+                            <span>{t("lastReviewedLabel")}: {formatRelativeTime(root.lastReviewedAt, locale)}</span>
+                            <span>{t("addedOnLabel")}: {formatAbsoluteDate(root.addedAt, locale)}</span>
+                          </div>
+                        </div>
+                        <span className={`ui-state-pill ${root.state === "learned" ? "ui-state-pill-success" : "ui-state-pill-warning"}`}>
+                          {root.state === "learned" ? t("learned") : t("learning")}
+                        </span>
+                      </div>
+
+                      {editingRoot === root.root ? (
+                        <div className="root-notes-editor">
+                          <textarea
+                            className="root-notes-input"
+                            value={notesDraft}
+                            onChange={(event) => setNotesDraft(event.target.value)}
+                            rows={3}
+                          />
+                          <div className="ui-card-actions">
+                            <button type="button" className="ui-btn ui-btn-primary study-root-action" onClick={() => void handleSaveRootNotes()}>
+                              {t("saveNotes")}
+                            </button>
+                            <button
+                              type="button"
+                              className="ui-btn ui-btn-ghost study-root-action"
+                              onClick={() => {
+                                setEditingRoot(null);
+                                setNotesDraft("");
+                              }}
+                            >
+                              {t("cancel")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="study-root-notes">{root.notes.trim() || t("notesPrompt")}</p>
+                          <div className="root-row-actions">
+                            <button
+                              type="button"
+                              className="ui-btn ui-btn-ghost study-root-action"
+                              onClick={() => void handleToggleRootState(root.root, root.state)}
+                            >
+                              {root.state === "learned" ? t("markLearning") : t("markLearned")}
+                            </button>
+                            <button
+                              type="button"
+                              className="ui-btn ui-btn-ghost study-root-action"
+                              onClick={() => beginEditingRoot(root.root, root.notes)}
+                            >
+                              {t("editNotes")}
+                            </button>
+                            <button type="button" className="ui-btn ui-btn-ghost study-root-action" onClick={() => void removeRoot(root.root)}>
+                              {t("removeRoot")}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        </section>
+      ) : null}
+
+      {activePanel === "account" ? (
+        <section className="study-panel-page section-spacer">
+          <section className="ui-grid-two-wide">
+            <section className="ui-card ui-section-card study-tools-card">
+              <div className="ui-card-head">
+                <div className="study-head-copy">
+                  <h2>{t("quizCardTitle")}</h2>
+                  <p>{t("quizPromptDesc")}</p>
+                </div>
+              </div>
+
+              <div className="study-panel-block">
+                <div className="study-summary-strip study-summary-strip-compact">
+                  <article className="study-metric">
+                    <span>{t("quizSessionsCompleted")}</span>
+                    <strong>{formatNumber(quizProgress.completedSessions, locale)}</strong>
+                  </article>
+                  <article className="study-metric">
+                    <span>{t("quizAccuracy")}</span>
+                    <strong>{quizProgress.averageAccuracy}%</strong>
+                  </article>
+                </div>
+                <div className="ui-card-actions">
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => router.push("/quiz")}>
+                    {t("goToQuiz")}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="ui-card ui-section-card study-tools-card">
+              <div className="ui-card-head">
+                <div className="study-head-copy">
+                  <h2>{t("dataAndAccount")}</h2>
+                  <p>{t("dataAndAccountDescription")}</p>
+                </div>
+              </div>
+
+              <div className="study-tool-actions study-tool-actions-panel">
+                <button type="button" className="ui-btn ui-btn-ghost" onClick={() => void exportKnowledge()}>
+                  {t("exportData")}
+                </button>
+                <button type="button" className="ui-btn ui-btn-ghost" onClick={() => importRef.current?.click()}>
+                  {t("importData")}
+                </button>
+                <button type="button" className="ui-btn ui-btn-danger" onClick={() => void signOut().then(() => router.push("/"))}>
+                  {tAuth("signOut")}
+                </button>
+                <input ref={importRef} type="file" accept=".json" hidden onChange={handleImport} />
+              </div>
+            </section>
+          </section>
+        </section>
+      ) : null}
+
+      <style jsx>{`
+        .study-panel-page {
+          display: grid;
+          gap: 1rem;
+        }
+
+        .study-panel-switcher {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.65rem;
+        }
+
+        .study-panel-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.62rem 0.9rem;
+          border: 1px solid rgba(17, 24, 39, 0.08);
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.5);
+          color: var(--ink-secondary);
+          font: inherit;
+          font-size: 0.86rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .study-panel-tab:hover {
+          transform: translateY(-1px);
+        }
+
+        .study-panel-tab.active {
+          border-color: color-mix(in srgb, var(--accent), white 36%);
+          background: color-mix(in srgb, var(--accent), transparent 88%);
+          color: var(--ink);
+        }
+
+        .study-panel-tab small {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 1.35rem;
+          padding: 0.16rem 0.38rem;
+          border-radius: 999px;
+          background: rgba(17, 24, 39, 0.08);
+          color: inherit;
+          font-size: 0.72rem;
+          line-height: 1;
+        }
+
+        .study-head-copy {
+          display: grid;
+          gap: 0.18rem;
+        }
+
+        .study-head-copy h2 {
+          font-size: 1rem;
+          line-height: 1.2;
+        }
+
+        .study-head-copy p,
+        .study-muted-copy,
+        .study-root-notes {
+          margin: 0;
+          color: var(--ink-muted);
+          font-size: 0.94rem;
+          line-height: 1.5;
+        }
+
+        .study-summary-card,
+        .study-continue-card {
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(248, 244, 238, 0.72));
+        }
+
+        .study-summary-strip,
+        .study-continue-grid {
+          display: grid;
+          gap: 0.8rem;
+        }
+
+        .study-summary-strip {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          margin-bottom: 0.9rem;
+        }
+
+        .study-summary-strip-compact {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          margin-bottom: 0;
+        }
+
+        .study-metric,
+        .study-panel-block {
+          display: grid;
+          gap: 0.45rem;
+          padding: 0.85rem 0.95rem;
+          border: 1px solid rgba(17, 24, 39, 0.08);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.5);
+        }
+
+        .study-metric span,
+        .study-section-kicker,
+        .study-detail-row span {
+          color: var(--ink-muted);
+          font-size: 0.7rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .study-metric strong {
+          font-size: 1.55rem;
+          line-height: 1;
+        }
+
+        .study-chip-row,
+        .study-filter-row,
+        .study-tool-actions,
+        .study-inline-meta,
+        .root-row-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.55rem;
+        }
+
+        .study-chip,
+        .study-root-pill {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.36rem 0.62rem;
+          border-radius: 999px;
+          background: rgba(17, 24, 39, 0.06);
+          color: var(--ink);
+          font-size: 0.76rem;
+          line-height: 1;
+        }
+
+        .study-root-pill,
+        .study-root-value,
+        .study-root-inline {
+          font-family: var(--font-arabic, serif);
+        }
+
+        .study-continue-grid {
+          grid-template-columns: 1.1fr 0.9fr;
+        }
+
+        .study-next-head,
+        .study-detail-row,
+        .study-root-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.9rem;
+          align-items: flex-start;
+        }
+
+        .study-root-value {
+          font-size: 1.95rem;
+          line-height: 0.95;
+        }
+
+        .study-detail-row {
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+        }
+
+        .study-detail-row:last-of-type {
+          margin-bottom: 0.25rem;
+        }
+
+        .study-panel-block :global(.ui-btn),
+        .study-tool-actions :global(.ui-btn),
+        .study-root-card :global(.ui-btn),
+        .migration-actions :global(.ui-btn) {
+          padding: 0.66rem 0.9rem;
+          font-size: 0.94rem;
+          line-height: 1.1;
+        }
+
+        .study-panel-block :global(.ui-card-actions),
+        .study-root-card :global(.ui-card-actions),
+        .study-tool-actions,
+        .root-row-actions {
+          gap: 0.55rem;
+        }
+
+        .study-tool-actions :global(.ui-btn) {
+          min-width: 0;
+        }
+
+        .study-tool-actions {
+          margin-top: 0.9rem;
+          padding-top: 0.9rem;
+          border-top: 1px solid rgba(17, 24, 39, 0.08);
+        }
+
+        .study-tool-actions-panel {
+          margin-top: 0;
+          padding-top: 0;
+          border-top: 0;
+        }
+
+        .study-filter-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.38rem;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid rgba(17, 24, 39, 0.08);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--ink-secondary);
+          font: inherit;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .study-filter-btn.active,
+        .study-filter-btn:hover {
+          border-color: color-mix(in srgb, var(--accent), white 40%);
+          background: color-mix(in srgb, var(--accent), transparent 88%);
+          color: var(--ink);
+        }
+
+        .study-root-list {
+          max-height: none;
+          gap: 0.75rem;
+        }
+
+        .study-root-card {
+          gap: 0.8rem;
+        }
+
+        .study-root-main {
+          display: grid;
+          gap: 0.28rem;
+        }
+
+        .study-root-inline {
+          font-size: 1.25rem;
+          line-height: 0.95;
+        }
+
+        .study-inline-meta {
+          color: var(--ink-muted);
+          font-size: 0.78rem;
+        }
+
+        .study-root-notes {
+          font-size: 0.9rem;
+        }
+
+        .study-root-action {
+          font-size: 0.9rem;
+        }
+
+        @media (min-width: 721px) {
+          .study-panel-block :global(.ui-card-actions) {
+            align-items: center;
+          }
+        }
+
+        @media (max-width: 1100px) {
+          .study-summary-strip,
+          .study-continue-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 720px) {
+          .study-summary-strip,
+          .study-continue-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .study-panel-block :global(.ui-btn),
+          .study-tool-actions :global(.ui-btn),
+          .study-root-card :global(.ui-btn) {
+            width: auto;
+          }
+
+          .study-next-head,
+          .study-detail-row,
+          .study-root-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
+
+        :global([data-theme="dark"] .study-summary-card),
+        :global([data-theme="dark"] .study-continue-card) {
+          background:
+            linear-gradient(180deg, rgba(22, 28, 35, 0.88), rgba(16, 20, 27, 0.86));
+        }
+
+        :global([data-theme="dark"] .study-metric),
+        :global([data-theme="dark"] .study-panel-block) {
+          background: rgba(255, 255, 255, 0.03);
+          border-color: rgba(255, 255, 255, 0.06);
+        }
+
+        :global([data-theme="dark"] .study-chip),
+        :global([data-theme="dark"] .study-root-pill) {
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        :global([data-theme="dark"] .study-detail-row),
+        :global([data-theme="dark"] .study-tool-actions) {
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        :global([data-theme="dark"] .study-panel-tab) {
+          background: rgba(255, 255, 255, 0.03);
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        :global([data-theme="dark"] .study-panel-tab.active) {
+          background: color-mix(in srgb, var(--accent), transparent 86%);
+        }
+
+        :global([data-theme="dark"] .study-panel-tab small) {
+          background: rgba(255, 255, 255, 0.08);
+        }
+      `}</style>
     </AppWorkspaceShell>
   );
+}
+
+function sortTrackedRoots(roots: TrackedRoot[]) {
+  return [...roots].sort((a, b) => {
+    if (a.state !== b.state) return a.state === "learning" ? -1 : 1;
+    if (a.lastReviewedAt !== b.lastReviewedAt) return a.lastReviewedAt - b.lastReviewedAt;
+    return a.addedAt - b.addedAt;
+  });
+}
+
+function formatNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+function formatAbsoluteDate(timestamp: number, locale: string) {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(timestamp);
+}
+
+function formatRelativeTime(timestamp: number, locale: string) {
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const deltaDays = Math.round((timestamp - Date.now()) / DAY_MS);
+  if (Math.abs(deltaDays) <= 30) return rtf.format(deltaDays, "day");
+
+  const deltaMonths = Math.round(deltaDays / 30);
+  if (Math.abs(deltaMonths) < 12) return rtf.format(deltaMonths, "month");
+
+  return rtf.format(Math.round(deltaDays / 365), "year");
 }

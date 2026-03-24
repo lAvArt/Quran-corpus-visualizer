@@ -14,6 +14,7 @@ interface RailItem {
   id: string;
   icon: ReactNode;
   labelKey: string;
+  testId?: string;
   action:
     | { type: "viz"; mode: VisualizationMode }
     | { type: "route"; href: string };
@@ -70,12 +71,12 @@ const icons = {
 };
 
 const RAIL_ITEMS: RailItem[] = [
-  { id: "discover", icon: icons.discover, labelKey: "discover", action: { type: "viz", mode: "surah-distribution" } },
+  { id: "discover", icon: icons.discover, labelKey: "discover", testId: "app-mode-link-explore", action: { type: "viz", mode: "surah-distribution" } },
   { id: "root", icon: icons.root, labelKey: "root", action: { type: "viz", mode: "root-network" } },
   { id: "ayah", icon: icons.ayah, labelKey: "ayah", action: { type: "viz", mode: "radial-sura" } },
-  { id: "search", icon: icons.search, labelKey: "searchRoute", action: { type: "route", href: "/search" } },
-  { id: "study", icon: icons.study, labelKey: "studyRoute", action: { type: "route", href: "/study" } },
-  { id: "quiz", icon: icons.quiz, labelKey: "quizRoute", action: { type: "route", href: "/quiz" } },
+  { id: "search", icon: icons.search, labelKey: "searchRoute", testId: "app-mode-link-search", action: { type: "route", href: "/search" } },
+  { id: "study", icon: icons.study, labelKey: "studyRoute", testId: "app-mode-link-study", action: { type: "route", href: "/study" } },
+  { id: "quiz", icon: icons.quiz, labelKey: "quizRoute", testId: "app-mode-link-quiz", action: { type: "route", href: "/quiz" } },
 ];
 
 /** Left vertical icon rail — journey shortcuts for the 5 user intents + routes */
@@ -84,17 +85,20 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
   const pathname = usePathname();
 
   return (
-    <nav className="journey-rail" aria-label={t("label")}>
+    <nav className="journey-rail" aria-label={t("label")} data-testid="app-mode-nav">
       <div className="rail-group">
         {RAIL_ITEMS.filter((i) => i.action.type === "viz").map((item) => {
           const vizAction = item.action as { type: "viz"; mode: VisualizationMode };
+          const isActive = item.id === "discover" && pathname === "/";
           return (
             <button
               key={item.id}
               type="button"
               className={`rail-btn ${vizMode === vizAction.mode ? "active" : ""}`}
-              data-testid={`rail-${item.id}`}
+              data-testid={item.testId ?? `journey-${item.id}`}
+              data-active={isActive ? "true" : "false"}
               title={t(item.labelKey)}
+              aria-label={t(item.labelKey)}
               onClick={() => onVizModeChange(vizAction.mode)}
             >
               <span className="rail-icon">{item.icon}</span>
@@ -115,8 +119,10 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
               key={item.id}
               href={routeAction.href}
               className={`rail-btn ${isActive ? "active" : ""}`}
-              data-testid={`rail-${item.id}`}
+              data-testid={item.testId ?? `journey-${item.id}`}
+              data-active={isActive ? "true" : "false"}
               title={t(item.labelKey)}
+              aria-label={t(item.labelKey)}
             >
               <span className="rail-icon">{item.icon}</span>
               <span className="rail-label">{t(item.labelKey)}</span>
@@ -231,7 +237,46 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
 
         @media (max-width: 980px) {
           .journey-rail {
-            display: none;
+            top: calc(var(--header-clearance) + 8px);
+            inset-inline-start: 50%;
+            transform: translateX(-50%);
+            flex-direction: row;
+            justify-content: center;
+            gap: 8px;
+            width: min(94vw, 640px);
+            max-width: calc(100vw - 24px);
+            padding: 8px 10px;
+            border-radius: 999px;
+          }
+
+          .rail-group {
+            flex-direction: row;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+
+          .rail-group--routes {
+            gap: 6px;
+          }
+
+          .rail-divider {
+            width: 1px;
+            height: 30px;
+            margin: 0 2px;
+          }
+
+          .rail-btn {
+            width: auto;
+            min-width: 48px;
+            height: 44px;
+            padding: 0 10px;
+            flex-direction: row;
+            gap: 6px;
+          }
+
+          .rail-label {
+            font-size: 0.65rem;
           }
         }
       `}</style>

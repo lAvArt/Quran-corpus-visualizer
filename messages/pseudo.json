@@ -6,6 +6,43 @@
         "hideTools": "[!! Ħîḋè Ťôôļṡ !!]",
         "showTools": "[!! Ṡħôŵ Ťôôļṡ !!]"
     },
+    "SearchWorkspace": {
+        "kicker": "[!! Search Workspace !!]",
+        "title": "[!! Find roots, ayahs, lemmas, and glosses faster !!]",
+        "description": "[!! Use quick search for immediate jumps, then inspect the corpus index to keep your place and compare results across the corpus. !!]",
+        "status": {
+            "full": "[!! Full corpus ready !!]",
+            "fallback": "[!! Fallback corpus !!]",
+            "shell": "[!! Shell ready !!]"
+        },
+        "shellReadyMessage": "[!! Shell-ready exploration is active now across {surahCount} surahs and {rootCount} indexed roots. !!]",
+        "fallbackMessage": "[!! Using fallback corpus data while the full dataset is unavailable. Search remains usable, but some results may be limited. !!]",
+        "loadingMessage": "[!! Loading the full corpus. Search suggestions may be partial for a moment while the shell-ready dataset remains available. !!]",
+        "searchUnavailableMessage": "[!! Search is temporarily limited. You can still browse the corpus index while search recovers. !!]",
+        "quickSearch": "[!! Quick search !!]",
+        "currentResult": "[!! Current result !!]",
+        "noRoot": "[!! No root !!]",
+        "noGloss": "[!! Translation not available !!]",
+        "emptySelection": "[!! Select a result to keep its surah, ayah, and root context visible while you continue searching. !!]",
+        "corpusIndex": "[!! Corpus index !!]",
+        "searchPrimerDescription": "[!! Arabic roots now surface corpus-wide spread, common forms, and lemma clusters while you search. !!]",
+        "searchPrimerHint": "[!! Try هدي, guidance, 2:255, or root:هدي pos:N !!]",
+        "snapshot": {
+            "ready": "[!! Tokens ready !!]",
+            "matches": "[!! Matches !!]",
+            "lens": "[!! Lens !!]",
+            "spotlight": "[!! Spotlight !!]",
+            "noLens": "[!! No active lens !!]",
+            "noSpotlight": "[!! No spotlight yet !!]",
+            "noMatches": "[!! No matches yet !!]",
+            "spotlightHint": "[!! Search by root or meaning to pin a root family here. !!]"
+        },
+        "rootInsight": {
+            "title": "[!! Root dossier !!]",
+            "topLemmas": "[!! Frequent lemmas !!]",
+            "posMix": "[!! POS mix !!]"
+        }
+    },
     "AppSidebar": {
         "index": "[!! Îñḋèẋ !!]",
         "search": "[!! Ṡèâṛçħ !!]",
@@ -14,6 +51,7 @@
         "attribution": "[!! Ṁôṛṗħôļôġý ṡôûṛçè: !!]"
     },
     "GlobalSearch": {
+        "ariaLabel": "[!! Search roots, words, meanings !!]",
         "placeholder": "[!! Ṡèâṛçħ ṡûṛâħṡ, ṛôôťṡ, ŵôṛḋṡ, ṁèâñîñġṡ... !!]",
         "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]",
         "clearSearch": "[!! Clear search !!]",
@@ -26,7 +64,8 @@
             "text": "[!! Text !!]",
             "gloss": "[!! Gloss !!]",
             "surah": "[!! Surah !!]",
-            "translation": "[!! Translation !!]"
+            "translation": "[!! Translation !!]",
+            "semantic": "[!! Semantic !!]"
         },
         "intentHints": {
             "root": "[!! Searching roots !!]",
@@ -529,6 +568,152 @@
             "windowTypeHintSurah": "[!! ???? ??? ????? ?? ??? ???? ?????, ???????????? ???????-??v?? ???????? ???????????. !!]",
             "contextWindowRefFormatSurah": "[!! ????? !!]",
             "contextWindowRefHelpSurah": "[!! ???? ?????? ?? ??? ????? ????? ??? ???????? ??????? ??-?????? ???? ??? ???????? ????. !!]"
+        }
+    },
+    "Profile": {
+        "title": "[!! Your Profile !!]",
+        "backToApp": "[!! Back to App !!]",
+        "loading": "[!! Loading... !!]",
+        "statsTotal": "[!! Total tracked !!]",
+        "statsLearning": "[!! Learning !!]",
+        "statsLearned": "[!! Learned !!]",
+        "statsCompletion": "[!! Completion !!]",
+        "trackedRoots": "[!! Tracked roots !!]",
+        "trackedRootsDescription": "[!! {count} showing • {total} total tracked !!]",
+        "noRoots": "[!! You haven't tracked any roots yet. !!]",
+        "learning": "[!! learning !!]",
+        "learned": "[!! learned !!]",
+        "exportData": "[!! Export data !!]",
+        "importData": "[!! Import data !!]",
+        "importSuccess": "[!! Imported {count} root(s) successfully. !!]",
+        "importError": "[!! Failed to import. Make sure the file is a valid export. !!]",
+        "studyKicker": "[!! Study !!]",
+        "migrationTitle": "[!! Sync local study data !!]",
+        "migrationDescription": "[!! We found locally tracked roots that have not been synced to your account yet. !!]",
+        "mergeLocalData": "[!! Merge local data !!]",
+        "keepLocalOnly": "[!! Keep local only !!]",
+        "resumeExploration": "[!! Resume exploration !!]",
+        "resumeDescription": "[!! Jump back into your last visualization context without rebuilding it manually. !!]",
+        "lastView": "[!! Last view: !!]",
+        "inSurah": "[!! in surah {surahId} !!]",
+        "rootLabel": "[!! Root: !!]",
+        "noRecentRoot": "[!! No recent root selected !!]",
+        "lemmaLabel": "[!! Lemma: !!]",
+        "resumeInExplore": "[!! Resume in Explore !!]",
+        "resumeEmpty": "[!! Explore the corpus once and your last visualization context will appear here. !!]",
+        "reviewNext": "[!! Review next !!]",
+        "reviewNextHint": "[!! Learning roots are sorted by oldest review first so the queue always surfaces neglected material. !!]",
+        "reviewNextEmpty": "[!! Track a root in Explore or Search to start building your review queue. !!]",
+        "studySummary": "[!! Study summary !!]",
+        "snapshotDescription": "[!! A quick view of root study, quiz accuracy, and recent review activity across your learning flow. !!]",
+        "trackedRootsLabel": "[!! Tracked roots: !!]",
+        "learningLabel": "[!! Learning: !!]",
+        "learnedLabel": "[!! Learned: !!]",
+        "migrationPendingLabel": "[!! Migration pending: !!]",
+        "completionRate": "[!! Completion rate !!]",
+        "quizSessionsCompleted": "[!! Quiz sessions !!]",
+        "quizAccuracy": "[!! Quiz accuracy !!]",
+        "notesSaved": "[!! Notes saved !!]",
+        "reviewedThisWeek": "[!! Reviewed this week !!]",
+        "lastQuizLabel": "[!! Last quiz !!]",
+        "noQuizActivity": "[!! No quiz activity yet !!]",
+        "nextReview": "[!! Next review !!]",
+        "yes": "[!! Yes !!]",
+        "no": "[!! No !!]",
+        "recentRootsLabel": "[!! Recent roots: !!]",
+        "noneYet": "[!! None yet !!]",
+        "quizProgressTitle": "[!! Quiz progress !!]",
+        "quizProgressDescription": "[!! Study sessions and daily puzzles are tracked separately from your root list, while still adapting when you have material saved. !!]",
+        "dailySessionsLabel": "[!! Daily puzzles !!]",
+        "studySessionsLabel": "[!! Study sessions !!]",
+        "questionsAnsweredLabel": "[!! Questions answered !!]",
+        "correctAnswersLabel": "[!! Correct answers !!]",
+        "lastSessionTypeLabel": "[!! Last session !!]",
+        "quizSessionTypes": {
+            "daily": "[!! Daily puzzle !!]",
+            "study": "[!! Study session !!]"
+        },
+        "notesPrompt": "[!! Add a short note, example, or gloss cue to make this root easier to recall later. !!]",
+        "notesReady": "[!! Notes saved !!]",
+        "notesMissing": "[!! No notes yet !!]",
+        "lastReviewedLabel": "[!! Last reviewed !!]",
+        "addedOnLabel": "[!! Added !!]",
+        "markLearning": "[!! Mark learning !!]",
+        "markLearned": "[!! Mark learned !!]",
+        "editNotes": "[!! Edit notes !!]",
+        "saveNotes": "[!! Save notes !!]",
+        "cancel": "[!! Cancel !!]",
+        "removeRoot": "[!! Remove root !!]",
+        "filters": {
+            "all": "[!! All !!]",
+            "learning": "[!! Learning !!]",
+            "learned": "[!! Learned !!]"
+        },
+        "dataAndAccount": "[!! Data and account !!]",
+        "dataAndAccountDescription": "[!! Export or import your tracked roots, then sign out when you want to leave the shared device clean. !!]",
+        "quizCardTitle": "[!! Quiz practice !!]",
+        "quizPromptDesc": "[!! Run a study session at any time, with saved roots shaping the queue when they exist, then watch the results accumulate here. !!]",
+        "goToQuiz": "[!! Go to Quiz !!]"
+    },
+    "Quiz": {
+        "kicker": "[!! Quiz !!]",
+        "title": "[!! Test Your Knowledge !!]",
+        "description": "[!! Challenge yourself with questions generated from the Quran corpus data. !!]",
+        "experimentalBadge": "[!! Experimental !!]",
+        "experimentalTitle": "[!! Quiz is still under development !!]",
+        "experimentalDesc": "[!! Question quality and answer validation are still being refined, so some quiz results may be inaccurate. !!]",
+        "dailyPuzzleHeading": "[!! Today's Puzzle !!]",
+        "dailyBadge": "[!! Daily !!]",
+        "dailyPuzzleDesc": "[!! Five fixed questions every day - answers come straight from the corpus. !!]",
+        "reviewHeading": "[!! Study Session !!]",
+        "adaptiveBadge": "[!! Adaptive !!]",
+        "reviewDesc": "[!! Start a fresh corpus-driven session. Saved roots can shape the question mix, but the session still works without them. !!]",
+        "dailyComplete": "[!! Puzzle Complete! !!]",
+        "reviewComplete": "[!! Session Complete! !!]",
+        "scoreDisplay": "[!! {score} / {total} !!]",
+        "rootsReviewed": "[!! {count} roots reviewed !!]",
+        "preparingTitle": "[!! Preparing quiz !!]",
+        "preparingDesc": "[!! Loading the full corpus so the quiz can generate real question sets. !!]",
+        "noQuestions": "[!! This quiz isn't ready right now. Try again in a moment. !!]",
+        "previous": "[!! Previous !!]",
+        "submit": "[!! Submit !!]",
+        "next": "[!! Next !!]",
+        "finish": "[!! Finish !!]",
+        "swipeHint": "[!! Swipe left or right to move between questions. !!]",
+        "correct": "[!! Correct! !!]",
+        "incorrect": "[!! Incorrect !!]",
+        "correctAnswerLabel": "[!! Correct answer: {answer} !!]",
+        "choicesLabel": "[!! Answer choices !!]",
+        "questionOf": "[!! Question {current} of {total} !!]",
+        "surahFallback": "[!! Surah {id} !!]",
+        "difficulty": {
+            "easy": "[!! Easy !!]",
+            "medium": "[!! Medium !!]",
+            "hard": "[!! Hard !!]"
+        },
+        "rootFrequency": {
+            "prompt": "[!! How many times does the root \"{root}\" appear in the Quran? !!]",
+            "explanation": "[!! The root \"{root}\" appears {count} times across the corpus. !!]"
+        },
+        "surahDistribution": {
+            "prompt": "[!! Which surah contains the root \"{root}\" the most? !!]",
+            "explanation": "[!! Surah {surah} has the highest frequency of root \"{root}\" with {count} occurrences. !!]"
+        },
+        "glossMatching": {
+            "prompt": "[!! Which root means \"{gloss}\"? !!]",
+            "explanation": "[!! The root \"{root}\" means \"{gloss}\". !!]"
+        },
+        "comparativeFrequency": {
+            "prompt": "[!! Which of these roots appears more frequently in the Quran? !!]",
+            "explanation": "[!! \"{winner}\" is more frequent with {winnerCount} occurrences, while \"{loser}\" appears {loserCount} times. !!]"
+        },
+        "morphologyPos": {
+            "prompt": "[!! What is the most common part of speech for the root \"{root}\"? !!]",
+            "explanation": "[!! The root \"{root}\" most commonly appears as {pos} ({count} times). !!]"
+        },
+        "collocation": {
+            "prompt": "[!! Which root most frequently appears alongside \"{root}\" in the same ayah? !!]",
+            "explanation": "[!! \"{collocate}\" co-occurs with \"{root}\" in {count} ayahs. !!]"
         }
     },
     "DisplaySettings": {

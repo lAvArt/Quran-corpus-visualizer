@@ -184,7 +184,11 @@ export function useSearch({
   useEffect(() => {
     // Check user preference
     let enabled = true;
-    try { enabled = JSON.parse(localStorage.getItem("qcv-semantic-search-enabled") ?? "true"); } catch {}
+    try {
+      enabled = JSON.parse(localStorage.getItem("qcv-semantic-search-enabled") ?? "true");
+    } catch {
+      // Ignore storage read failures and keep semantic search enabled by default.
+    }
 
     // Only trigger for English-looking queries with sparse local results
     const trimmed = debouncedEffectiveQuery.trim();

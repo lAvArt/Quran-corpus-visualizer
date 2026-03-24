@@ -6,7 +6,7 @@ import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { usePwaInstall } from "@/components/providers/PwaProvider";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import VizExportMenu from "@/components/ui/VizExportMenu";
-import { EXPERIENCE_LEVELS, type ExperienceLevel } from "@/lib/schema/experience";
+import { type ExperienceLevel } from "@/lib/schema/experience";
 import {
   COLOR_THEME_PRESETS,
   type CustomColorTheme,
@@ -331,7 +331,11 @@ export default function DisplaySettingsPanel({
                 onClick={() => {
                   const next = !semanticEnabled;
                   setSemanticEnabled(next);
-                  try { localStorage.setItem("qcv-semantic-search-enabled", JSON.stringify(next)); } catch {}
+                  try {
+                    localStorage.setItem("qcv-semantic-search-enabled", JSON.stringify(next));
+                  } catch {
+                    // Ignore storage write failures.
+                  }
                 }}
               >
                 <span className="toggle-thumb" />

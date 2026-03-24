@@ -9,6 +9,7 @@ import {
   type QuizCorpusData,
   type QuizQuestion,
   type SeededRng,
+  validateQuizQuestion,
 } from "./questionTemplates";
 
 // ── Seeded PRNG (mulberry32) ───────────────────────────────────────
@@ -70,8 +71,8 @@ export function generateQuiz(data: QuizCorpusData, options: GenerateOptions): Qu
 
     let produced = false;
     for (const template of order) {
-      const q = template.generate(data, rng, usedRoots);
-      if (q) {
+      const q = template.generate(data, rng, usedRoots, options.preferredRoots);
+      if (q && validateQuizQuestion(q, data).valid) {
         questions.push(q);
         produced = true;
         break;
@@ -83,8 +84,8 @@ export function generateQuiz(data: QuizCorpusData, options: GenerateOptions): Qu
       const fallbacks = ALL_TEMPLATES.filter((t) => t.canGenerate(data));
       shuffleArray(fallbacks, rng);
       for (const template of fallbacks) {
-        const q = template.generate(data, rng, usedRoots);
-        if (q) {
+        const q = template.generate(data, rng, usedRoots, options.preferredRoots);
+        if (q && validateQuizQuestion(q, data).valid) {
           questions.push(q);
           break;
         }

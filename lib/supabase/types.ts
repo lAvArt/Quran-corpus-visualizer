@@ -42,6 +42,43 @@ export interface Database {
                 };
                 Relationships: [];
             };
+            quiz_attempts: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    session_key: string;
+                    session_type: "daily" | "study";
+                    score: number;
+                    total: number;
+                    reviewed_roots: number;
+                    used_tracked_roots: boolean;
+                    completed_at: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    user_id: string;
+                    session_key: string;
+                    session_type: "daily" | "study";
+                    score: number;
+                    total: number;
+                    reviewed_roots?: number;
+                    used_tracked_roots?: boolean;
+                    completed_at?: string;
+                    created_at?: string;
+                };
+                Update: {
+                    session_key?: string;
+                    session_type?: "daily" | "study";
+                    score?: number;
+                    total?: number;
+                    reviewed_roots?: number;
+                    used_tracked_roots?: boolean;
+                    completed_at?: string;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
             corpus_tokens: {
                 Row: {
                     id: string;

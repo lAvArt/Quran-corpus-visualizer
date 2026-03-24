@@ -1,6 +1,6 @@
 /**
- * Personalized review quiz — generates questions about the user's tracked roots,
- * weighted toward roots with oldest lastReviewedAt (spaced repetition lite).
+ * Study session quiz — generates corpus questions and biases them toward the
+ * user's stalest tracked roots when available.
  */
 
 import { generateQuiz } from "./quizGenerator";
@@ -11,12 +11,12 @@ import type { TrackedRoot } from "@/lib/cache/knowledgeCache";
 const REVIEW_CURVE: Difficulty[] = ["easy", "easy", "medium", "medium", "hard"];
 
 /**
- * Generate a personalized review quiz from the user's tracked roots.
+ * Generate a study session from the user's tracked roots.
  *
  * Strategy:
  * - Sort tracked roots by lastReviewedAt ascending (stalest first)
- * - Use those as preferredRoots for the generator
- * - When user has < 5 tracked roots, the generator falls back to corpus "discovery" roots
+ * - Use those as preferredRoots for the generator when available
+ * - When user has no tracked roots, the generator falls back to a generic corpus session
  */
 export function generateReviewQuiz(
   data: QuizCorpusData,
@@ -28,7 +28,7 @@ export function generateReviewQuiz(
 
   // Build a seed from the root list + today's date so it varies day-to-day
   const datePart = new Date().toISOString().slice(0, 10);
-  const seed = `review-${datePart}-${preferredRoots.slice(0, 5).join(",")}`;
+  const seed = `review-${datePart}-${preferredRoots.slice(0, 5).join(",") || "generic"}`;
 
   return generateQuiz(data, {
     curve: REVIEW_CURVE,

@@ -27,7 +27,6 @@ interface AppShellProps {
 function AppShellContent({ initialCorpusData, initialThemePreference }: AppShellProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
-  const tSearch = useTranslations("SearchWorkspace");
   const c = useHomePageController(initialCorpusData, initialThemePreference);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
 
