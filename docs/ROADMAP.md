@@ -1,64 +1,64 @@
 # Roadmap
 
-## v0.1 (MVP) ✅
+## v0.1 (MVP) Completed
 
-Goal: ship a polished, accurate first release focused on linguistic graph exploration.
+Goal: ship an accurate first release focused on linguistic graph exploration.
 
-- `RootFlowSankey`
-- `AyahDependencyGraph` (single-ayah focus)
-- `MorphologyInspector` (hover/focus interactions)
-- Phase-1 semantic search: root, lemma, POS, exact ayah
+- RootFlowSankey
+- AyahDependencyGraph single-ayah focus
+- MorphologyInspector hover and focus interactions
+- Phase-1 semantic search for root, lemma, part of speech, and exact ayah
 - No spatial overlays
-- No AI-generated claims
+- No AI-generated claims presented as truth
 
-## v0.2 ✅
+## v0.2 Completed
 
 - Better indexing and query UX
 - Comparative root-context views
-- Performance and cache hardening for larger exploration sessions
+- Performance and cache hardening
 
-## v0.3 ✅
+## v0.3 Completed
 
-- Radial sura morphology maps
-- Root dispersion maps across full corpus
+- Radial Surah morphology maps
+- Root dispersion views across the corpus
 - Stronger inspector cross-linking between syntax and morphology
 
-## v0.4 ✅
+## v0.4 Completed
 
-- Onboarding overlay with guided walkthrough
-- Lexical coloring controls (theme/frequency/identity)
-- Export scope options with multi-format export menu
-- Custom color theme editing with persistence
+- Onboarding and first-run guidance
+- Lexical coloring controls
+- Export scope options and multi-format export
+- Custom theme editing
 - PWA install support
-- Full English + Arabic (RTL) internationalization
+- English and Arabic localization
 
-## v0.5 ✅ (Current)
+## v0.5 Current stable release
 
-- Knowledge Graph visualization (neural force-directed + flow layout)
-- Collocation Network visualization (PMI-based semantic neighborhoods with context scope controls)
-- Knowledge Tracker with IndexedDB persistence (learning states, notes, import/export)
-- Dual dictionary integration (Doha Historical Dictionary, Al-Maany)
-- Visual polish across all graph modes
+- Knowledge Graph visualization
+- Collocation Network visualization
+- Knowledge Tracker with local persistence, notes, and import/export
+- Dual dictionary integration
+- Shared shell polish across graph modes
 
-## v0.6 🔄 (In progress)
+## v0.6 In progress
 
-- **Supabase database layer** — PostgreSQL 17 with pgvector, pg_trgm, unaccent
-- Full corpus schema: `corpus_tokens`, `ayahs`, `root_embeddings`, `collocations` (matview), `cross_references` (matview)
-- Server-side search functions: full-text (`pg_trgm`), FTS (`tsvector`), vector semantic (`pgvector`)
-- Row Level Security on all tables; privilege lockdown; `search_path` hardening
-- `lib/supabase/` client/server helpers; `knowledgeService` migrated from IndexedDB to Supabase
-- Guided walkthroughs for Collocation Network and Radial Sura Map
-- `GlossaryChips` and `VizBreadcrumbs` context components
+- Supabase-backed normalized corpus and search infrastructure
+- Productized Search and Study workspaces
+- Experimental Quiz workspace with daily and adaptive review flows
+- Supabase sync for tracked roots and quiz attempts
+- Stronger first-run mission, shell navigation, and recovery-oriented UX
+- Expanded release, schema, and observability documentation
 
 ## v0.7+
 
-- Explainability layer for semantic matches (user-visible rationale for ranking decisions)
-- Cross-root thematic clustering in Knowledge Graph
-- Vector embedding generation pipeline (`generate-embeddings.ts`)
+- Better explainability for semantic matches
+- Quiz analytics and learning-loop calibration
+- Stronger production monitoring and tracing
+- Additional server-assisted overview data
 
 ## Later: Spatial Layer
 
-Spatial/contextual overlays are deferred until confidence and citation workflows are production-ready.
+Spatial and contextual overlays remain deferred until citation and confidence workflows are ready.
 
 Model:
 
@@ -66,7 +66,7 @@ Model:
 
 Rules:
 
-- Optional overlays only
-- Toggleable by user
-- Never presented as default truth
-- Always source-cited
+- optional only
+- user-toggleable
+- never the default truth layer
+- always source-cited

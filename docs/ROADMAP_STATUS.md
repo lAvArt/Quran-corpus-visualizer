@@ -1,12 +1,12 @@
 # Roadmap Status
 
-This file tracks current progress against the `Quran Corpus Visualizer Web App Upgrade Plan`.
+This file tracks delivery status against the current product direction of Quran Corpus Visualizer.
 
 ## Overall Status
 
-- Product baseline: no longer a prototype
-- Core repo quality gates: green
-- Main remaining work: final product prioritization, launch hardening, and deeper data/UX refinement
+- The app is now a multi-surface product rather than a single exploration prototype.
+- Core local quality gates are in place and generally stable.
+- The main remaining work is launch hardening, quiz stabilization, and a final production-oriented prioritization pass.
 
 ## Phase Status
 
@@ -14,120 +14,129 @@ This file tracks current progress against the `Quran Corpus Visualizer Web App U
 
 Status: completed
 
-- lint/typecheck/build workflow stabilized
-- nested unrelated app excluded from lint scope
-- Next/Turbopack and metadata warnings cleaned up
-- workspace assumptions documented
+- lint, typecheck, unit test, and build flows are stable
+- workspace assumptions and release guidance are documented
+- unrelated nested projects are excluded from the main app workflow
 
 ### Phase 2: Product Information Architecture
 
 Status: completed
 
-- `Explore`, `Search`, and `Study` are real product modes
-- dedicated Search and Study routes/workspaces exist
+- `Explore`, `Search`, `Study`, and `Quiz` now exist as distinct surfaces
 - shell navigation reflects the product split
+- route-level workspaces are no longer buried inside the home page
 
 ### Phase 3: App Shell Refactor
 
 Status: completed
 
-- home route is decomposed into shell/controller modules
-- visualization viewport, header, overlays, and controller responsibilities were separated
+- shell, overlays, viewport orchestration, and route workspaces are split across focused modules
+- the journey rail and workspace shell patterns now carry the main product navigation
 - page-level orchestration is materially thinner than the original monolith
 
 ### Phase 4: Data and Loading Strategy
 
 Status: substantially progressed
 
-- shell-ready vs deep-data-ready contract exists
-- Explore and Search now share a single corpus-loading path
-- shell/overview corpus assembly now lives in a dedicated service layer
-- fallback/loading states are explicit and user-readable
+- shell-ready versus deep-data-ready contracts exist
+- Explore, Search, and Quiz share the same overview corpus boot path
+- fallback and degraded states are explicit and user-readable
 
 Still open:
 
 - richer server-prepared overview data
-- stronger split between overview data and deeper corpus fetches
+- stronger separation between overview payloads and deeper corpus fetches
 
 ### Phase 5: Search as a First-Class Product Surface
 
 Status: substantially completed
 
-- shared search contracts and service layer exist
-- Search workspace is a first-class route
-- grouped/recovery-oriented search UX exists
-- search availability/fallback messaging is explicit
+- Search has a dedicated workspace
+- shared search contracts and service layers exist
+- fallback and recovery messaging are explicit
 
 Still open:
 
 - deeper ranking sophistication
-- more server-dominant search behavior over time
+- broader server-assisted search behavior
+- clearer telemetry around search-specific failure classes
 
 ### Phase 6: Visualization UX and Progressive Disclosure
 
 Status: progressed
 
-- beginner/advanced guidance improved
-- context-transform messaging exists
-- restore/recovery flows exist after context-reducing view changes
+- first-run guidance and mission selection exist
+- contextual breadcrumbs and explainer flows exist
+- recovery flows after context-reducing transitions are present
 
 Still open:
 
 - more systematic mode-aware controls across all visualizations
-- further reduction of advanced-view complexity for first-time users
+- further simplification of advanced states for first-time users
 
 ### Phase 7: Mobile UX Simplification
 
 Status: progressed
 
-- mobile search/tools flows are covered by e2e
-- overlay behavior is more explicit and more testable
+- mobile search and shell flows are covered by existing smoke and visual suites
+- the app shell is more explicit and testable on narrow screens
 
 Still open:
 
-- more aggressive simplification of mobile chrome and stacked controls
+- more aggressive simplification of stacked mobile controls
+- dedicated quiz mobile interaction review
 
 ### Phase 8: Design System Extraction
 
 Status: substantially progressed
 
-- Search, Study, auth, sidebar, selection, overlay, and inspector surfaces share more of the same UI system
-- `MorphologyInspector` local shell styles were moved into shared CSS
+- Search, Study, Quiz, auth, shell, and inspector surfaces share more of the same UI language
+- shared workspace shells and global CSS primitives cover more of the product than before
 
 Still open:
 
-- remaining localized pockets of component-specific presentation cleanup
-- possible longer-term token/component extraction beyond shared CSS classes
+- remaining pockets of component-local styling cleanup
+- longer-term extraction of design tokens and reusable primitives
 
-### Phase 9: Auth, Profile, and Study Experience
+### Phase 9: Auth, Profile, Study, and Learning Loop
 
-Status: completed for current milestone
+Status: substantially progressed
 
-- auth pages are normalized into the shared visual system
-- profile functions as a Study hub
-- migration, import/export, resume, and tracked-root editing flows are implemented and tested
+- auth routes are normalized into the shared shell language
+- Study and Profile flows support tracked roots, notes, import/export, and migration
+- experimental Quiz flows now exist with local progress and Supabase-backed attempt sync
+
+Still open:
+
+- dedicated quiz telemetry
+- quiz difficulty calibration and analytics
+- wider release-readiness validation of study and quiz sync behavior
 
 ### Phase 10: Testing and Quality Gates
 
-Status: completed for current milestone
+Status: strong, still widening
 
-- unit/integration coverage is healthy
-- Playwright smoke coverage exists across Explore, Search, Study, mobile, fallback, migration, and recovery flows
-- accessibility smoke coverage exists
-- repo quality gates are green
+- unit coverage includes corpus readiness, search, auth context, knowledge sync, quiz progress, and quiz Supabase sync
+- Playwright smoke, accessibility, and visual suites cover the main app shell surfaces
+- `npm run verify` and `npm run verify:release` define the baseline quality gates
+
+Still open:
+
+- dedicated end-to-end coverage for quiz route behavior
+- more failure-mode coverage around remote sync and degraded states
 
 ### Phase 11: Analytics, Monitoring, and Launch Hardening
 
-Status: materially underway
+Status: underway
 
-- outcome analytics exist for readiness/fallback/recovery
-- shell render and first search interaction performance metrics exist
+- readiness, fallback, recovery, and performance events exist
 - observability and release docs exist
 
 Still open:
 
-- broader production monitoring integration beyond current instrumentation
-- final pre-launch operational review in a real environment
+- centralized production monitoring and tracing
+- final real-environment release review
+- explicit quiz/learning-loop metrics
 
 ## Current Quality Gates
 
@@ -142,20 +151,17 @@ Still open:
 
 ## Recommended Next Milestone
 
-### Milestone: Launch Hardening and Final Product Prioritization
+### Milestone: Launch Hardening and Quiz Stabilization
 
 Focus:
 
-- perform a final release-readiness pass in a real Supabase-backed environment
-- decide whether the next product investment goes into:
-  - deeper data architecture
-  - visualization UX refinement
-  - mobile simplification
-- close any remaining non-critical visual consistency gaps
+- verify auth, tracked-root sync, and quiz attempt sync in a real Supabase-backed environment
+- tighten quiz UX and add route-specific release checks
+- close remaining telemetry and degraded-state visibility gaps
 
 ## Remaining High-Value Work
 
-1. Final pre-release real-environment verification for auth, study migration, import/export, and search services.
-2. Stronger server-assisted overview data for first meaningful paint.
-3. Further visualization UX refinement and progressive disclosure.
-4. Final mobile simplification pass.
+1. Real-environment verification for auth, tracked roots, and quiz sync.
+2. Stronger server-prepared overview payloads for first meaningful paint.
+3. Additional quiz coverage and telemetry.
+4. Final mobile simplification and visual consistency pass.

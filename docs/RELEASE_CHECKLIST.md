@@ -2,44 +2,52 @@
 
 ## Quality Gates
 
-Run all of the following before release:
+Run:
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
-npx playwright test tests/e2e/app-smoke.spec.ts
-npm run test:a11y-smoke
-npm run build
+npm run verify
+npm run verify:release
 ```
+
+If you need the explicit breakdown, `verify:release` currently expands to lint, typecheck, unit tests, build, accessibility smoke, and Playwright end-to-end coverage.
 
 ## Product Checks
 
-- Explore loads with shell-ready messaging before deep corpus completes.
-- Search loads with shell-ready messaging and usable quick search.
-- Study renders correctly for authenticated users.
+- Explore loads with shell-ready content before deep corpus loading completes.
+- Search loads with usable quick search and readable recovery states.
+- Study renders correctly for signed-in users.
+- Quiz renders and can complete both daily and adaptive review sessions.
 - Auth, migration, import/export, and resume flows still work.
-- Mobile search overlay still opens, selects, and returns context cleanly.
+- Mobile shell, search overlay, and navigation behave correctly.
+
+## Sync and Persistence Checks
+
+- Tracked roots still migrate from local storage to Supabase correctly.
+- Notes and state changes persist across reloads for authenticated users.
+- Quiz progress saves locally.
+- Authenticated quiz attempts sync to `quiz_attempts` without duplicates.
 
 ## Degraded-State Checks
 
-- Corpus fallback messaging is readable in Explore and Search.
+- Corpus fallback messaging is readable in Explore, Search, and Quiz boot flows.
 - Search recovery messaging is readable in Explore and Search.
-- Full-corpus loading messaging does not block shell-ready exploration.
+- Full-corpus loading states do not block shell-level exploration.
 
 ## Metadata and Routing
 
-- Manifest routes respond correctly for root and localized paths.
+- Manifest routes respond for root and localized paths.
 - Canonical, Open Graph, and Twitter metadata resolve against the production domain.
-- Localized Explore, Search, Study, Profile, and Auth routes render correctly.
+- Localized Explore, Search, Study, Quiz, Profile, and Auth routes render correctly.
+- Embed routes still load expected visualization modes.
 
 ## Observability Review
 
-- Review `docs/OBSERVABILITY.md`.
-- Confirm expected events appear for shell-ready render, deep-data-ready transition, and search interaction timing.
+- Review [docs/OBSERVABILITY.md](OBSERVABILITY.md).
+- Confirm expected readiness, recovery, performance, and client-error events appear.
+- Compare `shell_render` and `first_search_interaction` against the previous release baseline.
 
 ## Manual Accessibility Smoke
 
-- Keyboard navigation reaches app mode navigation, auth controls, and search inputs.
-- Visible focus states remain present on primary interactive controls.
-- Main headings and landmark regions are present on Explore, Search, Study, and Auth.
+- Keyboard navigation reaches shell navigation, auth controls, search inputs, and quiz cards.
+- Visible focus states remain present on primary controls.
+- Heading hierarchy and landmark regions remain intact across Explore, Search, Study, Quiz, and Auth.

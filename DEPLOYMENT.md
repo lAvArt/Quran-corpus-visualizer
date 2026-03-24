@@ -1,38 +1,35 @@
 # Deployment Guide
 
-This project is a Next.js application deployed on Vercel backed by a Supabase PostgreSQL database.
+Quran Corpus Visualizer is deployed as a Next.js app on Vercel with Supabase as the primary database and auth backend.
 
 ## Prerequisites
 
-- A [Vercel](https://vercel.com) account with GitHub repo access
-- A [Supabase](https://supabase.com) project (free tier works)
-- [Supabase CLI](https://supabase.com/docs/guides/cli) installed (for running migrations)
+- Vercel project access
+- Supabase project access
+- Supabase CLI for migrations
 
----
-
-## 1. Supabase Database Setup
+## 1. Supabase Setup
 
 ### Apply migrations
 
 ```bash
-# Link the CLI to your Supabase project (run once)
 supabase link --project-ref <your-project-ref>
-
-# Push all migrations (001 – 006)
 supabase db push
 ```
 
-Alternatively, paste each file from `supabase/migrations/` into the [Supabase Dashboard](https://supabase.com/dashboard) → SQL Editor, in order (`001` → `006`).
+The current migration set is `001` through `007`, including `tracked_roots`, security hardening, and `quiz_attempts`.
 
-### (Optional) Seed the corpus
+If you are applying SQL manually in the dashboard, apply the files in order from `supabase/migrations/001_extensions.sql` through `supabase/migrations/007_quiz_attempts.sql`.
+
+### Optional corpus seed
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
-npx tsx scripts/seed-corpus.ts
+npm run db:seed
 ```
 
-### (Optional) Generate vector embeddings
+### Optional embedding generation
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co \
@@ -41,45 +38,55 @@ OPENAI_API_KEY=sk-... \
 npx tsx scripts/generate-embeddings.ts
 ```
 
----
-
 ## 2. Environment Variables
 
-Set these in **Vercel Dashboard → Project → Settings → Environment Variables**.
+Configure these in Vercel for the app deployment.
 
-| Variable | Required | Description |
+| Variable | Required | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Your Supabase project URL (`https://<ref>.supabase.co`) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key — safe to expose client-side |
-| `BREVO_API_KEY` | Optional | Brevo transactional email key (feedback form) |
-| `FEEDBACK_TO_EMAIL` | Optional | Recipient address for feedback submissions |
-| `FEEDBACK_FROM_EMAIL` | Optional | Verified sender address in Brevo |
-| `FEEDBACK_FROM_NAME` | Optional | Sender display name (default: `Quran Corpus Visualizer`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key |
+| `BREVO_API_KEY` | No | Feedback email delivery |
+| `FEEDBACK_TO_EMAIL` | No | Feedback recipient |
+| `FEEDBACK_FROM_EMAIL` | No | Verified sender address |
+| `FEEDBACK_FROM_NAME` | No | Sender label |
+| `NEXT_PUBLIC_FEEDBACK_EMAIL` | No | Fallback public feedback email |
+| `OPENAI_API_KEY` | No | Semantic search or image-assisted helpers |
+| `OPENAI_VISION_MODEL` | No | Vision model override for image root extraction |
+| `SEMANTIC_SEARCH_RATE_LIMIT_MAX` | No | Per-instance search limit |
+| `SEMANTIC_SEARCH_RATE_LIMIT_WINDOW_MS` | No | Search rate-limit window |
+| `IMAGE_ROOT_RATE_LIMIT_MAX` | No | Image route limit |
+| `IMAGE_ROOT_RATE_LIMIT_WINDOW_MS` | No | Image route rate-limit window |
 
-> ⚠️ **Never set `SUPABASE_SERVICE_ROLE_KEY` in Vercel for the app deployment.** It bypasses Row Level Security and is only intended for local admin scripts (`seed-corpus.ts`, `generate-embeddings.ts`).
+Do not deploy `SUPABASE_SERVICE_ROLE_KEY` to Vercel. It is only for local or controlled admin scripts.
 
----
+## 3. Supabase Auth Configuration
 
-## 3. Vercel Deployment
+If you use auth flows in production, configure the following in Supabase Auth:
 
-1. Push your latest code to GitHub.
-2. Go to [Vercel Dashboard](https://vercel.com/dashboard) → **Add New…** → **Project**.
-3. Import the `quran-corpus-visualizer` repository.
-4. Configure:
-   - **Framework Preset**: Next.js
-   - **Root Directory**: `./`
-   - **Build Command**: `next build`
-   - **Output Directory**: `.next`
-   - **Install Command**: `npm install`
-5. Add all required environment variables (see above).
-6. Click **Deploy**.
+- Site URL: `https://<your-domain>`
+- Redirect URL: `https://<your-domain>/auth/callback`
 
----
+If you serve localized auth entry points, the callback still resolves through `/auth/callback`.
 
-## 4. Post-Deployment Verification
+## 4. Vercel Deployment
 
-1. **Initial Load** — UI loads immediately.
-2. **Supabase connectivity** — Search for any Arabic root; results should return from the database.
-3. **Auth** — Sign in and confirm tracked roots persist across sessions.
-4. **Console** — Check the browser console for unexpected Supabase or network errors.
-5. **Caching** — Refresh after initial load; second load should be significantly faster (IndexedDB).
+1. Import the repository into Vercel.
+2. Use the default Next.js framework preset.
+3. Keep the root directory at the repository root.
+4. Add the environment variables listed above.
+5. Deploy.
+
+## 5. Post-Deployment Verification
+
+Run these checks against the deployed environment:
+
+1. Explore loads with shell-ready content before deep corpus loading finishes.
+2. Search returns usable results and degraded states are readable.
+3. Study loads for signed-in users and tracked roots sync correctly.
+4. Quiz loads, local progress records save, and authenticated quiz history syncs to `quiz_attempts`.
+5. Auth flows complete through `/auth/callback`.
+6. Feedback submission works if Brevo variables are configured.
+7. Browser console and server logs show no unexpected Supabase, search, or hydration errors.
+
+Use [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) for the full release pass.

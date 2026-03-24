@@ -2,56 +2,53 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-|---------|--------------------|
-| 0.5.x   | :white_check_mark: Current |
-| 0.4.x   | :white_check_mark: |
-| 0.3.x   | :warning: End of life |
-| < 0.3   | :x:                |
+| Version | Supported |
+|---|---|
+| 0.5.x | Yes |
+| 0.4.x | Limited |
+| < 0.4 | No |
 
 ## Database Security
 
-All data access is enforced through Supabase Row Level Security (RLS):
+Supabase Row Level Security and explicit privilege controls are used to protect both corpus data and user state.
 
-- **`corpus_tokens`, `ayahs`, `root_embeddings`** — public read-only; `anon` and `authenticated` roles have `SELECT` only; `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, and `TRIGGER` are revoked.
-- **`tracked_roots`** — RLS policy requires `auth.uid() = user_id`; authenticated users may only read and write their own rows; `anon` has `SELECT` only; `TRUNCATE` is revoked from both roles.
-- **Database functions** — all functions use `SET search_path = public, pg_catalog` to prevent search_path-based injection.
-- **`SUPABASE_SERVICE_ROLE_KEY`** — used only in local admin scripts; never sent to the browser or deployed to Vercel.
-- **`refresh_corpus_views()`** — `EXECUTE` revoked from `PUBLIC`; only `service_role` may call it.
+- `corpus_tokens`, `ayahs`, and `root_embeddings` are public read-only surfaces for `anon` and `authenticated` roles.
+- `tracked_roots` uses an `auth.uid() = user_id` RLS policy for all operations. Anonymous callers cannot satisfy the policy. `TRUNCATE` is revoked from end-user roles.
+- `quiz_attempts` uses the same per-user RLS pattern for synced quiz history.
+- Materialized views (`collocations`, `cross_references`) are exposed through explicit read grants because PostgreSQL does not apply RLS to materialized views.
+- Database functions use `SET search_path = public, pg_catalog` to reduce search-path injection risk.
+- `refresh_corpus_views()` is restricted to `service_role`.
+- `SUPABASE_SERVICE_ROLE_KEY` is only intended for controlled scripts such as seeding and embedding generation. It must never be shipped to the browser.
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it responsibly.
+Do not open a public GitHub issue for a security vulnerability.
 
-**Do NOT open a public GitHub issue for security vulnerabilities.**
+Report it by email to `info@pluragate.org` with:
 
-Instead, email: **info@pluragate.org**
-
-Include:
-
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- a description of the issue
+- reproduction steps
+- likely impact
+- suggested remediation, if known
 
 ## Response Timeline
 
-- **Acknowledgment**: Within 48 hours
-- **Initial Assessment**: Within 1 week
-- **Fix/Patch**: Depending on severity, typically within 2 weeks
+- Acknowledgment: within 48 hours
+- Initial assessment: within 1 week
+- Fix timeline: based on severity
 
 ## Scope
 
 This policy covers:
 
-- The web application at [quran.pluragate.org](https://quran.pluragate.org)
-- The source code in this repository
-- Supabase database configuration (RLS policies, functions, privilege grants)
-- Dependencies used by this project
+- the application at `quran.pluragate.org`
+- the source code in this repository
+- Supabase schema, RLS policies, and function exposure
+- deployed dependencies under this app's control
 
 ## Out of Scope
 
-- The upstream [Quranic Arabic Corpus](https://corpus.quran.com) API
-- Third-party infrastructure (Vercel, Brevo, Supabase platform)
+- upstream Quranic Arabic Corpus infrastructure
+- Vercel, Supabase platform, or Brevo platform vulnerabilities unrelated to this app's configuration
 
-Thank you for helping keep this project and its users safe.
+Thank you for reporting issues responsibly.

@@ -1,116 +1,107 @@
-﻿# Contributing to Quran Corpus Visualizer
+# Contributing to Quran Corpus Visualizer
 
-Thank you for your interest in contributing! This project aims to make the linguistic structure of the Quran more accessible through interactive visualizations.
+This project treats documentation, source attribution, and behavior correctness as first-class work. If a change affects product behavior, schema, or release flow, update the docs in the same branch.
 
 ## Quick Start
 
 ```bash
-# 1. Fork and clone
 git clone https://github.com/<your-username>/Quran-corpus-visualizer.git
 cd Quran-corpus-visualizer
-
-# 2. Install dependencies
 npm install
-
-# 3. Configure environment
 cp .env.example .env.local
-# Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# 4. Apply database migrations (requires Supabase CLI)
 supabase db push
-
-# 5. (Optional) Fetch morphology data for offline dev
-npm run fetch:morphology
-
-# 6. Start the dev server
 npm run dev
 ```
 
+Minimum local environment:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Useful optional variables live in `.env.example`, including feedback email, OpenAI-backed search helpers, and rate-limit controls.
+
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | TypeScript type checking |
-| `npm run test` | Run tests with Vitest |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage |
-| `npm run i18n:check` | Validate i18n completeness |
-| `npm run fetch:morphology` | Download morphology data for offline dev |
-| `supabase db push` | Apply database migrations (requires Supabase CLI) |
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the local app |
+| `npm run lint` | Lint app sources |
+| `npm run typecheck` | Run TypeScript |
+| `npm test` | Run Vitest |
+| `npm run test:e2e` | Run Playwright |
+| `npm run test:a11y-smoke` | Accessibility smoke checks |
+| `npm run verify` | Lint, typecheck, test, build |
+| `npm run verify:release` | Full release verification |
+| `npm run i18n:check` | Validate message coverage |
+| `npm run i18n:pseudo` | Regenerate pseudo-localized strings |
+| `npm run docs:generate` | Refresh screenshot-backed docs assets |
 
-## How to Contribute
+## Contribution Rules
 
-### Reporting Bugs
+### Reporting bugs
 
-1. Check [existing issues](https://github.com/lAvArt/Quran-corpus-visualizer/issues) first.
-2. Use the **Bug Report** template when creating a new issue.
-3. Include browser, OS, and steps to reproduce.
+1. Check [existing issues](https://github.com/lAvArt/Quran-corpus-visualizer/issues).
+2. Use the bug template.
+3. Include browser, platform, reproduction steps, and whether the issue affects Explore, Search, Study, Quiz, or shared shell behavior.
 
-### Suggesting Features
+### Suggesting features
 
-1. Check the [Roadmap](docs/ROADMAP.md) to see if it's already planned.
-2. Use the **Feature Request** template.
-3. Explain the use case and how it benefits Quran exploration.
+1. Check [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md).
+2. Describe the user problem before the implementation idea.
+3. Call out data, attribution, accessibility, and release implications.
 
-### Submitting Code
+### Submitting code
 
-1. **Fork** the repository and create a feature branch from `main`.
-2. Follow the coding conventions below.
-3. Add tests for new functionality.
-4. Ensure all checks pass: `npm run lint && npm run typecheck && npm run test`
-5. Submit a Pull Request using the PR template.
+1. Branch from `main`.
+2. Keep the branch scoped.
+3. Add or update tests when behavior changes.
+4. Update docs when routes, schema, env vars, or release checks change.
+5. Run `npm run verify` before opening a pull request.
 
-## Coding Conventions
+## Architecture Guidelines
 
 ### Naming
 
-Use explicit names that encode purpose:
+Use explicit, domain-correct names.
 
-- `RootFlowSankey` â€” not `GraphView`
-- `CollocationNetworkGraph` - not `ContextMap`
-- `AyahDependencyGraph` â€” not `DataPanel`
-- `MorphologyInspector` â€” not `Analyzer`
+- `CollocationNetworkGraph`
+- `MorphologyInspector`
+- `ReviewQuiz`
+- `SearchWorkspace`
+- `JourneyRail`
 
-### Architecture
+Avoid vague names such as `Analyzer`, `GraphView`, or `DataPanel`.
 
-- UI consumes internal schema models only (see [docs/SCHEMA.md](docs/SCHEMA.md)).
-- External API adapters live under `lib/corpus/`.
-- Visualization components go in `components/visualisations/`.
-- Reusable UI components go in `components/ui/`.
+### Source boundaries
 
-### Data Integrity
+- UI components should consume normalized internal models, not raw upstream payloads.
+- Search and corpus transforms belong under `lib/`.
+- Shared shell and workspace orchestration belong in `components/shell/`, `components/search/`, `components/study/`, or `components/quiz/` as appropriate.
+- Supabase table or RPC changes require matching migration and schema doc updates.
+
+### Data integrity
 
 - Accuracy over novelty.
 - Source traceability over convenience.
 - Explainability over opaque behavior.
-- Restraint over speculative features.
-
-## Scope Rules
-
-- Check [docs/ROADMAP.md](docs/ROADMAP.md) for current phase priorities.
-- Avoid unrelated feature expansion in PRs.
-- Do not introduce spatial or semantic claims without citation and confidence modeling.
+- Restraint over speculative claims.
 
 ## Pull Request Checklist
 
-- [ ] Feature aligns with roadmap phase
+- [ ] Scope is coherent and route-aware
 - [ ] Naming is explicit and domain-correct
 - [ ] Source attribution is preserved
 - [ ] Tests or validation steps are included
-- [ ] `npm run lint` passes
-- [ ] `npm run typecheck` passes
-- [ ] `npm run test` passes
-- [ ] Docs updated when behavior or schema changes
+- [ ] Docs are updated for behavior, schema, or release-flow changes
+- [ ] `npm run verify` passes
 
 ## Not Accepted
 
-- Unsourced historical/geographic assertions
-- Black-box ranking claims without rationale
-- Hard-coding external payload assumptions in UI components
+- Unsourced historical or geographic assertions
+- Opaque ranking claims without rationale
+- Frontend code bound directly to external payload shapes
+- Behavior changes that skip docs or release-flow updates
 
-## License
+## More Detail
 
-By contributing, you agree that your contributions will be licensed under the [GNU General Public License v3.0](LICENSE).
+Additional contributor guidance lives in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).

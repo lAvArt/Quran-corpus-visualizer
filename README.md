@@ -2,7 +2,7 @@
 
 # Quran Corpus Visualizer
 
-**Interactive exploration of Quranic linguistic structure and morphology**
+Interactive exploration of Quranic linguistic structure, morphology, search, and study workflows.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -10,262 +10,217 @@
 [![CI](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml)
 [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://quran.pluragate.org)
 
-[**Live Demo**](https://quran.pluragate.org) · [**Report Bug**](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) · [**Request Feature**](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
+[Live Demo](https://quran.pluragate.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
 
 </div>
 
 ---
 
 <!-- GRAPH:RADIAL_SURA -->
-<img width="2560" height="1260" alt="Quran Corpus Visualizer – Radial Surah Map" src="public/docs/images/radial-sura.png" />
+<img width="2560" height="1260" alt="Quran Corpus Visualizer - Radial Surah Map" src="public/docs/images/radial-sura.png" />
 <!-- END:GRAPH -->
 
-A sophisticated interactive tool for exploring the linguistic and morphological structure of the Quran. Built upon the [Quranic Arabic Corpus](https://corpus.quran.com) API, this project transforms linear text into dynamic, explorable graphs.
+Quran Corpus Visualizer is a Next.js application for exploring the Quran through normalized corpus data, D3-based visualizations, search tools, study workflows, and authenticated progress tracking. The app is built around four main product surfaces:
 
-> **If you find this project useful, please consider giving it a ⭐ — it helps others discover it!**
+- `Explore`: interactive visualizations and inspectors
+- `Search`: dedicated search workspace with recovery-friendly states
+- `Study`: tracked roots, notes, migration, and resume flows
+- `Quiz`: experimental daily and adaptive review quizzes backed by local progress and optional Supabase sync
 
-## Key Features
+## Key Capabilities
 
-### Interactive Visualizations
+### Visual exploration
 
-- **Radial Surah Map** — Visualize the entire Quran or specific Surahs as a radial tree, highlighting relationships between Ayahs and roots.
-- **Root Network Graph** — Explore the connectivity of Arabic roots across the corpus using force-directed graphs.
-- **Collocation Network** — Explore semantic co-occurrence around a selected root using PMI, contextual scopes, and tertiary context nodes.
-- **Knowledge Graph** — Neural-style map of your tracked roots and learning progress, with force-directed and flow layout modes.
-- **Surah Distribution** — Analyze the distribution of specific roots or lemmas across all Surahs.
-- **Arc Flow Diagram** — Trace the flow of roots and grammatical connections within an Ayah.
-- **Ayah Dependency Graph** — Deep dive into the syntactic dependency structure of individual Ayahs.
-- **Root Flow Sankey** — Track how Arabic roots flow through different grammatical forms.
-- **Corpus Architecture Map** — See the structural overview of the entire corpus.
+- Radial Surah Map, Root Network, Collocation Network, Knowledge Graph, Surah Distribution, Arc Flow, Ayah Dependency Graph, Root Flow Sankey, and Corpus Architecture views
+- Shared inspectors, breadcrumbs, explainer content, export options, and embed support
+- Shell-ready and deep-data-ready loading states so the app remains usable before the full corpus finishes loading
 
-### Advanced Search & Analysis
+### Search and analysis
 
-- **Persistent Search** — Search state survives sidebar tab switches; query context is never lost.
-- **Morphological Search** — Filter by Root, Lemma, Part-of-Speech (POS), or specific Ayah via the Advanced Search panel.
-- **Inline Quick Search** — The Inspector tab includes a quick search bar for instant root/word lookups.
-- **Mobile Search** — Floating search overlay accessible from the mobile bottom bar.
-- **Root Lock** — When searching for a root, graph interactions won't override your active search context.
-- **Cross-Reference** — Instantly see where else a root or word appears in the Quran.
-- **Full-Text Search** — Search both Arabic text and English translations.
-- **Collocation Scope Controls** — Switch between Whole Ayah Context and Nearby Words Window to compare thematic vs phrase-level proximity.
+- Fast global search across Arabic text, roots, lemmas, glosses, and translations
+- Dedicated Search workspace with grouped results, explicit fallback messaging, and recovery paths
+- Morphological filters by root, lemma, part of speech, and ayah
+- Semantic and collocation queries through Supabase/PostgreSQL functions
+- Optional image-assisted root extraction and OCR-assisted utilities for search entry
 
-### Modern UX/UI
+### Study and learning
 
-- **Immersive Design** — A "neural" dark mode interface designed for deep focus.
-- **Unified Inspector Panel** — Morphology details and search in one tab, with Advanced Search as a dedicated secondary tab.
-- **Knowledge Tracker** — Track Arabic roots as "learning" or "learned", add notes, and import/export your progress as JSON.
-- **Responsive** — Fully optimized for Desktop, Tablet, and Mobile with collapsible panels and mobile search overlay.
-- **Internationalization** — Full support for English and Arabic interfaces (RTL).
-- **Progressive Web App (PWA)** — Installable app shell with offline-first static assets and network-first page updates.
+- Tracked roots with learning and learned states, notes, import/export, and migration flows
+- Auth-backed sync for tracked roots through Supabase Row Level Security
+- Experimental quiz route with a daily puzzle, adaptive review sessions, local history, and per-user `quiz_attempts` sync
+- Study hub and profile flows designed to complement exploration instead of replacing it
 
-<details>
-<summary><strong>📸 More Screenshots</strong></summary>
-<br/>
+### Product UX
 
-<!-- GRAPH:ROOT_NETWORK -->
-<img width="2560" height="1260" alt="Root Network Graph" src="public/docs/images/root-network.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:SURAH_DISTRIBUTION -->
-<img width="2560" height="1260" alt="Surah Distribution" src="public/docs/images/surah-distribution.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:ARC_FLOW -->
-<img width="2560" height="1260" alt="Arc Flow Diagram" src="public/docs/images/arc-flow.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:DEPENDENCY_TREE -->
-<img width="2560" height="1260" alt="Ayah Dependency Graph" src="public/docs/images/dependency-tree.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:SANKEY_FLOW -->
-<img width="2560" height="1260" alt="Root Flow Sankey" src="public/docs/images/sankey-flow.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:CORPUS_ARCHITECTURE -->
-<img width="2560" height="1260" alt="Corpus Architecture Map" src="public/docs/images/corpus-architecture.png" />
-<!-- END:GRAPH -->
-
-<!-- GRAPH:KNOWLEDGE_GRAPH -->
-<img width="2560" height="1260" alt="Knowledge Graph Visualization" src="public/docs/images/knowledge-graph.png" />
-<!-- END:GRAPH -->
-
-<img width="2558" height="1260" alt="Morphology Inspector" src="https://github.com/user-attachments/assets/06ea15df-22d7-441f-9669-e171cb8d7b3e" />
-
-<img width="2553" height="1269" alt="Search Results" src="https://github.com/user-attachments/assets/09f0d47c-b574-45ec-b664-7105275c8cb3" />
-
-<img width="2556" height="1263" alt="Arabic RTL Interface" src="https://github.com/user-attachments/assets/69d89927-4500-426b-b9e0-a68b3f3035c4" />
-
-<img width="2557" height="1260" alt="Mobile Responsive View" src="https://github.com/user-attachments/assets/ab32616d-0ed1-446d-82ae-43c0d45d10d5" />
-
-</details>
+- English, Arabic, and pseudo-localized message sets
+- Responsive shell with desktop and mobile navigation patterns
+- First-run mission chooser and contextual guidance for new users
+- Theme, display, and export controls shared across the app shell
+- Vercel Analytics instrumentation for readiness, recovery, performance, and core engagement events
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
-- A [Supabase](https://supabase.com) project (free tier works)
+- Node.js 20+ recommended
+- npm
+- A [Supabase](https://supabase.com) project
+- [Supabase CLI](https://supabase.com/docs/guides/cli) for local migration workflows
 
 ### Installation
 
-1. **Clone the repository**
+1. Clone the repository.
 
-    ```bash
-    git clone https://github.com/lAvArt/Quran-corpus-visualizer.git
-    cd Quran-corpus-visualizer
-    ```
+   ```bash
+   git clone https://github.com/lAvArt/Quran-corpus-visualizer.git
+   cd Quran-corpus-visualizer
+   ```
 
-2. **Install dependencies**
+2. Install dependencies.
 
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 
-3. **Configure environment variables**
+3. Copy the environment template.
 
-    ```bash
-    cp .env.example .env.local
-    ```
+   ```bash
+   cp .env.example .env.local
+   ```
 
-    Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your Supabase project dashboard. See [DEPLOYMENT.md](DEPLOYMENT.md) for all variables.
+4. Fill in at minimum:
 
-4. **Apply database migrations**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-    ```bash
-    supabase db push
-    ```
+5. Apply the database migrations.
 
-    Or apply `supabase/migrations/*.sql` (001 → 006) in order via the [Supabase Dashboard](https://supabase.com/dashboard) SQL editor. Requires the [Supabase CLI](https://supabase.com/docs/guides/cli).
+   ```bash
+   supabase db push
+   ```
 
-5. **(Optional) Seed the corpus**
+   The current migration set is `001` through `007`, including the `quiz_attempts` table used for synced quiz history.
 
-    ```bash
-    npx tsx scripts/seed-corpus.ts
-    ```
+6. Optional setup:
 
-    Requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+- Seed normalized corpus data:
 
-6. **(Optional) Fetch local morphology data** for offline dev
+  ```bash
+  npm run db:seed
+  ```
 
-    ```bash
-    npm run fetch:morphology
-    ```
+- Fetch the local morphology file for offline development:
 
-7. **Run the development server**
+  ```bash
+  npm run fetch:morphology
+  ```
 
-    ```bash
-    npm run dev
-    ```
+- Generate embeddings if you are working on semantic search infrastructure:
 
-    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+  ```bash
+  npx tsx scripts/generate-embeddings.ts
+  ```
 
-## 🛠️ Tech Stack
+7. Start the development server.
 
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-- **Language**: TypeScript
-- **Database**: [Supabase](https://supabase.com) / PostgreSQL 17 (pgvector, pg_trgm, unaccent)
-- **Visualization**: [D3.js](https://d3js.org/) for complex graphs
-- **Animation**: Framer Motion
-- **Styling**: Vanilla CSS
-- **Internationalization**: next-intl
+   ```bash
+   npm run dev
+   ```
+
+## Common Commands
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the local Next.js dev server |
+| `npm run lint` | Run ESLint across app sources |
+| `npm run typecheck` | Run TypeScript without emitting |
+| `npm test` | Run Vitest |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
+| `npm run test:a11y-smoke` | Run the accessibility smoke suite |
+| `npm run verify` | Lint, typecheck, unit test, and build |
+| `npm run verify:release` | Full release verification including Playwright suites |
+| `npm run i18n:check` | Check translation coverage |
+| `npm run i18n:pseudo` | Regenerate pseudo-localized messages |
+| `npm run docs:generate` | Regenerate screenshot-backed docs assets |
+
+## Tech Stack
+
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Supabase / PostgreSQL 17
+- D3.js
+- Framer Motion
+- next-intl
+- Vercel Analytics
 
 ## Project Structure
 
 ```text
-├── app/                  # Next.js App Router pages and layouts
-│   ├── [locale]/         # Localized pages (en, ar)
-│   └── api/              # API routes (feedback)
-├── components/
-│   ├── visualisations/   # D3.js visualization components
-│   ├── inspectors/       # Detailed data inspection panels
-│   └── ui/               # Reusable UI elements (Sidebar, Search, etc.)
-├── lib/
-│   ├── cache/            # IndexedDB caching (corpus + knowledge tracker)
-│   ├── context/          # React context providers (Knowledge, etc.)
-│   ├── corpus/           # Data loaders and types for Quranic data
-│   ├── data/             # Static data (Surah names, help text)
-│   ├── hooks/            # Custom React hooks (Zoom, Resize, etc.)
-│   ├── schema/           # TypeScript types and validation
-│   ├── search/           # Search indexing, root flows, and collocation analytics
-│   └── supabase/         # Supabase client, server helpers, types, knowledge service
-├── supabase/
-│   └── migrations/       # PostgreSQL migrations (001–006)
-├── messages/             # i18n translation files (en, ar)
-├── public/               # Static assets and corpus data
-├── scripts/              # Build/dev helper scripts
-└── docs/                 # Project documentation
+app/                 App Router pages, metadata routes, API routes, and localized workspaces
+components/
+  auth/              Auth forms and flows
+  onboarding/        First-run mission and onboarding UI
+  quiz/              Quiz cards, daily puzzle, and review quiz surfaces
+  search/            Search workspace and command/search UI
+  shell/             Shared app shell, journey rail, and shell navigation
+  study/             Study hub and related dashboard components
+  ui/                Shared UI building blocks
+  visualisations/    D3-based graph and visualization components
+lib/
+  analytics/         Product telemetry helpers
+  cache/             IndexedDB-backed local persistence
+  context/           Auth and knowledge providers
+  corpus/            Corpus loading, readiness, and overview data
+  quiz/              Quiz generation, progress, and personalization logic
+  search/            Search parsing, indexes, ranking, and recovery helpers
+  supabase/          Supabase clients, generated types, and data services
+messages/            Translation files
+public/              Static assets and bundled morphology source data
+scripts/             Seed, docs, i18n, and data utility scripts
+supabase/            SQL migrations and local Supabase metadata
+docs/                Product, schema, roadmap, and release documentation
 ```
 
 ## Architecture Notes
 
-- **App shell**: localized App Router pages provide the persistent shell, providers, and route-level workspaces for Explore, Search, and Study.
-- **Corpus data**: Supabase is the primary production source; cached local data and sample data keep the experience resilient during cold starts and fallback conditions.
-- **Search**: quick client search supports fast navigation hints, while API-backed search remains the authoritative path for semantic and relational queries.
-- **Visualizations**: D3 graph components should stay isolated behind shared selection and shell state rather than owning app-wide orchestration.
-- **Study/account**: authentication, tracked roots, notes, import/export, and migration flows support the main exploration experience without replacing it.
+- Localized layouts own the shared shell, providers, metadata, and route-level workspaces.
+- Supabase is the primary structured corpus and user-state backend; local caches keep the product resilient during cold starts and offline-ish flows.
+- Search is split between fast client-side affordances and database-backed semantic or relational queries.
+- Study state is hybrid: local persistence is available without auth, then migrates to Supabase when a user signs in.
+- Quiz progress follows the same pattern: local history first, optional Supabase sync second.
 
-## Workspace Assumptions
+## Release Workflow
 
-- This repository is the intended Turbopack root.
-- Nested projects and generated artifacts are excluded from linting and should not be treated as part of this app's source of truth.
-- `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` are the expected local quality gates for this app.
-- Operational release guidance lives in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
-- Observability event coverage and review guidance live in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
-- Phase-by-phase implementation status lives in [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md).
+- Run `npm run verify` during normal development.
+- Run `npm run verify:release` before a release candidate.
+- Use [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) for manual release checks.
+- Use [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) for telemetry review.
+- Use [docs/ROADMAP_STATUS.md](docs/ROADMAP_STATUS.md) for current delivery status.
 
-## Release Checklist
+## Additional Documentation
 
-- `npm run verify`
-- `npx playwright test tests/e2e/app-smoke.spec.ts`
-- `npm run test:a11y-smoke`
-- `npm run build`
-- Verify Explore, Search, and Study load in both desktop and mobile layouts.
-- Verify shell-ready, full-corpus, fallback, and search-recovery states remain user-readable.
-- Validate metadata, social cards, manifest, and localized routes against the production domain.
-- Verify auth, migration, import/export, and resume-exploration flows with a real Supabase-backed environment before release.
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [DEPLOYMENT.md](DEPLOYMENT.md)
+- [SECURITY.md](SECURITY.md)
+- [docs/SCHEMA.md](docs/SCHEMA.md)
+- [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
 
-## Observability Notes
+## Attribution
 
-- Client analytics now track shell-ready corpus availability, deep-corpus readiness, fallback usage, search-recovery exposure, and core interaction outcomes.
-- Performance analytics currently include shell render timing and first search interaction timing across header, sidebar, mobile, and workspace search surfaces.
-- Release candidates should review analytics dashboards for `corpus_shell_ready`, `corpus_deep_ready`, `corpus_fallback_used`, `search_recovery_shown`, and `performance_metric` before rollout.
+This project uses source data and metadata derived from the Quranic Arabic Corpus and Quran.com APIs.
 
-## Contributing
+- Quranic Arabic Corpus: [https://corpus.quran.com](https://corpus.quran.com)
+- Source repository: [https://github.com/kaisdukes/quranic-corpus](https://github.com/kaisdukes/quranic-corpus)
+- Quran.com API docs: [https://api-docs.quran.com](https://api-docs.quran.com/)
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a Pull Request.
-
-See the [Roadmap](docs/ROADMAP.md) for planned features and priorities.
-
-## Attribution & Data Sources
-
-This project uses data and APIs from the **Quranic Arabic Corpus**, an open-source project created by **Kais Dukes** (Rahimahullah) and maintained by the community.
-
-- **Source**: [github.com/kaisdukes/quranic-corpus](https://github.com/kaisdukes/quranic-corpus)
-- **Website**: [corpus.quran.com](https://corpus.quran.com)
-- **Verse API**: [api-docs.quran.com](https://api-docs.quran.com/)
-
-We explicitly acknowledge and thank the original authors for their monumental work in digitizing and annotating the linguistic structure of the Quran.
-
-Quran.com-derived cached corpus content in the browser is enforced with a strict **7-day TTL** and policy-version migration to keep offline data fresh and license-aligned.
+Please see [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) for source handling and attribution details.
 
 ## Security
 
-Please see [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+Please report vulnerabilities according to [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** — see the [LICENSE](LICENSE) file for details.
-
-This ensures that this project and any derivatives remain free and open for the benefit of the community, consistent with the upstream corpus license.
-
----
-
-<div align="center">
-
-**Built with reverence for the Quran and its linguistic heritage.**
-
-[Live Demo](https://quran.pluragate.org) · [Documentation](docs/) · [Report Issue](https://github.com/lAvArt/Quran-corpus-visualizer/issues)
-
-</div>
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).

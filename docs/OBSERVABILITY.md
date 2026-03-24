@@ -2,45 +2,88 @@
 
 ## Purpose
 
-This document defines the minimum telemetry and review flow for release candidates of Quran Corpus Visualizer.
+This document defines the telemetry surface that should be reviewed for release candidates.
 
-## Core Outcome Events
+## Event Catalog
 
-The client currently emits these product-level events through Vercel Analytics:
+### Onboarding and engagement
+
+The client emits:
+
+- `onboarding_started`
+- `onboarding_completed`
+- `onboarding_skipped`
+- `mode_switched`
+- `viz_changed`
+- `help_opened`
+- `breadcrumb_used`
+- `first_task_completed`
+- `first_task_feedback`
+
+### Corpus readiness and recovery
+
+The client emits:
 
 - `corpus_shell_ready`
 - `corpus_deep_ready`
 - `corpus_fallback_used`
 - `search_recovery_shown`
-- `search_opened`
-- `search_query_submitted`
-- `search_result_selected`
-- `first_task_completed`
-- `first_task_feedback`
 
-## Performance Events
-
-The client currently emits:
-
-- `performance_metric` with `metric = shell_render`
-- `performance_metric` with `metric = first_search_interaction`
-
-Expected surfaces:
+Expected `surface` values for corpus readiness events:
 
 - `explore`
 - `search`
+- `shared`
+
+### Search interaction
+
+The client emits:
+
+- `search_opened`
+- `search_query_submitted`
+- `search_result_selected`
+
+Current search-surface values:
+
+- `header`
+- `sidebar`
+- `mobile`
+
+Query submissions also include coarse script classification:
+
+- `arabic`
+- `latin`
+- `mixed`
+- `other`
+
+### Performance
+
+The client emits `performance_metric` with:
+
+- `metric = shell_render`
+- `metric = first_search_interaction`
+
+Observed `surface` values can include:
+
+- `explore`
+- `search`
+- `shared`
 - `header`
 - `sidebar`
 - `mobile`
 - `workspace`
+- `unknown`
 
-## Client Error Events
+### Client errors
 
-The client currently emits:
+The client emits `client_error` with these current areas:
 
-- `client_error` with `area = corpus`
+- `corpus`
+- `search`
+- `ui`
+- `auth`
 
-Known corpus error codes:
+Known corpus-related codes include:
 
 - `load_failed`
 - `empty_corpus_result`
@@ -48,16 +91,18 @@ Known corpus error codes:
 
 ## Release Review
 
-For a release candidate, review at minimum:
+For each release candidate, review at minimum:
 
-1. `corpus_shell_ready` is present for both Explore and Search sessions.
-2. `corpus_deep_ready` occurs in environments where full corpus access is expected.
-3. `corpus_fallback_used` does not spike unexpectedly after deployment.
-4. `search_recovery_shown` remains low in normal production conditions.
-5. `performance_metric` values for `shell_render` and `first_search_interaction` are not materially worse than the prior release.
+1. `corpus_shell_ready` appears for Explore and Search sessions.
+2. `corpus_deep_ready` remains present in environments where full data access is expected.
+3. `corpus_fallback_used` does not spike after deployment.
+4. `search_recovery_shown` remains rare under normal operation.
+5. `performance_metric` values for `shell_render` and `first_search_interaction` do not regress materially.
+6. `client_error` volume does not increase unexpectedly across `corpus`, `search`, `ui`, or `auth`.
 
-## Gaps Still Open
+## Current Gaps
 
 - No server-side tracing or centralized error aggregation is configured yet.
-- Search API latency/error monitoring is not yet formalized.
-- Accessibility regressions are currently guarded by smoke tests and checklist review, not full audit automation.
+- Search API latency and failure dashboards are still lightweight.
+- Quiz-specific telemetry is not yet a first-class event family.
+- Accessibility regressions still rely on smoke coverage plus manual review rather than a broader automated audit.

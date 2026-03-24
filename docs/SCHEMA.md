@@ -1,20 +1,19 @@
 # Internal Schema
 
-This project normalizes all external corpus data into an internal graph model.
-UI components must consume only this internal model, never raw upstream payloads.
+The app normalizes external corpus data into internal models before rendering. UI code should consume these models, not raw upstream payloads.
 
-## Core Entities
+## Core Corpus Entities
 
 ### Sura
 
-- `id`: integer (1-114)
+- `id`: integer, `1..114`
 - `nameArabic`: string
 - `nameTransliteration`: string
 - `ayahCount`: integer
 
 ### Ayah
 
-- `id`: string (`{sura}:{ayah}`)
+- `id`: string, `{sura}:{ayah}`
 - `suraId`: integer
 - `ayahNumber`: integer
 - `textUthmani`: string
@@ -22,21 +21,21 @@ UI components must consume only this internal model, never raw upstream payloads
 
 ### Token
 
-- `id`: string (`{sura}:{ayah}:{token}`)
+- `id`: string, `{sura}:{ayah}:{token}`
 - `suraId`: integer
 - `ayahNumber`: integer
 - `position`: integer
 - `surface`: string
-- `root`: string | null
-- `lemma`: string | null
+- `root`: string or `null`
+- `lemma`: string or `null`
 - `pos`: string
-- `morphology`: Morphology
+- `morphology`: `Morphology`
 
 ### Morphology
 
 - `features`: `Record<string, string>`
-- `gloss`: string | null
-- `stem`: string | null
+- `gloss`: string or `null`
+- `stem`: string or `null`
 
 ### DependencyEdge
 
@@ -46,47 +45,72 @@ UI components must consume only this internal model, never raw upstream payloads
 - `headTokenId`: string
 - `relation`: string
 
-## Derived Indexes
+## Derived and Search Models
 
 ### RootIndex
 
-- key: root
+- key: normalized root
 - value: token IDs and ayah IDs containing that root
 
 ### LemmaIndex
 
-- key: lemma
+- key: normalized lemma
 - value: token IDs and ayah IDs containing that lemma
 
 ### PosIndex
 
-- key: POS tag
+- key: part-of-speech tag
 - value: token IDs and ayah IDs containing that tag
 
-### CollocationResult (Derived Analytics)
+### CollocationResult
 
-Calculated at runtime from normalized `Token` data (not stored as a primary corpus entity).
+Calculated from normalized token data and mirrored by database-backed collocation queries.
 
-- `root`: string (collocated root)
-- `count`: integer (co-occurrence count within selected context scope)
-- `pmi`: number (Pointwise Mutual Information score)
-- `sampleLemmas`: string[] (sample lemmas observed for the collocated root)
-- `sampleWindows`: string[] (sample context references used by tertiary nodes)
+- `root`: string
+- `count`: integer
+- `pmi`: number
+- `sampleLemmas`: string[]
+- `sampleWindows`: string[]
 
-`sampleWindows` format depends on scope mode:
+`sampleWindows` formats:
 
-- `Whole Ayah Context` (`windowType: "ayah"`): `{sura}:{ayah}`
-- `Nearby Words Window` (`windowType: "distance"`): `{sura}:{ayah}:{position}`
+- ayah scope: `{sura}:{ayah}`
+- distance scope: `{sura}:{ayah}:{position}`
 
-### TrackedRoot (Knowledge Tracker)
+## User State Models
 
-Persisted in IndexedDB (`qcv-knowledge` store). Not part of the upstream corpus — this is user-generated learning state.
+### TrackedRoot
 
-- `root`: string (primary key, Arabic root)
-- `state`: KnowledgeState (`"learning"` | `"learned"`)
-- `notes`: string (optional, user-entered)
-- `trackedAt`: number (timestamp, epoch ms)
-- `updatedAt`: number (timestamp, epoch ms)
+Client shape used by IndexedDB, knowledge context, and Supabase mapping code.
+
+- `root`: string
+- `state`: `"learning"` or `"learned"`
+- `notes`: string
+- `addedAt`: epoch milliseconds
+- `lastReviewedAt`: epoch milliseconds
+
+### QuizSessionRecord
+
+Client shape used for local quiz progress and Supabase sync.
+
+- `id`: string
+- `sessionType`: `"daily"` or `"study"`
+- `score`: integer
+- `total`: integer
+- `completedAt`: epoch milliseconds
+- `reviewedRoots`: integer
+- `usedTrackedRoots`: boolean
+
+### QuizProgressSummary
+
+- `completedSessions`: integer
+- `dailySessions`: integer
+- `studySessions`: integer
+- `questionsAnswered`: integer
+- `correctAnswers`: integer
+- `averageAccuracy`: integer
+- `lastCompletedAt`: epoch milliseconds or `null`
+- `lastSessionType`: `"daily"` or `"study"` or `null`
 
 ## Relation Model
 
@@ -95,6 +119,8 @@ Persisted in IndexedDB (`qcv-knowledge` store). Not part of the upstream corpus 
 - `Ayah 1..n DependencyEdge`
 - `Token 0..1 Root`
 - `Token 0..1 Lemma`
+- `User 1..n TrackedRoot`
+- `User 1..n QuizAttempt`
 
 ## JSON Shape Example
 
@@ -141,113 +167,142 @@ Persisted in IndexedDB (`qcv-knowledge` store). Not part of the upstream corpus 
 
 ## Schema Rules
 
-- IDs are stable and deterministic.
-- Arrays are position-sorted where relevant.
-- Null means unknown or unavailable; do not overload empty strings.
-- Any lossy transform from upstream data must be documented in adapter code.
-
----
+- IDs must be stable and deterministic.
+- Ordered arrays remain position-sorted where relevant.
+- `null` means unknown or unavailable, not an empty string substitute.
+- Lossy transforms from upstream data must be documented in adapter code or migration logic.
 
 ## Database Schema (Supabase / PostgreSQL)
 
-The following tables and views are provisioned by `supabase/migrations/` (001–006).
+The current database shape is provisioned by migrations `001` through `007`.
 
 ### `corpus_tokens`
 
-Normalized morphological tokens from the Quranic Arabic Corpus.
+Normalized morphological tokens.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `id` | `TEXT` PK | `{sura}:{ayah}:{position}` |
-| `sura` | `SMALLINT` | Surah number (1–114) |
+| `sura` | `SMALLINT` | Surah number |
 | `ayah` | `SMALLINT` | Ayah number |
-| `position` | `SMALLINT` | Token position within ayah |
-| `root` | `TEXT` | Arabic root (nullable) |
-| `lemma` | `TEXT` | Lemma form (nullable) |
+| `position` | `SMALLINT` | Token order within ayah |
+| `root` | `TEXT` | Nullable |
+| `lemma` | `TEXT` | Nullable |
 | `pos` | `TEXT` | Part-of-speech tag |
 | `text` | `TEXT` | Surface form |
-| `root_normalized` | `TEXT` GENERATED | Unaccented/normalized root |
-| `lemma_normalized` | `TEXT` GENERATED | Unaccented/normalized lemma |
-| `search_vector` | `TSVECTOR` GENERATED | Weighted FTS vector (root + lemma) |
+| `root_normalized` | `TEXT` | Generated |
+| `lemma_normalized` | `TEXT` | Generated |
+| `search_vector` | `TSVECTOR` | Generated |
 
-RLS: enabled. `anon` + `authenticated` → SELECT only.
+Security:
+
+- RLS enabled
+- public read-only policies for `anon` and `authenticated`
+- write, truncate, references, and trigger privileges revoked from end-user roles
 
 ### `ayahs`
 
-Ayah-level Uthmani text for display and cross-reference.
+Ayah-level Uthmani text.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `id` | `TEXT` PK | `{sura}:{ayah}` |
 | `sura` | `SMALLINT` | |
 | `ayah` | `SMALLINT` | |
-| `text_uthmani` | `TEXT` | Full Uthmani script text |
+| `text_uthmani` | `TEXT` | |
 
-RLS: enabled. `anon` + `authenticated` → SELECT only.
+Security follows the same read-only RLS pattern as `corpus_tokens`.
 
 ### `root_embeddings`
 
-Pre-computed 768-dimensional vector embeddings per root for semantic search.
+Precomputed embeddings for semantic root search.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `root` | `TEXT` PK | Arabic root |
-| `embedding` | `VECTOR(768)` | Embedding vector (pgvector) |
+| `embedding` | `VECTOR(768)` | pgvector embedding |
 
-Index: HNSW on `embedding` with cosine distance. RLS: enabled. `anon` + `authenticated` → SELECT only.
+Security follows the same read-only RLS pattern as other corpus tables.
 
-### `collocations` (Materialized View)
+### `collocations`
 
-Pre-aggregated co-occurrence statistics with PMI scores.
+Materialized view for collocation statistics.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `root_a` | `TEXT` | First root |
 | `root_b` | `TEXT` | Second root |
-| `window_type` | `TEXT` | `'ayah'` or `'distance'` |
+| `window_type` | `TEXT` | `ayah` or `distance` |
 | `co_count` | `BIGINT` | Co-occurrence count |
 | `pmi` | `NUMERIC` | Pointwise Mutual Information |
-| `surah_count` | `BIGINT` | Number of distinct surahs |
+| `surah_count` | `BIGINT` | Distinct surah count |
 
-Refreshed via `refresh_corpus_views()`. SELECT granted to `anon`, `authenticated`.
+Materialized views use explicit `GRANT SELECT` rather than RLS.
 
-### `cross_references` (Materialized View)
+### `cross_references`
 
-Ayah-level root co-occurrence for cross-reference lookup.
+Materialized view for ayah-level root co-occurrence.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `sura` | `SMALLINT` | |
 | `ayah` | `SMALLINT` | |
-| `roots` | `TEXT[]` | Array of all roots in the ayah |
-
-SELECT granted to `anon`, `authenticated`.
+| `roots` | `TEXT[]` | All roots in the ayah |
 
 ### `tracked_roots`
 
-User learning progress. One row per (user, root) pair.
+Per-user tracked roots.
 
 | Column | Type | Notes |
-|--------|------|-------|
+|---|---|---|
 | `id` | `UUID` PK | Auto-generated |
 | `user_id` | `UUID` | References `auth.users(id)` |
-| `root` | `TEXT` | Arabic root |
-| `state` | `TEXT` | `'learning'` \| `'learned'` |
-| `notes` | `TEXT` | Optional user notes |
-| `tracked_at` | `TIMESTAMPTZ` | Row creation time |
-| `updated_at` | `TIMESTAMPTZ` | Last update time |
+| `root` | `TEXT` | |
+| `state` | `TEXT` | `learning` or `learned` |
+| `notes` | `TEXT` | Defaults to empty string |
+| `added_at` | `TIMESTAMPTZ` | Creation time |
+| `last_reviewed_at` | `TIMESTAMPTZ` | Last update time |
 
-RLS: enabled. Policy: `auth.uid() = user_id` (users read/write own rows only). `anon` → SELECT only. `TRUNCATE` revoked from all client roles.
+Security:
+
+- RLS enabled
+- all operations are gated by `auth.uid() = user_id`
+- anonymous callers cannot satisfy the policy
+- `TRUNCATE` is revoked from end-user roles
+
+### `quiz_attempts`
+
+Per-user synced quiz history.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UUID` PK | Auto-generated |
+| `user_id` | `UUID` | References `auth.users(id)` |
+| `session_key` | `TEXT` | Unique per user |
+| `session_type` | `TEXT` | `daily` or `study` |
+| `score` | `INT` | Must be `>= 0` |
+| `total` | `INT` | Must be `> 0` |
+| `reviewed_roots` | `INT` | Defaults to `0` |
+| `used_tracked_roots` | `BOOLEAN` | Defaults to `false` |
+| `completed_at` | `TIMESTAMPTZ` | Completion time |
+| `created_at` | `TIMESTAMPTZ` | Row creation time |
+
+Security:
+
+- RLS enabled
+- all operations are gated by `auth.uid() = user_id`
+- anonymous callers cannot satisfy the policy
+- indexed by `(user_id, completed_at DESC)`
 
 ### Search Functions
 
 | Function | Signature | Description |
-|----------|-----------|-------------|
+|---|---|---|
 | `search_roots_semantic` | `(query_embedding VECTOR(768), match_count INT)` | Cosine similarity over `root_embeddings` |
-| `search_corpus_fts` | `(query TEXT, limit_n INT)` | FTS via `tsvector`/`websearch_to_tsquery` |
-| `search_corpus_trigram` | `(query TEXT, limit_n INT, threshold FLOAT)` | Fuzzy match via `pg_trgm` similarity |
-| `get_collocates` | `(target_root TEXT, window_type TEXT, min_pmi FLOAT, limit_n INT)` | PMI-ranked collocates from `collocations` view |
-| `cross_reference_roots` | `(root_a TEXT, root_b TEXT)` | Ayahs where both roots co-occur |
-| `refresh_corpus_views` | `()` | Refreshes `collocations` + `cross_references` (service_role only) |
+| `search_corpus_fts` | `(query TEXT, limit_n INT)` | Full-text search |
+| `search_corpus_trigram` | `(query TEXT, limit_n INT, threshold FLOAT)` | Trigram similarity search |
+| `get_collocates` | `(target_root TEXT, window_type TEXT, min_pmi FLOAT, limit_n INT)` | Collocate lookup |
+| `cross_reference_roots` | `(root_a TEXT, root_b TEXT)` | Ayah-level co-occurrence lookup |
+| `refresh_corpus_views` | `()` | Refresh materialized views, service role only |
 
-All functions use `SET search_path = public, pg_catalog`.
+All functions set `search_path = public, pg_catalog`.

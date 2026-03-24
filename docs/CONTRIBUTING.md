@@ -1,61 +1,62 @@
 # Contributing
 
-Thanks for contributing to Quran Corpus Visualizer.
-
-## License
-
-By contributing to this repository, you agree that your contributions will be licensed under its **GNU General Public License v3.0 (GPL-3.0)**.
+This file supplements the root [CONTRIBUTING.md](../CONTRIBUTING.md) with repository-specific guardrails.
 
 ## Principles
 
 - Accuracy over novelty.
 - Source traceability over convenience.
 - Explainability over opaque behavior.
-- Restraint over speculative features.
-
-## Scope Rules
-
-- MVP scope is fixed in `docs/ROADMAP.md` (`v0.1` section).
-- Avoid unrelated feature expansion in MVP PRs.
-- Do not introduce spatial or semantic claims without citation and confidence modeling.
+- Restraint over speculative claims.
 
 ## Local Setup
 
 ```bash
 npm install
-cp .env.example .env.local  # fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY
-supabase db push             # apply migrations (requires Supabase CLI)
+cp .env.example .env.local
+supabase db push
 npm run dev
 ```
 
-## Naming Conventions
+## Validation Standard
 
-Use explicit names that encode purpose:
+For normal changes, run:
 
-- `RootFlowSankey`
-- `CollocationNetworkGraph`
-- `AyahDependencyGraph`
-- `MorphologyInspector`
-- `SemanticSearchPanel`
+```bash
+npm run verify
+```
 
-Avoid vague names like `GraphView`, `DataPanel`, or `Analyzer`.
+For release-sensitive changes, run:
 
-## Data and Schema Rules
+```bash
+npm run verify:release
+```
 
-- UI must consume internal schema models only (`docs/SCHEMA.md`).
-- External API adapters live under `lib/corpus/`.
-- Any schema change requires docs updates and migration notes.
+If you touch translations, also run:
 
-## Pull Request Checklist
+```bash
+npm run i18n:check
+```
 
-- Feature aligns with roadmap phase
-- Naming is explicit and domain-correct
-- Source attribution is preserved
-- Tests or validation steps are included
-- Docs updated when behavior or schema changes
+## Architecture Rules
+
+- UI consumes normalized internal models only.
+- Supabase schema changes require migration updates plus `docs/SCHEMA.md` updates.
+- Route-level product behavior belongs to explicit workspaces such as Explore, Search, Study, or Quiz rather than ad hoc page-local logic.
+- Shared shell changes should preserve desktop and mobile behavior.
+
+## Documentation Rules
+
+Update docs when any of the following changes:
+
+- route tree or workspace names
+- environment variables
+- database schema or policies
+- release steps or quality gates
+- user-visible feature names or onboarding flows
 
 ## Not Accepted
 
-- Unsourced historical/geographic assertions
-- Black-box ranking claims without rationale
-- Hard-coding external payload assumptions in UI components
+- Unsourced claims presented as product truth
+- Schema changes without migration notes
+- Release-flow changes without documentation updates
