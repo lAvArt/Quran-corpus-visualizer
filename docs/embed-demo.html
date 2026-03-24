@@ -162,13 +162,18 @@
   </footer>
 
   <script>
-    const BASE = "https://quran.pluragate.org/embed";
+    const BASE_URL = "https://quran.pluragate.org/embed";
+    const VALID_MODES = new Set([
+      "root-network","radial-sura","arc-flow","dependency-tree","sankey-flow",
+      "surah-distribution","corpus-architecture","knowledge-graph","collocation-network","heatmap"
+    ]);
+    const VALID_THEMES = new Set(["dark", "light"]);
 
     const surahSelect = document.getElementById("surah");
     for (let i = 1; i <= 114; i++) {
       const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = i;
+      opt.value = String(i);
+      opt.textContent = String(i);
       if (i === 3) opt.selected = true;
       surahSelect.appendChild(opt);
     }
@@ -177,21 +182,30 @@
       const viz   = document.getElementById("vizMode").value;
       const surah = document.getElementById("surah").value;
       const theme = document.getElementById("theme").value;
-      const src   = `${BASE}/${viz}?surah=${surah}&theme=${theme}`;
+
+      if (!VALID_MODES.has(viz) || !VALID_THEMES.has(theme)) return;
+      const surahNum = parseInt(surah, 10);
+      if (!(surahNum >= 1 && surahNum <= 114)) return;
+
+      const url = new URL(BASE_URL + "/" + viz);
+      url.searchParams.set("surah", String(surahNum));
+      url.searchParams.set("theme", theme);
+      const src = url.href;
 
       document.getElementById("preview").src = src;
 
-      const snippet =
-        `<iframe\n` +
-        `  src="${src}"\n` +
-        `  width="800"\n` +
-        `  height="600"\n` +
-        `  style="border:0;border-radius:8px"\n` +
-        `  loading="lazy"\n` +
-        `  allowfullscreen\n` +
-        `></iframe>`;
-
-      document.getElementById("code").textContent = snippet;
+      const codeEl = document.getElementById("code");
+      while (codeEl.firstChild) codeEl.firstChild.remove();
+      codeEl.appendChild(document.createTextNode(
+        '<iframe\n' +
+        '  src="' + src + '"\n' +
+        '  width="800"\n' +
+        '  height="600"\n' +
+        '  style="border:0;border-radius:8px"\n' +
+        '  loading="lazy"\n' +
+        '  allowfullscreen\n' +
+        '></iframe>'
+      ));
     }
 
     document.getElementById("vizMode").addEventListener("change", update);
@@ -201,7 +215,7 @@
     document.getElementById("copy").addEventListener("click", function () {
       navigator.clipboard.writeText(document.getElementById("code").textContent);
       this.textContent = "Copied!";
-      setTimeout(() => { this.textContent = "Copy"; }, 1500);
+      setTimeout(function () { document.getElementById("copy").textContent = "Copy"; }, 1500);
     });
 
     update();
