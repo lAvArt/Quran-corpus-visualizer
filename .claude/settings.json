@@ -11,7 +11,12 @@
       "Bash(grep -r search/semantic /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.tsx --include=*.ts --exclude-dir=node_modules --exclude-dir=.next)",
       "Bash(grep -r semantic /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.tsx --include=*.ts --exclude-dir=node_modules --exclude-dir=.next)",
       "Bash(grep -r \"OpenAI\\\\|embedding\\\\|OPENAI_API_KEY\" /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.md --include=*.ts --include=*.tsx --exclude-dir=node_modules --exclude-dir=.next)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "WebFetch(domain:quran.pluragate.org)",
+      "Bash(curl -sI \"https://quran.pluragate.org/embed/root-network?surah=3&theme=dark\")",
+      "Bash(npx -y serve docs -p 3333 --no-clipboard)",
+      "Bash(gh pr:*)",
+      "Bash(gh repo:*)"
     ]
   }
 }

@@ -11,64 +11,71 @@ function isRoutingLocale(locale: string): locale is (typeof routing.locales)[num
   return routing.locales.includes(locale as (typeof routing.locales)[number]);
 }
 
-export const metadata: Metadata = {
-  title: {
-    default: "Quran Corpus Visualizer",
-    template: "%s | Quran Corpus Visualizer"
-  },
-  description: "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
-  keywords: ["Quran", "Corpus", "Visualization", "Linguistics", "Arabic", "Islam", "Data Visualization", "Graph", "Roots", "Morphology"],
-  authors: [{ name: "Quran Corpus Visualizer Team" }],
-  creator: "Quran Corpus Visualizer",
-  publisher: "Quran Corpus Visualizer",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const isPseudo = locale === 'pseudo';
+
+  return {
+    title: {
+      default: "Quran Corpus Visualizer",
+      template: "%s | Quran Corpus Visualizer"
     },
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://quran.pluragate.org",
-    title: "Quran Corpus Visualizer",
-    description: "Interactive exploration of Quranic linguistic structure and morphology.",
-    siteName: "Quran Corpus Visualizer",
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
+    description: "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
+    keywords: ["Quran", "Corpus", "Visualization", "Linguistics", "Arabic", "Islam", "Data Visualization", "Graph", "Roots", "Morphology"],
+    authors: [{ name: "Quran Corpus Visualizer Team" }],
+    creator: "Quran Corpus Visualizer",
+    publisher: "Quran Corpus Visualizer",
+    robots: isPseudo
+      ? { index: false, follow: false }
+      : {
+          index: true,
+          follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            'max-video-preview': -1,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
+        },
+    openGraph: isPseudo ? undefined : {
+      type: "website",
+      locale: "en_US",
+      url: "https://quran.pluragate.org",
+      title: "Quran Corpus Visualizer",
+      description: "Interactive exploration of Quranic linguistic structure and morphology.",
+      siteName: "Quran Corpus Visualizer",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
+        },
+      ],
+    },
+    twitter: isPseudo ? undefined : {
+      card: "summary_large_image",
+      title: "Quran Corpus Visualizer",
+      description: "Deep dive into Quranic linguistics with interactive visualizations.",
+      images: ["/twitter-image"],
+      creator: "@pluragate",
+    },
+    alternates: {
+      canonical: "/",
+      languages: {
+        'en-US': '/en',
+        'ar-SA': '/ar',
       },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Quran Corpus Visualizer",
-    description: "Deep dive into Quranic linguistics with interactive visualizations.",
-    images: ["/twitter-image"],
-    creator: "@pluragate",
-  },
-  alternates: {
-    canonical: "/",
-    languages: {
-      'en-US': '/en',
-      'ar-SA': '/ar',
     },
-  },
-  manifest: "/manifest.webmanifest",
-  icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/icon-any.svg',
-  },
-};
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon: '/favicon.svg',
+      shortcut: '/favicon.svg',
+      apple: '/icon-any.svg',
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
