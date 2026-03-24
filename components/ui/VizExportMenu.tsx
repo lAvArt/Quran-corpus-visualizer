@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObjec
 import { useTranslations } from "next-intl";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import { exportVisualization, type ExportFormat, type ExportScope } from "@/lib/export/visualizationExport";
+import EmbedCodeModal from "@/components/embed/EmbedCodeModal";
 
 interface VizExportMenuProps {
   targetRef: RefObject<HTMLElement | null>;
@@ -34,6 +35,7 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
   const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
   const [exportScope, setExportScope] = useState<ExportScope>("full-graph");
   const [status, setStatus] = useState<string | null>(null);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
   const dropdownId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const statusTimerRef = useRef<number | null>(null);
@@ -161,12 +163,30 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
               {t(`formats.${format}`)}
             </button>
           ))}
+
+          <hr className="viz-export-divider" />
+          <button
+            type="button"
+            role="menuitem"
+            className="viz-export-item"
+            onClick={() => { setIsExpanded(false); setShowEmbedModal(true); }}
+          >
+            {t("embed")}
+          </button>
         </div>
       )}
 
       <div className="viz-export-status" aria-live="polite">
         {status}
       </div>
+
+      {showEmbedModal && (
+        <EmbedCodeModal
+          vizMode={vizMode}
+          selectedSurahId={selectedSurahId}
+          onClose={() => setShowEmbedModal(false)}
+        />
+      )}
 
       <style jsx>{`
         .viz-export {
@@ -220,7 +240,7 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
 
         .viz-export-menu {
           position: absolute;
-          top: calc(100% + 8px);
+          bottom: calc(100% + 8px);
           right: 0;
           z-index: 60;
           min-width: 180px;
@@ -288,9 +308,15 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
           cursor: progress;
         }
 
+        .viz-export-divider {
+          border: none;
+          border-top: 1px solid var(--line);
+          margin: 4px 0;
+        }
+
         .viz-export-status {
           position: absolute;
-          top: calc(100% + 54px);
+          bottom: calc(100% + 54px);
           right: 0;
           font-size: 0.7rem;
           color: var(--ink-secondary);

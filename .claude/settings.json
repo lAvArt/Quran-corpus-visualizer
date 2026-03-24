@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer/app/[locale]/)",
+      "Bash(find /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer/components -type f -name *.tsx)",
+      "Bash(find /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer/app/[locale] -type f -name \"page.tsx\" -o -type f -name \"layout.tsx\")",
+      "Bash(find /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer/tests -type f -name *.ts)",
+      "Bash(find /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer -name *.css -o -name globals.css)",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer -path */public/data/* -type f)",
+      "Bash(grep -r search/semantic /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.tsx --include=*.ts --exclude-dir=node_modules --exclude-dir=.next)",
+      "Bash(grep -r semantic /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.tsx --include=*.ts --exclude-dir=node_modules --exclude-dir=.next)",
+      "Bash(grep -r \"OpenAI\\\\|embedding\\\\|OPENAI_API_KEY\" /c/Users/AvArc/RiderProjects/Quran-corpus-visualizer --include=*.md --include=*.ts --include=*.tsx --exclude-dir=node_modules --exclude-dir=.next)",
+      "Bash(npm test:*)"
+    ]
+  }
+}

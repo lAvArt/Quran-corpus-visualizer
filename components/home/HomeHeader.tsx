@@ -4,7 +4,7 @@ import Image from "next/image";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
-import GlobalSearch from "@/components/ui/GlobalSearch";
+import CommandBar from "@/components/search/CommandBar";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import { AuthButton } from "@/components/ui/AuthButton";
 import VizExportMenu from "@/components/ui/VizExportMenu";
@@ -93,8 +93,9 @@ export default function HomeHeader(props: HomeHeaderProps) {
         </div>
 
         <div data-tour-id="global-search" className="desktop-only">
-          <GlobalSearch
+          <CommandBar
             tokens={allTokens}
+            variant="bar"
             analyticsSurface="header"
             onTokenSelect={onTokenSelect}
             onTokenHover={onTokenHover}

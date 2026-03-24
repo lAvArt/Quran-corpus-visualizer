@@ -5,7 +5,7 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 type ScriptClass = "arabic" | "latin" | "mixed" | "other";
-type SearchMatchType = "ayah" | "text" | "root" | "lemma" | "gloss" | "semantic" | "token";
+type SearchMatchType = "ayah" | "surah" | "text" | "root" | "lemma" | "gloss" | "translation" | "semantic" | "token";
 type CorpusSurface = "explore" | "search" | "shared";
 type SearchSurface = "header" | "sidebar" | "mobile" | "workspace" | "unknown";
 type ClientErrorArea = "corpus" | "search" | "ui" | "auth";

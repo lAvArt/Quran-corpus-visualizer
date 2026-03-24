@@ -12,6 +12,12 @@
 const API_BASE = "https://api.quran.com/api/v4";
 const DEFAULT_VERSE_FIELDS = ["text_uthmani", "text_imlaei", "text_imlaei_simple"];
 
+/** Word-level fields to always request when words=true */
+const DEFAULT_WORD_FIELDS = ["text_uthmani", "translation", "transliteration"];
+
+/** Sahih International (English) — widely available on the Quran.com API */
+const DEFAULT_TRANSLATION_LANGUAGE_ID = 20;
+
 export interface QuranChapter {
   id: number;
   revelation_place: "makkah" | "madinah";
@@ -168,6 +174,11 @@ class QuranApiClient {
         ...options,
         page,
         perPage: 50,
+        // Always request word-level translations and fields so gloss data is populated
+        ...(options.words ? {
+          wordFields: DEFAULT_WORD_FIELDS,
+          translations: [DEFAULT_TRANSLATION_LANGUAGE_ID],
+        } : {}),
       });
       allVerses.push(...response.verses);
       hasMore = response.pagination.next_page !== null;

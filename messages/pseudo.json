@@ -3,8 +3,8 @@
         "title": "[!! Qûṛâñ Çôṛṗûṡ Vîṡûâļîžèṛ !!]",
         "eyebrow": "[!! Qûṛâñ Çôṛṗûṡ Vîṡûâļîžèṛ !!]",
         "brand": "[!! qûṛâñ.ṗļûṛâġâťè.ôṛġ !!]",
-        "hideTools": "[!! Ħîḋè Ťôôļṡ -> !!]",
-        "showTools": "[!! Ṡħôŵ Ťôôļṡ <- !!]"
+        "hideTools": "[!! Ħîḋè Ťôôļṡ !!]",
+        "showTools": "[!! Ṡħôŵ Ťôôļṡ !!]"
     },
     "AppSidebar": {
         "index": "[!! Îñḋèẋ !!]",
@@ -14,22 +14,55 @@
         "attribution": "[!! Ṁôṛṗħôļôġý ṡôûṛçè: !!]"
     },
     "GlobalSearch": {
-        "placeholder": "[!! Ṡèâṛçħ ṛôôťṡ, ŵôṛḋṡ, ṁèâñîñġṡ... !!]",
+        "placeholder": "[!! Ṡèâṛçħ ṡûṛâħṡ, ṛôôťṡ, ŵôṛḋṡ, ṁèâñîñġṡ... !!]",
         "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]",
         "clearSearch": "[!! Clear search !!]",
         "resultsAriaLabel": "[!! Search results !!]",
+        "advancedFilters": "[!! Filters !!]",
+        "hideFilters": "[!! Hide filters !!]",
         "types": {
             "root": "[!! Root !!]",
             "lemma": "[!! Lemma !!]",
             "text": "[!! Text !!]",
-            "gloss": "[!! Gloss !!]"
+            "gloss": "[!! Gloss !!]",
+            "surah": "[!! Surah !!]",
+            "translation": "[!! Translation !!]"
+        },
+        "intentHints": {
+            "root": "[!! Searching roots !!]",
+            "text": "[!! Searching Arabic text !!]",
+            "gloss": "[!! Searching meanings !!]",
+            "ayah": "[!! Going to ayah !!]",
+            "structured": "[!! Structured query !!]",
+            "surah": "[!! Searching surahs !!]"
+        },
+        "filters": {
+            "root": "[!! Root !!]",
+            "lemma": "[!! Lemma !!]",
+            "ayah": "[!! Ayah !!]",
+            "allPos": "[!! All POS !!]",
+            "noun": "[!! Noun !!]",
+            "verb": "[!! Verb !!]",
+            "particle": "[!! Particle !!]",
+            "adjective": "[!! Adjective !!]",
+            "pronoun": "[!! Pronoun !!]",
+            "clear": "[!! Clear filters !!]"
         }
     },
     "VisualizationSwitcher": {
         "select": "[!! Ṡèļèçť !!]",
         "dropdownTitle": "[!! Çħôôṡè Vîṡûâļîžâťîôñ !!]",
+        "moreVisualizations": "[!! Show all visualizations !!]",
+        "lessVisualizations": "[!! Show fewer !!]",
+        "showMore": "[!! +{count} more !!]",
         "lightTheme": "[!! Ļîġħť ťħèṁè !!]",
         "darkTheme": "[!! Ḋâṛķ ťħèṁè !!]",
+        "groups": {
+            "overview": { "label": "[!! Overview !!]", "description": "[!! What does the Quran look like? !!]" },
+            "explore-surah": { "label": "[!! Explore a Surah !!]", "description": "[!! Study a chapter !!]" },
+            "trace-root": { "label": "[!! Trace a Root !!]", "description": "[!! Follow a word family !!]" },
+            "track-progress": { "label": "[!! Track Progress !!]", "description": "[!! Your study journey !!]" }
+        },
         "modes": {
             "corpus-architecture": {
                 "label": "[!! Çôṛṗûṡ Âṛçħîťèçťûṛè !!]",
@@ -551,6 +584,18 @@
             "success": "[!! Saved {format} !!]",
             "failed": "[!! Export failed !!]",
             "noTarget": "[!! No visualization available !!]"
-        }
+        },
+        "embed": "[!! Embed !!]"
+    },
+    "EmbedModal": {
+        "title": "[!! Embed Visualization !!]",
+        "width": "[!! Width !!]",
+        "height": "[!! Height !!]",
+        "theme": "[!! Theme !!]",
+        "light": "[!! Light !!]",
+        "dark": "[!! Dark !!]",
+        "copyCode": "[!! Copy code !!]",
+        "copied": "[!! Copied! !!]",
+        "preview": "[!! Preview !!]"
     }
 }

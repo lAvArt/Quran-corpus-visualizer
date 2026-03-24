@@ -55,7 +55,7 @@ export default function MobileBottomBar() {
             <style jsx>{`
         .mobile-bottom-bar {
             position: fixed;
-            bottom: calc(var(--footer-height) + 8px + env(safe-area-inset-bottom));
+            bottom: calc(var(--footer-height) + 16px + env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
             display: flex;

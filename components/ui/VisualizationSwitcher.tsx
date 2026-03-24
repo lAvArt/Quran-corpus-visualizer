@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
+import { VISUALIZATION_GROUPS, type VisualizationCategory } from "@/lib/schema/visualizationTypes";
 import GlossaryChips from "@/components/ui/GlossaryChips";
 
 interface VisualizationSwitcherProps {
@@ -18,71 +19,22 @@ interface VisualizationSwitcherProps {
 
 const VISUALIZATION_OPTIONS: Array<{
   mode: VisualizationMode;
-  label: string;
-  description: string;
   icon: string;
 }> = [
-    {
-      mode: "corpus-architecture",
-      label: "Corpus Architecture",
-      description: "Global corpus hierarchy map showing structure overview",
-      icon: "⬡",
-    },
-    {
-      mode: "surah-distribution",
-      label: "Surah Distribution",
-      description: "Linear distribution plot of all 114 Surahs and their sizes",
-      icon: "◎",
-    },
-    {
-      mode: "radial-sura",
-      label: "Radial Sura",
-      description: "Circular layout showing verse structure with root connections",
-      icon: "\u25C9",
-    },
-    {
-      mode: "root-network",
-      label: "Root Network",
-      description: "Force-directed graph of trilateral roots and their lemmas",
-      icon: "\u2B21",
-    },
-    {
-      mode: "arc-flow",
-      label: "Arc Flow",
-      description: "Arc diagram with frequency bars and flowing connections",
-      icon: "\u2312",
-    },
-    {
-      mode: "dependency-tree",
-      label: "Dependency",
-      description: "Traditional syntax dependency graph for single verses",
-      icon: "\u228F",
-    },
-    {
-      mode: "sankey-flow",
-      label: "Sankey Flow",
-      description: "Root-to-lemma flow visualization with proportional widths",
-      icon: "\u224B",
-    },
-    {
-      mode: "collocation-network",
-      label: "Collocation Network",
-      description: "Analyze co-occurring roots and semantic neighborhoods",
-      icon: "🕸️",
-    },
-    {
-      mode: "knowledge-graph",
-      label: "Knowledge Graph",
-      description: "Neural map of your tracked roots and learning progress",
-      icon: "🌱",
-    },
+    { mode: "corpus-architecture", icon: "⬡" },
+    { mode: "surah-distribution", icon: "◎" },
+    { mode: "radial-sura", icon: "\u25C9" },
+    { mode: "root-network", icon: "\u2B21" },
+    { mode: "arc-flow", icon: "\u2312" },
+    { mode: "dependency-tree", icon: "\u228F" },
+    { mode: "sankey-flow", icon: "\u224B" },
+    { mode: "collocation-network", icon: "🕸️" },
+    { mode: "knowledge-graph", icon: "🌱" },
   ];
 
-const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
-  "radial-sura",
-  "surah-distribution",
-  "root-network",
-];
+function getIcon(mode: VisualizationMode): string {
+  return VISUALIZATION_OPTIONS.find((o) => o.mode === mode)?.icon ?? "\u25C9";
+}
 
 export default function VisualizationSwitcher({
   currentMode,
@@ -95,10 +47,24 @@ export default function VisualizationSwitcher({
 }: VisualizationSwitcherProps) {
   const t = useTranslations('VisualizationSwitcher');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<VisualizationCategory>>(new Set());
   const dropdownId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isBeginner = experienceLevel === "beginner" && !showAdvancedModes;
+
+  // For beginners, show only the default mode per group; for advanced, show all
+  const visibleGroups = useMemo(() => {
+    return VISUALIZATION_GROUPS.map((group) => ({
+      ...group,
+      visibleModes: isBeginner && !expandedGroups.has(group.category)
+        ? [group.defaultMode]
+        : group.modes,
+      hasMore: isBeginner && group.modes.length > 1 && !expandedGroups.has(group.category),
+    }));
+  }, [isBeginner, expandedGroups]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -136,13 +102,14 @@ export default function VisualizationSwitcher({
     [onModeChange]
   );
 
-  const currentOption = VISUALIZATION_OPTIONS.find((opt) => opt.mode === currentMode);
-  const coreOptions = VISUALIZATION_OPTIONS.filter((option) => BEGINNER_PRIMARY_MODES.includes(option.mode));
-  const advancedOptions = VISUALIZATION_OPTIONS.filter((option) => !BEGINNER_PRIMARY_MODES.includes(option.mode));
-  const visibleOptions =
-    experienceLevel === "advanced" || showAdvancedModes
-      ? VISUALIZATION_OPTIONS
-      : coreOptions;
+  const toggleGroupExpand = useCallback((category: VisualizationCategory) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="ui-viz-switcher" ref={containerRef} data-tour-id="viz-switcher-root">
@@ -156,7 +123,7 @@ export default function VisualizationSwitcher({
           aria-controls={dropdownId}
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          <span className="ui-viz-switcher-icon">{currentOption?.icon ?? "\u25C9"}</span>
+          <span className="ui-viz-switcher-icon">{getIcon(currentMode)}</span>
           <div className="ui-viz-switcher-info">
             <span className="ui-viz-switcher-label">{t(`modes.${currentMode}.label`)}</span>
             <span className="ui-viz-switcher-desc">{t(`modes.${currentMode}.description`)}</span>
@@ -165,61 +132,57 @@ export default function VisualizationSwitcher({
         </button>
       </div>
 
-      {
-        isExpanded && (
-          <div ref={dropdownRef} className="ui-viz-switcher-dropdown" id={dropdownId}>
-            <div className="ui-viz-switcher-section">
+      {isExpanded && (
+        <div ref={dropdownRef} className="ui-viz-switcher-dropdown" id={dropdownId}>
+          <div className="ui-viz-switcher-section">
+            <GlossaryChips vizMode={currentMode} />
+          </div>
+
+          {visibleGroups.map((group) => (
+            <div key={group.category} className="ui-viz-switcher-section">
               <div className="ui-viz-switcher-section-head">
-                <strong>{experienceLevel === "advanced" || showAdvancedModes ? "All views" : "Core views"}</strong>
-                <span>{experienceLevel === "advanced" || showAdvancedModes ? "Full visualization catalog" : "Recommended for first exploration"}</span>
+                <strong>{t(`groups.${group.category}.label`)}</strong>
+                <span>{t(`groups.${group.category}.description`)}</span>
               </div>
-              {experienceLevel === "beginner" && !showAdvancedModes ? (
-                <div className="ui-viz-switcher-helper">
-                  Start with these core views to orient yourself first, then open the full catalog when you want deeper relationship and syntax analysis.
-                </div>
-              ) : null}
-            </div>
-            <div className="ui-viz-switcher-section">
-              <GlossaryChips vizMode={currentMode} />
-            </div>
-            <div className="ui-viz-switcher-section">
-              {visibleOptions.map((option) => (
+              {group.visibleModes.map((mode) => (
                 <button
                   type="button"
-                  key={option.mode}
-                  className={`ui-viz-switcher-option ${currentMode === option.mode ? "active" : ""}`}
-                  data-mode={option.mode}
-                  data-testid={`viz-option-${option.mode}`}
-                  onClick={() => handleModeSelect(option.mode)}
+                  key={mode}
+                  className={`ui-viz-switcher-option ${currentMode === mode ? "active" : ""}`}
+                  data-mode={mode}
+                  data-testid={`viz-option-${mode}`}
+                  onClick={() => handleModeSelect(mode)}
                 >
-                  <span className="ui-viz-switcher-icon">{option.icon}</span>
+                  <span className="ui-viz-switcher-icon">{getIcon(mode)}</span>
                   <div className="ui-viz-switcher-info">
-                    <span className="ui-viz-switcher-label">{t(`modes.${option.mode}.label`)}</span>
-                    <span className="ui-viz-switcher-desc">{t(`modes.${option.mode}.description`)}</span>
+                    <span className="ui-viz-switcher-label">{t(`modes.${mode}.label`)}</span>
+                    <span className="ui-viz-switcher-desc">{t(`modes.${mode}.description`)}</span>
                   </div>
                 </button>
               ))}
+              {group.hasMore && (
+                <button
+                  type="button"
+                  className="ui-viz-switcher-group-expand"
+                  onClick={() => toggleGroupExpand(group.category)}
+                >
+                  {t("showMore", { count: group.modes.length - 1 })}
+                </button>
+              )}
             </div>
-            {experienceLevel === "beginner" && showAdvancedModes ? (
-              <div className="ui-viz-switcher-section">
-                <div className="ui-viz-switcher-section-head">
-                  <strong>Advanced views unlocked</strong>
-                  <span>{advancedOptions.length} specialized options are now available</span>
-                </div>
-              </div>
-            ) : null}
-            {experienceLevel === "beginner" && (
-              <button
-                type="button"
-                className="ui-viz-switcher-toggle"
-                onClick={() => onToggleAdvancedModes(!showAdvancedModes)}
-              >
-                {showAdvancedModes ? t("lessVisualizations") : t("moreVisualizations")}
-              </button>
-            )}
-          </div>
-        )
-      }
+          ))}
+
+          {experienceLevel === "beginner" && (
+            <button
+              type="button"
+              className="ui-viz-switcher-toggle"
+              onClick={() => onToggleAdvancedModes(!showAdvancedModes)}
+            >
+              {showAdvancedModes ? t("lessVisualizations") : t("moreVisualizations")}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

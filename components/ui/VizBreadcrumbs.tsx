@@ -12,6 +12,7 @@ interface VizBreadcrumbsProps {
   ayah: number | null;
   root: string | null;
   onNavigate: (level: BreadcrumbLevel) => void;
+  inline?: boolean;
 }
 
 export default function VizBreadcrumbs({
@@ -22,12 +23,14 @@ export default function VizBreadcrumbs({
   ayah,
   root,
   onNavigate,
+  inline,
 }: VizBreadcrumbsProps) {
+  const inlineStyle = inline ? { position: 'static' as const, transform: 'none' } : undefined;
   const t = useTranslations("Index.navigation");
 
   if (!isHierarchical) {
     return (
-      <div className="viz-context-chip" aria-label={t("contextLabel")}>
+      <div className="viz-context-chip" aria-label={t("contextLabel")} style={inlineStyle}>
         <span>{viewLabel}</span>
         <span>{t("surahValue", { id: surahId })}</span>
         {root ? <span>{t("rootValue", { root })}</span> : null}
@@ -74,7 +77,7 @@ export default function VizBreadcrumbs({
   }
 
   return (
-    <nav className="viz-breadcrumbs" aria-label={t("breadcrumbsLabel")}>
+    <nav className="viz-breadcrumbs" aria-label={t("breadcrumbsLabel")} style={inlineStyle}>
       <button type="button" onClick={() => onNavigate("quran")}>
         {t("quran")}
       </button>

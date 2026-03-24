@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { corpusCache, QURAN_COM_CACHE_TTL_MS } from '@/lib/cache/corpusCache';
 import { SAMPLE_MORPHOLOGY_DATA } from '@/lib/corpus/morphologyData';
 import { loadMorphologyMap, type MorphologyEntry, buildSampleMorphologyMap } from '@/lib/corpus/morphologyLoader';
+import { ROOT_GLOSSES } from '@/lib/data/rootGlosses';
 import type { CorpusToken, PartOfSpeech, AyahRecord } from '@/lib/schema/types';
 
 export interface LoadingProgress {
@@ -100,18 +101,27 @@ function wordToToken(
     // Try to get morphology from bundled data
     const morphData = morphologyMap?.get(tokenId) ?? sampleMorphologyMap.get(tokenId);
 
+    const root = morphData?.root ?? '';
+
+    // Gloss fallback chain:
+    // 1. Quran.com API word translation (best — word-level English)
+    // 2. Root-level fallback from static glossary (general root meaning)
+    const gloss =
+        word.translation?.text
+        ?? (root ? ROOT_GLOSSES.get(root) ?? null : null);
+
     return {
         id: tokenId,
         sura,
         ayah,
         position,
         text: word.text,
-        root: morphData?.root ?? '',
+        root,
         lemma: morphData?.lemma ?? word.text,
         pos: (morphData?.pos ?? 'N') as PartOfSpeech,
         morphology: {
             features: morphData?.features ?? {},
-            gloss: word.translation?.text ?? null,
+            gloss,
             stem: morphData?.stem ?? null,
         },
     };

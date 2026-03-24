@@ -4,6 +4,7 @@ import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeSwitcher from "./ThemeSwitcher";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { AuthButton } from "./AuthButton";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
@@ -92,6 +93,9 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
                                 <span>{t('language')}</span>
                                 <LanguageSwitcher />
                             </div>
+                            <div className="mobile-menu-item mobile-menu-auth">
+                                <AuthButton />
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>,
@@ -162,6 +166,10 @@ export default function MobileNavMenu({ theme, onThemeChange }: { theme: "light"
         [data-theme="dark"] .mobile-menu-item {
             border-color: #2f3b56;
             background: #151e31;
+        }
+
+        .mobile-menu-auth {
+            justify-content: center;
         }
       `}</style>
         </>

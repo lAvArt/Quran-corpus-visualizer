@@ -20,6 +20,54 @@ export type VisualizationMode =
   | "collocation-network" // Network map for root collocations and PMI
   | "heatmap";         // Frequency heatmap grid
 
+// ============================================================================
+// Visualization Groups — intent-based categorization for progressive disclosure
+// ============================================================================
+
+export type VisualizationCategory =
+  | "overview"      // What does the Quran look like?
+  | "explore-surah" // Study a specific chapter
+  | "trace-root"    // Follow a word family across the corpus
+  | "track-progress"; // Personal study journey
+
+export interface VisualizationGroup {
+  category: VisualizationCategory;
+  /** The recommended "default" mode for beginners in this group */
+  defaultMode: VisualizationMode;
+  modes: VisualizationMode[];
+}
+
+export const VISUALIZATION_GROUPS: VisualizationGroup[] = [
+  {
+    category: "overview",
+    defaultMode: "surah-distribution",
+    modes: ["corpus-architecture", "surah-distribution"],
+  },
+  {
+    category: "explore-surah",
+    defaultMode: "radial-sura",
+    modes: ["radial-sura", "dependency-tree", "arc-flow"],
+  },
+  {
+    category: "trace-root",
+    defaultMode: "root-network",
+    modes: ["root-network", "sankey-flow", "collocation-network"],
+  },
+  {
+    category: "track-progress",
+    defaultMode: "knowledge-graph",
+    modes: ["knowledge-graph"],
+  },
+];
+
+/** Get the category a visualization mode belongs to */
+export function getVisualizationCategory(mode: VisualizationMode): VisualizationCategory | null {
+  for (const group of VISUALIZATION_GROUPS) {
+    if (group.modes.includes(mode)) return group.category;
+  }
+  return null;
+}
+
 export interface VisualizationConfig {
   mode: VisualizationMode;
   theme: "light" | "dark";

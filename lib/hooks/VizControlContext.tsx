@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useSyncExternalStore } from "react";
 
 type MobileSurface = "none" | "context" | "tools" | "search" | "nav";
 
@@ -26,39 +26,38 @@ interface VizControlContextType {
 
 const VizControlContext = createContext<VizControlContextType | undefined>(undefined);
 
+const MOBILE_QUERY = "(max-width: 900px)";
+
+function subscribeMobileQuery(cb: () => void) {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    mql.addEventListener("change", cb);
+    return () => mql.removeEventListener("change", cb);
+}
+
+function getMobileSnapshot() {
+    return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+function getMobileServerSnapshot() {
+    return false; // SSR assumes desktop
+}
+
 export function VizControlProvider({ children }: { children: ReactNode }) {
-    // Start closed, then sync to viewport after mount:
-    // desktop => open, mobile => closed
-    const [isMobileViewport, setIsMobileViewport] = useState(false);
+    const isMobileViewport = useSyncExternalStore(subscribeMobileQuery, getMobileSnapshot, getMobileServerSnapshot);
+
+    // Desktop: left sidebar open by default; mobile: closed
     const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>("none");
-    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
+    // Close sidebars when switching to mobile viewport
     useEffect(() => {
-        if (typeof window === "undefined") return;
-
-        const media = window.matchMedia("(max-width: 900px)");
-        const syncLeftSidebar = () => {
-            const isMobile = media.matches;
-            setIsMobileViewport(isMobile);
-            if (isMobile) {
-                setIsLeftSidebarOpen(false);
-                setIsRightSidebarOpen(false);
-                setActiveMobileSurface("none");
-                return;
-            }
-
-            setIsLeftSidebarOpen(true);
+        if (isMobileViewport) {
+            setIsLeftSidebarOpen(false);
             setIsRightSidebarOpen(false);
             setActiveMobileSurface("none");
-        };
-
-        syncLeftSidebar();
-        media.addEventListener("change", syncLeftSidebar);
-        return () => {
-            media.removeEventListener("change", syncLeftSidebar);
-        };
-    }, []);
+        }
+    }, [isMobileViewport]);
 
     const closeMobileSurface = useCallback(() => {
         setActiveMobileSurface("none");

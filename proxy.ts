@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Keep locale handling off API routes and framework internals.
-    "/((?!api|trpc|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Keep locale handling off API routes, framework internals, and embed routes.
+    "/((?!api|trpc|embed|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

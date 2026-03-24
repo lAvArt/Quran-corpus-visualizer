@@ -4,8 +4,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import MorphologyInspector from "@/components/inspectors/MorphologyInspector";
-import SemanticSearchPanel from "@/components/ui/SemanticSearchPanel";
-import GlobalSearch from "@/components/ui/GlobalSearch";
+import CommandBar from "@/components/search/CommandBar";
 import CorpusIndex from "@/components/ui/CorpusIndex";
 import LiveScanner from "@/components/ui/LiveScanner";
 import GlossaryChips from "@/components/ui/GlossaryChips";
@@ -36,10 +35,10 @@ export default function AppSidebar({
   inspectorMode,
   onClearFocus,
   onTokenHover,
-  onTokenFocus,
+  onTokenFocus: _onTokenFocus,
   onTokenSelect,
   onRootSelect,
-  onSearchRootSelect,
+  onSearchRootSelect: _onSearchRootSelect,
   onSelectSurah,
   onLemmaSelect,
   selectedSurahId,
@@ -47,7 +46,8 @@ export default function AppSidebar({
   onSearchQuerySubmitted,
   onSearchResultSelected,
 }: AppSidebarProps) {
-  const [activeTab, setActiveTab] = useState<"inspector" | "scan" | "advanced-search" | "index">("inspector");
+  const [activeTab, setActiveTab] = useState<"inspector" | "search" | "index">("inspector");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const t = useTranslations('AppSidebar');
 
   return (
@@ -64,25 +64,15 @@ export default function AppSidebar({
           {t('inspector')}
         </button>
         <button
-          className={`ui-sidebar-tab ${activeTab === "scan" ? "active" : ""}`}
-          onClick={() => setActiveTab("scan")}
-          role="tab"
-          aria-selected={activeTab === "scan"}
-          aria-controls="sidebar-tabpanel-scan"
-          id="sidebar-tab-scan"
-        >
-          {t('scan')}
-        </button>
-        <button
-          className={`ui-sidebar-tab ${activeTab === "advanced-search" ? "active" : ""}`}
+          className={`ui-sidebar-tab ${activeTab === "search" ? "active" : ""}`}
           data-testid="sidebar-tab-advanced-search"
-          onClick={() => setActiveTab("advanced-search")}
+          onClick={() => setActiveTab("search")}
           role="tab"
-          aria-selected={activeTab === "advanced-search"}
-          aria-controls="sidebar-tabpanel-advanced-search"
-          id="sidebar-tab-advanced-search"
+          aria-selected={activeTab === "search"}
+          aria-controls="sidebar-tabpanel-search"
+          id="sidebar-tab-search"
         >
-          {t('advancedSearch')}
+          {t('search')}
         </button>
         <button
           className={`ui-sidebar-tab ${activeTab === "index" ? "active" : ""}`}
@@ -101,9 +91,11 @@ export default function AppSidebar({
         <GlossaryChips />
       </div>
 
+      {/* Inspector tab — includes quick search, morphology inspector, and optional scanner toggle */}
       <div className="ui-sidebar-content" role="tabpanel" id="sidebar-tabpanel-inspector" aria-labelledby="sidebar-tab-inspector" style={{ display: activeTab === "inspector" ? undefined : "none" }}>
-        <GlobalSearch
+        <CommandBar
           tokens={allTokens}
+          variant="bar"
           analyticsSurface="sidebar"
           onTokenSelect={onTokenSelect}
           onTokenHover={onTokenHover}
@@ -121,10 +113,16 @@ export default function AppSidebar({
           onRootSelect={onRootSelect}
           onSelectSurah={onSelectSurah}
         />
-      </div>
-
-      <div className="ui-sidebar-content" role="tabpanel" id="sidebar-tabpanel-scan" aria-labelledby="sidebar-tab-scan" style={{ display: activeTab === "scan" ? undefined : "none" }}>
-        {activeTab === "scan" && (
+        <div className="ui-sidebar-divider" />
+        <button
+          type="button"
+          className="ui-sidebar-scanner-toggle"
+          onClick={() => setScannerOpen(!scannerOpen)}
+          aria-expanded={scannerOpen}
+        >
+          {scannerOpen ? t('hideScan') : t('scan')}
+        </button>
+        {scannerOpen && (
           <LiveScanner
             allTokens={allTokens}
             onTokenSelect={onTokenSelect}
@@ -132,23 +130,29 @@ export default function AppSidebar({
         )}
       </div>
 
+      {/* Search tab — unified GlobalSearch with advanced filters pre-expanded */}
       <div
         className="ui-sidebar-content"
         role="tabpanel"
-        id="sidebar-tabpanel-advanced-search"
+        id="sidebar-tabpanel-search"
         data-testid="sidebar-panel-advanced-search"
-        aria-labelledby="sidebar-tab-advanced-search"
-        style={{ display: activeTab === "advanced-search" ? undefined : "none" }}
+        aria-labelledby="sidebar-tab-search"
+        style={{ display: activeTab === "search" ? undefined : "none" }}
       >
-        <SemanticSearchPanel
+        <CommandBar
           tokens={allTokens}
+          variant="panel"
+          analyticsSurface="sidebar"
+          onTokenSelect={onTokenSelect}
           onTokenHover={onTokenHover}
-          onTokenFocus={onTokenFocus}
-          onRootSelect={onSearchRootSelect || onRootSelect}
-          onSelectSurah={onSelectSurah}
+          onRootSelect={onRootSelect}
+          onSearchOpened={onSearchOpened}
+          onSearchQuerySubmitted={onSearchQuerySubmitted}
+          onSearchResultSelected={onSearchResultSelected}
         />
       </div>
 
+      {/* Index tab — browse corpus structure */}
       <div
         className="ui-sidebar-content"
         role="tabpanel"

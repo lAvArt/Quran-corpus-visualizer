@@ -126,7 +126,7 @@ export default function MorphologyInspector({
     }
 
     return (
-        <div className="inspector-content">
+        <div className="inspector-content" aria-live="polite" aria-atomic="true">
             <div className="inspector-header">
                 <div className="header-top">
                     <span className={`status-badge ${mode}`}>
@@ -173,7 +173,13 @@ export default function MorphologyInspector({
 
             <div className="inspector-section">
                 <h3>{t("sections.translation")}</h3>
-                <p className="gloss-text">{token.morphology.gloss || t("noGloss")}</p>
+                {token.morphology.gloss ? (
+                    <p className="gloss-text">{token.morphology.gloss}</p>
+                ) : (
+                    <p className="gloss-text gloss-unavailable">
+                        {token.root ? t("noGlossWithRoot", { root: token.root }) : t("noGloss")}
+                    </p>
+                )}
             </div>
 
             {Object.keys(token.morphology.features).length > 0 ? (

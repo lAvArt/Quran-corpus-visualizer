@@ -8,6 +8,7 @@ const MODE_TO_PATH: Record<AppMode, string> = {
   explore: "/",
   search: "/search",
   study: "/study",
+  quiz: "/quiz",
 };
 
 export default function AppModeNav() {
@@ -16,11 +17,12 @@ export default function AppModeNav() {
     explore: "Explore",
     search: "Search",
     study: "Study",
+    quiz: "Quiz",
   };
 
   return (
     <nav className="ui-mode-nav" aria-label="App mode navigation" data-testid="app-mode-nav">
-      {(["explore", "search", "study"] as AppMode[]).map((mode) => {
+      {(["explore", "search", "study", "quiz"] as AppMode[]).map((mode) => {
         const href = MODE_TO_PATH[mode];
         const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
 

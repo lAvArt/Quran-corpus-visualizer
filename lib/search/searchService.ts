@@ -3,6 +3,39 @@ import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
 import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 import { parseSearchQuery } from "@/lib/search/queryParser";
 import type { SearchResultItem, SearchResultKind } from "@/lib/search/searchTypes";
+import { SURAH_NAMES } from "@/lib/data/surahData";
+import { ROOT_GLOSSES } from "@/lib/data/rootGlosses";
+
+// ============================================================================
+// Query Intent Detection — classifies free-text input so the UI can route
+// searches automatically without requiring structured syntax from the user.
+// ============================================================================
+
+export type QueryIntent =
+  | "ayah-ref"         // e.g. "2:255" or "3:7"
+  | "arabic-root"      // Short Arabic (2-4 chars, no diacritics) → likely a root
+  | "arabic-text"      // Longer Arabic or Arabic with diacritics → token/verse text
+  | "english-gloss"    // Latin characters → search English glosses
+  | "structured"       // Contains field:value syntax
+  | "empty";
+
+const ARABIC_RANGE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const ARABIC_DIACRITICS = /[\u064B-\u065F\u0670]/;
+const AYAH_REF_PATTERN = /^\d{1,3}:\d{1,3}$/;
+const STRUCTURED_PATTERN = /\b(?:root|r|lemma|l|pos|p|ayah|a|text|t|gloss|g):/i;
+
+export function detectQueryIntent(query: string): QueryIntent {
+  const trimmed = query.trim();
+  if (!trimmed) return "empty";
+  if (STRUCTURED_PATTERN.test(trimmed)) return "structured";
+  if (AYAH_REF_PATTERN.test(trimmed)) return "ayah-ref";
+  if (ARABIC_RANGE.test(trimmed)) {
+    const stripped = trimmed.replace(/[\s\u064B-\u065F\u0670]/g, "");
+    if (stripped.length <= 4 && !ARABIC_DIACRITICS.test(trimmed)) return "arabic-root";
+    return "arabic-text";
+  }
+  return "english-gloss";
+}
 
 export interface SearchCatalog {
   byId: Map<string, CorpusToken>;
@@ -75,6 +108,96 @@ function pushUnique(items: SearchResultItem[], seen: Set<string>, item: SearchRe
   items.push(item);
 }
 
+// ---------------------------------------------------------------------------
+// Surah name search — matches surah names (English, Arabic, meaning)
+// and returns SearchResultItems pointing to the first token of the surah.
+// ---------------------------------------------------------------------------
+
+function searchSurahs(query: string, tokens: CorpusToken[]): SearchResultItem[] {
+  const lowerQuery = query.toLowerCase();
+  const normalizedQuery = normalizeArabicForSearch(query);
+  const results: SearchResultItem[] = [];
+
+  for (const [numStr, surah] of Object.entries(SURAH_NAMES)) {
+    const num = Number(numStr);
+    const nameMatch =
+      surah.name.toLowerCase().includes(lowerQuery) ||
+      surah.meaning.toLowerCase().includes(lowerQuery) ||
+      normalizeArabicForSearch(surah.arabic).includes(normalizedQuery) ||
+      surah.arabic.includes(query) ||
+      String(num) === query.trim();
+
+    if (!nameMatch) continue;
+
+    // Find the first token of this surah for navigation
+    const firstToken = tokens.find((t) => t.sura === num);
+    const tokenId = firstToken?.id;
+
+    results.push({
+      id: `surah:${num}`,
+      kind: "surah",
+      title: `${surah.name} — ${surah.meaning}`,
+      subtitle: `Surah ${num} · ${surah.verses} verses`,
+      arabicText: surah.arabic,
+      location: { surah: num, ayah: 1, tokenId },
+      explanation: `Surah ${num}: ${surah.name} (${surah.meaning})`,
+      actionTarget: {
+        routeMode: "explore",
+        visualizationMode: "radial-sura",
+        selection: { surahId: num, ayah: 1 },
+      },
+    });
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Translation / meaning search — searches through token glosses (English
+// translations of individual words) and root glosses.
+// ---------------------------------------------------------------------------
+
+function searchTranslations(
+  query: string,
+  tokens: CorpusToken[],
+  seen: Set<string>,
+): SearchResultItem[] {
+  const lowerQuery = query.toLowerCase();
+  const results: SearchResultItem[] = [];
+
+  // Search root glosses for matching meanings
+  for (const [root, gloss] of ROOT_GLOSSES) {
+    if (!gloss.toLowerCase().includes(lowerQuery)) continue;
+
+    // Find a representative token with this root
+    const token = tokens.find((t) => t.root === root);
+    if (!token) continue;
+
+    const item: SearchResultItem = {
+      id: `translation:root:${root}`,
+      kind: "translation",
+      title: gloss,
+      subtitle: `Root: ${root}`,
+      arabicText: root,
+      location: { surah: token.sura, ayah: token.ayah, tokenId: token.id },
+      matchedRoot: root,
+      explanation: `Root meaning: ${gloss}`,
+      actionTarget: {
+        routeMode: "explore",
+        visualizationMode: "radial-sura",
+        selection: { surahId: token.sura, ayah: token.ayah, root, tokenId: token.id },
+      },
+    };
+
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      results.push(item);
+    }
+  }
+
+  return results;
+}
+
 export function searchCorpus(tokens: CorpusToken[], catalog: SearchCatalog, rawQuery: string): SearchResultItem[] {
   const query = rawQuery.trim();
   if (query.length < 2) return [];
@@ -126,6 +249,12 @@ export function searchCorpus(tokens: CorpusToken[], catalog: SearchCatalog, rawQ
 
   if (!freeText) {
     return results.slice(0, 24);
+  }
+
+  // ---- Surah name search (English name, Arabic name, meaning, number) ----
+  const surahResults = searchSurahs(freeText, tokens);
+  for (const surahItem of surahResults) {
+    pushUnique(results, seen, surahItem);
   }
 
   for (const [root, rootTokens] of catalog.byRoot) {
@@ -185,13 +314,21 @@ export function searchCorpus(tokens: CorpusToken[], catalog: SearchCatalog, rawQ
     }
   }
 
+  // ---- Translation / meaning search (root glosses) ----
+  const translationResults = searchTranslations(freeText, tokens, seen);
+  for (const item of translationResults) {
+    results.push(item);
+  }
+
   const priority: Record<SearchResultKind, number> = {
     ayah: 0,
     root: 1,
     lemma: 2,
     token: 3,
-    gloss: 4,
-    semantic: 5,
+    surah: 4,
+    gloss: 5,
+    translation: 6,
+    semantic: 7,
   };
 
   return results

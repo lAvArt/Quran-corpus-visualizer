@@ -10,6 +10,7 @@ import {
   parseThemePreferenceCookie,
   serializeThemeBootstrapConfig,
 } from "@/lib/theme/themePreferences";
+import StyledJsxRegistry from "@/lib/StyledJsxRegistry";
 import "./[locale]/globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -64,7 +65,9 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SOURCE }} />
       </head>
-      <body className="body-root">{children}</body>
+      <body className="body-root">
+        <StyledJsxRegistry>{children}</StyledJsxRegistry>
+      </body>
     </html>
   );
 }

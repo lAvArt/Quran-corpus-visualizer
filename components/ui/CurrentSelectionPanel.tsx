@@ -28,7 +28,6 @@ export default function CurrentSelectionPanel({
 }: CurrentSelectionPanelProps) {
   const t = useTranslations('CurrentSelectionPanel');
   const surah = SURAH_NAMES[selectedSurahId];
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [notesInput, setNotesInput] = useState('');
   const [showNotesInput, setShowNotesInput] = useState(false);
   const { roots, trackRoot, updateRoot, removeRoot } = useKnowledge();
@@ -74,24 +73,9 @@ export default function CurrentSelectionPanel({
   }, [allTokens, selectedSurahId, selectedAyah]);
 
   return (
-    <aside className={`current-selection-panel ${isCollapsed ? "collapsed" : ""}`} aria-label={t('title')} data-tour-id="current-selection-panel" data-testid="current-selection-panel">
-      <button
-        className="ui-context-panel-header"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        aria-expanded={!isCollapsed}
-        aria-controls="current-selection-content"
-        type="button"
-      >
-        <p className="eyebrow panel-title" style={{ margin: 0 }}>{t('title')}</p>
-        <div className="panel-toggle-icon" style={{ transition: 'opacity 0.2s', opacity: 0.6 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points={isCollapsed ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}></polyline>
-          </svg>
-        </div>
-      </button>
-
-      {!isCollapsed && (
-        <div className="panel-content" id="current-selection-content">
+    <aside className="current-selection-panel" aria-label={t('title')} data-tour-id="current-selection-panel" data-testid="current-selection-panel">
+      <p className="eyebrow panel-title" style={{ margin: 0, padding: '0 0 6px' }}>{t('title')}</p>
+      <div className="panel-content" id="current-selection-content">
           <div className="ui-context-grid">
             <div className="ui-context-row" data-testid="selection-row-view">
               <span className="ui-context-label">{t('labels.view')}</span>
@@ -274,8 +258,6 @@ export default function CurrentSelectionPanel({
             </div>
           )}
         </div>
-      )}
-
     </aside>
   );
 }

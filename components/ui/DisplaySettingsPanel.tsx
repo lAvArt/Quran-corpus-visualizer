@@ -55,6 +55,12 @@ export default function DisplaySettingsPanel({
   const t = useTranslations("DisplaySettings");
   const [isOpen, setIsOpen] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [fontScale, setFontScale] = useState(1);
+  const [highContrast, setHighContrast] = useState(false);
+  const [semanticEnabled, setSemanticEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return JSON.parse(localStorage.getItem("qcv-semantic-search-enabled") ?? "true"); } catch { return true; }
+  });
   const { canInstall, isInstalled, isInstallSupported, promptInstall } = usePwaInstall();
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,55 +140,83 @@ export default function DisplaySettingsPanel({
           </div>
 
           <div className="display-settings-section">
-            <div className="display-settings-title">{t("palette")}</div>
-            <div className="display-theme-list">
-              {COLOR_THEME_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className={`display-theme-item ${colorTheme === preset.id ? "active" : ""}`}
-                  onClick={() => onColorThemeChange(preset.id)}
-                  aria-pressed={colorTheme === preset.id}
-                >
-                  <span className="display-theme-swatches">
-                    {preset.preview.map((color) => (
-                      <span key={`${preset.id}-${color}`} className="display-theme-swatch" style={{ background: color }} />
-                    ))}
-                  </span>
-                  <span>{t(`themes.${preset.labelKey}`)}</span>
-                </button>
-              ))}
+            <div className="display-settings-title">{t("accessibility.title")}</div>
+            <label className="display-settings-row">
+              <span className="display-settings-row-label">{t("accessibility.textSize")}</span>
+              <input
+                type="range"
+                className="display-settings-slider"
+                min={0.8}
+                max={1.4}
+                step={0.05}
+                value={fontScale}
+                onChange={(e) => {
+                  const scale = parseFloat(e.target.value);
+                  setFontScale(scale);
+                  document.documentElement.style.setProperty("--user-font-scale", String(scale));
+                }}
+              />
+              <span className="display-settings-scale-label">{Math.round(fontScale * 100)}%</span>
+            </label>
+            <label className="display-settings-row">
+              <span className="display-settings-row-label">{t("accessibility.highContrast")}</span>
               <button
                 type="button"
-                className={`display-theme-item ${colorTheme === "custom" ? "active" : ""}`}
-                onClick={() => onColorThemeChange("custom")}
-                aria-pressed={colorTheme === "custom"}
+                role="switch"
+                aria-checked={highContrast}
+                className={`toggle-switch ${highContrast ? "on" : ""}`}
+                onClick={() => {
+                  const next = !highContrast;
+                  setHighContrast(next);
+                  document.documentElement.setAttribute("data-high-contrast", next ? "true" : "false");
+                }}
               >
-                <span className="display-theme-swatches">
-                  {[activePalette.accent, activePalette.accent2, activePalette.bg0].map((color, index) => (
-                    <span key={`custom-${index}-${color}`} className="display-theme-swatch" style={{ background: color }} />
-                  ))}
-                </span>
-                <span>{t("themes.custom")}</span>
+                <span className="toggle-thumb" />
               </button>
+            </label>
+          </div>
+
+          <div className="display-settings-section">
+            <div className="display-settings-title">{t("palette")}</div>
+            <div className="display-settings-select-row">
+              <span className="display-theme-swatches">
+                {colorTheme === "custom"
+                  ? [activePalette.accent, activePalette.accent2, activePalette.bg0].map((color, i) => (
+                      <span key={`custom-${i}-${color}`} className="display-theme-swatch" style={{ background: color }} />
+                    ))
+                  : (COLOR_THEME_PRESETS.find((p) => p.id === colorTheme)?.preview ?? []).map((color) => (
+                      <span key={`${colorTheme}-${color}`} className="display-theme-swatch" style={{ background: color }} />
+                    ))
+                }
+              </span>
+              <select
+                className="display-settings-select"
+                value={colorTheme}
+                onChange={(e) => onColorThemeChange(e.target.value as ColorThemeId)}
+              >
+                {COLOR_THEME_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {t(`themes.${preset.labelKey}`)}
+                  </option>
+                ))}
+                <option value="custom">{t("themes.custom")}</option>
+              </select>
             </div>
           </div>
 
           <div className="display-settings-section">
             <div className="display-settings-title">{t("coloring.title")}</div>
-            <div className="display-theme-list">
+            <select
+              className="display-settings-select"
+              value={lexicalColorMode}
+              onChange={(e) => onLexicalColorModeChange(e.target.value as LexicalColorMode)}
+            >
               {(["theme", "frequency", "identity"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`display-theme-item ${lexicalColorMode === mode ? "active" : ""}`}
-                  onClick={() => onLexicalColorModeChange(mode)}
-                  aria-pressed={lexicalColorMode === mode}
-                >
-                  <span>{t(`coloring.options.${mode}`)}</span>
-                </button>
+                <option key={mode} value={mode}>
+                  {t(`coloring.options.${mode}`)}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {colorTheme === "custom" && (
@@ -266,20 +300,44 @@ export default function DisplaySettingsPanel({
 
           <div className="display-settings-section custom-colors">
             <div className="display-settings-title">{t("experienceLevel.title")}</div>
-            <div className="display-theme-list">
-              {EXPERIENCE_LEVELS.map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  data-testid={`display-experience-${level}`}
-                  className={`display-theme-item ${experienceLevel === level ? "active" : ""}`}
-                  onClick={() => onExperienceLevelChange(level)}
-                  aria-pressed={experienceLevel === level}
-                >
-                  <span>{t(`experienceLevel.options.${level}`)}</span>
-                </button>
-              ))}
-            </div>
+            <label className="display-settings-row">
+              <span className="display-settings-row-label">
+                {t(`experienceLevel.options.${experienceLevel}`)}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                data-testid="display-experience-toggle"
+                aria-checked={experienceLevel === "advanced"}
+                className={`toggle-switch ${experienceLevel === "advanced" ? "on" : ""}`}
+                onClick={() =>
+                  onExperienceLevelChange(experienceLevel === "beginner" ? "advanced" : "beginner")
+                }
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </label>
+          </div>
+
+          <div className="display-settings-section custom-colors">
+            <div className="display-settings-title">{t("search.title")}</div>
+            <label className="display-settings-row">
+              <span className="display-settings-row-label">{t("search.semanticSearch")}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={semanticEnabled}
+                className={`toggle-switch ${semanticEnabled ? "on" : ""}`}
+                onClick={() => {
+                  const next = !semanticEnabled;
+                  setSemanticEnabled(next);
+                  try { localStorage.setItem("qcv-semantic-search-enabled", JSON.stringify(next)); } catch {}
+                }}
+              >
+                <span className="toggle-thumb" />
+              </button>
+            </label>
+            <p className="display-settings-note">{t("search.semanticHint")}</p>
           </div>
 
           <div className="display-settings-section custom-colors">
@@ -361,11 +419,11 @@ export default function DisplaySettingsPanel({
 
         .display-settings-panel {
           position: absolute;
-          top: calc(100% + 8px);
+          bottom: calc(100% + 8px);
           right: 0;
           z-index: 70;
           min-width: 270px;
-          max-height: calc(100vh - 70px);
+          max-height: calc(100vh - 160px);
           overflow-y: auto;
           display: grid;
           gap: 12px;
@@ -439,6 +497,48 @@ export default function DisplaySettingsPanel({
           border: 1px solid rgba(255, 255, 255, 0.35);
         }
 
+        .display-settings-select-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .display-settings-select {
+          flex: 1;
+          appearance: none;
+          -webkit-appearance: none;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: transparent;
+          color: var(--ink);
+          font-family: inherit;
+          font-size: 0.77rem;
+          padding: 8px 28px 8px 10px;
+          cursor: pointer;
+          transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+        }
+
+        .display-settings-select:hover {
+          border-color: var(--accent);
+          background: color-mix(in srgb, var(--accent), transparent 92%);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 88%);
+        }
+
+        .display-settings-select:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+          background: color-mix(in srgb, var(--accent), transparent 90%);
+        }
+
+        .display-settings-select option {
+          background: var(--bg0, #fff);
+          color: var(--ink);
+          padding: 6px 10px;
+        }
+
         .custom-colors {
           border-top: 1px solid var(--line);
           padding-top: 10px;
@@ -499,6 +599,30 @@ export default function DisplaySettingsPanel({
           line-height: 1.4;
         }
 
+        .display-settings-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.77rem;
+          color: var(--ink-secondary);
+        }
+
+        .display-settings-row-label {
+          flex: 1;
+        }
+
+        .display-settings-slider {
+          width: 80px;
+          accent-color: var(--accent);
+        }
+
+        .display-settings-scale-label {
+          font-size: 0.7rem;
+          min-width: 36px;
+          text-align: right;
+          color: var(--ink-muted);
+        }
+
         :global([data-theme="dark"]) .display-settings-trigger {
           background: rgba(18, 18, 26, 0.75);
         }
@@ -506,6 +630,10 @@ export default function DisplaySettingsPanel({
         :global([data-theme="dark"]) .display-settings-panel {
           background: rgba(18, 18, 26, 0.95);
           box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+        }
+
+        :global([data-theme="dark"]) .display-settings-select option {
+          background: #15151b;
         }
 
         @media (max-width: 900px) {
@@ -521,6 +649,42 @@ export default function DisplaySettingsPanel({
 
         .mobile-export-section {
           display: none;
+        }
+
+        /* Toggle switch */
+        .toggle-switch {
+          position: relative;
+          width: 36px;
+          height: 20px;
+          border-radius: 10px;
+          border: none;
+          padding: 2px;
+          cursor: pointer;
+          background: var(--ink-muted, #999);
+          transition: background 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .toggle-switch.on {
+          background: var(--accent, #6366f1);
+        }
+
+        .toggle-thumb {
+          display: block;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform 0.2s ease;
+          pointer-events: none;
+        }
+
+        .toggle-switch.on .toggle-thumb {
+          transform: translateX(16px);
+        }
+
+        [dir="rtl"] .toggle-switch.on .toggle-thumb {
+          transform: translateX(-16px);
         }
 
         @media (max-width: 980px) {

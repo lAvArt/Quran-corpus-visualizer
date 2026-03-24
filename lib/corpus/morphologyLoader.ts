@@ -220,7 +220,6 @@ function parseMorphologyText(text: string): Map<string, MorphologyEntry> {
   // Strip internal flag before returning
   const result = new Map<string, MorphologyEntry>();
   for (const [key, value] of map.entries()) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { hasRoot: _hasRoot, ...entry } = value;
     result.set(key, entry);
   }

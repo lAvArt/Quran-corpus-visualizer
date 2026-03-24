@@ -3,7 +3,7 @@
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef } from "react";
-import GlobalSearch from "@/components/ui/GlobalSearch";
+import CommandBar from "@/components/search/CommandBar";
 import type { CorpusToken } from "@/lib/schema/types";
 import { createPortal } from "react-dom";
 import type { SearchMatchType } from "@/lib/analytics/events";
@@ -82,8 +82,9 @@ export default function MobileSearchOverlay({
                             </button>
                         </div>
                         <div className="mobile-search-content">
-                            <GlobalSearch
+                            <CommandBar
                                 tokens={tokens}
+                                variant="overlay"
                                 analyticsSurface="mobile"
                                 onTokenSelect={(tokenId) => {
                                     onTokenSelect(tokenId);

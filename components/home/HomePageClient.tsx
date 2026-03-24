@@ -78,6 +78,30 @@ function HomePageContent({ initialCorpusData, initialThemePreference }: HomePage
         />
       </main>
 
+      {/* Visualization suggestion toast — non-blocking hint */}
+      {controller.vizSuggestion && (
+        <div className="viz-suggestion-toast" role="status" aria-live="polite">
+          <span className="viz-suggestion-text">
+            {t(`${controller.vizSuggestion.reason}`)}
+          </span>
+          <button
+            type="button"
+            className="viz-suggestion-accept"
+            onClick={controller.handleAcceptVizSuggestion}
+          >
+            {t("vizSuggestion.switch")}
+          </button>
+          <button
+            type="button"
+            className="viz-suggestion-dismiss"
+            onClick={controller.handleDismissVizSuggestion}
+            aria-label={t("vizSuggestion.dismiss")}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <HomeOverlayLayer
         t={t}
         tSearch={tSearch}
@@ -128,18 +152,15 @@ function HomePageContent({ initialCorpusData, initialThemePreference }: HomePage
         onSearchResultSelectedMobile={(matchType) => controller.handleSearchResultSelected(matchType, "mobile")}
         onDismissContextTransformNotice={controller.handleDismissContextTransformNotice}
         onRestoreFocusedContext={controller.handleRestoreFocusedContext}
-        experiencePhase={controller.experiencePhase}
+        experiencePhase={controller.firstRunState}
+        activeMissionIntent={controller.activeMissionIntent}
+        missionProgress={controller.missionProgress}
         showOnStartup={controller.showOnStartup}
         handleOnboardingStartupChange={controller.handleOnboardingStartupChange}
-        handleOnboardingComplete={controller.handleOnboardingComplete}
+        handleSelectMissionIntent={controller.handleSelectMissionIntent}
         handleOnboardingSkip={controller.handleOnboardingSkip}
-        handleStartWalkthrough={controller.handleStartWalkthrough}
-        activeWalkthroughSteps={controller.activeWalkthroughSteps}
-        walkthroughStepIndex={controller.walkthroughStepIndex}
-        handleWalkthroughNext={controller.handleWalkthroughNext}
-        handleWalkthroughBack={controller.handleWalkthroughBack}
-        handleWalkthroughSkip={controller.handleWalkthroughSkip}
-        handleWalkthroughComplete={controller.handleWalkthroughComplete}
+        handleMissionComplete={controller.handleMissionComplete}
+        handleMissionEnd={controller.handleMissionEnd}
       />
     </div>
   );

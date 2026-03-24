@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { trackPerformanceMetric, trackSearchRecoveryShown } from "@/lib/analytics/events";
-import GlobalSearch from "@/components/ui/GlobalSearch";
+import CommandBar from "@/components/search/CommandBar";
 import CorpusIndex from "@/components/ui/CorpusIndex";
 import AppWorkspaceShell from "@/components/ui/AppWorkspaceShell";
 import { readDevSearchStatus } from "@/lib/dev/testOverrides";
@@ -107,8 +107,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
               <h2>{t("quickSearch")}</h2>
               <span>{allTokens.length.toLocaleString()}</span>
           </div>
-          <GlobalSearch
+          <CommandBar
             tokens={allTokens}
+            variant="panel"
             analyticsSurface="workspace"
             onTokenSelect={(tokenId) => {
               const token = allTokens.find((entry) => entry.id === tokenId) ?? null;

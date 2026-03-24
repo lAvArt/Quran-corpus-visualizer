@@ -197,5 +197,12 @@ export default function VisualizationViewport({
     }
   })();
 
-  return <VizErrorBoundary name={vizMode}>{vizContent ?? <VizFallback label={VIZ_FALLBACK_LABEL} />}</VizErrorBoundary>;
+  const surahLabel = SURAH_NAMES[selectedSurahId]?.name || `Surah ${selectedSurahId}`;
+  const ariaLabel = `${vizMode.replace(/-/g, " ")} visualization${selectedRoot ? ` — root: ${selectedRoot}` : ""} — ${surahLabel}`;
+
+  return (
+    <div aria-label={ariaLabel} role="img" style={{ width: "100%", height: "100%" }}>
+      <VizErrorBoundary name={vizMode}>{vizContent ?? <VizFallback label={VIZ_FALLBACK_LABEL} />}</VizErrorBoundary>
+    </div>
+  );
 }

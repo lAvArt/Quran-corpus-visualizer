@@ -39,6 +39,8 @@
     "verify:release": "npm run verify && npm run test:a11y-smoke && npm run test:e2e",
     "test:e2e": "playwright test",
     "test:a11y-smoke": "playwright test tests/e2e/accessibility-smoke.spec.ts",
+    "test:visual": "playwright test tests/e2e/visual-regression.spec.ts",
+    "test:visual:update": "playwright test tests/e2e/visual-regression.spec.ts --update-snapshots",
     "test:search-validation": "vitest run lib/search/arabicNormalize.test.ts lib/search/queryParser.test.ts lib/search/indexes.test.ts lib/search/searchValidation.test.ts lib/search/collocation.test.ts",
     "eval:search": "tsx scripts/eval-search.ts",
     "test:watch": "vitest",

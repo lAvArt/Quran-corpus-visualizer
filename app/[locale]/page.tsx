@@ -1,4 +1,4 @@
-import HomePageClient from "@/components/home/HomePageClient";
+import AppShell from "@/components/shell/AppShell";
 import { buildExploreOverviewPayload } from "@/lib/corpus/overviewData";
 import { cookies } from "next/headers";
 import { THEME_COOKIE_NAME, parseThemePreferenceCookie } from "@/lib/theme/themePreferences";
@@ -8,5 +8,5 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const initialThemePreference = parseThemePreferenceCookie(cookieStore.get(THEME_COOKIE_NAME)?.value);
 
-  return <HomePageClient initialCorpusData={initialCorpusData} initialThemePreference={initialThemePreference} />;
+  return <AppShell initialCorpusData={initialCorpusData} initialThemePreference={initialThemePreference} />;
 }

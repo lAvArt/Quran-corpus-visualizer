@@ -1,6 +1,6 @@
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
-export type AppMode = "explore" | "search" | "study";
+export type AppMode = "explore" | "search" | "study" | "quiz";
 
 export interface AppShellState {
   mode: AppMode;

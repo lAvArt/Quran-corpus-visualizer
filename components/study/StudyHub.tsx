@@ -180,6 +180,20 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
               {t("recentRootsLabel")} {summary.recentRoots.length > 0 ? summary.recentRoots.join(" | ") : t("noneYet")}
             </p>
           </div>
+
+          {stats.total > 0 && (
+            <div className="quiz-prompt">
+              <p className="quiz-prompt-copy">{t("quizPromptDesc")}</p>
+              <button
+                type="button"
+                className="ui-btn ui-btn-primary"
+                data-testid="study-go-to-quiz"
+                onClick={() => router.push("/quiz")}
+              >
+                {t("goToQuiz")}
+              </button>
+            </div>
+          )}
         </section>
       </section>
 

@@ -15,6 +15,26 @@
         "theme": "Theme",
         "language": "Language"
     },
+    "JourneyRail": {
+        "label": "Navigation",
+        "discover": "Discover",
+        "root": "Roots",
+        "ayah": "Ayah",
+        "searchRoute": "Search",
+        "studyRoute": "Study",
+        "quizRoute": "Quiz"
+    },
+    "ContextDrawer": {
+        "label": "Context panel",
+        "panelLabel": "Panel tabs",
+        "explain": "Explain",
+        "inspect": "Inspect",
+        "search": "Search",
+        "index": "Index",
+        "close": "Close drawer",
+        "scan": "Live scanner",
+        "hideScan": "Hide scanner"
+    },
     "Footer": {
         "github": "GitHub",
         "source": "Source",
@@ -51,8 +71,8 @@
         "title": "Quran Corpus Visualizer",
         "eyebrow": "Quran Corpus Visualizer",
         "brand": "quran.pluragate.org",
-        "hideTools": "Hide Tools ->",
-        "showTools": "Show Tools <-",
+        "hideTools": "Hide Tools",
+        "showTools": "Show Tools",
         "dataStatus": {
             "sample": {
                 "title": "Sample data",
@@ -97,7 +117,16 @@
             "shellReadyDescription": "You can browse {surahCount} surahs and {rootCount} indexed roots immediately while deeper corpus data loads on demand.",
             "searchUnavailableTitle": "Search is temporarily limited",
             "searchUnavailableDescription": "Quick exploration still works, but search-driven jumps may be reduced until the search service is reachable again.",
-            "dismissContextTransform": "Dismiss"
+            "dismissContextTransform": "Dismiss",
+            "expandPanel": "Show info panel",
+            "collapsePanel": "Hide info panel"
+        },
+        "vizSuggestion": {
+            "traceRoot": "Try Root Network to trace this root across the corpus",
+            "exploreSurah": "Try Radial Sura to explore this chapter visually",
+            "analyzeAyah": "Try Dependency view to analyze this verse's syntax",
+            "switch": "Switch",
+            "dismiss": "Dismiss suggestion"
         }
     },
     "SearchWorkspace": {
@@ -116,13 +145,14 @@
         "quickSearch": "Quick search",
         "currentResult": "Current result",
         "noRoot": "No root",
-        "noGloss": "No gloss available",
+        "noGloss": "Translation not available",
         "emptySelection": "Select a result to keep its surah, ayah, and root context visible while you continue searching.",
         "corpusIndex": "Corpus index"
     },
     "AppSidebar": {
         "inspector": "Word Details",
-        "scan": "Scan",
+        "scan": "Live Scanner",
+        "hideScan": "Hide Scanner",
         "search": "Search",
         "advancedSearch": "Detailed Search",
         "index": "Index",
@@ -138,26 +168,70 @@
         "search": "Search"
     },
     "GlobalSearch": {
-        "placeholder": "Search roots, words, meanings...",
+        "placeholder": "Search surahs, roots, words, meanings...",
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
         "matchLemma": "Lemma: {lemma}",
         "clearSearch": "Clear search",
         "resultsAriaLabel": "Search results",
+        "advancedFilters": "Filters",
+        "hideFilters": "Hide filters",
         "types": {
             "root": "Root",
             "lemma": "Lemma",
             "text": "Text",
-            "gloss": "Gloss"
+            "gloss": "Gloss",
+            "surah": "Surah",
+            "translation": "Translation",
+            "semantic": "Semantic"
+        },
+        "intentHints": {
+            "root": "Searching roots",
+            "text": "Searching Arabic text",
+            "gloss": "Searching meanings",
+            "ayah": "Going to ayah",
+            "structured": "Structured query",
+            "surah": "Searching surahs"
+        },
+        "filters": {
+            "root": "Root (e.g. هدي)",
+            "lemma": "Lemma (e.g. هُدًى)",
+            "ayah": "Ayah (e.g. 2:255)",
+            "allPos": "All parts of speech",
+            "noun": "Noun",
+            "verb": "Verb",
+            "particle": "Particle",
+            "adjective": "Adjective",
+            "pronoun": "Pronoun",
+            "clear": "Clear filters"
         }
     },
     "VisualizationSwitcher": {
         "select": "Select",
         "dropdownTitle": "Choose Visualization",
-        "moreVisualizations": "More visualizations",
-        "lessVisualizations": "Fewer visualizations",
+        "moreVisualizations": "Show all visualizations",
+        "lessVisualizations": "Show fewer visualizations",
+        "showMore": "+{count} more in this category",
         "lightTheme": "Light theme",
         "darkTheme": "Dark theme",
+        "groups": {
+            "overview": {
+                "label": "Overview",
+                "description": "What does the Quran look like?"
+            },
+            "explore-surah": {
+                "label": "Explore a Surah",
+                "description": "Study a specific chapter"
+            },
+            "trace-root": {
+                "label": "Trace a Root",
+                "description": "Follow a word family across the corpus"
+            },
+            "track-progress": {
+                "label": "Track Progress",
+                "description": "Your study journey"
+            }
+        },
         "modes": {
             "corpus-architecture": {
                 "label": "Quran Structure Map",
@@ -291,7 +365,8 @@
             "stem": "Stem",
             "pos": "POS"
         },
-        "noGloss": "No gloss available",
+        "noGloss": "Translation not available for this form",
+        "noGlossWithRoot": "Translation not available (root: {root})",
         "rootDistribution": {
             "title": "Root Analysis",
             "meaning": "Meaning",
@@ -742,6 +817,11 @@
         "button": "Settings",
         "panelLabel": "Display settings",
         "appearance": "Appearance",
+        "accessibility": {
+            "title": "Accessibility",
+            "textSize": "Text size",
+            "highContrast": "High contrast"
+        },
         "export": "Export",
         "experienceLevel": {
             "title": "Complexity level",
@@ -792,6 +872,11 @@
             "installed": "App installed",
             "installHint": "Install becomes available after your browser marks this app as installable."
         },
+        "search": {
+            "title": "Search",
+            "semanticSearch": "AI semantic search",
+            "semanticHint": "Uses AI embeddings to find roots by meaning when local results are limited."
+        },
         "knowledge": {
             "title": "Knowledge",
             "stats": "{total} tracked · {learning} learning · {learned} learned",
@@ -818,7 +903,19 @@
             "success": "Saved {format}",
             "failed": "Export failed",
             "noTarget": "No visualization available"
-        }
+        },
+        "embed": "Embed"
+    },
+    "EmbedModal": {
+        "title": "Embed Visualization",
+        "width": "Width",
+        "height": "Height",
+        "theme": "Theme",
+        "light": "Light",
+        "dark": "Dark",
+        "copyCode": "Copy code",
+        "copied": "Copied!",
+        "preview": "Preview"
     },
     "Onboarding": {
         "title": "Welcome to Quran Corpus Visualizer",
@@ -924,6 +1021,134 @@
             }
         }
     },
+    "FirstRunMission": {
+        "title": "What do you want to understand?",
+        "subtitle": "Pick a mission and we'll set up the right graph for you.",
+        "skip": "Skip",
+        "showOnStartup": "Show on startup",
+        "intents": {
+            "discoverStructure": {
+                "title": "Discover Quran structure",
+                "description": "See how surahs, ayahs, and juz are organized at a glance."
+            },
+            "traceRoot": {
+                "title": "Trace a root across surahs",
+                "description": "Follow a three-letter root to every word it generates."
+            },
+            "inspectVerse": {
+                "title": "Inspect a verse's grammar",
+                "description": "Zoom into one ayah and break down every token's morphology."
+            },
+            "testKnowledge": {
+                "title": "Test what you know",
+                "description": "Challenge yourself with an interactive knowledge map."
+            }
+        },
+        "tasks": {
+            "searchSurah": "Search for a surah",
+            "selectToken": "Select a token",
+            "switchViz": "Switch visualization mode",
+            "searchRoot": "Search for a root",
+            "selectOccurrence": "Select an occurrence",
+            "selectWord": "Select a word",
+            "searchGrammar": "Search grammar details",
+            "searchAny": "Search for anything"
+        },
+        "checklist": {
+            "title": "Mission progress",
+            "complete": "Mission complete!",
+            "dismiss": "Done",
+            "skipMission": "Skip mission"
+        }
+    },
+    "VizExplainer": {
+        "helpLabel": "What am I seeing?",
+        "surah-distribution": {
+            "summary": "A radial chart showing surah lengths and root frequency distribution across the Quran.",
+            "hint": {
+                "hover": "Hover a segment to see surah name and ayah count.",
+                "click": "Click a surah to dive into its token-level view.",
+                "zoom": "Scroll to zoom in or out."
+            },
+            "purpose": "Quickly compare surah sizes and spot where specific roots concentrate."
+        },
+        "corpus-architecture": {
+            "summary": "A hierarchical treemap of the Quran's physical structure: juz → surah → ayah groups.",
+            "hint": {
+                "expand": "Click a block to expand and see its contents.",
+                "click": "Click a surah cell to focus on it."
+            },
+            "purpose": "Understand the Quran's structural layout before diving into individual views."
+        },
+        "radial-sura": {
+            "summary": "A circular layout of every token in one surah, colored by linguistic role.",
+            "hint": {
+                "hover": "Hover a token to preview its gloss and POS.",
+                "click": "Click a token to open full details in the inspector.",
+                "drag": "Drag to pan around the surah.",
+                "zoom": "Scroll to zoom in or out."
+            },
+            "purpose": "Read one surah visually and spot grammatical patterns at the token level."
+        },
+        "dependency-tree": {
+            "summary": "A tree diagram showing syntactic dependencies between words in a verse.",
+            "hint": {
+                "hover": "Hover a node to highlight its dependents.",
+                "click": "Click a node to see full morphology."
+            },
+            "purpose": "Study how words in an ayah relate grammatically."
+        },
+        "arc-flow": {
+            "summary": "Arcs connect co-occurring roots and lemmas within each ayah.",
+            "hint": {
+                "hover": "Hover an arc to see which pair it connects.",
+                "click": "Click a token to lock focus on its connections."
+            },
+            "purpose": "Discover which roots and lemmas appear together in the same verse."
+        },
+        "root-network": {
+            "summary": "A force-directed graph where nodes are roots and edges show co-occurrence.",
+            "hint": {
+                "hover": "Hover a root node to see its frequency and connections.",
+                "click": "Click to lock focus and filter the network.",
+                "drag": "Drag nodes to rearrange the layout."
+            },
+            "purpose": "Explore how roots relate to each other across the entire corpus."
+        },
+        "sankey-flow": {
+            "summary": "A flow diagram tracing how one root branches into lemmas and tokens.",
+            "hint": {
+                "hover": "Hover a flow band to see the count and path.",
+                "click": "Click a lemma or token to focus the inspector."
+            },
+            "purpose": "Trace the derivational flow from root to every surface form."
+        },
+        "collocation-network": {
+            "summary": "A network of root pairs that frequently appear near each other.",
+            "hint": {
+                "hover": "Hover an edge to see collocation strength.",
+                "click": "Click a node to filter to that root's collocations.",
+                "drag": "Drag nodes to rearrange the network."
+            },
+            "purpose": "Find statistically significant root pairings in the text."
+        },
+        "knowledge-graph": {
+            "summary": "An interactive map of tracked roots and studied topics.",
+            "hint": {
+                "hover": "Hover a node to see your study progress.",
+                "click": "Click to review or drill into a topic."
+            },
+            "purpose": "Track your learning journey and find gaps in your exploration."
+        },
+        "heatmap": {
+            "summary": "A grid where color intensity shows word frequency across surahs.",
+            "hint": {
+                "hover": "Hover a cell to see the exact count.",
+                "click": "Click a cell to jump to the corresponding surah view."
+            },
+            "purpose": "Spot frequency patterns at a glance across the entire Quran."
+        }
+    },
     "Glossary": {
         "label": "Linguistic glossary",
         "terms": {
@@ -1010,6 +1235,63 @@
         "saveNotes": "Save notes",
         "cancel": "Cancel",
         "dataAndAccount": "Data and account",
-        "dataAndAccountDescription": "Export or import your tracked roots, then sign out when you want to leave the shared device clean."
+        "dataAndAccountDescription": "Export or import your tracked roots, then sign out when you want to leave the shared device clean.",
+        "quizPromptDesc": "Test yourself on your tracked roots — review what you've learned.",
+        "goToQuiz": "Go to Quiz"
+    },
+    "Quiz": {
+        "kicker": "Quiz",
+        "title": "Test Your Knowledge",
+        "description": "Challenge yourself with questions generated from the Quran corpus data.",
+        "dailyPuzzleHeading": "Today's Puzzle",
+        "dailyPuzzleDesc": "Five fresh questions every day — answers come straight from the corpus.",
+        "reviewHeading": "Review Your Roots",
+        "reviewDesc": "Practice the roots you're tracking, starting with the ones you haven't reviewed recently.",
+        "dailyComplete": "Puzzle Complete!",
+        "reviewComplete": "Review Complete!",
+        "scoreDisplay": "{score} / {total}",
+        "rootsReviewed": "{count} roots reviewed",
+        "noQuestions": "Not enough data to generate questions.",
+        "noTrackedRoots": "Start tracking roots in the Study tab to unlock personalized review quizzes.",
+        "submit": "Submit",
+        "next": "Next",
+        "finish": "Finish",
+        "correct": "Correct!",
+        "incorrect": "Incorrect",
+        "choicesLabel": "Answer choices",
+        "questionOf": "Question {current} of {total}",
+        "difficulty": {
+            "easy": "Easy",
+            "medium": "Medium",
+            "hard": "Hard"
+        },
+        "rootFrequency": {
+            "prompt": "How many times does the root \"{root}\" appear in the Quran?",
+            "explanation": "The root \"{root}\" appears {count} times across the corpus."
+        },
+        "surahDistribution": {
+            "prompt": "Which surah contains the root \"{root}\" the most?",
+            "explanation": "Surah {surah} has the highest frequency of root \"{root}\" with {count} occurrences."
+        },
+        "rootIdentification": {
+            "prompt": "Which root does the word \"{word}\" come from?",
+            "explanation": "The word \"{word}\" derives from the root \"{root}\"."
+        },
+        "glossMatching": {
+            "prompt": "Which root means \"{gloss}\"?",
+            "explanation": "The root \"{root}\" means \"{gloss}\"."
+        },
+        "comparativeFrequency": {
+            "prompt": "Which of these roots appears more frequently in the Quran?",
+            "explanation": "\"{rootA}\" appears {countA} times vs \"{rootB}\" at {countB} times."
+        },
+        "morphologyPos": {
+            "prompt": "What is the most common part of speech for the root \"{root}\"?",
+            "explanation": "The root \"{root}\" most commonly appears as {pos} ({count} times)."
+        },
+        "collocation": {
+            "prompt": "Which root most frequently appears alongside \"{root}\" in the same ayah?",
+            "explanation": "\"{collocate}\" co-occurs with \"{root}\" in {count} ayahs."
+        }
     }
 }

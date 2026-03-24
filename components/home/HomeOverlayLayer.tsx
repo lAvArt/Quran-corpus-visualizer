@@ -4,14 +4,16 @@ import AppSidebar from "@/components/ui/AppSidebar";
 import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
-import OnboardingOverlay from "@/components/ui/OnboardingOverlay";
-import GuidedWalkthroughOverlay from "@/components/ui/GuidedWalkthroughOverlay";
+import FirstRunMission from "@/components/onboarding/FirstRunMission";
+import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import VizBreadcrumbs from "@/components/ui/VizBreadcrumbs";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { SearchMatchType } from "@/lib/analytics/events";
-import type { WalkthroughStepConfig } from "@/lib/schema/walkthrough";
+import type { MissionIntent } from "@/lib/config/missions";
+import type { MissionProgress } from "@/components/onboarding/MissionChecklist";
+import type { FirstRunState } from "@/lib/hooks/useOnboardingState";
 import type { CorpusOverviewSummary, CorpusReadinessState, DataReadinessStatus } from "@/lib/corpus/readiness";
 
 interface HomeOverlayLayerProps {
@@ -59,18 +61,15 @@ interface HomeOverlayLayerProps {
   onSearchResultSelectedMobile: (matchType: SearchMatchType) => void;
   onDismissContextTransformNotice: () => void;
   onRestoreFocusedContext: () => void;
-  experiencePhase: "none" | "onboarding" | "walkthrough";
+  experiencePhase: FirstRunState;
+  activeMissionIntent: MissionIntent | null;
+  missionProgress: MissionProgress;
   showOnStartup: boolean;
   handleOnboardingStartupChange: (checked: boolean) => void;
-  handleOnboardingComplete: () => void;
+  handleSelectMissionIntent: (intent: MissionIntent) => void;
   handleOnboardingSkip: () => void;
-  handleStartWalkthrough: () => void;
-  activeWalkthroughSteps: WalkthroughStepConfig[];
-  walkthroughStepIndex: number;
-  handleWalkthroughNext: () => void;
-  handleWalkthroughBack: () => void;
-  handleWalkthroughSkip: () => void;
-  handleWalkthroughComplete: () => void;
+  handleMissionComplete: () => void;
+  handleMissionEnd: () => void;
 }
 
 export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
@@ -120,137 +119,135 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
     onDismissContextTransformNotice,
     onRestoreFocusedContext,
     experiencePhase,
+    activeMissionIntent,
+    missionProgress,
     showOnStartup,
     handleOnboardingStartupChange,
-    handleOnboardingComplete,
+    handleSelectMissionIntent,
     handleOnboardingSkip,
-    handleStartWalkthrough,
-    activeWalkthroughSteps,
-    walkthroughStepIndex,
-    handleWalkthroughNext,
-    handleWalkthroughBack,
-    handleWalkthroughSkip,
-    handleWalkthroughComplete,
+    handleMissionComplete,
+    handleMissionEnd,
   } = props;
   const statusPresentation = deriveCorpusStatusPresentation(readiness, dataStatus, isLoadingCorpus);
 
   return (
     <>
-      {isLoadingCorpus ? (
-        <div className="ui-overlay-loading" data-testid="explore-loading-indicator">
-          <div className="ui-overlay-loading-bar">
-            <div
-              className="ui-overlay-loading-progress"
-              style={{ width: loadingProgress ? `${(loadingProgress.currentSura / loadingProgress.totalSuras) * 100}%` : "28%" }}
-            />
-          </div>
-          <span className="ui-overlay-loading-text">{t("overlay.loadingText")}</span>
+      {/* ── Overlay status stack ── */}
+      <div className="ui-overlay-stack">
+        {/* Consolidated status pill with integrated loading progress */}
+        <div className="ui-overlay-pill" data-status={dataStatus} data-loading={isLoadingCorpus || undefined} data-testid={isLoadingCorpus ? "explore-loading-indicator" : undefined}>
+          {isLoadingCorpus && (
+            <div className="ui-overlay-pill-progress">
+              <div
+                className="ui-overlay-pill-progress-fill"
+                style={{ width: loadingProgress ? `${(loadingProgress.currentSura / loadingProgress.totalSuras) * 100}%` : "28%" }}
+              />
+            </div>
+          )}
+          <strong>{t(`dataStatus.${dataStatus}.title`)}</strong>
+          <span>{isLoadingCorpus ? t("overlay.loadingText") : t(`dataStatus.${dataStatus}.description`)}</span>
         </div>
-      ) : null}
 
-      <div className="ui-overlay-pill" data-status={dataStatus}>
-        <strong>{t(`dataStatus.${dataStatus}.title`)}</strong>
-        <span>{t(`dataStatus.${dataStatus}.description`)}</span>
-      </div>
-
-      {statusPresentation.showFallbackMessage ? (
-        <div
-          className="ui-overlay-banner ui-overlay-banner-warning"
-          data-testid="explore-data-recovery-message"
-          role="status"
-          aria-live="polite"
-        >
-          <strong>{t("overlay.fallbackTitle")}</strong>
-          <span>
-            {tSearch("fallbackMessage")}
-          </span>
-        </div>
-      ) : null}
-
-      {statusPresentation.showLoadingMessage ? (
-        <div
-          className="ui-overlay-banner"
-          data-testid="explore-data-recovery-message"
-          role="status"
-          aria-live="polite"
-        >
-          <strong>{t("overlay.loadingTitle")}</strong>
-          <span>
-            {tSearch("loadingMessage")}
-          </span>
-        </div>
-      ) : null}
-
-      {statusPresentation.showShellReadyMessage ? (
-        <div
-          className="ui-overlay-banner"
-          data-testid="explore-shell-ready-message"
-          role="status"
-          aria-live="polite"
-        >
-          <strong>{t("overlay.shellReadyTitle")}</strong>
-          <span>
-            {tSearch("shellReadyMessage", {
-              surahCount: overview.surahCount,
-              rootCount: overview.rootCount.toLocaleString(),
-            })}
-          </span>
-        </div>
-      ) : null}
-
-      {searchStatus === "unavailable" ? (
-        <div
-          className="ui-overlay-banner ui-overlay-banner-search"
-          data-testid="explore-search-recovery-message"
-          role="status"
-          aria-live="polite"
-        >
-          <strong>{t("overlay.searchUnavailableTitle")}</strong>
-          <span>
-            {t("overlay.searchUnavailableDescription")}
-          </span>
-        </div>
-      ) : null}
-
-      {contextTransformNotice ? (
-        <div
-          className="ui-overlay-banner context-transform-banner"
-          data-testid="context-transform-message"
-          role="status"
-          aria-live="polite"
-        >
-          <strong>{contextTransformNotice.title}</strong>
-          <span>{contextTransformNotice.description}</span>
-          {contextTransformNotice.recoveryLabel ? (
-          <button
-            type="button"
-            className="context-transform-close context-transform-recover"
-            data-testid="context-transform-recover"
-            onClick={onRestoreFocusedContext}
-            >
-              {contextTransformNotice.recoveryLabel}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="context-transform-close context-transform-dismiss"
-            data-testid="context-transform-dismiss"
-            onClick={onDismissContextTransformNotice}
+        {statusPresentation.showFallbackMessage ? (
+          <div
+            className="ui-overlay-banner ui-overlay-banner-warning"
+            data-testid="explore-data-recovery-message"
+            role="status"
+            aria-live="polite"
           >
-            {t("overlay.dismissContextTransform")}
-          </button>
-        </div>
-      ) : null}
+            <strong>{t("overlay.fallbackTitle")}</strong>
+            <span>
+              {tSearch("fallbackMessage")}
+            </span>
+          </div>
+        ) : null}
 
-      <VizBreadcrumbs
-        isHierarchical={isHierarchicalMode}
-        viewLabel={tViz(`${vizMode}.label`)}
-        surahId={selectedSurahId}
-        surahName={surahName}
-        ayah={selectedAyahInSurah}
-        root={selectedRootValue}
-        onNavigate={handleBreadcrumbNavigate}
-      />
+        {statusPresentation.showLoadingMessage ? (
+          <div
+            className="ui-overlay-banner"
+            data-testid="explore-data-recovery-message"
+            role="status"
+            aria-live="polite"
+          >
+            <strong>{t("overlay.loadingTitle")}</strong>
+            <span>
+              {tSearch("loadingMessage")}
+            </span>
+          </div>
+        ) : null}
+
+        {statusPresentation.showShellReadyMessage ? (
+          <div
+            className="ui-overlay-banner"
+            data-testid="explore-shell-ready-message"
+            role="status"
+            aria-live="polite"
+          >
+            <strong>{t("overlay.shellReadyTitle")}</strong>
+            <span>
+              {tSearch("shellReadyMessage", {
+                surahCount: overview.surahCount,
+                rootCount: overview.rootCount.toLocaleString(),
+              })}
+            </span>
+          </div>
+        ) : null}
+
+        {searchStatus === "unavailable" ? (
+          <div
+            className="ui-overlay-banner ui-overlay-banner-search"
+            data-testid="explore-search-recovery-message"
+            role="status"
+            aria-live="polite"
+          >
+            <strong>{t("overlay.searchUnavailableTitle")}</strong>
+            <span>
+              {t("overlay.searchUnavailableDescription")}
+            </span>
+          </div>
+        ) : null}
+
+        {contextTransformNotice ? (
+          <div
+            className="ui-overlay-banner context-transform-banner"
+            data-testid="context-transform-message"
+            role="status"
+            aria-live="polite"
+          >
+            <strong>{contextTransformNotice.title}</strong>
+            <span>{contextTransformNotice.description}</span>
+            {contextTransformNotice.recoveryLabel ? (
+            <button
+              type="button"
+              className="context-transform-close context-transform-recover"
+              data-testid="context-transform-recover"
+              onClick={onRestoreFocusedContext}
+              >
+                {contextTransformNotice.recoveryLabel}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="context-transform-close context-transform-dismiss"
+              data-testid="context-transform-dismiss"
+              onClick={onDismissContextTransformNotice}
+            >
+              {t("overlay.dismissContextTransform")}
+            </button>
+          </div>
+        ) : null}
+
+        <VizBreadcrumbs
+          isHierarchical={isHierarchicalMode}
+          viewLabel={tViz(`${vizMode}.label`)}
+          surahId={selectedSurahId}
+          surahName={surahName}
+          ayah={selectedAyahInSurah}
+          root={selectedRootValue}
+          onNavigate={handleBreadcrumbNavigate}
+          inline
+        />
+      </div>
 
       {showFirstTaskFeedbackPrompt ? (
         <div className="ui-floating-feedback" role="status" aria-live="polite">
@@ -310,23 +307,22 @@ export default function HomeOverlayLayer(props: HomeOverlayLayerProps) {
         onSearchResultSelected={onSearchResultSelectedMobile}
       />
 
-      <OnboardingOverlay
-        isOpen={experiencePhase === "onboarding"}
+      <FirstRunMission
+        isOpen={experiencePhase === "intent-selection"}
+        onSelectIntent={handleSelectMissionIntent}
+        onSkip={handleOnboardingSkip}
         showOnStartup={showOnStartup}
         onShowOnStartupChange={handleOnboardingStartupChange}
-        onComplete={handleOnboardingComplete}
-        onSkip={handleOnboardingSkip}
-        onStartWalkthrough={handleStartWalkthrough}
       />
-      <GuidedWalkthroughOverlay
-        isOpen={experiencePhase === "walkthrough"}
-        steps={activeWalkthroughSteps}
-        stepIndex={walkthroughStepIndex}
-        onNext={handleWalkthroughNext}
-        onBack={handleWalkthroughBack}
-        onSkip={handleWalkthroughSkip}
-        onComplete={handleWalkthroughComplete}
-      />
+      {experiencePhase === "mission-active" && activeMissionIntent ? (
+        <MissionChecklist
+          isOpen
+          missionIntent={activeMissionIntent}
+          progress={missionProgress}
+          onDismiss={handleMissionEnd}
+          onComplete={handleMissionComplete}
+        />
+      ) : null}
 
     </>
   );

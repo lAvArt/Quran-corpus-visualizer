@@ -4,10 +4,12 @@ export type SearchSurface = "quick" | "workspace" | "mobile";
 
 export type SearchResultKind =
   | "ayah"
+  | "surah"
   | "root"
   | "lemma"
   | "token"
   | "gloss"
+  | "translation"
   | "semantic";
 
 export interface SearchResultItem {
