@@ -4,6 +4,8 @@ out/
 dist/
 coverage/
 test-results/
+.tmp/
+.codex-artifacts/
 *.log
 *.err
 lint_report*.json
