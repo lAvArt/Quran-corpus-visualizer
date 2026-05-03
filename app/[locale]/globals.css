@@ -1166,6 +1166,32 @@ body {
   outline: none;
 }
 
+@media (max-width: 900px) {
+  .ui-floating-feedback {
+    left: 12px;
+    right: 12px;
+    bottom: calc(
+      var(--footer-height) +
+      var(--mobile-tools-bar-clearance) +
+      var(--graph-toolbar-mobile-clearance) +
+      12px
+    );
+    z-index: 80;
+    width: auto;
+    max-height: min(24vh, 180px);
+    overflow: auto;
+  }
+
+  .ui-floating-feedback-actions {
+    flex-wrap: nowrap;
+  }
+
+  .ui-floating-feedback-actions button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .ui-sidebar-shell {
   display: flex;
   flex-direction: column;
@@ -3358,8 +3384,8 @@ button.site-footer-link {
   position: fixed;
   top: var(--header-clearance);
   inset-inline-start: 88px; /* Clear the 68px JourneyRail + 8px start + 12px gap */
-  bottom: calc(var(--footer-height) + 0.75rem);
-  max-height: calc(100dvh - var(--header-clearance) - var(--footer-height) - 0.75rem);
+  bottom: calc(var(--footer-height) + var(--graph-toolbar-clearance) + 0.75rem);
+  max-height: calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--graph-toolbar-clearance) - 0.75rem);
   z-index: 40;
   width: min(280px, calc(100vw - 2rem));
   display: flex;
@@ -3646,9 +3672,9 @@ button.site-footer-link {
   .viz-sidebar-stack {
     top: var(--header-clearance);
     inset-inline-start: 1rem; /* No JourneyRail on mobile */
-    bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance));
+    bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance) + var(--graph-toolbar-mobile-clearance));
     width: calc(100vw - 2rem);
-    max-height: calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--mobile-tools-bar-clearance));
+    max-height: calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--mobile-tools-bar-clearance) - var(--graph-toolbar-mobile-clearance));
     padding-bottom: 0.5rem;
   }
 

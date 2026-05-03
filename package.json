@@ -29,7 +29,7 @@
     "graph"
   ],
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib i18n tests scripts proxy.ts next.config.ts eslint.config.mjs playwright.config.ts vitest.config.ts",

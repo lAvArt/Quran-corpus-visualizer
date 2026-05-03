@@ -95,117 +95,119 @@ export default function ContextDrawer({
     <aside
       className={`context-drawer ${isOpen ? "open" : ""}`}
       aria-label={t("label")}
-      data-tour-id="context-drawer"
+      data-tour-id="tools-sidebar"
     >
-      <div className="drawer-tabs" role="tablist" aria-label={t("panelLabel")}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`drawer-tab ${activeTab === tab.id ? "active" : ""}`}
-            onClick={() => handleManualTabChange(tab.id)}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            aria-controls={`drawer-panel-${tab.id}`}
-            id={`drawer-tab-${tab.id}`}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <div className="context-drawer-inner" data-tour-id="app-sidebar">
+        <div className="drawer-tabs" role="tablist" aria-label={t("panelLabel")}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`drawer-tab ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => handleManualTabChange(tab.id)}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`drawer-panel-${tab.id}`}
+              id={`drawer-tab-${tab.id}`}
+            >
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
 
-      <div className="drawer-glossary">
-        <GlossaryChips />
-      </div>
+        <div className="drawer-glossary">
+          <GlossaryChips />
+        </div>
 
-      {/* Explain tab */}
-      <div
-        className="drawer-content"
-        role="tabpanel"
-        id="drawer-panel-explain"
-        aria-labelledby="drawer-tab-explain"
-        style={{ display: activeTab === "explain" ? undefined : "none" }}
-      >
-        <VizExplainer vizMode={vizMode} />
-      </div>
-
-      {/* Inspect tab */}
-      <div
-        className="drawer-content"
-        role="tabpanel"
-        id="drawer-panel-inspect"
-        aria-labelledby="drawer-tab-inspect"
-        style={{ display: activeTab === "inspect" ? undefined : "none" }}
-      >
-        <CommandBar
-          tokens={allTokens}
-          variant="bar"
-          analyticsSurface="sidebar"
-          onTokenSelect={onTokenSelect}
-          onTokenHover={onTokenHover}
-          onRootSelect={onRootSelect}
-          onSearchOpened={onSearchOpened}
-          onSearchQuerySubmitted={onSearchQuerySubmitted}
-          onSearchResultSelected={onSearchResultSelected}
-        />
-        <div className="drawer-divider" />
-        <button
-          type="button"
-          className="drawer-scanner-toggle"
-          onClick={() => setScannerOpen(!scannerOpen)}
-          aria-expanded={scannerOpen}
+        {/* Explain tab */}
+        <div
+          className="drawer-content"
+          role="tabpanel"
+          id="drawer-panel-explain"
+          aria-labelledby="drawer-tab-explain"
+          style={{ display: activeTab === "explain" ? undefined : "none" }}
         >
-          {scannerOpen ? t("hideScan") : t("scan")}
-        </button>
-        {scannerOpen && (
-          <LiveScanner allTokens={allTokens} onTokenSelect={onTokenSelect} />
-        )}
-        <div className="drawer-divider" />
-        <MorphologyInspector
-          token={inspectorToken}
-          mode={inspectorMode}
-          onClearFocus={clearFocus}
-          allTokens={allTokens}
-          onRootSelect={onRootSelect}
-          onSelectSurah={onSelectSurah}
-        />
-      </div>
+          <VizExplainer vizMode={vizMode} />
+        </div>
 
-      {/* Search tab */}
-      <div
-        className="drawer-content"
-        role="tabpanel"
-        id="drawer-panel-search"
-        aria-labelledby="drawer-tab-search"
-        style={{ display: activeTab === "search" ? undefined : "none" }}
-      >
-        <CommandBar
-          tokens={allTokens}
-          variant="panel"
-          analyticsSurface="sidebar"
-          onTokenSelect={onTokenSelect}
-          onTokenHover={onTokenHover}
-          onRootSelect={onRootSelect}
-          onSearchOpened={onSearchOpened}
-          onSearchQuerySubmitted={onSearchQuerySubmitted}
-          onSearchResultSelected={onSearchResultSelected}
-        />
-      </div>
+        {/* Inspect tab */}
+        <div
+          className="drawer-content"
+          role="tabpanel"
+          id="drawer-panel-inspect"
+          aria-labelledby="drawer-tab-inspect"
+          style={{ display: activeTab === "inspect" ? undefined : "none" }}
+        >
+          <CommandBar
+            tokens={allTokens}
+            variant="bar"
+            analyticsSurface="sidebar"
+            onTokenSelect={onTokenSelect}
+            onTokenHover={onTokenHover}
+            onRootSelect={onRootSelect}
+            onSearchOpened={onSearchOpened}
+            onSearchQuerySubmitted={onSearchQuerySubmitted}
+            onSearchResultSelected={onSearchResultSelected}
+          />
+          <div className="drawer-divider" />
+          <button
+            type="button"
+            className="drawer-scanner-toggle"
+            onClick={() => setScannerOpen(!scannerOpen)}
+            aria-expanded={scannerOpen}
+          >
+            {scannerOpen ? t("hideScan") : t("scan")}
+          </button>
+          {scannerOpen && (
+            <LiveScanner allTokens={allTokens} onTokenSelect={onTokenSelect} />
+          )}
+          <div className="drawer-divider" />
+          <MorphologyInspector
+            token={inspectorToken}
+            mode={inspectorMode}
+            onClearFocus={clearFocus}
+            allTokens={allTokens}
+            onRootSelect={onRootSelect}
+            onSelectSurah={onSelectSurah}
+          />
+        </div>
 
-      {/* Index tab */}
-      <div
-        className="drawer-content"
-        role="tabpanel"
-        id="drawer-panel-index"
-        aria-labelledby="drawer-tab-index"
-        style={{ display: activeTab === "index" ? undefined : "none" }}
-      >
-        <CorpusIndex
-          tokens={allTokens}
-          onSelectSurah={onSelectSurah}
-          onSelectRoot={(root) => onRootSelect(root)}
-          onSelectLemma={onLemmaSelect}
-          selectedSurahId={selectedSurahId}
-        />
+        {/* Search tab */}
+        <div
+          className="drawer-content"
+          role="tabpanel"
+          id="drawer-panel-search"
+          aria-labelledby="drawer-tab-search"
+          style={{ display: activeTab === "search" ? undefined : "none" }}
+        >
+          <CommandBar
+            tokens={allTokens}
+            variant="panel"
+            analyticsSurface="sidebar"
+            onTokenSelect={onTokenSelect}
+            onTokenHover={onTokenHover}
+            onRootSelect={onRootSelect}
+            onSearchOpened={onSearchOpened}
+            onSearchQuerySubmitted={onSearchQuerySubmitted}
+            onSearchResultSelected={onSearchResultSelected}
+          />
+        </div>
+
+        {/* Index tab */}
+        <div
+          className="drawer-content"
+          role="tabpanel"
+          id="drawer-panel-index"
+          aria-labelledby="drawer-tab-index"
+          style={{ display: activeTab === "index" ? undefined : "none" }}
+        >
+          <CorpusIndex
+            tokens={allTokens}
+            onSelectSurah={onSelectSurah}
+            onSelectRoot={(root) => onRootSelect(root)}
+            onSelectLemma={onLemmaSelect}
+            selectedSurahId={selectedSurahId}
+          />
+        </div>
       </div>
 
       <style jsx>{`
@@ -228,6 +230,13 @@ export default function ContextDrawer({
           transform: translateX(calc(100% + 2rem));
           transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
           pointer-events: none;
+        }
+
+        .context-drawer-inner {
+          display: flex;
+          min-height: 0;
+          height: 100%;
+          flex-direction: column;
         }
 
         :global([data-theme="dark"]) .context-drawer {
@@ -322,20 +331,30 @@ export default function ContextDrawer({
         @media (max-width: 980px) {
           .context-drawer {
             top: auto;
-            bottom: 0;
-            inset-inline: 0;
-            width: 100%;
-            max-height: 65vh;
-            border-radius: 16px 16px 0 0;
-            transform: translateY(100%);
+            bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance) + var(--graph-toolbar-mobile-clearance) + 8px);
+            inset-inline: 8px;
+            width: auto;
+            max-height: min(56vh, calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--mobile-tools-bar-clearance) - var(--graph-toolbar-mobile-clearance) - 16px));
+            z-index: 95;
+            border-radius: 16px;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+            transform: translateY(calc(100% + 16px));
+            opacity: 0;
+            visibility: hidden;
           }
 
           :global([dir="rtl"]) .context-drawer {
-            transform: translateY(100%);
+            transform: translateY(calc(100% + 16px));
           }
 
           .context-drawer.open {
             transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+          }
+
+          .drawer-content {
+            padding-bottom: 16px;
           }
         }
       `}</style>

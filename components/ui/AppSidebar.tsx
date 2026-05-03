@@ -176,33 +176,33 @@ export default function AppSidebar({
           sidebar, mirroring what MobileSearchOverlay does for its own context. */}
       <style jsx global>{`
         @media (max-width: 640px) {
-          .sidebar-content .global-search {
+          .ui-sidebar-content .global-search {
             position: relative !important;
           }
-          .sidebar-content .search-input-wrapper {
+          .ui-sidebar-content .search-input-wrapper {
             width: auto !important;
             height: auto !important;
             padding: 8px 12px !important;
             background: var(--bg-2) !important;
             border-color: var(--line) !important;
           }
-          .sidebar-content .search-input-wrapper:focus-within {
+          .ui-sidebar-content .search-input-wrapper:focus-within {
             position: relative !important;
             top: auto !important;
             left: auto !important;
             right: auto !important;
             z-index: auto !important;
           }
-          .sidebar-content .search-input {
+          .ui-sidebar-content .search-input {
             display: block !important;
             width: 100% !important;
             opacity: 1 !important;
             pointer-events: auto !important;
           }
-          .sidebar-content .search-clear {
+          .ui-sidebar-content .search-clear {
             display: block !important;
           }
-          .sidebar-content .search-results-dropdown {
+          .ui-sidebar-content .search-results-dropdown {
             position: static !important;
             margin-top: 6px;
           }
