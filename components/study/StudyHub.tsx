@@ -85,6 +85,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     return (
       <main className="ui-page-shell ui-page-shell-centered ui-theme-scope">
         <div className="ui-panel ui-page-panel ui-page-panel-wide">
+          <h1 className="ui-title">{title ?? t("title")}</h1>
           <p className="study-loading">{t("loading")}</p>
         </div>
       </main>
