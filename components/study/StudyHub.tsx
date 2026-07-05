@@ -497,9 +497,9 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
           align-items: center;
           gap: 0.5rem;
           padding: 0.62rem 0.9rem;
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.5);
+          border: 1px solid var(--line);
+          border-radius: var(--radius-pill);
+          background: var(--bg-2);
           color: var(--ink-secondary);
           font: inherit;
           font-size: 0.86rem;
@@ -524,8 +524,8 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
           justify-content: center;
           min-width: 1.35rem;
           padding: 0.16rem 0.38rem;
-          border-radius: 999px;
-          background: rgba(17, 24, 39, 0.08);
+          border-radius: var(--radius-pill);
+          background: var(--line);
           color: inherit;
           font-size: 0.72rem;
           line-height: 1;
@@ -552,8 +552,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
         .study-summary-card,
         .study-continue-card {
-          background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(248, 244, 238, 0.72));
+          background: var(--panel);
         }
 
         .study-summary-strip,
@@ -577,9 +576,9 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
           display: grid;
           gap: 0.45rem;
           padding: 0.85rem 0.95rem;
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.5);
+          border: 1px solid var(--line);
+          border-radius: var(--radius-md);
+          background: var(--bg-2);
         }
 
         .study-metric span,
@@ -611,8 +610,8 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
           display: inline-flex;
           align-items: center;
           padding: 0.36rem 0.62rem;
-          border-radius: 999px;
-          background: rgba(17, 24, 39, 0.06);
+          border-radius: var(--radius-pill);
+          background: var(--bg-2);
           color: var(--ink);
           font-size: 0.76rem;
           line-height: 1;
@@ -629,12 +628,67 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
         }
 
         .study-next-head,
-        .study-detail-row,
-        .study-root-row {
+        .study-detail-row {
           display: flex;
           justify-content: space-between;
           gap: 0.9rem;
           align-items: flex-start;
+        }
+
+        /* V2 tracked-root row */
+        .study-root-row {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          padding: 16px 20px;
+          border-top: 1px solid var(--line);
+        }
+
+        .study-root-main {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .study-root-inline {
+          font-family: var(--font-arabic, serif);
+          font-size: 26px;
+          color: var(--ink);
+          width: 90px;
+          flex: 0 0 90px;
+          line-height: 1.1;
+        }
+
+        .study-inline-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          color: var(--ink-muted);
+          font-family: var(--font-sans, inherit);
+          font-size: 12px;
+        }
+
+        /* V2 state pill tints (scoped override of global ui-state-pill) */
+        .study-root-row :global(.ui-state-pill) {
+          padding: 5px 12px;
+          border-radius: var(--radius-pill);
+          font-size: 11px;
+          text-transform: capitalize;
+          letter-spacing: 0.02em;
+        }
+
+        .study-root-row :global(.ui-state-pill-success) {
+          background: color-mix(in srgb, #56a697 10%, transparent);
+          border: 1px solid color-mix(in srgb, #56a697 30%, transparent);
+          color: #9fd4c4;
+        }
+
+        .study-root-row :global(.ui-state-pill-warning) {
+          background: color-mix(in srgb, #e6c24e 10%, transparent);
+          border: 1px solid color-mix(in srgb, #e6c24e 30%, transparent);
+          color: #ecd07e;
         }
 
         .study-root-value {
@@ -644,7 +698,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
         .study-detail-row {
           padding-bottom: 0.5rem;
-          border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+          border-bottom: 1px solid var(--line);
         }
 
         .study-detail-row:last-of-type {
@@ -674,7 +728,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
         .study-tool-actions {
           margin-top: 0.9rem;
           padding-top: 0.9rem;
-          border-top: 1px solid rgba(17, 24, 39, 0.08);
+          border-top: 1px solid var(--line);
         }
 
         .study-tool-actions-panel {
@@ -688,8 +742,8 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
           align-items: center;
           gap: 0.38rem;
           padding: 0.5rem 0.75rem;
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 999px;
+          border: 1px solid var(--line);
+          border-radius: var(--radius-pill);
           background: transparent;
           color: var(--ink-secondary);
           font: inherit;
@@ -712,21 +766,6 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
         .study-root-card {
           gap: 0.8rem;
-        }
-
-        .study-root-main {
-          display: grid;
-          gap: 0.28rem;
-        }
-
-        .study-root-inline {
-          font-size: 1.25rem;
-          line-height: 0.95;
-        }
-
-        .study-inline-meta {
-          color: var(--ink-muted);
-          font-size: 0.78rem;
         }
 
         .study-root-notes {
@@ -772,29 +811,28 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
         :global([data-theme="dark"] .study-summary-card),
         :global([data-theme="dark"] .study-continue-card) {
-          background:
-            linear-gradient(180deg, rgba(22, 28, 35, 0.88), rgba(16, 20, 27, 0.86));
+          background: var(--panel);
         }
 
         :global([data-theme="dark"] .study-metric),
         :global([data-theme="dark"] .study-panel-block) {
-          background: rgba(255, 255, 255, 0.03);
-          border-color: rgba(255, 255, 255, 0.06);
+          background: var(--bg-2);
+          border-color: var(--line);
         }
 
         :global([data-theme="dark"] .study-chip),
         :global([data-theme="dark"] .study-root-pill) {
-          background: rgba(255, 255, 255, 0.06);
+          background: var(--bg-2);
         }
 
         :global([data-theme="dark"] .study-detail-row),
         :global([data-theme="dark"] .study-tool-actions) {
-          border-color: rgba(255, 255, 255, 0.08);
+          border-color: var(--line);
         }
 
         :global([data-theme="dark"] .study-panel-tab) {
-          background: rgba(255, 255, 255, 0.03);
-          border-color: rgba(255, 255, 255, 0.08);
+          background: var(--bg-2);
+          border-color: var(--line);
         }
 
         :global([data-theme="dark"] .study-panel-tab.active) {
@@ -802,7 +840,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
         }
 
         :global([data-theme="dark"] .study-panel-tab small) {
-          background: rgba(255, 255, 255, 0.08);
+          background: var(--line);
         }
       `}</style>
     </AppWorkspaceShell>

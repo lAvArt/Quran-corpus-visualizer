@@ -25,7 +25,7 @@ export type ProgressCallback = (progress: LoadingProgress) => void;
 
 const sampleMorphologyMap = buildSampleMorphologyMap(SAMPLE_MORPHOLOGY_DATA);
 const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
-const MORPHOLOGY_CACHE_VERSION = "qac-0.4.2-root-coverage";
+const MORPHOLOGY_CACHE_VERSION = "qac-0.4.3-enrich-all-surahs";
 let cachePolicyInFlight: Promise<void> | null = null;
 
 async function ensureQuranComCachePolicy(): Promise<void> {
@@ -125,6 +125,53 @@ function wordToToken(
             stem: morphData?.stem ?? null,
         },
     };
+}
+
+/**
+ * Enrich tokens with the authoritative QAC morphology file so EVERY surah has
+ * root / lemma / pos — not just the ones whose source happened to carry roots.
+ * Supabase corpora frequently ship roots for only some surahs; without this,
+ * only the bundled sample (Al-Fatihah) renders POS-coloured bars + root
+ * arcs/circles. Tokens that already have a root are left untouched; tokens
+ * missing one are filled by `sura:ayah:position` lookup against the QAC map.
+ */
+async function enrichTokensWithMorphology(
+    tokens: CorpusToken[],
+    onProgress?: ProgressCallback
+): Promise<CorpusToken[]> {
+    const missing = tokens.reduce((n, t) => (t.root?.trim() ? n : n + 1), 0);
+    // Already well-rooted (e.g. a complete corpus) — nothing to do.
+    if (missing <= tokens.length * 0.02) return tokens;
+
+    let map: Map<string, MorphologyEntry>;
+    try {
+        onProgress?.({ currentSura: 114, totalSuras: 114, currentTokens: tokens.length, totalTokens: tokens.length, status: 'loading', message: 'Adding root & morphology data…' });
+        map = await loadMorphologyMap();
+    } catch (err) {
+        console.warn('[CorpusLoader] Morphology enrichment skipped (load failed):', err);
+        return tokens;
+    }
+
+    let filled = 0;
+    const enriched = tokens.map((t) => {
+        if (t.root?.trim()) return t;
+        const m = map.get(`${t.sura}:${t.ayah}:${t.position}`);
+        if (!m?.root) return t;
+        filled++;
+        return {
+            ...t,
+            root: m.root,
+            lemma: t.lemma && t.lemma !== t.text ? t.lemma : (m.lemma || t.lemma || t.text),
+            pos: (m.pos ?? t.pos) as PartOfSpeech,
+            morphology: {
+                features: Object.keys(t.morphology.features ?? {}).length > 0 ? t.morphology.features : (m.features ?? {}),
+                gloss: t.morphology.gloss ?? (ROOT_GLOSSES.get(m.root) ?? null),
+                stem: t.morphology.stem ?? m.stem ?? null,
+            },
+        };
+    });
+    console.log(`[CorpusLoader] Morphology enrichment: filled ${filled.toLocaleString()} roots from QAC`);
+    return enriched;
 }
 
 // ── In-memory singleton — avoids re-reading IDB on SPA navigation ────────────
@@ -240,6 +287,40 @@ export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusTok
     return _activeLoad;
 }
 
+// ── Context-first per-surah loading ──────────────────────────────────────────
+// The QAC morphology file carries every surah's root/lemma/pos, so once parsed
+// we can build any surah instantly. This lets the CURRENTLY-OPEN surah render
+// fully (POS-coloured bars, root arcs, circles) within one morphology fetch,
+// instead of waiting for the whole corpus to stream from Supabase/API.
+let _morphologyBySura: Map<number, CorpusToken[]> | null = null;
+let _morphologyBySuraPromise: Promise<Map<number, CorpusToken[]>> | null = null;
+
+export async function loadSurahContext(suraId: number): Promise<CorpusToken[]> {
+    // If the full corpus is already loaded, slice it (most accurate text/gloss).
+    if (_memoryTokens) return _memoryTokens.filter((t) => t.sura === suraId);
+
+    if (!_morphologyBySura) {
+        if (!_morphologyBySuraPromise) {
+            _morphologyBySuraPromise = loadMorphologyMap()
+                .then((map) => {
+                    _morphologyBySura = buildMorphologyFallbackBySura(map);
+                    return _morphologyBySura;
+                })
+                .catch((err) => {
+                    _morphologyBySuraPromise = null;
+                    throw err;
+                });
+        }
+        try {
+            await _morphologyBySuraPromise;
+        } catch (err) {
+            console.warn(`[CorpusLoader] loadSurahContext(${suraId}) morphology load failed:`, err);
+            return [];
+        }
+    }
+    return _morphologyBySura?.get(suraId) ?? [];
+}
+
 async function _doLoadFullCorpus(
     onProgress?: ProgressCallback
 ): Promise<CorpusToken[]> {
@@ -299,19 +380,22 @@ async function _doLoadFullCorpus(
 
         const supabaseTokens = await loadCorpusFromSupabase(onProgress);
         if (supabaseTokens && supabaseTokens.length > 0) {
+            // Fill any missing roots/morphology from the authoritative QAC file so
+            // EVERY surah (not just Al-Fatihah) renders POS-coloured bars + arcs.
+            const enrichedTokens = await enrichTokensWithMorphology(supabaseTokens, onProgress);
             // Cache in IndexedDB so future loads never hit the network
-            await corpusCache.storeTokens(supabaseTokens);
+            await corpusCache.storeTokens(enrichedTokens);
             await corpusCache.setMetadata('corpus', {
-                tokenCount: supabaseTokens.length,
+                tokenCount: enrichedTokens.length,
                 hasMorphology: true,
                 morphologyVersion: MORPHOLOGY_CACHE_VERSION,
             });
             progress.status = 'complete';
-            progress.totalTokens = supabaseTokens.length;
-            progress.currentTokens = supabaseTokens.length;
-            progress.message = `Loaded ${supabaseTokens.length.toLocaleString()} tokens from Supabase`;
+            progress.totalTokens = enrichedTokens.length;
+            progress.currentTokens = enrichedTokens.length;
+            progress.message = `Loaded ${enrichedTokens.length.toLocaleString()} tokens from Supabase`;
             notify();
-            return supabaseTokens;
+            return enrichedTokens;
         }
 
         // ── 3. Load morphology map (required for Quran.com API path) ─────────

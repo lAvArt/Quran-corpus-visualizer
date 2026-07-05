@@ -10,6 +10,7 @@ import { getAyah } from "@/lib/corpus/corpusLoader";
 import { quranApi, type QuranWord } from "@/lib/api/quranApi";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -377,14 +378,8 @@ export default function AyahDependencyGraph({
   }, [dimensions.width, graphWidth, activeSurah, activeAyah, sortedTokens.length]);
 
   const handleResetZoom = useCallback(() => {
-    if (!svgRef.current || !zoomBehaviorRef.current) return;
-    const initialX = (dimensions.width - graphWidth) / 2;
-    const initialY = 26;
-    d3.select(svgRef.current)
-      .transition()
-      .duration(260)
-      .call(zoomBehaviorRef.current.transform, d3.zoomIdentity.translate(initialX, initialY));
-  }, [dimensions.width, graphWidth]);
+    fitGraphToView(svgRef.current, zoomLayerRef.current, zoomBehaviorRef.current);
+  }, []);
 
   const handleNextAyah = useCallback(() => {
     if (!activeAyah || availableAyahs.length === 0) return;
@@ -550,7 +545,7 @@ export default function AyahDependencyGraph({
               -
             </button>
             <button type="button" className="dep-fit-btn" onClick={handleResetZoom}>
-              {ts("reset")}
+              {ts("focus")}
             </button>
           </div>
         </div>

@@ -48,7 +48,7 @@ export default function CorpusArchitectureMap({
     const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
 
-    const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
+    const { svgRef, gRef, fitToView } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 12,
         initialScale: 1.4,
@@ -598,9 +598,7 @@ export default function CorpusArchitectureMap({
                 height: '100%',
                 position: 'relative',
                 overflow: 'hidden',
-                background: theme === "dark"
-                    ? "radial-gradient(circle at center, #0f172a 0%, #020617 100%)"
-                    : "radial-gradient(circle at 16% 18%, rgba(15, 118, 110, 0.14), transparent 42%), radial-gradient(circle at 84% 16%, rgba(245, 158, 11, 0.14), transparent 40%), linear-gradient(160deg, #f8f4ec, #efe6d7)"
+                background: "radial-gradient(circle at center, var(--bg-1) 0%, var(--bg-0) 100%)"
             }}
         >
 
@@ -610,6 +608,16 @@ export default function CorpusArchitectureMap({
 
 
                         <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+                            <div className="viz-left-panel viz-zoom-panel">
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                                </div>
+                                <div className="viz-zoom-row">
+                                    <button type="button" className="viz-zoom-reset-btn" onClick={() => fitToView()}>
+                                        {ts("focus")}
+                                    </button>
+                                </div>
+                            </div>
                             <div className="viz-left-panel">
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
@@ -764,20 +772,6 @@ export default function CorpusArchitectureMap({
                 }}
             />
 
-            <div className="viz-controls floating-controls">
-                <div className="ayah-meta-wrapper">
-                    <button
-                        className="kg-reset-btn"
-                        onClick={resetZoom}
-                        title="Focus View"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
             <div ref={containerRef} className="viz-container-full">
                 <svg
                     ref={svgRef}
@@ -791,9 +785,7 @@ export default function CorpusArchitectureMap({
                             {visibleLinks.map((link, i) => {
                                 const isSourceRoot = link.source.data.id === 'corpus';
                                 const stroke = isSourceRoot
-                                    ? theme === "dark"
-                                        ? "rgba(255,255,255,0.05)"
-                                        : "rgba(31, 28, 25, 0.1)"
+                                    ? "var(--line)"
                                     : themeColors.edgeColors.default;
                                 const isFocusLink = focusSurahNodeId
                                     ? link.source.data.id === focusSurahNodeId ||
@@ -905,7 +897,7 @@ export default function CorpusArchitectureMap({
                                         <circle
                                             r={node.data.type === "surah" ? 5 : (node.data.type === "corpus" ? 0 : 3)}
                                             fill={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
-                                            stroke={theme === "dark" ? "rgba(2, 6, 23, 0.85)" : "rgba(255, 255, 255, 0.85)"}
+                                            stroke="var(--bg-0)"
                                             strokeWidth={node.data.type === "corpus" ? 0 : 0.65}
                                             pointerEvents="none"
                                         />
@@ -927,9 +919,7 @@ export default function CorpusArchitectureMap({
                                                 fill={themeColors.textColors.primary}
                                                 fontWeight={isHighlighted ? "bold" : "normal"}
                                                 style={{
-                                                    textShadow: theme === "dark"
-                                                        ? "0 1px 3px rgba(0,0,0,0.9)"
-                                                        : "0 1px 2px rgba(255,255,255,0.65)",
+                                                    textShadow: "0 1px 3px var(--bg-0)",
                                                     pointerEvents: "none"
                                                 }}
                                             >
@@ -951,7 +941,8 @@ export default function CorpusArchitectureMap({
                         <g className="central-info" pointerEvents="none" style={{ transition: "opacity 0.3s ease" }}>
                             <circle
                                 r={80}
-                                fill={theme === "dark" ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)"}
+                                fill="var(--bg-0)"
+                                opacity={0.4}
                                 filter="blur(20px)"
                             />
                             <text
@@ -960,7 +951,7 @@ export default function CorpusArchitectureMap({
                                 style={{
                                     fontSize: '18px',
                                     fontWeight: '400',
-                                    fill: theme === "dark" ? "rgba(255,255,255,0.7)" : "rgba(31, 28, 25, 0.7)",
+                                    fill: "var(--ink-muted)",
                                     letterSpacing: '0.05em',
                                     textTransform: 'uppercase'
                                 }}
@@ -974,7 +965,7 @@ export default function CorpusArchitectureMap({
                                     fontSize: '28px',
                                     fontWeight: '600',
                                     fill: themeColors.textColors.primary,
-                                    textShadow: theme === "dark" ? "0 2px 10px rgba(0,0,0,0.5)" : "0 2px 10px rgba(255,255,255,0.5)"
+                                    textShadow: "0 2px 10px var(--bg-0)"
                                 }}
                             >
                                 {focusedSurahId

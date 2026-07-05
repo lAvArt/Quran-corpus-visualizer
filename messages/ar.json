@@ -1,4 +1,37 @@
 {
+    "Home": {
+        "eyebrow": "ابحث في القرآن بالمعنى",
+        "headline": "لكل كلمة جذر.",
+        "placeholder": "ابحث عن جذر أو كلمة — ر-ح-م، رحمة، علم…",
+        "enterHint": "إدخال",
+        "matched": "الجذر المطابق {root}",
+        "back": "رجوع",
+        "seeAll": "التفاصيل الكاملة",
+        "statOccurrences": "ورود",
+        "todaysRoot": "جذر اليوم",
+        "occurrences": "× مرة",
+        "statSurahs": "سورة",
+        "statVerses": "آية مختلفة",
+        "statForms": "صيغة",
+        "statFirst": "أول ورود",
+        "whereLabel": "أين ترد · حسب السورة",
+        "ofSurahs": "{n} من ١١٤",
+        "exploreRoot": "ادرس شبكة الجذر",
+        "readVerses": "{n, plural, one {اقرأ الآية} other {اقرأ كل الآيات}}",
+        "compareForms": "{n, plural, one {قارن الصيغة} other {قارن الصيغ}}",
+        "noMatch": "لا تطابق تام لـ ”{q}“. جرّب أحد هذه:",
+        "skipToApp": "تخطَّ إلى المرصد الكامل",
+        "wordByWord": "كلمة بكلمة",
+        "closeVerse": "إغلاق",
+        "openInGraphs": "افتح في أدوات الرسم",
+        "pos": {
+            "N": "اسم",
+            "V": "فعل",
+            "ADJ": "صفة",
+            "PRON": "ضمير",
+            "P": "حرف"
+        }
+    },
     "Error": {
         "title": "حدث خطأ ما",
         "message": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى أو العودة إلى الصفحة الرئيسية.",
@@ -33,7 +66,9 @@
         "index": "الفهرس",
         "close": "إغلاق اللوحة",
         "scan": "الماسح المباشر",
-        "hideScan": "إخفاء الماسح"
+        "hideScan": "إخفاء الماسح",
+        "expand": "إظهار الأدوات",
+        "collapse": "إخفاء الأدوات"
     },
     "Footer": {
         "github": "جيت هب",
@@ -186,7 +221,7 @@
     },
     "GlobalSearch": {
         "ariaLabel": "Search roots, words, meanings",
-        "placeholder": "بحث عن سور، جذور، كلمات، معاني...",
+        "placeholder": "بحث عن سور، جذور، كلمات، معاني — root:, lemma:, pos:, ayah:, gloss:",
         "noResults": "لم توجد نتائج",
         "matchRoot": "جذر: {root} ({count} مرة)",
         "matchLemma": "الجذع: {lemma}",
@@ -501,6 +536,7 @@
             "legend": "وسيلة الإيضاح",
             "zoom": "تكبير",
             "reset": "إعادة تعيين",
+            "focus": "تأطير",
             "clear": "مسح",
             "surah": "سورة",
             "ayah": "آية",

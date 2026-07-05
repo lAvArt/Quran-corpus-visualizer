@@ -8,6 +8,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import type { ExperienceLevel } from "@/lib/schema/experience";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 import { useTranslations } from "next-intl";
 
 interface RootNetworkGraphProps {
@@ -395,52 +396,6 @@ export default function RootNetworkGraph({
       </div>
       */}
 
-      <div className="viz-controls floating-controls">
-        <div className="ayah-meta-wrapper">
-          <button
-            className="kg-reset-btn"
-            onClick={() => {
-              if (svgRef.current && zoomBehaviorRef.current) {
-                d3.select(svgRef.current)
-                  .transition()
-                  .duration(750)
-                  .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-              }
-            }}
-            title="Focus View"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-            </svg>
-          </button>
-          <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
-            {initialNodes.filter((n) => n.type === "root").length} roots ·{" "}
-            {initialNodes.filter((n) => n.type === "lemma").length} lemmas ·{" "}
-            {initialLinks.length} connections
-            {selectedSurahId ? ` · Surah ${selectedSurahId}` : " · Global"}
-          </p>
-        </div>
-        {experienceLevel === "advanced" ? (
-          <div
-            className="root-limit-control"
-            data-testid="root-network-root-limit-control"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}
-          >
-            <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
-            <input
-              type="range"
-              min={5}
-              max={Math.max(5, totalRoots)}
-              step={5}
-              value={Math.min(rootLimit, totalRoots || 100)}
-              onChange={(e) => setRootLimit(Number(e.target.value))}
-              style={{ width: 100, accentColor: 'var(--accent)', cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
-          </div>
-        ) : null}
-      </div>
-
       <div ref={containerRef} className="viz-container" style={{ width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0 }}>
         {!isMounted ? null : (
           <svg
@@ -453,7 +408,7 @@ export default function RootNetworkGraph({
               <defs>
                 {/* Radial gradient for background glow */}
                 <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="rgba(239, 68, 68, 0.1)" />
+                  <stop offset="0%" stopColor="var(--accent-glow)" />
                   <stop offset="100%" stopColor="transparent" />
                 </radialGradient>
 
@@ -588,9 +543,7 @@ export default function RootNetworkGraph({
                         className={`node-circle ${isHighlighted ? "highlighted" : ""} ${isRoot ? "hub" : ""}`}
                         style={{
                           fill: isHighlighted ? themeColors.accent : node.color,
-                          stroke: isRoot
-                            ? "rgba(255, 255, 255, 0.4)"
-                            : "rgba(255, 255, 255, 0.2)",
+                          stroke: "var(--line)",
                           strokeWidth: isRoot ? 2 : 1,
                         }}
                         filter={isHighlighted ? "url(#nodeGlow)" : undefined}
@@ -600,7 +553,8 @@ export default function RootNetworkGraph({
                       {isRoot && (
                         <circle
                           r={node.radius * 0.3}
-                          fill="rgba(255, 255, 255, 0.2)"
+                          fill="var(--line)"
+                          fillOpacity={0.2}
                         />
                       )}
 
@@ -611,7 +565,7 @@ export default function RootNetworkGraph({
                           y={node.radius + 16}
                           textAnchor="middle"
                           paintOrder="stroke"
-                          stroke="var(--bg)"
+                          stroke="var(--bg-0)"
                           strokeWidth={3}
                           strokeLinejoin="round"
                           style={{
@@ -635,6 +589,44 @@ export default function RootNetworkGraph({
 
       {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
         <div className="viz-left-stack">
+          <div className="viz-left-panel viz-zoom-panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+            </div>
+            <div className="viz-zoom-row">
+              <button
+                type="button"
+                className="viz-zoom-reset-btn"
+                onClick={() => {
+                  fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                }}
+              >
+                {ts("focus")}
+              </button>
+            </div>
+          </div>
+
+          {experienceLevel === "advanced" ? (
+            <div
+              className="viz-left-panel root-limit-control"
+              data-testid="root-network-root-limit-control"
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
+                <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={Math.max(5, totalRoots)}
+                step={5}
+                value={Math.min(rootLimit, totalRoots || 100)}
+                onChange={(e) => setRootLimit(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+            </div>
+          ) : null}
+
           {sidebarNode && (
             <div className="viz-left-panel">
               <div className="viz-tooltip-title arabic-text">{sidebarNode.label}</div>

@@ -325,11 +325,11 @@ export default function VizExportMenu({ targetRef, vizMode, selectedSurahId }: V
         }
 
         :global([data-theme="dark"]) .viz-export-trigger {
-          background: rgba(18, 18, 26, 0.75);
+          background: rgba(20, 30, 36, 0.75);
         }
 
         :global([data-theme="dark"]) .viz-export-menu {
-          background: rgba(18, 18, 26, 0.94);
+          background: rgba(20, 30, 36, 0.94);
           box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
         }
 

@@ -101,27 +101,25 @@ export default function StatusBar({
         )}
 
         <div className="status-bar-content">
-          {/* Status pill */}
+          {/* Status pill — compact during load (the progress bar + drawer carry
+              the detail) so the breadcrumb stays visible the whole time. */}
           <span className="status-bar-label" data-status={dataStatus} data-testid={isLoading ? "explore-loading-indicator" : undefined}>
             <strong>{t(`dataStatus.${dataStatus}.title`)}</strong>
-            {isLoading && <span className="status-bar-loading-text">{t("overlay.loadingText")}</span>}
           </span>
 
-          {/* Breadcrumbs inline */}
-          {!isLoading && (
-            <span className="status-bar-breadcrumbs">
-              <VizBreadcrumbs
-                isHierarchical={isHierarchicalMode}
-                viewLabel={vizModeLabel}
-                surahId={selectedSurahId}
-                surahName={surahName}
-                ayah={selectedAyah}
-                root={selectedRoot}
-                onNavigate={onBreadcrumbNavigate}
-                inline
-              />
-            </span>
-          )}
+          {/* Breadcrumbs — always visible, even while the full corpus loads */}
+          <span className="status-bar-breadcrumbs">
+            <VizBreadcrumbs
+              isHierarchical={isHierarchicalMode}
+              viewLabel={vizModeLabel}
+              surahId={selectedSurahId}
+              surahName={surahName}
+              ayah={selectedAyah}
+              root={selectedRoot}
+              onNavigate={onBreadcrumbNavigate}
+              inline
+            />
+          </span>
 
           {/* Expand toggle (only if there are notifications) */}
           {hasNotifications && (
@@ -183,7 +181,7 @@ export default function StatusBar({
           transform: translateX(-50%);
           z-index: 45;
           width: var(--centered-shell-dock-width);
-          border-radius: 14px;
+          border-radius: var(--radius-md);
           border: 1px solid var(--line);
           margin-top: 6px;
           background: rgba(8, 10, 16, 0.78);
@@ -278,7 +276,7 @@ export default function StatusBar({
           color: var(--ink-muted);
           cursor: pointer;
           padding: 4px;
-          border-radius: 6px;
+          border-radius: var(--radius-xs);
           transition: color 0.15s ease, background 0.15s ease;
         }
 
@@ -302,9 +300,9 @@ export default function StatusBar({
           min-width: 16px;
           height: 16px;
           padding: 0 4px;
-          border-radius: 8px;
-          background: var(--accent, #6366f1);
-          color: #fff;
+          border-radius: var(--radius-pill);
+          background: var(--accent);
+          color: var(--accent-ink);
           font-size: 0.6rem;
           font-weight: 700;
           line-height: 1;
@@ -377,7 +375,7 @@ export default function StatusBar({
           color: var(--ink-secondary);
           font-size: 0.68rem;
           padding: 3px 8px;
-          border-radius: 6px;
+          border-radius: var(--radius-xs);
           cursor: pointer;
           font-family: inherit;
           transition: border-color 0.15s ease, color 0.15s ease;
@@ -418,7 +416,7 @@ export default function StatusBar({
           .status-bar {
             --centered-shell-dock-width: min(calc(100vw - 16px), 400px);
             width: var(--centered-shell-dock-width);
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
           }
 
           .status-bar-content {

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 import { useTranslations } from "next-intl";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -86,12 +87,12 @@ export default function KnowledgeGraphViz({
             learningGlow: isDark ? "rgba(34,211,238,0.5)" : "rgba(8,145,178,0.4)",
             learnedNode: isDark ? "#4ade80" : "#16a34a",      // green
             learnedGlow: isDark ? "rgba(74,222,128,0.5)" : "rgba(22,163,74,0.4)",
-            ghostNode: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            ghostStroke: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+            ghostNode: "rgba(28,42,49,0.7)",
+            ghostStroke: "var(--line)",
             lemmaNode: themeColors.accent,
             linkLearning: isDark ? "rgba(34,211,238,0.25)" : "rgba(8,145,178,0.18)",
             linkLearned: isDark ? "rgba(74,222,128,0.25)" : "rgba(22,163,74,0.18)",
-            linkGhost: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+            linkGhost: "var(--line)",
             coreGlow: isDark
                 ? "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)"
                 : "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)",
@@ -428,33 +429,6 @@ export default function KnowledgeGraphViz({
 
     return (
         <section className="immersive-viz" data-theme={theme}>
-            {/* Floating stats pill */}
-            <div className="viz-controls floating-controls">
-                <div className="ayah-meta-wrapper">
-                    <button
-                        className="kg-reset-btn"
-                        onClick={() => {
-                            if (svgRef.current && zoomBehaviorRef.current) {
-                                d3.select(svgRef.current)
-                                    .transition()
-                                    .duration(750)
-                                    .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-                            }
-                        }}
-                        title="Focus View"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                        </svg>
-                    </button>
-                    <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
-                        {nodes.filter(n => n.type === "tracked-root" || n.type === "ghost-root").length} roots · {nodes.filter(n => n.type === "lemma").length} lemmas · {links.length} connections
-                        {hasTracked && ` · ${stats.total} tracked`}
-                        {!hasTracked && " · Select roots to begin tracking"}
-                    </p>
-                </div>
-            </div>
-
             {/* Graph switch toggle */}
             <div className="kg-view-switch" data-tour-id="kg-view-switch">
                 <button
@@ -664,7 +638,7 @@ export default function KnowledgeGraphViz({
                                                         ? node.color
                                                         : isGhost
                                                             ? palette.ghostStroke
-                                                            : "rgba(255,255,255,0.15)"
+                                                            : "var(--line)"
                                                 }
                                                 strokeWidth={isTrackedRoot ? 2 : 0.5}
                                                 filter={isTrackedRoot || isHighlighted ? "url(#kg-glow)" : undefined}
@@ -672,7 +646,7 @@ export default function KnowledgeGraphViz({
 
                                             {/* Inner bright dot for tracked roots */}
                                             {isTrackedRoot && (
-                                                <circle r={node.radius * 0.25} fill="rgba(255,255,255,0.35)" />
+                                                <circle r={node.radius * 0.25} fill="var(--ink-secondary)" />
                                             )}
 
                                             {/* Label */}
@@ -749,34 +723,54 @@ export default function KnowledgeGraphViz({
                 typeof document !== "undefined" &&
                 document.getElementById("viz-sidebar-portal") &&
                 createPortal(
-                    <div className="viz-legend" data-tour-id="viz-legend">
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.learningNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learningGlow}` }}
-                            />
-                            <span>{ts("learning")}</span>
+                    <div className="viz-left-stack">
+                        {/* Zoom controls */}
+                        <div className="viz-left-panel viz-zoom-panel">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                            </div>
+                            <div className="viz-zoom-row">
+                                <button
+                                    type="button"
+                                    className="viz-zoom-reset-btn"
+                                    onClick={() => {
+                                        fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                                    }}
+                                >
+                                    {ts("focus")}
+                                </button>
+                            </div>
                         </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.learnedNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learnedGlow}` }}
-                            />
-                            <span>{ts("learned")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.ghostNode, width: 10, height: 10, borderRadius: "50%", border: `1px solid ${palette.ghostStroke}` }}
-                            />
-                            <span>{ts("untracked")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.lemmaNode, width: 8, height: 8, borderRadius: "50%" }}
-                            />
-                            <span>{ts("lemma")}</span>
+
+                        <div className="viz-legend" data-tour-id="viz-legend">
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: palette.learningNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learningGlow}` }}
+                                />
+                                <span>{ts("learning")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: palette.learnedNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learnedGlow}` }}
+                                />
+                                <span>{ts("learned")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: palette.ghostNode, width: 10, height: 10, borderRadius: "50%", border: `1px solid ${palette.ghostStroke}` }}
+                                />
+                                <span>{ts("untracked")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{ background: palette.lemmaNode, width: 8, height: 8, borderRadius: "50%" }}
+                                />
+                                <span>{ts("lemma")}</span>
+                            </div>
                         </div>
                     </div>,
                     document.getElementById("viz-sidebar-portal")!

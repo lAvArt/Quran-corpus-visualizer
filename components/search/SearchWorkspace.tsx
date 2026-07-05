@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { trackPerformanceMetric, trackSearchRecoveryShown } from "@/lib/analytics/events";
 import CommandBar from "@/components/search/CommandBar";
 import CorpusIndex from "@/components/ui/CorpusIndex";
@@ -17,7 +18,7 @@ import type { SearchMatchType } from "@/lib/analytics/events";
 import { normalizeRootFamily } from "@/lib/search/arabicNormalize";
 import { parseSearchQuery } from "@/lib/search/queryParser";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
-import type { SearchResultKind } from "@/lib/search/searchTypes";
+import type { SearchResultItem, SearchResultKind } from "@/lib/search/searchTypes";
 
 interface SearchWorkspaceProps {
   initialCorpusData?: CorpusOverviewData;
@@ -32,6 +33,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   const tShared = useTranslations("Visualizations.Shared");
   const tSemantic = useTranslations("SemanticSearchPanel");
   const tMorph = useTranslations("MorphologyInspector");
+  const router = useRouter();
   const { allTokens, dataStatus, isLoadingCorpus, overview, overviewSource, readiness } = useCorpusData(initialCorpusData);
   const searchStatus = readDevSearchStatus() ?? "available";
   const [selectedToken, setSelectedToken] = useState<CorpusToken | null>(null);
@@ -214,8 +216,25 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   }, [hasTrackedShellRender, overviewSource, readiness.overviewReady]);
 
   const handleResultSelected = (_matchType: SearchMatchType) => {
-    // Intentional no-op; the workspace keeps persistent context below the bar.
+    // Analytics handled upstream; navigation happens via handleResultNavigate.
   };
+
+  // Picking a result opens it in the Explore view (deep link) so the dedicated
+  // search page is navigable, not a dead-end dashboard.
+  const handleResultNavigate = useCallback(
+    (result: SearchResultItem) => {
+      const sel = result.actionTarget.selection ?? {};
+      const params = new URLSearchParams();
+      if (result.actionTarget.visualizationMode) params.set("viz", result.actionTarget.visualizationMode);
+      if (sel.surahId) params.set("surah", String(sel.surahId));
+      if (sel.ayah) params.set("ayah", String(sel.ayah));
+      if (sel.root) params.set("root", sel.root);
+      if (sel.lemma) params.set("lemma", sel.lemma);
+      if (sel.tokenId) params.set("token", sel.tokenId);
+      router.push(`/?${params.toString()}`);
+    },
+    [router]
+  );
 
   const statusLabel = t(`status.${statusPresentation.statusLabel}`);
 
@@ -226,6 +245,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
       description={t("description")}
       status={<div className="ui-pill">{statusLabel}</div>}
       backgroundVariant="search"
+      compact
     >
       {statusPresentation.showShellReadyMessage ? (
         <div className="ui-message workspace-status-message workspace-ready-note" data-testid="search-workspace-ready-message">
@@ -279,6 +299,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                 onTokenHover={() => {}}
                 onRootSelect={setSelectedRoot}
                 onSearchResultSelected={handleResultSelected}
+                onResultNavigate={handleResultNavigate}
               />
             </div>
 

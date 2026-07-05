@@ -1,10 +1,15 @@
 import type { CorpusToken } from "@/lib/schema/types";
 import { buildPhaseOneIndexes, queryPhaseOne } from "@/lib/search/indexes";
-import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 import { parseSearchQuery } from "@/lib/search/queryParser";
 import type { SearchResultItem, SearchResultKind } from "@/lib/search/searchTypes";
 import { SURAH_NAMES } from "@/lib/data/surahData";
-import { ROOT_GLOSSES } from "@/lib/data/rootGlosses";
+import { queryBm25 } from "@/lib/search/bm25";
+import { rrfMerge } from "@/lib/search/rrf";
+import {
+  buildSearchIndexes,
+  type SearchDocMeta,
+  type SearchIndexes,
+} from "@/lib/search/searchDocuments";
 
 // ============================================================================
 // Query Intent Detection — classifies free-text input so the UI can route
@@ -20,9 +25,13 @@ export type QueryIntent =
   | "empty";
 
 const ARABIC_RANGE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-const ARABIC_DIACRITICS = /[\u064B-\u065F\u0670]/;
+const ARABIC_DIACRITICS = /[ً-ٰٟ]/;
 const AYAH_REF_PATTERN = /^\d{1,3}:\d{1,3}$/;
 const STRUCTURED_PATTERN = /\b(?:root|r|lemma|l|pos|p|ayah|a|text|t|gloss|g):/i;
+
+const CONCEPT_DISCLAIMER = "AI-suggested match — verify against established tafsir.";
+
+const RESULT_LIMIT = 24;
 
 export function detectQueryIntent(query: string): QueryIntent {
   const trimmed = query.trim();
@@ -30,7 +39,7 @@ export function detectQueryIntent(query: string): QueryIntent {
   if (STRUCTURED_PATTERN.test(trimmed)) return "structured";
   if (AYAH_REF_PATTERN.test(trimmed)) return "ayah-ref";
   if (ARABIC_RANGE.test(trimmed)) {
-    const stripped = trimmed.replace(/[\s\u064B-\u065F\u0670]/g, "");
+    const stripped = trimmed.replace(/[\sً-ٰٟ]/g, "");
     if (stripped.length <= 4 && !ARABIC_DIACRITICS.test(trimmed)) return "arabic-root";
     return "arabic-text";
   }
@@ -42,6 +51,7 @@ export interface SearchCatalog {
   byRoot: Map<string, CorpusToken[]>;
   byLemma: Map<string, CorpusToken[]>;
   phaseOne: ReturnType<typeof buildPhaseOneIndexes>;
+  indexes: SearchIndexes;
 }
 
 function pushBucket(map: Map<string, CorpusToken[]>, key: string, token: CorpusToken) {
@@ -69,21 +79,108 @@ export function buildSearchCatalog(tokens: CorpusToken[]): SearchCatalog {
     byRoot,
     byLemma,
     phaseOne: buildPhaseOneIndexes(tokens),
+    indexes: buildSearchIndexes(tokens),
   };
 }
 
-function buildItem(token: CorpusToken, kind: SearchResultKind, subtitle: string, explanation: string): SearchResultItem {
+// ---------------------------------------------------------------------------
+// Result construction — every ranked entity (root / lemma / ayah / surah) maps
+// to a SearchResultItem whose actionTarget routes the user to the right viz.
+// ---------------------------------------------------------------------------
+
+function metaToResult(
+  meta: SearchDocMeta,
+  byId: Map<string, CorpusToken>,
+  overrideKind?: SearchResultKind,
+): SearchResultItem {
+  const token = meta.tokenId ? byId.get(meta.tokenId) : undefined;
+  const semantic = overrideKind === "semantic";
+  const explanation = semantic ? CONCEPT_DISCLAIMER : undefined;
+
+  switch (meta.kind) {
+    case "root":
+      return {
+        id: `root:${meta.root}`,
+        kind: overrideKind ?? "root",
+        title: meta.root,
+        subtitle: meta.gloss ? `Root: ${meta.root} · ${meta.gloss}` : `Root: ${meta.root} (${meta.count})`,
+        arabicText: meta.root,
+        location: { surah: meta.sura, ayah: meta.ayah, tokenId: meta.tokenId },
+        explanation: explanation ?? (meta.gloss || "Matched root family"),
+        matchedRoot: meta.root,
+        matchedLemma: meta.lemma || undefined,
+        actionTarget: {
+          routeMode: "explore",
+          visualizationMode: "root-network",
+          selection: { surahId: meta.sura, ayah: meta.ayah, root: meta.root, lemma: meta.lemma || undefined, tokenId: meta.tokenId },
+        },
+      };
+    case "lemma":
+      return {
+        id: `lemma:${meta.lemma}`,
+        kind: overrideKind ?? "lemma",
+        title: meta.lemma,
+        subtitle: meta.gloss ? `Lemma: ${meta.lemma} · ${meta.gloss}` : `Lemma: ${meta.lemma}`,
+        arabicText: meta.lemma,
+        location: { surah: meta.sura, ayah: meta.ayah, tokenId: meta.tokenId },
+        explanation: explanation ?? "Matched lemma and lexical form",
+        matchedRoot: meta.root || undefined,
+        matchedLemma: meta.lemma,
+        actionTarget: {
+          routeMode: "explore",
+          visualizationMode: "radial-sura",
+          selection: { surahId: meta.sura, ayah: meta.ayah, root: meta.root || undefined, lemma: meta.lemma, tokenId: meta.tokenId },
+        },
+      };
+    case "ayah":
+      return {
+        id: `ayah:${meta.sura}:${meta.ayah}`,
+        kind: overrideKind ?? "ayah",
+        title: `${meta.sura}:${meta.ayah}`,
+        subtitle: SURAH_NAMES[meta.sura] ? `${SURAH_NAMES[meta.sura].name} ${meta.sura}:${meta.ayah}` : `${meta.sura}:${meta.ayah}`,
+        arabicText: token?.text,
+        location: { surah: meta.sura, ayah: meta.ayah, tokenId: meta.tokenId },
+        explanation: explanation ?? "Matched verse text",
+        matchedText: token?.text,
+        actionTarget: {
+          routeMode: "explore",
+          visualizationMode: "dependency-tree",
+          selection: { surahId: meta.sura, ayah: meta.ayah, tokenId: meta.tokenId },
+        },
+      };
+    case "surah": {
+      const surah = SURAH_NAMES[meta.sura];
+      return {
+        id: `surah:${meta.sura}`,
+        kind: overrideKind ?? "surah",
+        title: surah ? `${surah.name} — ${surah.meaning}` : `Surah ${meta.sura}`,
+        subtitle: surah ? `Surah ${meta.sura} · ${surah.verses} verses` : `Surah ${meta.sura}`,
+        arabicText: surah?.arabic,
+        location: { surah: meta.sura, ayah: 1, tokenId: meta.tokenId },
+        explanation: explanation ?? (surah ? `Surah ${meta.sura}: ${surah.name} (${surah.meaning})` : undefined),
+        actionTarget: {
+          routeMode: "explore",
+          visualizationMode: "radial-sura",
+          selection: { surahId: meta.sura, ayah: 1 },
+        },
+      };
+    }
+  }
+}
+
+function structuredItem(
+  token: CorpusToken,
+  kind: SearchResultKind,
+  subtitle: string,
+  explanation: string,
+): SearchResultItem {
   return {
     id: `${kind}:${token.id}`,
     kind,
     title: token.text,
     subtitle,
     arabicText: token.text,
-    location: {
-      surah: token.sura,
-      ayah: token.ayah,
-      tokenId: token.id,
-    },
+    location: { surah: token.sura, ayah: token.ayah, tokenId: token.id },
     explanation,
     matchedRoot: token.root || undefined,
     matchedLemma: token.lemma || undefined,
@@ -102,114 +199,84 @@ function buildItem(token: CorpusToken, kind: SearchResultKind, subtitle: string,
   };
 }
 
-function pushUnique(items: SearchResultItem[], seen: Set<string>, item: SearchResultItem) {
-  if (seen.has(item.id)) return;
-  seen.add(item.id);
-  items.push(item);
+// ---------------------------------------------------------------------------
+// Lexical lane — BM25F over each entity index, fused with RRF so the four
+// rankings combine without score-scale calibration. Roots are weighted highest
+// (the primary navigational entity), then ayahs, lemmas, surahs.
+// ---------------------------------------------------------------------------
+
+const LANE_LIMIT = 40;
+
+function laneIds(indexes: SearchIndexes, query: string | string[]): {
+  root: string[];
+  ayah: string[];
+  lemma: string[];
+  surah: string[];
+} {
+  return {
+    root: queryBm25(indexes.root, query, { limit: LANE_LIMIT }).map((h) => h.id),
+    ayah: queryBm25(indexes.ayah, query, { limit: LANE_LIMIT }).map((h) => h.id),
+    lemma: queryBm25(indexes.lemma, query, { limit: LANE_LIMIT }).map((h) => h.id),
+    surah: queryBm25(indexes.surah, query, { limit: LANE_LIMIT }).map((h) => h.id),
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Surah name search — matches surah names (English, Arabic, meaning)
-// and returns SearchResultItems pointing to the first token of the surah.
-// ---------------------------------------------------------------------------
-
-function searchSurahs(query: string, tokens: CorpusToken[]): SearchResultItem[] {
-  const lowerQuery = query.toLowerCase();
-  const normalizedQuery = normalizeArabicForSearch(query);
-  const results: SearchResultItem[] = [];
-
-  for (const [numStr, surah] of Object.entries(SURAH_NAMES)) {
-    const num = Number(numStr);
-    const nameMatch =
-      surah.name.toLowerCase().includes(lowerQuery) ||
-      surah.meaning.toLowerCase().includes(lowerQuery) ||
-      normalizeArabicForSearch(surah.arabic).includes(normalizedQuery) ||
-      surah.arabic.includes(query) ||
-      String(num) === query.trim();
-
-    if (!nameMatch) continue;
-
-    // Find the first token of this surah for navigation
-    const firstToken = tokens.find((t) => t.sura === num);
-    const tokenId = firstToken?.id;
-
-    results.push({
-      id: `surah:${num}`,
-      kind: "surah",
-      title: `${surah.name} — ${surah.meaning}`,
-      subtitle: `Surah ${num} · ${surah.verses} verses`,
-      arabicText: surah.arabic,
-      location: { surah: num, ayah: 1, tokenId },
-      explanation: `Surah ${num}: ${surah.name} (${surah.meaning})`,
-      actionTarget: {
-        routeMode: "explore",
-        visualizationMode: "radial-sura",
-        selection: { surahId: num, ayah: 1 },
-      },
-    });
-  }
-
-  return results;
+function runLexicalLane(indexes: SearchIndexes, freeText: string): string[] {
+  const ids = laneIds(indexes, freeText);
+  return rrfMerge(
+    [
+      { ids: ids.root, weight: 1 },
+      { ids: ids.ayah, weight: 0.9 },
+      { ids: ids.lemma, weight: 0.7 },
+      { ids: ids.surah, weight: 0.6 },
+    ],
+    { limit: LANE_LIMIT },
+  ).map((r) => r.id);
 }
 
-// ---------------------------------------------------------------------------
-// Translation / meaning search — searches through token glosses (English
-// translations of individual words) and root glosses.
-// ---------------------------------------------------------------------------
+function runConceptLane(indexes: SearchIndexes, terms: string[]): string[] {
+  if (terms.length === 0) return [];
+  const root = queryBm25(indexes.root, terms, { limit: LANE_LIMIT }).map((h) => h.id);
+  const ayah = queryBm25(indexes.ayah, terms, { limit: LANE_LIMIT }).map((h) => h.id);
+  return rrfMerge(
+    [
+      { ids: root, weight: 1 },
+      { ids: ayah, weight: 0.8 },
+    ],
+    { limit: LANE_LIMIT },
+  ).map((r) => r.id);
+}
 
-function searchTranslations(
-  query: string,
+/**
+ * Rank corpus entities for a query.
+ *
+ * Structured filters (root:/lemma:/pos:/ayah:) and exact ayah references are
+ * pinned on top via the exact inverted index. Free text is ranked by BM25F
+ * (lexical lane) optionally fused with concept-expansion terms supplied by the
+ * Claude-backed concept route (concept lane). The two lanes combine via RRF;
+ * concept-only hits are tagged "semantic" so the UI shows the AI badge.
+ */
+export function searchCorpus(
   tokens: CorpusToken[],
-  seen: Set<string>,
+  catalog: SearchCatalog,
+  rawQuery: string,
+  conceptTerms: string[] = [],
 ): SearchResultItem[] {
-  const lowerQuery = query.toLowerCase();
-  const results: SearchResultItem[] = [];
-
-  // Search root glosses for matching meanings
-  for (const [root, gloss] of ROOT_GLOSSES) {
-    if (!gloss.toLowerCase().includes(lowerQuery)) continue;
-
-    // Find a representative token with this root
-    const token = tokens.find((t) => t.root === root);
-    if (!token) continue;
-
-    const item: SearchResultItem = {
-      id: `translation:root:${root}`,
-      kind: "translation",
-      title: gloss,
-      subtitle: `Root: ${root}`,
-      arabicText: root,
-      location: { surah: token.sura, ayah: token.ayah, tokenId: token.id },
-      matchedRoot: root,
-      explanation: `Root meaning: ${gloss}`,
-      actionTarget: {
-        routeMode: "explore",
-        visualizationMode: "radial-sura",
-        selection: { surahId: token.sura, ayah: token.ayah, root, tokenId: token.id },
-      },
-    };
-
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      results.push(item);
-    }
-  }
-
-  return results;
-}
-
-export function searchCorpus(tokens: CorpusToken[], catalog: SearchCatalog, rawQuery: string): SearchResultItem[] {
   const query = rawQuery.trim();
   if (query.length < 2) return [];
 
   const parsed = parseSearchQuery(query);
-  const freeText = parsed.freeText || parsed.raw;
-  const normalizedQuery = normalizeArabicForSearch(freeText);
-  const lowercaseQuery = freeText.toLowerCase();
+  const freeText = (parsed.freeText || parsed.raw).trim();
 
   const results: SearchResultItem[] = [];
   const seen = new Set<string>();
+  const push = (item: SearchResultItem) => {
+    if (seen.has(item.id)) return;
+    seen.add(item.id);
+    results.push(item);
+  };
 
+  // ── Structured exact lane (pinned on top) ──
   if (parsed.root || parsed.lemma || parsed.pos || parsed.ayah) {
     const ids = queryPhaseOne(catalog.phaseOne, {
       root: parsed.root,
@@ -217,130 +284,51 @@ export function searchCorpus(tokens: CorpusToken[], catalog: SearchCatalog, rawQ
       pos: parsed.pos,
       ayah: parsed.ayah,
     });
-
     for (const id of ids) {
       const token = catalog.byId.get(id);
       if (!token) continue;
-      const kind: SearchResultKind =
-        parsed.ayah ? "ayah" :
-        parsed.root ? "root" :
-        parsed.lemma ? "lemma" :
-        parsed.gloss ? "gloss" :
-        "token";
-
-      pushUnique(
-        results,
-        seen,
-        buildItem(
+      const kind: SearchResultKind = parsed.ayah ? "ayah" : parsed.root ? "root" : parsed.lemma ? "lemma" : "token";
+      push(
+        structuredItem(
           token,
           kind,
           parsed.ayah ? `${token.sura}:${token.ayah}` : token.morphology?.gloss ?? token.lemma,
-          parsed.ayah
-            ? "Matched exact ayah reference"
-            : parsed.root
-            ? "Matched root family"
-            : parsed.lemma
-            ? "Matched lemma"
-            : "Matched structured search"
-        )
+          parsed.ayah ? "Matched exact ayah reference" : parsed.root ? "Matched root family" : parsed.lemma ? "Matched lemma" : "Matched structured search",
+        ),
       );
     }
   }
 
-  if (!freeText) {
-    return results.slice(0, 24);
+  if (!freeText) return results.slice(0, RESULT_LIMIT);
+
+  // ── Exact ayah reference (e.g. "2:255") ──
+  if (AYAH_REF_PATTERN.test(freeText)) {
+    const ayahMeta = catalog.indexes.metaById.get(`ayah:${freeText}`);
+    if (ayahMeta) push(metaToResult(ayahMeta, catalog.byId));
   }
 
-  // ---- Surah name search (English name, Arabic name, meaning, number) ----
-  const surahResults = searchSurahs(freeText, tokens);
-  for (const surahItem of surahResults) {
-    pushUnique(results, seen, surahItem);
+  // ── Lexical + concept lanes, fused with RRF ──
+  const lexicalIds = runLexicalLane(catalog.indexes, freeText);
+  const conceptIds = runConceptLane(catalog.indexes, conceptTerms);
+  const lexicalSet = new Set(lexicalIds);
+
+  const fused = rrfMerge(
+    [
+      { ids: lexicalIds, weight: 1 },
+      { ids: conceptIds, weight: 0.8 },
+    ],
+    { limit: RESULT_LIMIT * 2 },
+  );
+
+  for (const { id } of fused) {
+    const meta = catalog.indexes.metaById.get(id);
+    if (!meta) continue;
+    const conceptOnly = !lexicalSet.has(id);
+    push(metaToResult(meta, catalog.byId, conceptOnly ? "semantic" : undefined));
+    if (results.length >= RESULT_LIMIT) break;
   }
 
-  for (const [root, rootTokens] of catalog.byRoot) {
-    const normalizedRoot = normalizeArabicForSearch(root);
-    if (
-      root.includes(freeText) ||
-      root.replace(/ /g, "").includes(freeText.replace(/ /g, "")) ||
-      normalizedRoot.includes(normalizedQuery)
-    ) {
-      const token = rootTokens[0];
-      pushUnique(
-        results,
-        seen,
-        buildItem(token, "root", `Root: ${root} (${rootTokens.length})`, "Matched root neighborhood")
-      );
-    }
-  }
-
-  for (const [lemma, lemmaTokens] of catalog.byLemma) {
-    const normalizedLemma = normalizeArabicForSearch(lemma);
-    if (lemma.includes(freeText) || normalizedLemma.includes(normalizedQuery)) {
-      const token = lemmaTokens[0];
-      pushUnique(
-        results,
-        seen,
-        buildItem(token, "lemma", `Lemma: ${lemma}`, "Matched lemma and lexical form")
-      );
-    }
-  }
-
-  for (const token of tokens) {
-    const normalizedText = normalizeArabicForSearch(token.text);
-    if ((token.text.includes(freeText) || normalizedText.includes(normalizedQuery)) && token.text.trim()) {
-      pushUnique(
-        results,
-        seen,
-        buildItem(token, "token", token.text, "Matched Arabic token text")
-      );
-    }
-
-    const ayahRef = `${token.sura}:${token.ayah}`;
-    if (ayahRef === freeText) {
-      pushUnique(
-        results,
-        seen,
-        buildItem(token, "ayah", ayahRef, "Matched exact ayah reference")
-      );
-    }
-
-    const gloss = token.morphology?.gloss?.toLowerCase() ?? "";
-    if (gloss.includes(lowercaseQuery)) {
-      pushUnique(
-        results,
-        seen,
-        buildItem(token, "gloss", token.morphology?.gloss ?? "", "Matched gloss and lemma")
-      );
-    }
-  }
-
-  // ---- Translation / meaning search (root glosses) ----
-  const translationResults = searchTranslations(freeText, tokens, seen);
-  for (const item of translationResults) {
-    results.push(item);
-  }
-
-  const priority: Record<SearchResultKind, number> = {
-    ayah: 0,
-    root: 1,
-    lemma: 2,
-    token: 3,
-    surah: 4,
-    gloss: 5,
-    translation: 6,
-    semantic: 7,
-  };
-
-  return results
-    .sort((a, b) => {
-      const kindDelta = priority[a.kind] - priority[b.kind];
-      if (kindDelta !== 0) return kindDelta;
-      const aLoc = a.location;
-      const bLoc = b.location;
-      if (!aLoc || !bLoc) return 0;
-      return aLoc.surah - bLoc.surah || (aLoc.ayah ?? 0) - (bLoc.ayah ?? 0);
-    })
-    .slice(0, 24);
+  return results.slice(0, RESULT_LIMIT);
 }
 
 export function groupSearchResults(results: SearchResultItem[]): Array<{

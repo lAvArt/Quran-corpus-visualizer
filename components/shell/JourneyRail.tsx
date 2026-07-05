@@ -2,12 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { usePathname, Link } from "@/i18n/routing";
+import { useRouter } from "@/i18n/navigation";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import type { ReactNode } from "react";
 
 interface JourneyRailProps {
-  vizMode: VisualizationMode;
-  onVizModeChange: (mode: VisualizationMode) => void;
+  /** Present only on the explore route, where viz items switch mode in place. */
+  vizMode?: VisualizationMode;
+  onVizModeChange?: (mode: VisualizationMode) => void;
 }
 
 interface RailItem {
@@ -83,23 +85,29 @@ const RAIL_ITEMS: RailItem[] = [
 export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailProps) {
   const t = useTranslations("JourneyRail");
   const pathname = usePathname();
+  const router = useRouter();
+  const onExplore = pathname === "/";
 
   return (
     <nav className="journey-rail" aria-label={t("label")} data-testid="app-mode-nav">
       <div className="rail-group">
         {RAIL_ITEMS.filter((i) => i.action.type === "viz").map((item) => {
           const vizAction = item.action as { type: "viz"; mode: VisualizationMode };
-          const isActive = item.id === "discover" && pathname === "/";
+          const isActive = onExplore && vizMode === vizAction.mode;
           return (
             <button
               key={item.id}
               type="button"
-              className={`rail-btn ${vizMode === vizAction.mode ? "active" : ""}`}
+              className={`rail-btn ${isActive ? "active" : ""}`}
               data-testid={item.testId ?? `journey-${item.id}`}
               data-active={isActive ? "true" : "false"}
               title={t(item.labelKey)}
               aria-label={t(item.labelKey)}
-              onClick={() => onVizModeChange(vizAction.mode)}
+              onClick={() => {
+                // On explore, switch the viz in place; elsewhere, deep-link to it.
+                if (onExplore && onVizModeChange) onVizModeChange(vizAction.mode);
+                else router.push(`/?viz=${vizAction.mode}`);
+              }}
             >
               <span className="rail-icon">{item.icon}</span>
               <span className="rail-label">{t(item.labelKey)}</span>
@@ -152,7 +160,7 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
         }
 
         :global([data-theme="dark"]) .journey-rail {
-          background: rgba(22, 22, 30, 0.88);
+          background: rgba(22, 33, 39, 0.88);
           border-color: rgba(255, 255, 255, 0.1);
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
         }
@@ -186,7 +194,7 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
           width: 52px;
           height: 52px;
           background: transparent;
-          border: none;
+          border: 1px solid transparent;
           border-radius: 12px;
           color: var(--ink-secondary);
           cursor: pointer;
@@ -204,14 +212,12 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
           background: rgba(255, 255, 255, 0.08);
         }
 
+        /* Quiet, V2-style active state: reserved selection tint + hairline,
+           never a saturated accent fill (amber stays for data). */
         .rail-btn.active {
-          background: var(--accent);
-          color: white;
-          box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
-        }
-
-        :global([data-theme="dark"]) .rail-btn.active {
-          box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+          background: color-mix(in srgb, var(--selection) 8%, transparent);
+          border-color: color-mix(in srgb, var(--selection) 22%, transparent);
+          color: var(--selection);
         }
 
         .rail-btn:focus-visible {
@@ -235,6 +241,8 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
           line-height: 1;
         }
 
+        /* Mobile: a compact single icon-row (no labels, no wrap) so the rail
+           stays short and never blankets the page content below it. */
         @media (max-width: 980px) {
           .journey-rail {
             top: calc(var(--header-clearance) + 8px);
@@ -242,41 +250,41 @@ export default function JourneyRail({ vizMode, onVizModeChange }: JourneyRailPro
             transform: translateX(-50%);
             flex-direction: row;
             justify-content: center;
-            gap: 8px;
-            width: min(94vw, 640px);
-            max-width: calc(100vw - 24px);
-            padding: 8px 10px;
-            border-radius: 999px;
+            gap: 6px;
+            width: max-content;
+            max-width: calc(100vw - 16px);
+            padding: 6px 8px;
+            border-radius: var(--radius-pill);
           }
 
           .rail-group {
             flex-direction: row;
             justify-content: center;
-            flex-wrap: wrap;
-            gap: 6px;
+            flex-wrap: nowrap;
+            gap: 4px;
+            width: auto;
           }
 
           .rail-group--routes {
-            gap: 6px;
+            gap: 4px;
           }
 
           .rail-divider {
             width: 1px;
-            height: 30px;
+            height: 26px;
             margin: 0 2px;
           }
 
           .rail-btn {
-            width: auto;
-            min-width: 48px;
-            height: 44px;
-            padding: 0 10px;
-            flex-direction: row;
-            gap: 6px;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            flex-direction: column;
+            gap: 0;
           }
 
           .rail-label {
-            font-size: 0.65rem;
+            display: none;
           }
         }
       `}</style>

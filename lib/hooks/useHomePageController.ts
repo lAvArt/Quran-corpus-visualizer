@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useCorpusData } from "@/lib/hooks/useCorpusData";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import {
@@ -37,6 +37,7 @@ import { useOnboardingState } from "@/lib/hooks/useOnboardingState";
 import { useSearchTracking } from "@/lib/hooks/useSearchTracking";
 import { getMissionByIntent, type MissionIntent } from "@/lib/config/missions";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
+import type { SearchResultItem } from "@/lib/search/searchTypes";
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 
@@ -65,6 +66,7 @@ export function useHomePageController(
     overviewSource,
     loadingProgress,
     isLoadingCorpus,
+    requestSurahContext,
   } = useCorpusData(initialCorpusData);
   const flows = useMemo(() => buildRootWordFlows(allTokens), [allTokens]);
   const roots = useMemo(() => uniqueRoots(allTokens), [allTokens]);
@@ -92,6 +94,13 @@ export function useHomePageController(
     inspectorModeFinal,
     tokenById,
   } = useSelectionState(allTokens);
+
+  // Context-first loading: prioritise building the open surah from the QAC
+  // morphology so it renders fully (POS bars + roots/arcs) without waiting for
+  // the entire corpus to stream in behind it.
+  useEffect(() => {
+    requestSurahContext(selectedSurahId);
+  }, [selectedSurahId, requestSurahContext]);
 
   // ---------------------------------------------------------------------------
   // Domain: Visualization mode
@@ -374,10 +383,14 @@ export function useHomePageController(
 
   const handleSurahSelect = useCallback(
     (suraId: number, preferredView?: "root-network" | "radial-sura") => {
-      setSelectedSurahId(suraId);
-      if (preferredView) {
-        setVizMode(preferredView);
-      }
+      // Large surahs re-render thousands of SVG elements — mark the switch as a
+      // transition so the click responds instantly instead of freezing the UI.
+      startTransition(() => {
+        setSelectedSurahId(suraId);
+        if (preferredView) {
+          setVizMode(preferredView);
+        }
+      });
     },
     [setSelectedSurahId, setVizMode]
   );
@@ -410,8 +423,14 @@ export function useHomePageController(
   const handleLemmaSelect = useCallback(
     (lemma: string) => {
       setSelectedLemma(lemma);
+      setFocusedTokenId(null);
+      // A lemma belongs to a root family — highlight that root in the graph so
+      // selecting a lemma has the same visible effect as selecting a root.
+      const root = lemma ? (allTokens.find((t) => t.lemma === lemma && t.root)?.root ?? null) : null;
+      setSelectedRoot(root);
+      if (root) suggestVisualization({ root });
     },
-    [setSelectedLemma]
+    [allTokens, setSelectedLemma, setFocusedTokenId, setSelectedRoot, suggestVisualization]
   );
 
   const handleSelectMissionIntent = useCallback(
@@ -539,6 +558,45 @@ export function useHomePageController(
   );
 
   // ---------------------------------------------------------------------------
+  // Route a chosen search result to its target visualization + selection.
+  // Reads the result's actionTarget so picking an ayah/root/lemma/surah lands
+  // the user on the right view with the right thing selected.
+  // ---------------------------------------------------------------------------
+  const handleSearchResultNavigate = useCallback(
+    (result: SearchResultItem) => {
+      const { visualizationMode, selection } = result.actionTarget;
+      if (visualizationMode) setVizMode(visualizationMode);
+      const sel = selection ?? {};
+      if (sel.surahId) setSelectedSurahId(sel.surahId);
+      if (sel.root) {
+        setSelectedRoot(sel.root);
+        setSearchLockedRoot(sel.root);
+      } else {
+        setSelectedRoot(null);
+        setSearchLockedRoot(null);
+      }
+      setSelectedLemma(sel.lemma ?? null);
+      setFocusedTokenId(sel.tokenId ?? null);
+      setHoverTokenId(null);
+      if (!isMobileViewport) setIsSidebarOpen(true);
+      if (firstRunState === "mission-active") handleMissionTaskComplete("search");
+    },
+    [
+      setVizMode,
+      setSelectedSurahId,
+      setSelectedRoot,
+      setSearchLockedRoot,
+      setSelectedLemma,
+      setFocusedTokenId,
+      setHoverTokenId,
+      isMobileViewport,
+      setIsSidebarOpen,
+      firstRunState,
+      handleMissionTaskComplete,
+    ]
+  );
+
+  // ---------------------------------------------------------------------------
   // Return (backward-compatible 77-property interface)
   // ---------------------------------------------------------------------------
   return {
@@ -610,6 +668,7 @@ export function useHomePageController(
     handleSearchOpened,
     handleSearchQuerySubmitted,
     handleSearchResultSelected: handleSearchResultSelectedWrapped,
+    handleSearchResultNavigate,
     handleFirstTaskFeedback,
     handleDismissFirstTaskFeedback,
     handleDismissContextTransformNotice,

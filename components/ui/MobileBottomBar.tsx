@@ -64,7 +64,7 @@ export default function MobileBottomBar() {
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--line);
-            border-radius: 999px;
+            border-radius: var(--radius-pill);
             padding: 6px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.12);
             z-index: 90;
@@ -74,9 +74,9 @@ export default function MobileBottomBar() {
         }
 
         :global([data-theme="dark"]) .mobile-bottom-bar {
-            background: rgba(30, 30, 40, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: rgba(20, 30, 36, 0.9);
+            border: 1px solid rgba(198, 222, 230, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
         }
 
         .bottom-bar-btn {
@@ -87,15 +87,15 @@ export default function MobileBottomBar() {
             font-weight: 600;
             color: var(--ink-secondary);
             cursor: pointer;
-            border-radius: 999px;
+            border-radius: var(--radius-pill);
             transition: all 0.2s;
             white-space: nowrap;
             min-width: 0;
         }
 
         .bottom-bar-btn.active {
-            background: var(--accent);
-            color: white;
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            color: var(--accent);
         }
 
         .bottom-bar-search-btn {

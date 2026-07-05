@@ -12,59 +12,7 @@ import {
   type QueryIntent,
 } from "@/lib/search/searchService";
 import type { SearchResultItem } from "@/lib/search/searchTypes";
-
-// ---------------------------------------------------------------------------
-// Semantic search helper
-// ---------------------------------------------------------------------------
-
-interface SemanticHit {
-  root: string;
-  similarity: number;
-  isAiAssisted: boolean;
-}
-
-async function fetchSemanticResults(
-  query: string,
-  tokens: CorpusToken[],
-): Promise<SearchResultItem[]> {
-  try {
-    const res = await fetch("/api/search/semantic", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, limit: 5, similarity_threshold: 0.72 }),
-    });
-    if (!res.ok) return [];
-    const json = await res.json() as {
-      results: SemanticHit[];
-      metadata?: { disclaimer?: string };
-    };
-    const disclaimer = json.metadata?.disclaimer ?? "AI-assisted result";
-
-    return json.results.map((hit) => {
-      // Find a representative token for this root
-      const representative = tokens.find((t) => t.root === hit.root);
-      return {
-        id: `semantic-${hit.root}`,
-        kind: "semantic" as const,
-        title: hit.root,
-        arabicText: hit.root,
-        subtitle: `${Math.round(hit.similarity * 100)}% match`,
-        explanation: disclaimer,
-        matchedRoot: hit.root,
-        location: representative
-          ? { surah: representative.sura, ayah: representative.ayah, tokenId: representative.id }
-          : undefined,
-        actionTarget: {
-          routeMode: "explore" as const,
-          visualizationMode: "root-network" as const,
-          selection: { root: hit.root },
-        },
-      };
-    });
-  } catch {
-    return [];
-  }
-}
+import { fetchConceptExpansion } from "@/lib/search/conceptClient";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -123,6 +71,7 @@ export interface UseSearchReturn {
     tokenId: string | undefined;
     matchType: SearchMatchType;
     matchedRoot: string | undefined;
+    result: SearchResultItem;
   } | null;
   handleKeyDown: (event: React.KeyboardEvent) => void;
   clearAll: () => void;
@@ -168,57 +117,47 @@ export function useSearch({
   // ---- intent ----
   const queryIntent = useMemo(() => detectQueryIntent(query), [query]);
 
-  // ---- search ----
-  const hasActiveFilters = !!(filterRoot || filterLemma || filterPos || filterAyah);
-  const catalog = useMemo(() => buildSearchCatalog(tokens), [tokens]);
-  const localResults = useMemo<SearchResultItem[]>(
-    () => searchCorpus(tokens, catalog, debouncedEffectiveQuery),
-    [catalog, debouncedEffectiveQuery, tokens],
-  );
-
-  // ---- semantic search (fires when local results are sparse + query is English) ----
+  // ---- concept-expansion lane (Claude → corpus terms → BM25F, fused via RRF) ----
   // Reads user preference from localStorage (toggle in DisplaySettingsPanel).
-  const [semanticResults, setSemanticResults] = useState<SearchResultItem[]>([]);
-  const semanticAbortRef = useRef<AbortController | null>(null);
+  const [conceptTerms, setConceptTerms] = useState<string[]>([]);
+  const conceptAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Check user preference
     let enabled = true;
     try {
-      enabled = JSON.parse(localStorage.getItem("qcv-semantic-search-enabled") ?? "true");
+      const stored =
+        localStorage.getItem("qcv-concept-search-enabled") ??
+        localStorage.getItem("qcv-semantic-search-enabled");
+      enabled = stored === null ? true : JSON.parse(stored);
     } catch {
-      // Ignore storage read failures and keep semantic search enabled by default.
+      // Ignore storage read failures and keep concept search enabled by default.
     }
 
-    // Only trigger for English-looking queries with sparse local results
-    const trimmed = debouncedEffectiveQuery.trim();
-    const isEnglish = /^[a-zA-Z\s]{3,}$/.test(trimmed);
-    const isSparse = localResults.length < 3;
-
-    if (!enabled || !isEnglish || !isSparse || trimmed.length < 3) {
-      setSemanticResults([]);
+    // Only expand natural-language (English gloss) queries; lexical and
+    // structured queries are already well served by the BM25F + exact lanes.
+    const trimmed = _debouncedQuery.trim();
+    if (!enabled || trimmed.length < 3 || detectQueryIntent(trimmed) !== "english-gloss") {
+      setConceptTerms([]);
       return;
     }
 
-    semanticAbortRef.current?.abort();
+    conceptAbortRef.current?.abort();
     const controller = new AbortController();
-    semanticAbortRef.current = controller;
+    conceptAbortRef.current = controller;
 
-    fetchSemanticResults(trimmed, tokens).then((hits) => {
-      if (!controller.signal.aborted) {
-        // Deduplicate: exclude semantic roots already in local results
-        const localRoots = new Set(localResults.map((r) => r.matchedRoot).filter(Boolean));
-        setSemanticResults(hits.filter((h) => !localRoots.has(h.matchedRoot)));
-      }
+    fetchConceptExpansion(trimmed, controller.signal).then((expansion) => {
+      if (!controller.signal.aborted) setConceptTerms(expansion.terms);
     });
 
     return () => controller.abort();
-  }, [debouncedEffectiveQuery, localResults, tokens]);
+  }, [_debouncedQuery]);
 
-  // ---- merge local + semantic ----
+  // ---- search (structured exact + BM25F lexical lane, fused with concept lane) ----
+  const hasActiveFilters = !!(filterRoot || filterLemma || filterPos || filterAyah);
+  const catalog = useMemo(() => buildSearchCatalog(tokens), [tokens]);
   const results = useMemo<SearchResultItem[]>(
-    () => [...localResults, ...semanticResults],
-    [localResults, semanticResults],
+    () => searchCorpus(tokens, catalog, debouncedEffectiveQuery, conceptTerms),
+    [catalog, debouncedEffectiveQuery, conceptTerms, tokens],
   );
   const groupedResults = useMemo(() => groupSearchResults(results), [results]);
 
@@ -232,6 +171,7 @@ export function useSearch({
         tokenId,
         matchType: result.kind as SearchMatchType,
         matchedRoot: result.matchedRoot,
+        result,
       };
     },
     [],

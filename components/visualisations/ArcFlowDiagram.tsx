@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import type { ExperienceLevel } from "@/lib/schema/experience";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -643,11 +644,7 @@ export default function ArcFlowDiagram({
   }, []);
 
   const handleResetZoom = useCallback(() => {
-    if (!svgRef.current || !zoomBehaviorRef.current) return;
-    d3.select(svgRef.current)
-      .transition()
-      .duration(220)
-      .call(zoomBehaviorRef.current.transform, d3.zoomIdentity.scale(0.92));
+    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
   }, []);
 
   const selectedSummary = useMemo(() => {
@@ -729,7 +726,7 @@ export default function ArcFlowDiagram({
               +
             </button>
             <button type="button" className="clear-focus" onClick={handleResetZoom}>
-              {ts("reset")}
+              {ts("focus")}
             </button>
           </div>
           <span style={{ fontSize: "0.74rem", color: "var(--ink-muted)" }}>
@@ -862,7 +859,7 @@ export default function ArcFlowDiagram({
           <div
             className="viz-legend-dot"
             style={{
-              background: theme === "dark" ? "rgba(255,255,255,0.8)" : "rgba(31, 28, 25, 0.55)",
+              background: "var(--ink)",
               width: 10,
               height: 10,
             }}
@@ -873,7 +870,7 @@ export default function ArcFlowDiagram({
           <div
             className="viz-legend-line"
             style={{
-              background: theme === "dark" ? "rgba(255,255,255,0.35)" : "rgba(31, 28, 25, 0.35)",
+              background: "var(--line)",
               height: 2,
             }}
           />
@@ -945,7 +942,7 @@ export default function ArcFlowDiagram({
               <path
                 d={`M ${arcCenterX + Math.cos(arcStartAngle) * arcRadius} ${arcCenterY + Math.sin(arcStartAngle) * arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${arcCenterX + Math.cos(arcEndAngle) * arcRadius} ${arcCenterY + Math.sin(arcEndAngle) * arcRadius}`}
                 fill="none"
-                stroke={theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(31, 28, 25, 0.12)"}
+                stroke="var(--line)"
                 strokeWidth={isCompact ? 52 : 64}
                 strokeLinecap="round"
               />
@@ -1043,7 +1040,7 @@ export default function ArcFlowDiagram({
                           cy={barEndY}
                           r={7}
                           fill="none"
-                          stroke={theme === "dark" ? "rgba(255,255,255,0.6)" : "rgba(31, 28, 25, 0.38)"}
+                          stroke="var(--line)"
                           strokeWidth={1.2}
                         />
                       )}
@@ -1059,7 +1056,7 @@ export default function ArcFlowDiagram({
                           className="arabic-text"
                           style={{
                             paintOrder: "stroke",
-                            stroke: theme === "dark" ? "rgba(12, 12, 18, 0.85)" : "rgba(248, 244, 236, 0.88)",
+                            stroke: "var(--bg-1)",
                             strokeWidth: 2.4,
                           }}
                           initial={{ opacity: 0 }}

@@ -1,17 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { mockRpc, mockCreateClient } = vi.hoisted(() => {
-  const mockRpc = vi.fn();
-  const mockCreateClient = vi.fn(async () => ({ rpc: mockRpc }));
-  return { mockRpc, mockCreateClient };
-});
+const { mockMessagesCreate } = vi.hoisted(() => ({ mockMessagesCreate: vi.fn() }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: mockCreateClient,
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class MockAnthropic {
+    messages = { create: mockMessagesCreate };
+  },
 }));
 
-import { POST as semanticPOST } from "@/app/api/search/semantic/route";
+import { POST as conceptPOST } from "@/app/api/search/concept/route";
 import { POST as extractRootImagePOST } from "@/app/api/search/extract-root-image/route";
 import { resetRateLimitStore } from "@/lib/server/rateLimit";
 
@@ -36,37 +34,46 @@ describe("AI API routes", () => {
     resetRateLimitStore();
     process.env = { ...originalEnv };
     process.env.OPENAI_API_KEY = "test-key";
+    process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     delete process.env.OPENAI_VISION_MODEL;
-    delete process.env.SEMANTIC_SEARCH_RATE_LIMIT_MAX;
-    delete process.env.SEMANTIC_SEARCH_RATE_LIMIT_WINDOW_MS;
+    delete process.env.CONCEPT_SEARCH_RATE_LIMIT_MAX;
+    delete process.env.CONCEPT_SEARCH_RATE_LIMIT_WINDOW_MS;
     delete process.env.IMAGE_ROOT_RATE_LIMIT_MAX;
     delete process.env.IMAGE_ROOT_RATE_LIMIT_WINDOW_MS;
-    mockCreateClient.mockResolvedValue({ rpc: mockRpc });
     vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("rate-limits semantic search requests", async () => {
-    process.env.SEMANTIC_SEARCH_RATE_LIMIT_MAX = "1";
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        data: [{ embedding: [0.12, 0.34, 0.56] }],
-      }),
-    });
-    mockRpc.mockResolvedValue({
-      data: [{ root: "كتب", similarity: 0.88 }],
-      error: null,
+  it("expands a concept query into corpus terms and rate-limits", async () => {
+    process.env.CONCEPT_SEARCH_RATE_LIMIT_MAX = "1";
+    mockMessagesCreate.mockResolvedValue({
+      model: "claude-haiku-4-5",
+      stop_reason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ roots: ["صبر", "شكر"], lemmas: [], glossKeywords: ["patience", "gratitude"] }),
+        },
+      ],
     });
 
-    const first = await semanticPOST(makeJsonRequest("/api/search/semantic", { query: "writing" }));
+    const first = await conceptPOST(makeJsonRequest("/api/search/concept", { query: "verses about patience" }));
     expect(first.status).toBe(200);
     expect(first.headers.get("X-RateLimit-Remaining")).toBe("0");
+    const firstBody = await first.json();
+    expect(firstBody.terms).toContain("صبر");
+    expect(firstBody.terms).toContain("patience");
 
-    const second = await semanticPOST(makeJsonRequest("/api/search/semantic", { query: "writing" }));
+    const second = await conceptPOST(makeJsonRequest("/api/search/concept", { query: "verses about patience" }));
     expect(second.status).toBe(429);
     const body = await second.json();
     expect(body.error).toMatch(/rate limit/i);
     expect(body.retryAfter).toBeTypeOf("number");
+  });
+
+  it("returns 503 when Anthropic is not configured", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const response = await conceptPOST(makeJsonRequest("/api/search/concept", { query: "patience" }));
+    expect(response.status).toBe(503);
   });
 
   it("returns normalized AI image extraction candidates", async () => {

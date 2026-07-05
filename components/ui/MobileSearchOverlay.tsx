@@ -7,6 +7,7 @@ import CommandBar from "@/components/search/CommandBar";
 import type { CorpusToken } from "@/lib/schema/types";
 import { createPortal } from "react-dom";
 import type { SearchMatchType } from "@/lib/analytics/events";
+import type { SearchResultItem } from "@/lib/search/searchTypes";
 
 interface MobileSearchOverlayProps {
     tokens: CorpusToken[];
@@ -16,6 +17,7 @@ interface MobileSearchOverlayProps {
     onSearchOpened?: () => void;
     onSearchQuerySubmitted?: (query: string) => void;
     onSearchResultSelected?: (matchType: SearchMatchType) => void;
+    onResultNavigate?: (result: SearchResultItem) => void;
 }
 
 export default function MobileSearchOverlay({
@@ -26,6 +28,7 @@ export default function MobileSearchOverlay({
     onSearchOpened,
     onSearchQuerySubmitted,
     onSearchResultSelected,
+    onResultNavigate,
 }: MobileSearchOverlayProps) {
     const { isMobileSearchOpen, setMobileSearchOpen } = useVizControl();
     const overlayRef = useRef<HTMLDivElement>(null);
@@ -95,6 +98,14 @@ export default function MobileSearchOverlay({
                                 onSearchOpened={onSearchOpened}
                                 onSearchQuerySubmitted={onSearchQuerySubmitted}
                                 onSearchResultSelected={onSearchResultSelected}
+                                onResultNavigate={
+                                    onResultNavigate
+                                        ? (result) => {
+                                            onResultNavigate(result);
+                                            setMobileSearchOpen(false);
+                                        }
+                                        : undefined
+                                }
                             />
                         </div>
 
@@ -128,7 +139,7 @@ export default function MobileSearchOverlay({
                             }
 
                             [data-theme="dark"] .mobile-search-overlay {
-                                background: rgba(15, 20, 35, 0.95);
+                                background: rgba(16, 26, 31, 0.95);
                                 border-color: rgba(255, 255, 255, 0.1);
                                 box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
                             }

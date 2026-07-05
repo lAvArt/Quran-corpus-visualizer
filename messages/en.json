@@ -1,4 +1,37 @@
 {
+    "Home": {
+        "eyebrow": "Search the Qur'an by meaning",
+        "headline": "Every word has a root.",
+        "placeholder": "Search a root or word — ر-ح-م, mercy, knowledge…",
+        "enterHint": "Enter",
+        "matched": "matched root {root}",
+        "back": "Back",
+        "seeAll": "Full breakdown",
+        "statOccurrences": "occurrences",
+        "todaysRoot": "Today's root",
+        "occurrences": "× occurrences",
+        "statSurahs": "sūrahs",
+        "statVerses": "unique verses",
+        "statForms": "word forms",
+        "statFirst": "first appears",
+        "whereLabel": "Where it occurs · by sūrah",
+        "ofSurahs": "{n} of 114",
+        "exploreRoot": "Study the root network",
+        "readVerses": "{n, plural, one {Read the verse} other {Read all # verses}}",
+        "compareForms": "{n, plural, one {Compare the form} other {Compare # forms}}",
+        "noMatch": "No exact match for “{q}”. Try one of these:",
+        "skipToApp": "Skip to the full Observatory",
+        "wordByWord": "Word by word",
+        "closeVerse": "Close",
+        "openInGraphs": "Open in graph tools",
+        "pos": {
+            "N": "noun",
+            "V": "verb",
+            "ADJ": "adjective",
+            "PRON": "pronoun",
+            "P": "particle"
+        }
+    },
     "Error": {
         "title": "Something went wrong",
         "message": "An unexpected error occurred. Please try again or return to the home page.",
@@ -33,7 +66,9 @@
         "index": "Index",
         "close": "Close drawer",
         "scan": "Live scanner",
-        "hideScan": "Hide scanner"
+        "hideScan": "Hide scanner",
+        "expand": "Show tools",
+        "collapse": "Hide tools"
     },
     "Footer": {
         "github": "GitHub",
@@ -186,7 +221,7 @@
     },
     "GlobalSearch": {
         "ariaLabel": "Search roots, words, meanings",
-        "placeholder": "Search surahs, roots, words, meanings...",
+        "placeholder": "Search the corpus — root:, lemma:, pos:, ayah:, gloss:",
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
         "matchLemma": "Lemma: {lemma}",
@@ -499,6 +534,7 @@
             "legend": "Legend",
             "zoom": "Zoom",
             "reset": "Reset",
+            "focus": "Focus",
             "clear": "Clear",
             "surah": "Surah",
             "ayah": "Ayah",
@@ -852,9 +888,9 @@
         "coloring": {
             "title": "Lexical coloring",
             "options": {
-                "theme": "Theme default",
+                "theme": "By part of speech",
                 "frequency": "By frequency",
-                "identity": "By identity"
+                "identity": "By root"
             }
         },
         "modes": {

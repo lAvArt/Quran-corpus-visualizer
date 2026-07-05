@@ -52,7 +52,7 @@
     },
     "GlobalSearch": {
         "ariaLabel": "[!! Search roots, words, meanings !!]",
-        "placeholder": "[!! Ṡèâṛçħ ṡûṛâħṡ, ṛôôťṡ, ŵôṛḋṡ, ṁèâñîñġṡ... !!]",
+        "placeholder": "[!! Search the corpus — root:, lemma:, pos:, ayah:, gloss: !!]",
         "noResults": "[!! Ñô ṛèṡûļťṡ ḟôûñḋ !!]",
         "clearSearch": "[!! Clear search !!]",
         "resultsAriaLabel": "[!! Search results !!]",

@@ -6,7 +6,7 @@ import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { getNodeColor, resolveVisualizationTheme, SELECTION_RING } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useTranslations } from "next-intl";
@@ -78,7 +78,7 @@ export default function RadialSuraMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
-  const { svgRef, gRef, resetZoom, zoomBy } = useZoom<SVGSVGElement>({
+  const { svgRef, gRef, fitToView, zoomBy } = useZoom<SVGSVGElement>({
     minScale: 0.3,
     maxScale: 6,
     ready: isMounted,
@@ -726,7 +726,7 @@ export default function RadialSuraMap({
 
           <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
             {/* Zoom controls */}
-            <div className="viz-left-panel">
+            <div className="viz-left-panel viz-zoom-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts('zoom')}</span>
                 <span style={{ fontSize: '0.72em', opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}>{Math.round(zoomScale * 100)}%</span>
@@ -748,8 +748,8 @@ export default function RadialSuraMap({
                 >
                   &minus;
                 </button>
-                <button type="button" className="viz-zoom-reset-btn" onClick={resetZoom}>
-                  {ts('reset')}
+                <button type="button" className="viz-zoom-reset-btn" onClick={() => fitToView()}>
+                  {ts('focus')}
                 </button>
               </div>
               <span style={{ fontSize: '0.65em', opacity: 0.45, marginTop: 4, display: 'block' }}>
@@ -957,19 +957,72 @@ export default function RadialSuraMap({
         document.getElementById('viz-sidebar-portal')!
       )}
 
-      <div className="viz-controls floating-controls">
-        <div className="ayah-meta-wrapper">
-          <button
-            className="kg-reset-btn"
-            onClick={resetZoom}
-            title="Focus View"
+      {/* B) Floating "selected" pill — V2 Observatory design */}
+      {(() => {
+        const pillArabic: string | null = highlightRoot ?? fullAyahText ?? null;
+        const isVisible = pillArabic !== null && (!!highlightRoot || !!selectedAyah);
+        if (!isVisible || !pillArabic) return null;
+        return (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "46%",
+              left: "60%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 11px",
+              borderRadius: 999,
+              background: "rgba(13,13,17,0.9)",
+              border: "1px solid rgba(251,234,210,0.4)",
+              boxShadow: "0 0 18px rgba(251,234,210,0.25)",
+              pointerEvents: "none",
+              zIndex: 20,
+              maxWidth: "38%",
+              overflow: "hidden",
+            }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-            </svg>
-          </button>
-        </div>
-      </div>
+            <span
+              lang="ar"
+              dir="rtl"
+              style={{
+                fontFamily: "Amiri, serif",
+                fontSize: 18,
+                color: "#ECE4D8",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "22ch",
+              }}
+            >
+              {pillArabic}
+            </span>
+            <span
+              aria-hidden
+              style={{
+                width: 1,
+                height: 14,
+                background: "rgba(237,225,209,0.15)",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontWeight: 500,
+                fontSize: 11,
+                color: "#f0b074",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              selected
+            </span>
+          </div>
+        );
+      })()}
 
       <div ref={containerRef} className="viz-container" style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
         {!isMounted ? null : (
@@ -1015,6 +1068,17 @@ export default function RadialSuraMap({
                   <feGaussianBlur stdDeviation="8" result="coloredBlur" />
                   <feMerge>
                     <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                {/* V2 selection ring glow — rgba(251,234,210,0.6) */}
+                <filter id="selectionGlow" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur" in="SourceGraphic" />
+                  <feFlood floodColor="rgba(251,234,210,0.6)" result="glowColor" />
+                  <feComposite in="glowColor" in2="blur" operator="in" result="coloredBlur" />
+                  <feMerge>
                     <feMergeNode in="coloredBlur" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
@@ -1250,6 +1314,19 @@ export default function RadialSuraMap({
                               onMouseLeave={() => handleRootNodeHover(null, null)}
                               onClick={(event) => handleRootNodeSelect(event, bar.ayah, node.root)}
                             />
+                            {isRootHighlighted && (
+                              <circle
+                                cx={circleX}
+                                cy={circleY}
+                                r={displayRadius + 6}
+                                fill="none"
+                                stroke={SELECTION_RING}
+                                strokeWidth={1.6}
+                                opacity={0.95}
+                                filter="url(#selectionGlow)"
+                                pointerEvents="none"
+                              />
+                            )}
                             {shouldShowRootLabel && (
                               <text
                                 x={selectedLabelX}
@@ -1284,6 +1361,20 @@ export default function RadialSuraMap({
                         fill={isSelected ? themeColors.accent : bar.color}
                         filter={isSelected ? "url(#glow)" : undefined}
                       />
+                      {/* V2 selection ring on selected ayah endpoint */}
+                      {isSelected && (
+                        <circle
+                          cx={endX}
+                          cy={endY}
+                          r={endpointRadius + 7}
+                          fill="none"
+                          stroke={SELECTION_RING}
+                          strokeWidth={1.6}
+                          opacity={0.95}
+                          filter="url(#selectionGlow)"
+                          pointerEvents="none"
+                        />
+                      )}
                       <circle
                         cx={endX}
                         cy={endY}

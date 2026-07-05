@@ -17,6 +17,7 @@ import {
     type CollocationTermKind,
 } from "@/lib/search/collocation";
 import { HelpIcon, VizExplainerDialog } from "@/components/ui/VizExplainerDialog";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 
 interface CollocationNetworkGraphProps {
     tokens: CorpusToken[];
@@ -250,26 +251,26 @@ export default function CollocationNetworkGraph({
         };
     }, [theme, themeColors.background]);
     const panelBg = useMemo(
-        () => (theme === "dark" ? "rgba(5, 10, 21, 0.74)" : "rgba(247, 251, 255, 0.9)"),
+        () => (theme === "dark" ? "var(--panel)" : "rgba(247, 251, 255, 0.9)"),
         [theme]
     );
     const panelBorder = useMemo(
-        () => (theme === "dark" ? "rgba(126, 168, 255, 0.34)" : "rgba(35, 74, 133, 0.24)"),
+        () => (theme === "dark" ? "var(--line)" : "rgba(35, 74, 133, 0.24)"),
         [theme]
     );
-    const labelStroke = theme === "dark" ? "#05080e" : "rgba(255, 255, 255, 0.95)";
-    const targetNodeFill = theme === "dark" ? "#E7F2FF" : tuneForTheme(themeColors.nodeColors.default, theme, 0.04);
+    const labelStroke = theme === "dark" ? "var(--bg-0)" : "rgba(255, 255, 255, 0.95)";
+    const targetNodeFill = theme === "dark" ? "var(--ink)" : tuneForTheme(themeColors.nodeColors.default, theme, 0.04);
     const legendStrong = withAlpha(themeColors.accentSecondary, theme === "dark" ? 0.88 : 0.8);
     const legendSoft = withAlpha(themeColors.edgeColors.default, theme === "dark" ? 0.75 : 0.6);
     const lemmaBloomColor = useMemo(
         () => tuneForTheme(themeColors.accentSecondary, theme, theme === "dark" ? 0.24 : 0.1),
         [theme, themeColors.accentSecondary]
     );
-    const controlRowSurface = theme === "dark" ? "rgba(10, 18, 34, 0.78)" : "rgba(236, 244, 255, 0.9)";
+    const controlRowSurface = theme === "dark" ? "var(--bg-1)" : "rgba(236, 244, 255, 0.9)";
     const controlFieldStyle = {
-        background: theme === "dark" ? "rgba(17, 26, 48, 0.94)" : "rgba(255,255,255,0.98)",
-        color: theme === "dark" ? "#e4f0ff" : "#10284b",
-        border: `1px solid ${theme === "dark" ? "rgba(151, 186, 255, 0.42)" : "rgba(53, 94, 162, 0.35)"}`,
+        background: theme === "dark" ? "var(--bg-2)" : "rgba(255,255,255,0.98)",
+        color: theme === "dark" ? "var(--ink)" : "#10284b",
+        border: `1px solid ${theme === "dark" ? "var(--line)" : "rgba(53, 94, 162, 0.35)"}`,
         borderRadius: 7,
         padding: "4px 8px",
         fontSize: "0.76rem",
@@ -278,7 +279,7 @@ export default function CollocationNetworkGraph({
     } as const;
     const controlLabelStyle = {
         fontSize: "0.72rem",
-        color: theme === "dark" ? "#9cb4df" : "#335785",
+        color: theme === "dark" ? "var(--ink-secondary)" : "#335785",
         letterSpacing: "0.01em",
         minWidth: 82,
     } as const;
@@ -1162,14 +1163,26 @@ export default function CollocationNetworkGraph({
                     }}
                 >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-                        <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "#9bb8ff" }}>0</div>
-                        <p style={{ color: "#b7c3e2", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
+                        <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "var(--ink-secondary)" }}>0</div>
+                        <p style={{ color: "var(--ink-muted)", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
                     </div>
                 </div>
             )}
 
             {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
                 <div className="viz-left-stack">
+                    <div className="viz-left-panel viz-zoom-panel">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                      </div>
+                      <div className="viz-zoom-row">
+                        <button type="button" className="viz-zoom-reset-btn" onClick={() => {
+                                    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                                }}>
+                          {ts("focus")}
+                        </button>
+                      </div>
+                    </div>
                     <div className="viz-left-panel" style={{ background: panelBg, borderColor: panelBorder }}>
                         {sidebarNode ? (
                             <>
@@ -1230,8 +1243,8 @@ export default function CollocationNetworkGraph({
                                                     fontSize: "1rem",
                                                     lineHeight: 1.65,
                                                     color: themeColors.textColors.primary,
-                                                    background: "rgba(16, 24, 46, 0.86)",
-                                                    border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                    background: "var(--bg-2)",
+                                                    border: "1px solid var(--line)",
                                                     borderRadius: 6,
                                                     padding: "8px 10px",
                                                 }}
@@ -1262,10 +1275,10 @@ export default function CollocationNetworkGraph({
                                                         <span
                                                             key={lemma}
                                                             style={{
-                                                                background: "rgba(16, 24, 46, 0.86)",
+                                                                background: "var(--bg-2)",
                                                                 padding: "2px 6px",
                                                                 borderRadius: 4,
-                                                                border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                                border: "1px solid var(--line)",
                                                                 letterSpacing: "0.06em",
                                                             }}
                                                         >
@@ -1291,21 +1304,6 @@ export default function CollocationNetworkGraph({
                             <div style={{ fontSize: "0.75rem", color: themeColors.textColors.secondary, letterSpacing: "0.03em", textTransform: "uppercase" }}>
                                 {t("proximityControls")}
                             </div>
-                            <button
-                                className="kg-reset-btn"
-                                onClick={() => {
-                                    if (svgRef.current && zoomBehaviorRef.current) {
-                                        d3.select(svgRef.current).transition().duration(650)
-                                            .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-                                    }
-                                }}
-                                title={ts("reset")}
-                                style={{ background: "rgba(26, 36, 66, 0.55)", color: "#d5e6ff" }}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                                </svg>
-                            </button>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <div
@@ -1409,7 +1407,7 @@ export default function CollocationNetworkGraph({
                             {!isBeginner ? (
                             <div
                                 data-testid="collocation-window-hint"
-                                style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}
+                                style={{ fontSize: "0.73rem", color: "var(--ink-muted)", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}
                             >
                                 {windowType === "ayah"
                                     ? t("windowTypeHintAyah")
@@ -1445,10 +1443,10 @@ export default function CollocationNetworkGraph({
                             ) : null}
                             {!isBeginner && pairMetrics && (
                                 <div data-testid="collocation-pair-metrics" style={{ marginTop: 4, display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
-                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "var(--ink-muted)" }}>
                                         {t("pairWindowsA", { count: pairMetrics.countA })}
                                     </div>
-                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "var(--ink-muted)" }}>
                                         {t("pairWindowsB", { count: pairMetrics.countB })}
                                     </div>
                                     <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accentSecondary, 0.35)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.74rem", fontWeight: 600, color: themeColors.textColors.primary }}>

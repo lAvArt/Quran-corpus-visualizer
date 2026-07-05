@@ -178,7 +178,7 @@ export default function RootFlowSankey({
         zoomDensity >= 80 ? 8 :
           zoomDensity >= 50 ? 7 : 6;
 
-  const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
+  const { svgRef, gRef, fitToView } = useZoom<SVGSVGElement>({
     minScale: zoomMinScale,
     maxScale: zoomMaxScale,
     initialScale: 0.9,
@@ -360,11 +360,11 @@ export default function RootFlowSankey({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button
               type="button"
-              onClick={resetZoom}
+              onClick={() => fitToView()}
               className="clear-focus"
               style={{ fontSize: "0.75rem", padding: "2px 8px", background: "var(--line)", borderRadius: "4px", border: "none", cursor: "pointer" }}
             >
-              {ts("reset")}
+              {ts("focus")}
             </button>
           </div>
         </div>
@@ -614,7 +614,7 @@ export default function RootFlowSankey({
           color: var(--ink-secondary);
           border: 1px solid var(--line);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.65);
+          background: var(--panel);
           padding: 4px 10px;
         }
 
@@ -642,7 +642,7 @@ export default function RootFlowSankey({
         }
 
         .column {
-          fill: rgba(255, 255, 255, 0.18);
+          fill: var(--bg-2);
           stroke: var(--line);
           stroke-width: 1px;
         }
@@ -672,8 +672,8 @@ export default function RootFlowSankey({
         }
 
         .node-chip {
-          fill: rgba(255, 255, 255, 0.42);
-          stroke: rgba(148, 163, 184, 0.34);
+          fill: var(--panel);
+          stroke: var(--line);
           stroke-width: 1;
           transition: opacity 0.18s ease;
         }
@@ -720,16 +720,16 @@ export default function RootFlowSankey({
           overflow-x: hidden;
           padding: 6px;
           border-radius: 12px;
-          background: rgba(15, 23, 42, 0.85);
+          background: var(--panel);
           backdrop-filter: blur(24px) saturate(1.5);
           -webkit-backdrop-filter: blur(24px) saturate(1.5);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          border: 1px solid var(--line);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--line);
           display: flex;
           flex-direction: column;
           gap: 2px;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+          scrollbar-color: var(--line) transparent;
         }
 
         .sankey-select-menu::-webkit-scrollbar {
@@ -741,7 +741,7 @@ export default function RootFlowSankey({
         }
 
         .sankey-select-menu::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
+          background: var(--line);
           border-radius: 4px;
         }
 
@@ -750,7 +750,7 @@ export default function RootFlowSankey({
           border: 0;
           border-radius: 6px;
           background: transparent;
-          color: rgba(255, 255, 255, 0.75);
+          color: var(--ink-secondary);
           padding: 8px 12px;
           font-size: 0.85rem;
           text-align: left;
@@ -759,14 +759,14 @@ export default function RootFlowSankey({
         }
 
         .sankey-option:hover {
-          background: rgba(255, 255, 255, 0.12);
-          color: #fff;
+          background: var(--bg-2);
+          color: var(--ink);
           transform: translateX(2px);
         }
 
         .sankey-option.active {
-          background: rgba(56, 189, 248, 0.15);
-          color: #38bdf8;
+          background: var(--accent-glow);
+          color: var(--accent);
           font-weight: 600;
         }
 
@@ -787,7 +787,7 @@ export default function RootFlowSankey({
           fill: var(--ink-secondary);
           font-weight: 700;
           paint-order: stroke;
-          stroke: rgba(255, 255, 255, 0.75);
+          stroke: var(--bg-0);
           stroke-width: 3;
         }
 
@@ -807,7 +807,7 @@ export default function RootFlowSankey({
           padding: 8px 18px;
           border: 1px solid var(--accent);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.2);
+          background: var(--bg-2);
           color: var(--accent);
           font-size: 0.82rem;
           font-weight: 600;
@@ -830,7 +830,7 @@ export default function RootFlowSankey({
           display: grid;
           gap: 10px;
           background:
-            linear-gradient(160deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.54)),
+            linear-gradient(160deg, var(--bg-1), var(--bg-2)),
             radial-gradient(circle at 10% 12%, rgba(15, 118, 110, 0.11), transparent 46%);
         }
 
@@ -856,7 +856,7 @@ export default function RootFlowSankey({
           position: relative;
           border: 1px solid var(--line);
           border-radius: 12px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+          background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
         }
 
         .sankey-select-shell::after {
@@ -924,7 +924,7 @@ export default function RootFlowSankey({
           border: 1px solid var(--line);
           border-radius: 10px;
           padding: 7px 6px;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--bg-1);
         }
 
         .sankey-stat-value {
@@ -964,30 +964,30 @@ export default function RootFlowSankey({
           background:
             radial-gradient(circle at 16% 14%, rgba(249, 115, 22, 0.2), transparent 36%),
             radial-gradient(circle at 82% 18%, rgba(34, 211, 238, 0.16), transparent 40%),
-            linear-gradient(165deg, #09090f, #11131c 50%, #0c1018 100%);
+            linear-gradient(165deg, var(--bg-0), var(--bg-1) 50%, var(--bg-0) 100%);
         }
 
         :global([data-theme="dark"]) .sankey-pill {
-          background: rgba(16, 16, 24, 0.72);
+          background: var(--panel);
         }
 
         :global([data-theme="dark"]) .column {
-          fill: rgba(255, 255, 255, 0.05);
-          stroke: rgba(255, 255, 255, 0.16);
+          fill: var(--bg-2);
+          stroke: var(--line);
         }
 
         :global([data-theme="dark"]) .node-chip {
-          fill: rgba(30, 41, 59, 0.5);
-          stroke: rgba(148, 163, 184, 0.24);
+          fill: var(--panel);
+          stroke: var(--line);
         }
 
         :global([data-theme="dark"]) .count-label {
-          stroke: rgba(2, 6, 23, 0.75);
-          fill: #dbeafe;
+          stroke: var(--bg-0);
+          fill: var(--ink);
         }
 
         :global([data-theme="dark"]) .load-more-btn {
-          background: rgba(18, 18, 26, 0.72);
+          background: var(--bg-2);
         }
 
         @media (max-width: 1200px) {

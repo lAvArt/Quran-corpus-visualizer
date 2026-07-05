@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import TopBar from "@/components/shell/TopBar";
 import StatusBar from "@/components/shell/StatusBar";
@@ -8,7 +8,6 @@ import JourneyRail from "@/components/shell/JourneyRail";
 import ContextDrawer from "@/components/shell/ContextDrawer";
 import GraphToolbar from "@/components/shell/GraphToolbar";
 import VisualizationViewport from "@/components/home/VisualizationViewport";
-import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import FirstRunMission from "@/components/onboarding/FirstRunMission";
@@ -16,8 +15,10 @@ import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useHomePageController, VizControlProvider } from "@/lib/hooks/useHomePageController";
+import { useEdgeSwipe } from "@/lib/hooks/useEdgeSwipe";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import type { ThemePreferenceState } from "@/lib/theme/themePreferences";
+import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 interface AppShellProps {
   initialCorpusData: CorpusOverviewData;
@@ -27,8 +28,58 @@ interface AppShellProps {
 function AppShellContent({ initialCorpusData, initialThemePreference }: AppShellProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
+  const tMobile = useTranslations("MobileBottomBar");
   const c = useHomePageController(initialCorpusData, initialThemePreference);
+  // Expanded by default so the zoom controls + legend are always visible in a
+  // fixed, predictable dock (top-anchored, grows downward). Collapsible on demand.
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+
+  // Edge-swipe gestures (touch): swipe in from the left edge to reveal the legend,
+  // from the right edge to reveal the inspector; swipe back over a panel to dismiss.
+  const handleOpenLeft = useCallback(() => setIsLeftPanelCollapsed(false), []);
+  const handleCloseLeft = useCallback(() => setIsLeftPanelCollapsed(true), []);
+  const handleOpenRight = useCallback(() => c.setIsSidebarOpen(true), [c.setIsSidebarOpen]);
+  const handleCloseRight = useCallback(() => c.setIsSidebarOpen(false), [c.setIsSidebarOpen]);
+  useEdgeSwipe({
+    leftOpen: !isLeftPanelCollapsed,
+    rightOpen: c.isSidebarOpen,
+    openLeft: handleOpenLeft,
+    closeLeft: handleCloseLeft,
+    openRight: handleOpenRight,
+    closeRight: handleCloseRight,
+  });
+
+  // Deep-link hydration: ?viz=&surah=&ayah=&root=&lemma=&token= (e.g. from /search).
+  const hydratedRef = useRef(false);
+  const navigateToResult = c.handleSearchResultNavigate;
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    const sp = new URLSearchParams(window.location.search);
+    const root = sp.get("root");
+    const lemma = sp.get("lemma");
+    const surah = sp.get("surah");
+    const ayah = sp.get("ayah");
+    const token = sp.get("token");
+    const viz = sp.get("viz");
+    if (!root && !lemma && !surah && !ayah && !token && !viz) return;
+    hydratedRef.current = true;
+    navigateToResult({
+      id: "deeplink",
+      kind: "ayah",
+      title: "",
+      actionTarget: {
+        routeMode: "explore",
+        visualizationMode: (viz as VisualizationMode) || undefined,
+        selection: {
+          surahId: surah ? Number(surah) : undefined,
+          ayah: ayah ? Number(ayah) : undefined,
+          root: root || undefined,
+          lemma: lemma || undefined,
+          tokenId: token || undefined,
+        },
+      },
+    });
+  }, [navigateToResult]);
 
   const clearFocus = useCallback(() => {
     c.setFocusedTokenId(null);
@@ -55,6 +106,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("header")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "header")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "header")}
+        onResultNavigate={c.handleSearchResultNavigate}
       />
 
       {/* ── Left journey rail (desktop only via CSS) ── */}
@@ -107,13 +159,12 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         showAdvancedModes={c.showAdvancedModes}
         setShowAdvancedModes={c.setShowAdvancedModes}
         handleVizModeChange={c.handleVizModeChange}
-        isSidebarOpen={c.isSidebarOpen}
-        setIsSidebarOpen={c.setIsSidebarOpen}
       />
 
       {/* ── Right context drawer ── */}
       <ContextDrawer
         isOpen={c.isSidebarOpen}
+        onToggleOpen={() => c.setIsSidebarOpen(!c.isSidebarOpen)}
         allTokens={c.allTokens}
         vizMode={c.vizMode}
         inspectorToken={c.inspectorTokenFinal}
@@ -128,6 +179,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("sidebar")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "sidebar")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "sidebar")}
+        onResultNavigate={c.handleSearchResultNavigate}
       />
 
       {/* ── Consolidated status / notification bar ── */}
@@ -163,38 +215,48 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         </div>
       )}
 
-      {/* Left selection panel (desktop, or mobile when left sidebar open) */}
+      {/* Left controls drawer — a full-height panel mirroring the right tools
+          drawer, holding the active viz's zoom + legend. The toggle is a sibling
+          (not a child) so it stays visible when the panel slides away. */}
       {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
-        <div className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}>
+        <>
+          {/* Full-height left panel. Layout: legend pinned top, transient
+              selection cards in the middle, zoom controls + collapse at the
+              bottom. The portal renders legend/selection/zoom; CSS orders them. */}
+          <aside
+            className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}
+            aria-hidden={isLeftPanelCollapsed || undefined}
+          >
+            <div id="viz-sidebar-portal" className="viz-sidebar-content" />
+            <button
+              type="button"
+              className="viz-left-collapse"
+              onClick={() => setIsLeftPanelCollapsed(true)}
+              aria-label={t("overlay.collapsePanel")}
+              title={t("overlay.collapsePanel")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              <span>{t("overlay.collapsePanel")}</span>
+            </button>
+          </aside>
+          {/* Left-edge handle — open/close the legend panel from the screen edge,
+              mirroring the inspector's right-edge handle. Slides to the panel's
+              edge when open; sits at the left edge (clearing the rail) when collapsed. */}
           <button
             type="button"
-            className="viz-sidebar-collapse-btn"
+            className={`legend-edge-handle ${isLeftPanelCollapsed ? "is-collapsed" : ""}`}
             onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)}
-            aria-label={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
-            title={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
+            aria-label={isLeftPanelCollapsed ? tMobile("showLegend") : t("overlay.collapsePanel")}
+            aria-expanded={!isLeftPanelCollapsed}
+            title={isLeftPanelCollapsed ? tMobile("showLegend") : t("overlay.collapsePanel")}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points={isLeftPanelCollapsed ? "9 18 15 12 9 6" : "15 18 9 12 15 6"} />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <div
-            id="viz-sidebar-portal"
-            className="viz-sidebar-content"
-            aria-hidden={isLeftPanelCollapsed}
-          >
-            <div data-tour-id="current-selection">
-              <CurrentSelectionPanel
-                vizMode={c.vizMode}
-                selectedSurahId={c.selectedSurahId}
-                selectedAyah={c.selectedAyahInSurah}
-                selectedRoot={c.selectedRootValue}
-                selectedLemma={c.selectedLemmaValue}
-                activeToken={c.focusedToken ?? null}
-                allTokens={c.allTokens}
-              />
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Viz suggestion toast */}
@@ -220,6 +282,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("mobile")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "mobile")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "mobile")}
+        onResultNavigate={c.handleSearchResultNavigate}
       />
 
       {/* Onboarding overlays */}

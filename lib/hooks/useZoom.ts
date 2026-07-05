@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as d3 from "d3";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 
 interface ZoomOptions {
     minScale?: number;
@@ -84,5 +85,18 @@ export function useZoom<SVGType extends SVGSVGElement>({
         }
     };
 
-    return { svgRef, gRef, resetZoom, zoomBy };
+    /**
+     * Frame the ENTIRE rendered graph in the viewport (zoom-to-fit), rather than
+     * resetting to the origin which can crop or zoom into the middle. Measures the
+     * content's bounding box and centres it with a little breathing room.
+     */
+    const fitToView = (padding = 0.88) => {
+        fitGraphToView(svgRef.current, gRef.current, zoomInstanceRef.current, {
+            padding,
+            minScale,
+            maxScale,
+        });
+    };
+
+    return { svgRef, gRef, resetZoom, fitToView, zoomBy };
 }

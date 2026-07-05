@@ -52,7 +52,7 @@ export default function SurahDistributionGraph({
     const ts = useTranslations("Visualizations.Shared");
     const containerRef = useRef<HTMLDivElement>(null);
     const [zoomLevel, setZoomLevel] = useState(0.8);
-    const { svgRef, gRef, resetZoom } = useZoom<SVGSVGElement>({
+    const { svgRef, gRef, fitToView } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 8,
         initialScale: 0.8,
@@ -218,29 +218,8 @@ export default function SurahDistributionGraph({
         }
     }, [selectedSurah, onSurahSelect]);
 
-    const totalTokens = tokens.length;
-    const totalSurahs = surahNodes.length;
-
     return (
         <section className="immersive-viz" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
-            <div className="viz-controls floating-controls">
-                <div className="ayah-meta-wrapper">
-                    <button
-                        className="kg-reset-btn"
-                        onClick={resetZoom}
-                        title="Focus View"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                        </svg>
-                    </button>
-                    <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
-                        {totalSurahs} Surahs · {totalTokens.toLocaleString()} Words
-                        {highlightRoot && ` · ${ts("root")}: ${highlightRoot}`}
-                    </p>
-                </div>
-            </div>
-
             <div
                 ref={containerRef}
                 className="viz-container"
@@ -285,7 +264,7 @@ export default function SurahDistributionGraph({
                                     x2={dimensions.width - padding}
                                     y1={yScale(tick)}
                                     y2={yScale(tick)}
-                                    stroke={theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(31, 28, 25, 0.1)"}
+                                    stroke="var(--line)"
                                 />
                             ))}
                             {xTicks.map((tick) => (
@@ -295,7 +274,7 @@ export default function SurahDistributionGraph({
                                     x2={xScale(tick)}
                                     y1={padding}
                                     y2={dimensions.height - padding}
-                                    stroke={theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(31, 28, 25, 0.08)"}
+                                    stroke="var(--line)"
                                 />
                             ))}
                         </g>
@@ -423,7 +402,7 @@ export default function SurahDistributionGraph({
                                             cy={node.y}
                                             r={node.radius}
                                             fill={isHighlighted ? themeColors.accent : node.color}
-                                            stroke={theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(31, 28, 25, 0.28)"}
+                                            stroke="var(--line)"
                                             strokeWidth={isHighlighted ? 2 : 1}
                                             filter={isHighlighted ? "url(#surahGlow)" : undefined}
                                         />
@@ -452,9 +431,7 @@ export default function SurahDistributionGraph({
                                                 fontWeight="500"
                                                 style={{
                                                     pointerEvents: "none",
-                                                    textShadow: theme === "dark"
-                                                        ? "0 2px 4px rgba(0,0,0,0.5)"
-                                                        : "0 1px 2px rgba(255,255,255,0.65)"
+                                                    textShadow: "0 2px 4px var(--bg-0)"
                                                 }}
                                             >
                                                 {node.name}
@@ -474,6 +451,16 @@ export default function SurahDistributionGraph({
 
 
                     <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
+                        <div className="viz-left-panel viz-zoom-panel">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                            </div>
+                            <div className="viz-zoom-row">
+                                <button type="button" className="viz-zoom-reset-btn" onClick={() => fitToView()}>
+                                    {ts("focus")}
+                                </button>
+                            </div>
+                        </div>
                         <AnimatePresence>
                             {(hoveredSurah || selectedSurah) && (
                                 <motion.div
@@ -572,7 +559,7 @@ export default function SurahDistributionGraph({
                                 <div
                                     className="viz-legend-dot"
                                     style={{
-                                        background: theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(31, 28, 25, 0.35)",
+                                        background: "var(--line)",
                                         width: 8,
                                         height: 8
                                     }}

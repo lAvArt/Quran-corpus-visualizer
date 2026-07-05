@@ -30,7 +30,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Keep locale handling off API routes, framework internals, and embed routes.
-    "/((?!api|trpc|embed|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Keep locale handling off API routes, framework internals, embed routes,
+    // and static public assets. NOTE: data files like the QAC morphology .txt
+    // MUST be excluded here — otherwise the locale prefix (/en/data/…) 404s the
+    // fetch and the corpus loses all roots/POS (no coloured bars / arcs).
+    "/((?!api|trpc|embed|data|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt|json|csv|woff2?)$).*)",
   ],
 };

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   trackClientError,
   trackCorpusDeepReady,
   trackCorpusFallbackUsed,
   trackCorpusShellReady,
 } from "@/lib/analytics/events";
-import { loadFullCorpus, type LoadingProgress } from "@/lib/corpus/corpusLoader";
+import { loadFullCorpus, loadSurahContext, type LoadingProgress } from "@/lib/corpus/corpusLoader";
 import { buildCorpusOverviewData } from "@/lib/corpus/overviewData";
 import {
   deriveCorpusReadiness,
@@ -32,10 +32,25 @@ export interface CorpusDataState {
   loadingProgress: LoadingProgress | null;
   isLoadingCorpus: boolean;
   dataStatus: DataReadinessStatus;
+  /** Prioritise loading a specific surah (context-first) ahead of the full corpus. */
+  requestSurahContext: (suraId: number | null | undefined) => void;
 }
 
 export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusDataState {
   const [deepTokens, setDeepTokens] = useState<CorpusToken[]>([]);
+  // Context-first: the currently-open surah, built straight from the QAC
+  // morphology file, so it renders fully (POS bars + roots/arcs/circles) without
+  // waiting for the whole corpus to stream in. Superseded once deepTokens lands.
+  const [contextTokens, setContextTokens] = useState<CorpusToken[]>([]);
+  const requestedSurahRef = useRef<number | null>(null);
+
+  const requestSurahContext = useCallback((suraId: number | null | undefined) => {
+    if (!suraId || requestedSurahRef.current === suraId) return;
+    requestedSurahRef.current = suraId;
+    void loadSurahContext(suraId).then((tokens) => {
+      if (tokens.length > 0) setContextTokens(tokens);
+    });
+  }, []);
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
   const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
   const [dataStatus, setDataStatus] = useState<DataReadinessStatus>("sample");
@@ -104,6 +119,20 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
       };
     }
 
+    // Context-first overlay: the open surah's QAC tokens over the shell baseline,
+    // so it renders fully before the whole corpus has finished loading.
+    if (contextTokens.length > 0) {
+      const baseTokens = initialOverviewData?.shellTokens ?? [];
+      const byId = new Map<string, CorpusToken>();
+      for (const tk of baseTokens) byId.set(tk.id, tk);
+      for (const tk of contextTokens) byId.set(tk.id, tk);
+      return {
+        ...buildCorpusOverviewData(Array.from(byId.values())),
+        overviewSource: "client-shell" as const,
+        visualizationSource: "client-shell" as const,
+      };
+    }
+
     if (initialOverviewData) {
       return {
         ...initialOverviewData,
@@ -117,7 +146,7 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
       overviewSource: "client-shell" as const,
       visualizationSource: "client-shell" as const,
     };
-  }, [deepTokens, initialOverviewData]);
+  }, [deepTokens, contextTokens, initialOverviewData]);
   const readiness = useMemo(
     () => deriveCorpusReadiness(dataStatus, isLoadingCorpus),
     [dataStatus, isLoadingCorpus]
@@ -160,5 +189,6 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
     loadingProgress,
     isLoadingCorpus,
     dataStatus,
+    requestSurahContext,
   };
 }

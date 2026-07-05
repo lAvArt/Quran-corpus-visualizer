@@ -9,6 +9,7 @@ import { AuthButton } from "@/components/ui/AuthButton";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
+import type { SearchResultItem } from "@/lib/search/searchTypes";
 
 interface TopBarProps {
   allTokens: CorpusToken[];
@@ -20,6 +21,7 @@ interface TopBarProps {
   onSearchOpened: () => void;
   onSearchQuerySubmitted: (query: string) => void;
   onSearchResultSelected: (matchType: SearchMatchType) => void;
+  onResultNavigate?: (result: SearchResultItem) => void;
   /** Slot rendered in the center of the top bar */
   centerSlot?: ReactNode;
 }
@@ -34,6 +36,7 @@ export default function TopBar({
   onSearchOpened,
   onSearchQuerySubmitted,
   onSearchResultSelected,
+  onResultNavigate,
   centerSlot,
 }: TopBarProps) {
   const t = useTranslations("Index");
@@ -42,13 +45,10 @@ export default function TopBar({
     <header className="shell-topbar">
       <div className="shell-topbar-inner">
         <div className="brand-block" data-tour-id="header-brand">
-          <Image src="/favicon.svg" alt="" className="brand-logo" width={34} height={34} />
-          <div className="brand-text">
-            <p className="eyebrow">{t("eyebrow")}</p>
-            <div className="brand-title-row">
-              <h1 className="brand-title">{t("brand")}</h1>
-            </div>
-          </div>
+          <span className="brand-mark">
+            <Image src="/favicon.svg" alt="" width={22} height={22} />
+          </span>
+          <span className="brand-name">{t("eyebrow")}</span>
         </div>
 
         {/* ── Center: status/breadcrumb bar ── */}
@@ -77,6 +77,7 @@ export default function TopBar({
           onSearchOpened={onSearchOpened}
           onSearchQuerySubmitted={onSearchQuerySubmitted}
           onSearchResultSelected={onSearchResultSelected}
+          onResultNavigate={onResultNavigate}
         />
       </div>
 
@@ -114,7 +115,36 @@ export default function TopBar({
 
         .brand-block {
           flex: 0 0 auto;
-          width: 340px;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .brand-mark {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--line);
+          background: var(--bg-2);
+          flex-shrink: 0;
+        }
+
+        .brand-name {
+          font-family: var(--font-display, "Fraunces"), serif;
+          font-size: 0.9rem;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: var(--ink);
+          white-space: nowrap;
+        }
+
+        @media (max-width: 760px) {
+          .brand-name {
+            display: none;
+          }
         }
 
         .shell-topbar-search {
