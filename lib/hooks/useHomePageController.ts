@@ -31,6 +31,7 @@ import { useSelectionState } from "@/lib/hooks/useSelectionState";
 import {
   useVizModeState,
   VIEW_CONTEXT_CAPABILITIES,
+  BEGINNER_PRIMARY_MODES,
   describeContextTransform,
 } from "@/lib/hooks/useVizModeState";
 import { useOnboardingState } from "@/lib/hooks/useOnboardingState";
@@ -565,7 +566,19 @@ export function useHomePageController(
   const handleSearchResultNavigate = useCallback(
     (result: SearchResultItem) => {
       const { visualizationMode, selection } = result.actionTarget;
-      if (visualizationMode) setVizMode(visualizationMode);
+      if (visualizationMode) {
+        // Explicit navigation (URL deep link, search result) can target an
+        // advanced mode while the session still shows the default beginner
+        // set. Unlock the advanced set first — via the same setter the
+        // settings toggle uses, so it persists identically — otherwise the
+        // visibility clamp in useVizModeState silently snaps the requested
+        // mode back to radial-sura. The intent here is explicit, so it wins;
+        // organic switcher defaults are unaffected.
+        if (!BEGINNER_PRIMARY_MODES.includes(visualizationMode)) {
+          setShowAdvancedModes(true);
+        }
+        setVizMode(visualizationMode);
+      }
       const sel = selection ?? {};
       if (sel.surahId) setSelectedSurahId(sel.surahId);
       if (sel.root) {
@@ -583,6 +596,7 @@ export function useHomePageController(
     },
     [
       setVizMode,
+      setShowAdvancedModes,
       setSelectedSurahId,
       setSelectedRoot,
       setSearchLockedRoot,

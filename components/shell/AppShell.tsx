@@ -15,6 +15,7 @@ import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useHomePageController, VizControlProvider } from "@/lib/hooks/useHomePageController";
+import { ALL_VIZ_MODES } from "@/lib/hooks/useVizModeState";
 import { useEdgeSwipe } from "@/lib/hooks/useEdgeSwipe";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import type { ThemePreferenceState } from "@/lib/theme/themePreferences";
@@ -60,8 +61,13 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     const surah = sp.get("surah");
     const ayah = sp.get("ayah");
     const token = sp.get("token");
-    const viz = sp.get("viz");
-    if (!root && !lemma && !surah && !ayah && !token && !viz) return;
+    const vizParam = sp.get("viz");
+    // Only honour ?viz= when it names a real, renderable mode — an unknown
+    // value must not steer navigation (or unlock the advanced mode set).
+    const viz = ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
+      ? (vizParam as VisualizationMode)
+      : null;
+    if (!root && !lemma && !surah && !ayah && !token && !vizParam) return;
     hydratedRef.current = true;
     navigateToResult({
       id: "deeplink",
@@ -69,7 +75,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
       title: "",
       actionTarget: {
         routeMode: "explore",
-        visualizationMode: (viz as VisualizationMode) || undefined,
+        visualizationMode: viz ?? undefined,
         selection: {
           surahId: surah ? Number(surah) : undefined,
           ayah: ayah ? Number(ayah) : undefined,

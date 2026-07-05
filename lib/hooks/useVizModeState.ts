@@ -8,10 +8,27 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import { getVisualizationCategory } from "@/lib/schema/visualizationTypes";
 
-const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
+export const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
   "radial-sura",
   "surah-distribution",
   "root-network",
+];
+
+/**
+ * Every mode the viewport can actually render — the "advanced" visible set.
+ * Canonical list shared with deep-link validation (AppShell) so a `?viz=` param
+ * is only honoured when it names a real, renderable mode.
+ */
+export const ALL_VIZ_MODES: VisualizationMode[] = [
+  "corpus-architecture",
+  "surah-distribution",
+  "radial-sura",
+  "root-network",
+  "arc-flow",
+  "dependency-tree",
+  "sankey-flow",
+  "collocation-network",
+  "knowledge-graph",
 ];
 
 interface ViewContextCapabilities {
@@ -150,17 +167,7 @@ export function useVizModeState(): VizModeState {
   const visibleVizModes = useMemo<VisualizationMode[]>(
     () =>
       experienceLevel === "advanced" || showAdvancedModes
-        ? [
-            "corpus-architecture",
-            "surah-distribution",
-            "radial-sura",
-            "root-network",
-            "arc-flow",
-            "dependency-tree",
-            "sankey-flow",
-            "collocation-network",
-            "knowledge-graph",
-          ]
+        ? ALL_VIZ_MODES
         : BEGINNER_PRIMARY_MODES,
     [experienceLevel, showAdvancedModes]
   );

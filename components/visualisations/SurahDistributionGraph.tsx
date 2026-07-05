@@ -67,6 +67,13 @@ export default function SurahDistributionGraph({
     const [hoveredSurah, setHoveredSurah] = useState<number | null>(null);
     const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
     const [isMounted, setIsMounted] = useState(false);
+    // Tracks whether the first non-empty node set has already been committed.
+    // The staggered pop-in entrance should run once, for that first set — on a
+    // deep-linked entry the corpus streams in AFTER mount, and re-running the
+    // entrance (scale 0 + up-to-1.1s delay + spring) for each late batch leaves
+    // the chart looking empty for seconds even after "Full corpus ready".
+    // Late-arriving nodes mount at their final state instead.
+    const hasCommittedInitialNodesRef = useRef(false);
 
 
     const { isLeftSidebarOpen } = useVizControl();
@@ -176,6 +183,17 @@ export default function SurahDistributionGraph({
     }, [tokens, dimensions, highlightRoot, theme, lexicalColorMode]);
 
     const { surahNodes, xScale, yScale, xTicks, yTicks, padding, ayahExtent, colorScale } = layout;
+
+    // Entrance animation applies only to the first committed non-empty set
+    // (organic entry: the full corpus at once — unchanged; deep-linked entry:
+    // the initial partial flush). Anything mounting later is streamed data,
+    // not a fresh view, so it appears immediately.
+    const animateEntrance = !hasCommittedInitialNodesRef.current;
+    useEffect(() => {
+        if (surahNodes.length > 0) {
+            hasCommittedInitialNodesRef.current = true;
+        }
+    }, [surahNodes.length]);
 
     // Resize observer
     useEffect(() => {
@@ -361,7 +379,7 @@ export default function SurahDistributionGraph({
                                     <motion.g
                                         key={node.id}
                                         className="surah-node-group"
-                                        initial={{ scale: 0, opacity: 0 }}
+                                        initial={animateEntrance ? { scale: 0, opacity: 0 } : false}
                                         animate={{
                                             scale: 1,
                                             opacity: isDimmed ? 0.2 : 1
