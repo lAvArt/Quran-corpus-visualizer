@@ -5323,6 +5323,15 @@ button.site-footer-link {
   margin: 0 auto;
 }
 
+/* The "panel" variant is embedded in a static content stack (search
+   workspace, drawer search tab) rather than floating over page content like
+   the header's "bar" variant. Keep the overlay in normal flow there so
+   expanded filters/results push following content down instead of
+   overlapping/clipping it (see .search-overlay-container above). */
+.global-search[data-variant="panel"] .search-overlay-container {
+  position: static;
+}
+
 .search-input-wrapper {
   display: flex;
   align-items: center;
@@ -6264,6 +6273,34 @@ button.site-footer-link {
   }
 
   .search-input-wrapper:focus-within .search-clear {
+    display: block;
+  }
+
+  /* The collapse-to-icon treatment above is built for the header's "bar"
+     variant. The "panel" variant is embedded in static content stacks
+     (search workspace, drawer search tab), so it must stay a full-width
+     text field at every viewport width. Only the layout-collapse
+     properties are neutralized here; surface styling (padding, background,
+     border) still comes from the base rules and per-surface overrides. */
+  .global-search[data-variant="panel"] {
+    width: 100%;
+  }
+
+  .global-search[data-variant="panel"] .search-input-wrapper,
+  .global-search[data-variant="panel"] .search-input-wrapper:focus-within {
+    position: static;
+    width: auto;
+    height: auto;
+    justify-content: flex-start;
+  }
+
+  .global-search[data-variant="panel"] .search-input {
+    width: auto;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .global-search[data-variant="panel"] .search-clear {
     display: block;
   }
 }

@@ -104,7 +104,7 @@
     },
     "Index": {
         "title": "Quran Corpus Visualizer",
-        "eyebrow": "Quran Corpus Visualizer",
+        "eyebrow": "Quranic Linguistics Observatory",
         "brand": "quran.pluragate.org",
         "hideTools": "Hide Tools",
         "showTools": "Show Tools",
@@ -193,6 +193,7 @@
             "noLens": "No active lens",
             "noSpotlight": "No spotlight yet",
             "noMatches": "No matches yet",
+            "readyHint": "Every root, ayah, and lemma in the corpus is indexed and ready to search.",
             "spotlightHint": "Search by root or meaning to pin a root family here."
         },
         "rootInsight": {

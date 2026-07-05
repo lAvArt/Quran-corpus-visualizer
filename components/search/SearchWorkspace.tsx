@@ -185,7 +185,10 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
       {
         label: hasSearchInput ? t("snapshot.matches") : t("snapshot.ready"),
         value: (hasSearchInput ? search.results.length : allTokens.length).toLocaleString(),
-        detail: hasSearchInput ? resultSummary || t("snapshot.noMatches") : t("searchPrimerHint"),
+        // Note: the "try a query" example (searchPrimerHint) is surfaced once,
+        // as the standalone hint line below the cards — this detail must stay
+        // distinct so the example text isn't shown twice on screen.
+        detail: hasSearchInput ? resultSummary || t("snapshot.noMatches") : t("snapshot.readyHint"),
       },
       {
         label: t("snapshot.lens"),

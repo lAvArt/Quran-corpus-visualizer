@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import JourneyRail from "@/components/shell/JourneyRail";
 import { AuthButton } from "@/components/ui/AuthButton";
@@ -29,6 +30,7 @@ export default function AppWorkspaceShell({
   compact = false,
   children,
 }: AppWorkspaceShellProps) {
+  const t = useTranslations("Index");
   return (
     <main className={`ui-page-shell ui-theme-scope ui-workspace-shell ui-workspace-shell-${backgroundVariant} ui-workspace-railed`}>
       <div className="ui-shell-backdrop" aria-hidden />
@@ -38,11 +40,11 @@ export default function AppWorkspaceShell({
       <JourneyRail />
       <header className="ui-workspace-topbar">
         <div className="ui-workspace-topbar-inner">
-          <Link href="/" className="ui-workspace-brand" aria-label="Quran Corpus Visualizer home">
+          <Link href="/" className="ui-workspace-brand" aria-label={t("eyebrow")}>
             <span className="ui-workspace-brand-mark">
               <Image src="/favicon.svg" alt="" width={22} height={22} />
             </span>
-            <span className="ui-workspace-brand-name">Quran Corpus Visualizer</span>
+            <span className="ui-workspace-brand-name">{t("eyebrow")}</span>
           </Link>
 
           <div className="ui-workspace-topbar-actions">

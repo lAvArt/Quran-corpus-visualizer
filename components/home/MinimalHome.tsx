@@ -45,7 +45,7 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
   return (
     <div className="mhome-strip">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
-        <line x1={0} y1={H - 0.5} x2={W} y2={H - 0.5} stroke="rgba(236,228,216,0.12)" strokeWidth={1} />
+        <line x1={0} y1={H - 0.5} x2={W} y2={H - 0.5} style={{ stroke: "rgba(var(--mh-ink-rgb), 0.12)" }} strokeWidth={1} />
         {hist.map((c, i) => {
           if (!c) return null;
           const v = c / max;
@@ -61,7 +61,7 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
               width={Math.max(1.4, gap * 0.6)}
               height={bh}
               rx={1}
-              fill={isHover || !faint ? color : "rgba(236,228,216,0.18)"}
+              style={{ fill: isHover || !faint ? color : "rgba(var(--mh-ink-rgb), 0.18)" }}
               opacity={isHover ? 1 : v > 0.6 ? 1 : faint ? 1 : 0.55}
             />
           );
@@ -229,7 +229,7 @@ export default function MinimalHome() {
 
         {/* search box */}
         <div className="mhome-search">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(251,234,210,0.7)" strokeWidth="1.8" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.5" y2="16.5" />
           </svg>
@@ -375,7 +375,7 @@ function ResultPanel({
         {t("back")}
       </button>
       <div className="mhome-result-head">
-        <div className="mhome-count" style={{ color: "#FBEAD2" }}>
+        <div className="mhome-count">
           {stat.count.toLocaleString()}
         </div>
         <div className="mhome-count-lab">
@@ -424,7 +424,7 @@ function ResultPanel({
         <span className="mhome-where-lab">{t("whereLabel")}</span>
         <span className="mhome-where-of">{t("ofSurahs", { n: stat.surahs })}</span>
       </div>
-      <SurahStrip hist={stat.hist} color={color} />
+      <SurahStrip hist={stat.hist} color={color} height={74} />
       {/* The SVG bars always run sūrah 1 → 114 left-to-right, so the axis
           labels must too — even in RTL. */}
       <div className="mhome-ticks" dir="ltr">
@@ -619,60 +619,145 @@ function VerseCarousel({
 
 const styles = `
   .mhome {
+    /* ── Component palette ─────────────────────────────────────────────
+       Scoped custom properties; the defaults below are the dark
+       "slate-teal" values (must stay pixel-identical to the original
+       hardcoded palette). A light "reading mode" override follows.
+       POS / root hues stay fixed in both themes: color is data. */
+    --mh-canvas: #0E161A;
+    --mh-panel: #142026;
+    --mh-panel-rgb: 20, 32, 38;
+    --mh-raised: #1C2A31;
+    --mh-card-rgb: 28, 42, 49;
+    --mh-hairline: rgba(198, 222, 230, 0.08);
+    --mh-hairline-soft: rgba(198, 222, 230, 0.07);
+    --mh-hairline-strong: rgba(198, 222, 230, 0.14);
+    --mh-btn-hairline: rgba(237, 225, 209, 0.14);
+    --mh-search-border: rgba(251, 234, 210, 0.18);
+    --mh-ink: #ECE4D8;
+    --mh-ink-rgb: 236, 228, 216;
+    --mh-ink-72: rgba(236, 228, 216, 0.7);
+    --mh-ink-55: rgba(236, 228, 216, 0.55);
+    --mh-ink-hi: #FBEAD2;
+    --mh-ink-hi-rgb: 251, 234, 210;
+    --mh-accent: #f0b074;
+    --mh-accent-rgb: 232, 146, 74;
+    --mh-accent-soft: rgba(232, 146, 74, 0.08);
+    --mh-accent-border: rgba(232, 146, 74, 0.4);
+    --mh-glow: rgba(232, 146, 74, 0.28);
+    --mh-cta-bg: #E8924A;
+    --mh-cta-ink: #2A1606;
+    --mh-count-glow: rgba(251, 234, 210, 0.22);
+    --mh-shadow-strong: rgba(0, 0, 0, 0.45);
+    --mh-atmos-2: rgba(142, 132, 204, 0.05);
+
     position: fixed;
     inset: 0;
-    background: #0E161A;
-    color: #ECE4D8;
+    background: var(--mh-canvas);
+    color: var(--mh-ink);
     font-family: 'Space Grotesk', system-ui, sans-serif;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+  /* Light "reading mode" — Observatory V3 parchment palette.
+     NB: this stylesheet is injected as plain (untransformed) CSS, so the
+     theme hook must be a plain selector — :global() would be dropped by
+     the browser as an invalid pseudo-class. */
+  [data-theme="light"] .mhome {
+    --mh-canvas: #F7F3EA;
+    --mh-panel: #FFFFFF;
+    --mh-panel-rgb: 255, 255, 255;
+    --mh-raised: #EFE6D6;
+    --mh-card-rgb: 255, 255, 255;
+    --mh-hairline: rgba(31, 28, 25, 0.12);
+    --mh-hairline-soft: rgba(31, 28, 25, 0.1);
+    --mh-hairline-strong: rgba(31, 28, 25, 0.18);
+    --mh-btn-hairline: rgba(31, 28, 25, 0.18);
+    --mh-search-border: rgba(31, 28, 25, 0.16);
+    --mh-ink: #1F1C19;
+    --mh-ink-rgb: 31, 28, 25;
+    --mh-ink-72: rgba(31, 28, 25, 0.7);
+    --mh-ink-55: rgba(31, 28, 25, 0.55);
+    --mh-ink-hi: #1F1C19;
+    --mh-ink-hi-rgb: 31, 28, 25;
+    /* Burnt amber (B5571F family, darkened a touch for AA on parchment). */
+    --mh-accent: #A9531B;
+    --mh-accent-rgb: 181, 87, 31;
+    --mh-accent-soft: rgba(181, 87, 31, 0.1);
+    --mh-accent-border: rgba(181, 87, 31, 0.45);
+    --mh-glow: rgba(181, 87, 31, 0.16);
+    --mh-cta-bg: #B5571F;
+    --mh-cta-ink: #FFFFFF;
+    --mh-count-glow: rgba(181, 87, 31, 0.14);
+    --mh-shadow-strong: rgba(31, 28, 25, 0.14);
+    --mh-atmos-2: rgba(142, 132, 204, 0.07);
+  }
+  /* Root/POS "data colors" (rootColor()/POS_COLOR) are tuned for the dark
+     slate-teal canvas and fall below text contrast on parchment (e.g. amber
+     #E8924A ≈ 2.2:1). A brightness/saturate filter darkens the rendered
+     glyphs enough to read while preserving each color's hue — "color is
+     data" still holds, only luminance shifts. Two strengths: large display
+     glyphs only need to clear the 3:1 large-text minimum; small labels and
+     counts must clear the stricter 4.5:1 body-text minimum, so they get a
+     deeper filter. Graphics (bars, dots, chip fills) are untouched — this
+     only ever targets colored TEXT. */
+  [data-theme="light"] .mhome .mhome-today-ar,
+  [data-theme="light"] .mhome .mhome-today-stat-n,
+  [data-theme="light"] .mhome .mhome-ident-ar,
+  [data-theme="light"] .mhome .mhome-verse-hl {
+    filter: brightness(0.62) saturate(1.15);
+  }
+  [data-theme="light"] .mhome .mhome-top-c,
+  [data-theme="light"] .mhome .mhome-bd-root,
+  [data-theme="light"] .mhome .mhome-strip-tip-count {
+    filter: brightness(0.5) saturate(1.15);
   }
   .mhome-atmos {
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(50% 56% at 50% 44%, rgba(232,146,74,0.06), transparent 60%),
-      radial-gradient(44% 50% at 50% 102%, rgba(142,132,204,0.05), transparent 60%);
+      radial-gradient(50% 56% at 50% 44%, rgba(var(--mh-accent-rgb), 0.06), transparent 60%),
+      radial-gradient(44% 50% at 50% 102%, var(--mh-atmos-2), transparent 60%);
     transition: background 0.5s ease;
   }
   .mhome.has-result .mhome-atmos {
-    background: radial-gradient(48% 50% at 50% 26%, rgba(232,146,74,0.06), transparent 60%);
+    background: radial-gradient(48% 50% at 50% 26%, rgba(var(--mh-accent-rgb), 0.06), transparent 60%);
   }
   .mhome-mark {
     position: absolute; top: 26px; inset-inline-start: 30px; z-index: 3;
     display: flex; align-items: center; gap: 11px;
   }
   .mhome-glyph {
-    width: 30px; height: 30px; border: 1px solid rgba(251,234,210,0.4); border-radius: 8px;
+    width: 30px; height: 30px; border: 1px solid rgba(var(--mh-ink-hi-rgb), 0.4); border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Amiri', serif; font-size: 17px; color: #FBEAD2;
+    font-family: 'Amiri', serif; font-size: 17px; color: var(--mh-ink-hi);
   }
   .mhome-wordmark {
     font: 600 9.5px/1.5 'Space Grotesk', sans-serif; letter-spacing: 0.18em;
-    text-transform: uppercase; color: rgba(236,228,216,0.45);
+    text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.45);
   }
   .mhome-topright {
     position: absolute; top: 22px; inset-inline-end: 26px; z-index: 3;
     display: flex; align-items: center; gap: 12px;
   }
   .mhome-lang :global(.control-pill-btn) {
-    background: transparent; border: 1px solid rgba(237,225,209,0.14); border-radius: 999px;
-    padding: 7px 12px; color: rgba(236,228,216,0.55); cursor: pointer;
+    background: transparent; border: 1px solid var(--mh-btn-hairline); border-radius: 999px;
+    padding: 7px 12px; color: var(--mh-ink-55); cursor: pointer;
     font: 600 11px 'Space Grotesk', sans-serif; letter-spacing: 0.03em;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
-  .mhome-lang :global(.control-pill-btn:hover) { color: #ECE4D8; border-color: rgba(232,146,74,0.4); }
+  .mhome-lang :global(.control-pill-btn:hover) { color: var(--mh-ink); border-color: var(--mh-accent-border); }
   .mhome-lang :global(.control-pill-btn.active) {
-    background: rgba(232,146,74,0.14); border-color: rgba(232,146,74,0.45); color: #f0b074;
+    background: rgba(var(--mh-accent-rgb), 0.14); border-color: rgba(var(--mh-accent-rgb), 0.45); color: var(--mh-accent);
   }
   .mhome-skip {
-    background: transparent; border: 1px solid rgba(237,225,209,0.14); border-radius: 999px;
-    padding: 7px 14px; color: rgba(236,228,216,0.6); cursor: pointer;
+    background: transparent; border: 1px solid var(--mh-btn-hairline); border-radius: 999px;
+    padding: 7px 14px; color: rgba(var(--mh-ink-rgb), 0.6); cursor: pointer;
     font: 500 11px 'Space Grotesk', sans-serif; letter-spacing: 0.04em; white-space: nowrap;
     transition: color 0.15s, border-color 0.15s;
   }
-  .mhome-skip:hover { color: #ECE4D8; border-color: rgba(232,146,74,0.5); }
+  .mhome-skip:hover { color: var(--mh-ink); border-color: rgba(var(--mh-accent-rgb), 0.5); }
 
   /* Idle: the search bar sits toward the middle. Once it holds text it glides
      up (is-active) and holds there; position is binary, not per-letter, and it
@@ -686,11 +771,15 @@ const styles = `
     padding: 26vh 0 90px;
     transition: padding-top 0.9s cubic-bezier(0.33, 0, 0.15, 1);
   }
-  .mhome-stack.is-active { padding-top: 11vh; }
+  .mhome-stack.is-active { padding-top: 9.5vh; }
+  /* Active state (typing / result / no-match) runs a tighter rhythm so a
+     result's stat tiles, histogram and CTA row still clear the fold at
+     1440x900 — resting keeps its full, calmer spacing. */
+  .mhome-stack.is-active .mhome-reveal { margin-top: 21px; }
 
   .mhome-headline {
     font-family: 'Fraunces', serif; font-weight: 300; font-size: clamp(30px, 5vw, 46px);
-    line-height: 1.08; letter-spacing: -0.015em; text-align: center; color: #ECE4D8;
+    line-height: 1.08; letter-spacing: -0.015em; text-align: center; color: var(--mh-ink);
     margin: 0 0 2px; transition: opacity 0.3s ease;
   }
   /* Hidden while searching, but keeps its box so the search bar never jumps. */
@@ -699,28 +788,28 @@ const styles = `
   .mhome-search {
     margin-top: 30px; width: 100%;
     display: flex; align-items: center; gap: 15px; height: 68px; padding: 0 24px;
-    background: #1C2A31; border: 1px solid rgba(251,234,210,0.18); border-radius: 18px;
-    box-shadow: 0 22px 60px rgba(0,0,0,0.45), 0 0 0 7px rgba(232,146,74,0.04);
+    background: var(--mh-raised); border: 1px solid var(--mh-search-border); border-radius: 18px;
+    box-shadow: 0 22px 60px var(--mh-shadow-strong), 0 0 0 7px rgba(var(--mh-accent-rgb), 0.04);
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
   .mhome-search:focus-within {
-    border-color: rgba(232,146,74,0.45);
-    box-shadow: 0 22px 60px rgba(0,0,0,0.45), 0 0 0 7px rgba(232,146,74,0.08);
+    border-color: rgba(var(--mh-accent-rgb), 0.45);
+    box-shadow: 0 22px 60px var(--mh-shadow-strong), 0 0 0 7px rgba(var(--mh-accent-rgb), 0.08);
   }
-  .mhome-search svg { flex: 0 0 auto; }
+  .mhome-search svg { flex: 0 0 auto; color: rgba(var(--mh-ink-hi-rgb), 0.7); }
   .mhome-search input {
     flex: 1; min-width: 0; background: transparent; border: none; outline: none;
-    color: #ECE4D8; font: 400 21px 'Space Grotesk', sans-serif;
+    color: var(--mh-ink); font: 400 21px 'Space Grotesk', sans-serif;
   }
-  .mhome-search input::placeholder { color: rgba(236,228,216,0.4); }
+  .mhome-search input::placeholder { color: rgba(var(--mh-ink-rgb), 0.4); }
   .mhome-enter {
     flex: 0 0 auto; font: 500 11px 'Space Grotesk', sans-serif; letter-spacing: 0.04em;
-    color: rgba(236,228,216,0.45); border: 1px solid rgba(237,225,209,0.14);
+    color: rgba(var(--mh-ink-rgb), 0.45); border: 1px solid var(--mh-btn-hairline);
     padding: 4px 9px; border-radius: 7px;
   }
   .mhome-matched {
     flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
-    font: 500 11px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.5);
+    font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5);
   }
   .mhome-match-dot { width: 6px; height: 6px; border-radius: 999px; }
 
@@ -732,33 +821,33 @@ const styles = `
   .mhome-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
   .mhome-chip {
     display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
-    background: rgba(236,228,216,0.03); border: 1px solid rgba(198,222,230,0.07);
-    color: rgba(236,228,216,0.66); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
+    background: rgba(var(--mh-ink-rgb), 0.03); border: 1px solid var(--mh-hairline-soft);
+    color: rgba(var(--mh-ink-rgb), 0.66); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
-  .mhome-chip:hover { border-color: rgba(232,146,74,0.4); background: rgba(232,146,74,0.06); color: #ECE4D8; }
+  .mhome-chip:hover { border-color: var(--mh-accent-border); background: rgba(var(--mh-accent-rgb), 0.06); color: var(--mh-ink); }
   .mhome-chip-ar { font-family: 'Amiri', serif; font-size: 14px; }
-  .mhome-chip-gloss { font: 400 12px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.5); }
-  .mhome-chip.is-suggest { background: rgba(232,146,74,0.08); border-color: rgba(232,146,74,0.25); color: #f0b074; }
+  .mhome-chip-gloss { font: 400 12px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-chip.is-suggest { background: var(--mh-accent-soft); border-color: rgba(var(--mh-accent-rgb), 0.25); color: var(--mh-accent); }
 
   /* today's root — editorial, uncontained */
   .mhome-today { display: flex; flex-direction: column; gap: 18px; }
   .mhome-today-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  .mhome-today-eyebrow { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(236,228,216,0.5); }
-  .mhome-today-all { background: none; border: none; padding: 0; cursor: pointer; font: 500 11px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.5); transition: color 0.15s; }
-  .mhome-today-all:hover { color: #f0b074; }
+  .mhome-today-eyebrow { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-today-all { background: none; border: none; padding: 0; cursor: pointer; font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5); transition: color 0.15s; }
+  .mhome-today-all:hover { color: var(--mh-accent); }
 
   /* masthead — each fact highlighted */
   .mhome-today-masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px 36px; flex-wrap: wrap; }
   .mhome-today-id { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
   .mhome-today-ar { font-family: 'Amiri', serif; font-size: 44px; line-height: 1; }
   .mhome-today-idmeta { display: flex; flex-direction: column; gap: 3px; }
-  .mhome-today-translit { font: 500 14px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.7); letter-spacing: 0.02em; }
-  .mhome-today-gloss { font: 400 16px 'Space Grotesk', sans-serif; color: #ECE4D8; }
+  .mhome-today-translit { font: 500 14px 'Space Grotesk', sans-serif; color: var(--mh-ink-72); letter-spacing: 0.02em; }
+  .mhome-today-gloss { font: 400 16px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
   .mhome-today-stats { display: flex; gap: 28px; }
   .mhome-today-stat { display: flex; flex-direction: column; gap: 5px; }
-  .mhome-today-stat-n { font-family: 'Fraunces', serif; font-weight: 400; font-size: 30px; line-height: 1; color: #ECE4D8; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-  .mhome-today-stat-of { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: rgba(236,228,216,0.38); }
-  .mhome-today-stat-l { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(236,228,216,0.5); }
+  .mhome-today-stat-n { font-family: 'Fraunces', serif; font-weight: 400; font-size: 30px; line-height: 1; color: var(--mh-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .mhome-today-stat-of { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: rgba(var(--mh-ink-rgb), 0.38); }
+  .mhome-today-stat-l { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.5); }
 
   /* verse carousel — one ayah at a time, auto-advancing, dots + swipe */
   .mhome-carousel { display: flex; flex-direction: column; gap: 15px; }
@@ -767,28 +856,28 @@ const styles = `
     width: 100%; height: 190px; text-align: start; cursor: pointer;
     display: grid; grid-template-rows: 1fr auto; gap: 14px;
     padding: 20px 22px; border-radius: 16px;
-    background: rgba(28,42,49,0.5); border: 1px solid rgba(198,222,230,0.08);
+    background: rgba(var(--mh-card-rgb), 0.5); border: 1px solid var(--mh-hairline);
     transition: border-color 0.18s, background 0.18s;
   }
-  .mhome-verse:hover { border-color: rgba(232,146,74,0.4); background: rgba(28,42,49,0.8); }
+  .mhome-verse:hover { border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.8); }
   .mhome-verse.is-next { animation: mhSlideNext 0.42s cubic-bezier(0.16,1,0.3,1); }
   .mhome-verse.is-prev { animation: mhSlidePrev 0.42s cubic-bezier(0.16,1,0.3,1); }
   .mhome-verse-ar {
     margin: 0; align-self: center;
-    font-family: 'Amiri', serif; font-size: 20px; line-height: 1.85; color: rgba(236,228,216,0.85);
+    font-family: 'Amiri', serif; font-size: 20px; line-height: 1.85; color: rgba(var(--mh-ink-rgb), 0.85);
     /* 3 lines × 37px fits the card's 117px text area — clamp matches what
        actually fits, so long verses ellipsize instead of clipping mid-line. */
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
   .mhome-verse-hl { font-weight: 700; text-shadow: 0 0 22px currentColor; }
   .mhome-verse-ref { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .mhome-verse-name { font: 500 12.5px 'Space Grotesk', sans-serif; color: #ECE4D8; }
-  .mhome-verse-num { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.4); font-variant-numeric: tabular-nums; }
+  .mhome-verse-name { font: 500 12.5px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
+  .mhome-verse-num { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.4); font-variant-numeric: tabular-nums; }
 
   .mhome-dots { display: flex; justify-content: center; gap: 7px; }
   .mhome-dot {
     width: 6px; height: 6px; padding: 0; border: none; border-radius: 999px; cursor: pointer;
-    background: rgba(236,228,216,0.22); transition: width 0.22s, background 0.22s;
+    background: rgba(var(--mh-ink-rgb), 0.22); transition: width 0.22s, background 0.22s;
   }
   .mhome-dot.is-active { width: 22px; }
 
@@ -799,115 +888,116 @@ const styles = `
   :global([dir="rtl"]) .mhome-verse.is-prev { animation-name: mhSlideNext; }
 
   /* inline word-by-word expand */
-  .mhome-verse.is-open { border-color: rgba(232,146,74,0.4); background: rgba(28,42,49,0.8); border-radius: 16px 16px 0 0; }
+  .mhome-verse.is-open { border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.8); border-radius: 16px 16px 0 0; }
   .mhome-breakdown {
     margin-top: -1px; padding: 18px 20px 20px; border-radius: 0 0 16px 16px;
-    background: rgba(20,32,38,0.92); border: 1px solid rgba(198,222,230,0.08); border-top: none;
+    background: rgba(var(--mh-panel-rgb), 0.92); border: 1px solid var(--mh-hairline); border-top: none;
     animation: mhfade 0.3s ease;
   }
   .mhome-bd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-  .mhome-bd-eyebrow { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(236,228,216,0.5); }
-  .mhome-bd-close { background: none; border: none; color: rgba(236,228,216,0.5); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; transition: color 0.15s; }
-  .mhome-bd-close:hover { color: #ECE4D8; }
+  .mhome-bd-eyebrow { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-bd-close { background: none; border: none; color: rgba(var(--mh-ink-rgb), 0.5); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; transition: color 0.15s; }
+  .mhome-bd-close:hover { color: var(--mh-ink); }
   .mhome-bd-words { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
   .mhome-bd-word { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 7px 10px; border-radius: 9px; }
-  .mhome-bd-word.is-root { background: rgba(232,146,74,0.08); }
-  .mhome-bd-surface { font-family: 'Amiri', serif; font-size: 21px; color: #ECE4D8; flex: 0 0 auto; }
+  .mhome-bd-word.is-root { background: var(--mh-accent-soft); }
+  .mhome-bd-surface { font-family: 'Amiri', serif; font-size: 21px; color: var(--mh-ink); flex: 0 0 auto; }
   .mhome-bd-meta { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; justify-content: flex-end; text-align: end; }
   .mhome-bd-root { font-family: 'Amiri', serif; font-size: 15px; }
-  .mhome-bd-pos { font: 500 9.5px 'Space Grotesk', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(236,228,216,0.45); }
-  .mhome-bd-gloss { font: 400 12px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.6); }
+  .mhome-bd-pos { font: 500 9.5px 'Space Grotesk', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.45); }
+  .mhome-bd-gloss { font: 400 12px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.6); }
   .mhome-bd-open {
     margin-top: 16px; display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px;
-    border-radius: 11px; background: rgba(232,146,74,0.12); border: 1px solid rgba(232,146,74,0.32); color: #f0b074;
+    border-radius: 11px; background: rgba(var(--mh-accent-rgb), 0.12); border: 1px solid rgba(var(--mh-accent-rgb), 0.32); color: var(--mh-accent);
     font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: background 0.15s, border-color 0.15s;
   }
-  .mhome-bd-open:hover { background: rgba(232,146,74,0.2); border-color: rgba(232,146,74,0.5); }
+  .mhome-bd-open:hover { background: rgba(var(--mh-accent-rgb), 0.2); border-color: rgba(var(--mh-accent-rgb), 0.5); }
   @media (max-width: 640px) { .mhome-bd-words { grid-template-columns: 1fr; } }
 
   /* no match */
   .mhome-nomatch { text-align: center; animation: mhfade 0.3s ease; }
-  .mhome-nomatch p { font: 400 15px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.6); margin: 0 0 14px; }
+  .mhome-nomatch p { font: 400 15px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.6); margin: 0 0 14px; }
 
   /* result */
   .mhome-result { animation: mhfade 0.4s ease; }
   .mhome-back {
-    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px;
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 17px;
     background: none; border: none; padding: 4px 0; cursor: pointer;
-    font: 500 12px 'Space Grotesk', sans-serif; letter-spacing: 0.02em; color: rgba(236,228,216,0.55);
+    font: 500 12px 'Space Grotesk', sans-serif; letter-spacing: 0.02em; color: var(--mh-ink-55);
     transition: color 0.15s;
   }
-  .mhome-back:hover { color: #ECE4D8; }
+  .mhome-back:hover { color: var(--mh-ink); }
   [dir="rtl"] .mhome-back svg { transform: scaleX(-1); }
   .mhome-result-head { display: flex; align-items: flex-end; gap: 24px; }
   .mhome-count {
     font-family: 'Fraunces', serif; font-weight: 300; font-size: clamp(58px, 9vw, 92px);
     line-height: 0.82; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 44px rgba(251,234,210,0.22);
+    color: var(--mh-ink-hi);
+    text-shadow: 0 0 44px var(--mh-count-glow);
   }
   .mhome-count-lab { padding-bottom: 9px; }
-  .mhome-occ { font: 500 13px 'Space Grotesk', sans-serif; letter-spacing: 0.04em; color: rgba(236,228,216,0.6); }
+  .mhome-occ { font: 500 13px 'Space Grotesk', sans-serif; letter-spacing: 0.04em; color: rgba(var(--mh-ink-rgb), 0.6); }
   .mhome-ident { display: flex; align-items: center; gap: 9px; margin-top: 8px; flex-wrap: wrap; }
   .mhome-ident-ar { font-family: 'Amiri', serif; font-size: 26px; }
-  .mhome-ident-tr { font: 400 14px 'Space Grotesk', sans-serif; color: #ECE4D8; }
-  .mhome-ident-gl { font: 400 13px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.5); }
+  .mhome-ident-tr { font: 400 14px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
+  .mhome-ident-gl { font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5); }
 
   /* occurrence stats — proper tiles, not cramped text */
-  .mhome-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 22px; }
+  .mhome-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 19px; }
   .mhome-stat {
     display: flex; flex-direction: column; gap: 6px; padding: 15px 16px; border-radius: 13px;
-    background: rgba(28,42,49,0.45); border: 1px solid rgba(198,222,230,0.07);
+    background: rgba(var(--mh-card-rgb), 0.45); border: 1px solid var(--mh-hairline-soft);
   }
   .mhome-stat-n {
-    font-family: 'Fraunces', serif; font-weight: 400; font-size: 30px; line-height: 1; color: #ECE4D8;
+    font-family: 'Fraunces', serif; font-weight: 400; font-size: 30px; line-height: 1; color: var(--mh-ink);
     font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
   }
-  .mhome-stat-of { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: rgba(236,228,216,0.38); letter-spacing: 0; }
+  .mhome-stat-of { font-family: 'Space Grotesk', sans-serif; font-size: 15px; color: rgba(var(--mh-ink-rgb), 0.38); letter-spacing: 0; }
   .mhome-stat-ref { font-size: 20px; line-height: 1.15; }
   .mhome-stat-l {
     font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.1em; text-transform: uppercase;
-    color: rgba(236,228,216,0.5);
+    color: rgba(var(--mh-ink-rgb), 0.5);
   }
   @media (max-width: 640px) {
     .mhome-stats { grid-template-columns: repeat(2, 1fr); }
   }
 
-  .mhome-where { display: flex; align-items: center; justify-content: space-between; margin: 26px 0 9px; }
-  .mhome-where-lab { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(236,228,216,0.5); }
-  .mhome-where-of { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(236,228,216,0.4); }
-  .mhome-ticks { display: flex; justify-content: space-between; margin-top: 7px; font: 500 9.5px 'Space Grotesk', sans-serif; letter-spacing: 0.08em; color: rgba(236,228,216,0.32); }
+  .mhome-where { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 8px; }
+  .mhome-where-lab { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-where-of { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.4); }
+  .mhome-ticks { display: flex; justify-content: space-between; margin-top: 7px; font: 500 9.5px 'Space Grotesk', sans-serif; letter-spacing: 0.08em; color: rgba(var(--mh-ink-rgb), 0.32); }
 
   /* distribution strip hover tooltip — lives in reserved space above the bars
      so it never covers the section label or the chart itself */
-  .mhome-strip { position: relative; padding-top: 34px; }
+  .mhome-strip { position: relative; padding-top: 29px; }
   .mhome-strip-tip {
     position: absolute; top: 0; transform: translateX(-50%);
     display: flex; align-items: center; gap: 8px; white-space: nowrap; pointer-events: none; z-index: 6;
-    padding: 5px 11px; border-radius: 9px; background: #1C2A31; border: 1px solid rgba(198,222,230,0.14);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    padding: 5px 11px; border-radius: 9px; background: var(--mh-raised); border: 1px solid var(--mh-hairline-strong);
+    box-shadow: 0 8px 24px var(--mh-shadow-strong);
     animation: mhfade 0.15s ease;
   }
-  .mhome-strip-tip-name { font: 500 12px 'Space Grotesk', sans-serif; color: #ECE4D8; }
+  .mhome-strip-tip-name { font: 500 12px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
   .mhome-strip-tip-count { font: 600 12px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
 
-  .mhome-top { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
-  .mhome-top-chip { display: flex; align-items: center; gap: 10px; padding: 8px 13px; border-radius: 11px; background: #1C2A31; border: 1px solid rgba(198,222,230,0.08); }
-  .mhome-top-name { font: 500 13px 'Space Grotesk', sans-serif; color: #ECE4D8; white-space: nowrap; }
-  .mhome-top-bar { width: 40px; height: 4px; border-radius: 999px; background: rgba(198,222,230,0.08); overflow: hidden; display: block; flex: 0 0 auto; }
+  .mhome-top { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+  .mhome-top-chip { display: flex; align-items: center; gap: 10px; padding: 8px 13px; border-radius: 11px; background: var(--mh-raised); border: 1px solid var(--mh-hairline); }
+  .mhome-top-name { font: 500 13px 'Space Grotesk', sans-serif; color: var(--mh-ink); white-space: nowrap; }
+  .mhome-top-bar { width: 40px; height: 4px; border-radius: 999px; background: var(--mh-hairline); overflow: hidden; display: block; flex: 0 0 auto; }
   .mhome-top-bar span { display: block; height: 100%; border-radius: 999px; }
   .mhome-top-c { font: 600 12px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
 
-  .mhome-ctas { display: flex; flex-direction: column; align-items: center; gap: 13px; margin-top: 32px; }
+  .mhome-ctas { display: flex; flex-direction: column; align-items: center; gap: 13px; margin-top: 27px; }
   .mhome-ctas-sub { display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; }
   .mhome-cta-p {
     display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 48px; padding: 0 28px;
-    border: none; border-radius: 12px; background: #E8924A; color: #2A1606; font: 600 14px 'Space Grotesk', sans-serif;
-    cursor: pointer; transition: filter 0.15s, transform 0.15s; box-shadow: 0 8px 26px rgba(232,146,74,0.22);
+    border: none; border-radius: 12px; background: var(--mh-cta-bg); color: var(--mh-cta-ink); font: 600 14px 'Space Grotesk', sans-serif;
+    cursor: pointer; transition: filter 0.15s, transform 0.15s; box-shadow: 0 8px 26px rgba(var(--mh-accent-rgb), 0.22);
   }
   .mhome-cta-p:hover { filter: brightness(1.06); transform: translateY(-1px); }
-  .mhome-cta-s { height: 44px; padding: 0 18px; border-radius: 12px; background: #1C2A31; border: 1px solid rgba(198,222,230,0.08); color: #ECE4D8; font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
-  .mhome-cta-g { height: 44px; padding: 0 18px; border-radius: 12px; background: transparent; border: 1px solid rgba(198,222,230,0.08); color: rgba(236,228,216,0.7); font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
-  .mhome-cta-s:hover, .mhome-cta-g:hover { border-color: rgba(232,146,74,0.4); }
+  .mhome-cta-s { height: 44px; padding: 0 18px; border-radius: 12px; background: var(--mh-raised); border: 1px solid var(--mh-hairline); color: var(--mh-ink); font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
+  .mhome-cta-g { height: 44px; padding: 0 18px; border-radius: 12px; background: transparent; border: 1px solid var(--mh-hairline); color: var(--mh-ink-72); font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
+  .mhome-cta-s:hover, .mhome-cta-g:hover { border-color: var(--mh-accent-border); }
 
   @keyframes mhfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
