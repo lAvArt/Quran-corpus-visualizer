@@ -8,13 +8,21 @@ const DB_VERSION = 2; // Incremented for verses store
 const STORE_TOKENS = 'tokens';
 const STORE_VERSES = 'verses';
 const STORE_METADATA = 'metadata';
-const CORPUS_METADATA_KEY = 'corpus';
+/**
+ * Metadata key describing a FULL-corpus load. Only the full-corpus loader may
+ * write this key; partial loads (e.g. a single embedded surah) must write
+ * PARTIAL_CORPUS_METADATA_KEY instead, so a partial write can never satisfy a
+ * full-corpus cache check.
+ */
+export const CORPUS_METADATA_KEY = 'corpus';
+/** Metadata key describing a partial (per-surah) load, e.g. from /embed. */
+export const PARTIAL_CORPUS_METADATA_KEY = 'corpus:partial';
 const CACHE_POLICY_METADATA_KEY = 'cache-policy';
 
 export const QURAN_COM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CORPUS_CACHE_POLICY_VERSION = 1;
 
-interface CacheMetadata {
+export interface CacheMetadata {
     key: string;
     lastUpdated: number;
     tokenCount?: number;
@@ -225,7 +233,9 @@ class CorpusCache {
         const tx = db.transaction([STORE_TOKENS, STORE_VERSES, STORE_METADATA], 'readwrite');
         tx.objectStore(STORE_TOKENS).clear();
         tx.objectStore(STORE_VERSES).clear();
+        // Both metadata records describe the (now cleared) token store.
         tx.objectStore(STORE_METADATA).delete(CORPUS_METADATA_KEY);
+        tx.objectStore(STORE_METADATA).delete(PARTIAL_CORPUS_METADATA_KEY);
 
         return new Promise((resolve, reject) => {
             tx.oncomplete = () => resolve();

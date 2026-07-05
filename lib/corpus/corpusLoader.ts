@@ -6,7 +6,14 @@
 import { quranApi, type QuranWord } from '@/lib/api/quranApi';
 import { createClient } from '@/lib/supabase/client';
 
-import { corpusCache, QURAN_COM_CACHE_TTL_MS } from '@/lib/cache/corpusCache';
+import {
+    corpusCache,
+    CORPUS_METADATA_KEY,
+    PARTIAL_CORPUS_METADATA_KEY,
+    QURAN_COM_CACHE_TTL_MS,
+    type CacheMetadata,
+} from '@/lib/cache/corpusCache';
+import { FULL_CORPUS_TOKEN_FLOOR } from '@/lib/corpus/corpusExpectations';
 import { SAMPLE_MORPHOLOGY_DATA } from '@/lib/corpus/morphologyData';
 import { loadMorphologyMap, type MorphologyEntry, buildSampleMorphologyMap } from '@/lib/corpus/morphologyLoader';
 import { ROOT_GLOSSES } from '@/lib/data/rootGlosses';
@@ -28,12 +35,24 @@ const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
 const MORPHOLOGY_CACHE_VERSION = "qac-0.4.3-enrich-all-surahs";
 let cachePolicyInFlight: Promise<void> | null = null;
 
+/** True when this metadata record proves the cached tokens carry current morphology. */
+function metadataHasCurrentMorphology(metadata: CacheMetadata | null): boolean {
+    return Boolean(metadata?.hasMorphology) && metadata?.morphologyVersion === MORPHOLOGY_CACHE_VERSION;
+}
+
 async function ensureQuranComCachePolicy(): Promise<void> {
     if (!cachePolicyInFlight) {
         cachePolicyInFlight = (async () => {
             await corpusCache.ensureCachePolicyVersion();
-            const metadata = await corpusCache.getMetadata('corpus');
-            if (corpusCache.isMetadataExpired(metadata, QURAN_COM_CACHE_TTL_MS)) {
+            // The token store is described by either the full-corpus metadata or
+            // the partial (per-surah) metadata; expire on the freshest of the two
+            // so a partial-only cache isn't wiped on every policy check.
+            const fullMetadata = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
+            const partialMetadata = await corpusCache.getMetadata(PARTIAL_CORPUS_METADATA_KEY);
+            const freshest = [fullMetadata, partialMetadata]
+                .filter((meta): meta is CacheMetadata => meta !== null)
+                .sort((a, b) => (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0))[0] ?? null;
+            if (corpusCache.isMetadataExpired(freshest, QURAN_COM_CACHE_TTL_MS)) {
                 await corpusCache.clearCorpusData();
             }
         })().catch((error) => {
@@ -205,6 +224,13 @@ async function loadCorpusFromSupabase(
             return null;
         }
 
+        // A partially-seeded table is not a full corpus — fall through to the
+        // next source rather than caching a partial set as "the corpus".
+        if (count < FULL_CORPUS_TOKEN_FLOOR) {
+            console.warn(`[CorpusLoader] Supabase corpus_tokens has only ${count.toLocaleString()} rows (< ${FULL_CORPUS_TOKEN_FLOOR.toLocaleString()} floor); not a full corpus, falling back.`);
+            return null;
+        }
+
         console.log(`[CorpusLoader] Loading ${count.toLocaleString()} tokens from Supabase…`);
         onProgress?.({ currentSura: 0, totalSuras: 114, currentTokens: 0, totalTokens: count, status: 'loading', message: `Loading ${count.toLocaleString()} tokens from Supabase…` });
 
@@ -344,11 +370,14 @@ async function _doLoadFullCorpus(
         await ensureQuranComCachePolicy();
 
         const cachedCount = await corpusCache.getTokenCount();
-        const cacheMeta = await corpusCache.getMetadata('corpus');
+        // Only the full-corpus metadata key may vouch for the cache here; a
+        // partial (per-surah) load writes PARTIAL_CORPUS_METADATA_KEY instead
+        // and must never masquerade as a full corpus.
+        const cacheMeta = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
         const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
         const cacheMorphologyMatches = cacheMeta?.morphologyVersion === MORPHOLOGY_CACHE_VERSION;
 
-        if (cachedCount > 0 && cacheHasMorphology && cacheMorphologyMatches) {
+        if (cachedCount >= FULL_CORPUS_TOKEN_FLOOR && cacheHasMorphology && cacheMorphologyMatches) {
             console.log(`[CorpusLoader] Found ${cachedCount} cached tokens`);
             progress.message = `Loading ${cachedCount.toLocaleString()} cached tokens...`;
             notify();
@@ -385,7 +414,7 @@ async function _doLoadFullCorpus(
             const enrichedTokens = await enrichTokensWithMorphology(supabaseTokens, onProgress);
             // Cache in IndexedDB so future loads never hit the network
             await corpusCache.storeTokens(enrichedTokens);
-            await corpusCache.setMetadata('corpus', {
+            await corpusCache.setMetadata(CORPUS_METADATA_KEY, {
                 tokenCount: enrichedTokens.length,
                 hasMorphology: true,
                 morphologyVersion: MORPHOLOGY_CACHE_VERSION,
@@ -485,7 +514,10 @@ async function _doLoadFullCorpus(
         await corpusCache.storeTokens(allTokens);
         await corpusCache.storeVerses(allVerses);
 
-        await corpusCache.setMetadata('corpus', {
+        // Full-corpus attempt: record under the full key. If the result fell
+        // short (failed chapters), the FULL_CORPUS_TOKEN_FLOOR check above
+        // prevents the next load from trusting it as complete.
+        await corpusCache.setMetadata(CORPUS_METADATA_KEY, {
             tokenCount: allTokens.length,
             hasMorphology: Boolean(morphologyMap),
             morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,
@@ -535,10 +567,13 @@ export async function loadSurahs(
         console.warn('[CorpusLoader] Failed to load morphology map, falling back to sample data.', err);
     }
 
-    const cacheMeta = await corpusCache.getMetadata('corpus');
-    const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
-    const cacheMorphologyVersion = cacheMeta?.morphologyVersion;
-    const cacheMorphologyMatches = cacheMorphologyVersion === MORPHOLOGY_CACHE_VERSION;
+    // Cached per-surah tokens may have been written by a full-corpus load OR a
+    // previous partial (per-surah) load — either metadata record can vouch for
+    // their morphology here. Neither implies the cache is a full corpus.
+    const fullCacheMeta = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
+    const partialCacheMeta = await corpusCache.getMetadata(PARTIAL_CORPUS_METADATA_KEY);
+    const cacheMorphologyTrusted =
+        metadataHasCurrentMorphology(fullCacheMeta) || metadataHasCurrentMorphology(partialCacheMeta);
     for (let i = 0; i < suraIds.length; i++) {
         const suraId = suraIds[i];
         progress.currentSura = i + 1;
@@ -549,10 +584,10 @@ export async function loadSurahs(
         const cached = await corpusCache.getTokensBySura(suraId) as CorpusToken[];
 
         const cachedHasRoots = cached.some(t => t.root && t.root.trim().length > 0);
-        if (cached.length > 0 && ((cacheHasMorphology && cachedHasRoots && cacheMorphologyMatches) || !morphologyMap)) {
+        if (cached.length > 0 && ((cacheMorphologyTrusted && cachedHasRoots) || !morphologyMap)) {
             allTokens.push(...cached);
         } else {
-            if (cached.length > 0 && (!cachedHasRoots || !cacheMorphologyMatches)) {
+            if (cached.length > 0 && (!cachedHasRoots || !cacheMorphologyTrusted)) {
                 await corpusCache.clearCorpusData();
             }
 
@@ -598,7 +633,10 @@ export async function loadSurahs(
         notify();
     }
 
-    await corpusCache.setMetadata('corpus', {
+    // Partial load: record under the PARTIAL key only. Writing the full
+    // 'corpus' key here would let a single-surah /embed visit poison the
+    // shared cache into being treated as a complete corpus.
+    await corpusCache.setMetadata(PARTIAL_CORPUS_METADATA_KEY, {
         tokenCount: allTokens.length,
         hasMorphology: Boolean(morphologyMap),
         morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,

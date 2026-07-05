@@ -164,8 +164,11 @@ function buildFeatureMap(features: string[]): Record<string, string> {
  * Parse the 128k-line morphology file in chunks, yielding to the event loop
  * between chunks so the first surah click doesn't freeze the main thread for
  * the entire parse.
+ *
+ * Exported for unit testing; production code should go through
+ * `loadMorphologyMap()`.
  */
-async function parseMorphologyText(text: string): Promise<Map<string, MorphologyEntry>> {
+export async function parseMorphologyText(text: string): Promise<Map<string, MorphologyEntry>> {
   const map = new Map<string, MorphologyEntry & { hasRoot: boolean }>();
 
   const lines = text.split(/\r?\n/);
@@ -219,14 +222,19 @@ function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: b
       hasRoot: false,
     };
 
-    if (root) {
+    if (root && !entry.hasRoot) {
+      // FIRST root-bearing segment wins for a multi-segment word, matching the
+      // convention in scripts/build-root-stats.ts. Only one word in the whole
+      // corpus carries two distinct roots: 20:94:2 "يَبْنَؤُمَّ" (segments ROOT:bny
+      // then ROOT:Amm) — first-wins attributes it to bny, where last-wins used
+      // to flip it to Amm and desync token roots from the root-stats index.
       entry.root = buckwalterToArabic(root);
       entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
       entry.pos = normalizedPos;
       entry.features = buildFeatureMap(featureTokens);
       entry.stem = entry.lemma || entry.stem;
       entry.hasRoot = true;
-    } else if (!entry.hasRoot) {
+    } else if (!root && !entry.hasRoot) {
       if (!entry.lemma) {
         entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
       }

@@ -7,6 +7,7 @@ import {
   trackCorpusFallbackUsed,
   trackCorpusShellReady,
 } from "@/lib/analytics/events";
+import { FULL_CORPUS_TOKEN_FLOOR } from "@/lib/corpus/corpusExpectations";
 import { loadFullCorpus, loadSurahContext, type LoadingProgress } from "@/lib/corpus/corpusLoader";
 import { buildCorpusOverviewData } from "@/lib/corpus/overviewData";
 import {
@@ -82,9 +83,19 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
           if (!cancelled) setLoadingProgress(progress);
         });
 
-        if (!cancelled && corpusTokens.length > 0) {
+        if (!cancelled && corpusTokens.length >= FULL_CORPUS_TOKEN_FLOOR) {
           setDeepTokens(corpusTokens);
           setDataStatus("full");
+        } else if (!cancelled && corpusTokens.length > 0) {
+          // Non-empty but below the full-corpus floor (e.g. a partial cache or
+          // truncated load): surface the tokens, but report the degraded
+          // "fallback" status instead of claiming the corpus is complete.
+          setDeepTokens(corpusTokens);
+          trackClientError("corpus", "partial_corpus_result", {
+            stage: "load_full_corpus",
+            token_count: corpusTokens.length,
+          });
+          setDataStatus("fallback");
         } else if (!cancelled) {
           trackClientError("corpus", "empty_corpus_result", {
             stage: "load_full_corpus",
