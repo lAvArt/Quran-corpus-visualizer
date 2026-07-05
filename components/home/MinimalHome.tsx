@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { ROOT_GLOSSES_AR } from "@/lib/data/rootGlossesAr";
 import {
   loadRootStats,
   lookupRoot,
@@ -23,6 +24,30 @@ const POS_COLOR: Record<string, string> = {
   P: "#E6C24E",
 };
 const rootColor = (s: RootStat): string => POS_COLOR[s.pos?.[0]?.[0] ?? "N"] ?? "#E8924A";
+
+interface ResolvedGloss {
+  text: string;
+  /** True when `text` is a curated Arabic sense (renders rtl); false when
+   *  it's the corpus's English gloss (renders ltr, as it always has). */
+  isAr: boolean;
+}
+
+/**
+ * Resolve a root's display gloss. In the `ar` locale, prefer the curated
+ * classical Arabic sense (`lib/data/rootGlossesAr.ts`, corpus data — not
+ * i18n copy) over the English corpus gloss, so the landing page reads as
+ * Arabic rather than mixing in ltr English fragments. Roots outside that
+ * curated 48-root set — and every root in non-`ar` locales — keep falling
+ * back to the plain English gloss, exactly as before.
+ */
+function resolveGloss(locale: string, bare: string, englishGloss: string | null | undefined): ResolvedGloss | null {
+  if (locale === "ar") {
+    const ar = ROOT_GLOSSES_AR[bare];
+    if (ar) return { text: ar, isAr: true };
+  }
+  return englishGloss ? { text: englishGloss, isAr: false } : null;
+}
+
 /** Locale-aware sūrah name — Arabic script in `ar`, transliteration otherwise. */
 function useSurahName() {
   const locale = useLocale();
@@ -105,8 +130,15 @@ export default function MinimalHome() {
   const [dq, setDq] = useState("");
   const [raised, setRaised] = useState(false);
   const [idx, setIdx] = useState<RootStatsIndex | null>(null);
-  // Featured root varies per user/session (random, stable within the session).
-  const [rootSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
+  // Featured root is stable for the whole local calendar day — same root all
+  // day, changing at local midnight — not per session/reload. This is a plain
+  // integer day count (for `idx.featured[epochDay % length]`), not a PRNG
+  // seed, so it doesn't reuse lib/quiz's date-seed convention (dailyPuzzle.ts
+  // / personalizedQuiz.ts hash a UTC-calendar-day string into a mulberry32
+  // seed to shuffle a shared, same-for-everyone quiz); that's a different
+  // shape of value for a different purpose. Computed once on mount — cheap,
+  // and the day boundary shifting under a long-lived tab is a non-issue here.
+  const [epochDay] = useState(() => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000));
 
   useEffect(() => {
     let on = true;
@@ -170,7 +202,8 @@ export default function MinimalHome() {
   }, []);
 
   const result = useMemo(() => (idx && dq.trim() ? lookupRoot(idx, dq) : null), [idx, dq]);
-  const today = useMemo(() => (idx ? rootOfTheDay(idx, rootSeed) : null), [idx, rootSeed]);
+  const today = useMemo(() => (idx ? rootOfTheDay(idx, epochDay) : null), [idx, epochDay]);
+  const todayGloss = useMemo(() => (today ? resolveGloss(locale, today.bare, today.gloss) : null), [today, locale]);
   const chips = useMemo(() => (idx ? idx.featured.slice(0, 6).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
   const suggestions = useMemo(() => (idx ? idx.featured.slice(0, 3).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
 
@@ -267,28 +300,48 @@ export default function MinimalHome() {
             <div className="mhome-nomatch">
               <p>{t("noMatch", { q: q.trim() })}</p>
               <div className="mhome-chips">
-                {suggestions.map((r) => (
-                  <button key={r.bare} type="button" className="mhome-chip is-suggest" onClick={() => pick(r.bare)}>
-                    <span dir="rtl" lang="ar" className="mhome-chip-ar">
-                      {r.root}
-                    </span>
-                    <span>{r.gloss?.split(/[/·]/)[0].trim()}</span>
-                  </button>
-                ))}
+                {suggestions.map((r) => {
+                  const g = resolveGloss(locale, r.bare, r.gloss);
+                  return (
+                    <button key={r.bare} type="button" className="mhome-chip is-suggest" onClick={() => pick(r.bare)}>
+                      <span dir="rtl" lang="ar" className="mhome-chip-ar">
+                        {r.root}
+                      </span>
+                      <span
+                        className={g?.isAr ? "mhome-gloss-ar" : undefined}
+                        dir={g?.isAr ? "rtl" : undefined}
+                        lang={g?.isAr ? "ar" : undefined}
+                      >
+                        {g?.text.split(/[/·]/)[0].trim()}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : (
             <div className="mhome-resting">
               {/* Common roots — right beneath the search bar. */}
               <div className="mhome-chips">
-                {chips.map((r) => (
-                  <button key={r.bare} type="button" className="mhome-chip" onClick={() => pick(r.bare)}>
-                    <span dir="rtl" lang="ar" className="mhome-chip-ar">
-                      {r.root}
-                    </span>
-                    {r.gloss && <span className="mhome-chip-gloss">{r.gloss.split(/[/·]/)[0].trim()}</span>}
-                  </button>
-                ))}
+                {chips.map((r) => {
+                  const g = resolveGloss(locale, r.bare, r.gloss);
+                  return (
+                    <button key={r.bare} type="button" className="mhome-chip" onClick={() => pick(r.bare)}>
+                      <span dir="rtl" lang="ar" className="mhome-chip-ar">
+                        {r.root}
+                      </span>
+                      {g && (
+                        <span
+                          className={`mhome-chip-gloss ${g.isAr ? "mhome-gloss-ar" : ""}`}
+                          dir={g.isAr ? "rtl" : undefined}
+                          lang={g.isAr ? "ar" : undefined}
+                        >
+                          {g.text.split(/[/·]/)[0].trim()}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Today's root — editorial, uncontained, with a verse carousel. */}
@@ -307,9 +360,13 @@ export default function MinimalHome() {
                       </span>
                       <div className="mhome-today-idmeta">
                         {locale !== "ar" && <span className="mhome-today-translit">{today.translit}</span>}
-                        {today.gloss && (
-                          <span className="mhome-today-gloss" dir="ltr">
-                            “{today.gloss}”
+                        {todayGloss && (
+                          <span
+                            className={`mhome-today-gloss ${todayGloss.isAr ? "mhome-gloss-ar" : ""}`}
+                            dir={todayGloss.isAr ? "rtl" : "ltr"}
+                            lang={todayGloss.isAr ? "ar" : undefined}
+                          >
+                            “{todayGloss.text}”
                           </span>
                         )}
                       </div>
@@ -335,7 +392,7 @@ export default function MinimalHome() {
                       examples={today.examples}
                       color={rootColor(today)}
                       rootBare={today.bare}
-                      glossOf={(r) => idx?.roots[r]?.gloss ?? null}
+                      glossOf={(r) => resolveGloss(locale, r, idx?.roots[r]?.gloss)}
                       onOpenGraph={(ex) => enterAyah(ex.s, ex.a, ex.w, today.bare)}
                     />
                   )}
@@ -365,6 +422,7 @@ function ResultPanel({
   const color = rootColor(stat);
   const surahName = useSurahName();
   const locale = useLocale();
+  const resultGloss = resolveGloss(locale, stat.bare, stat.gloss);
   const maxTop = Math.max(1, ...stat.top.map((x) => x[1]));
   return (
     <div className="mhome-result">
@@ -385,9 +443,13 @@ function ResultPanel({
               {stat.root}
             </span>
             {locale !== "ar" && <span className="mhome-ident-tr">{stat.translit}</span>}
-            {stat.gloss && (
-              <span className="mhome-ident-gl" dir="ltr">
-                “{stat.gloss}”
+            {resultGloss && (
+              <span
+                className={`mhome-ident-gl ${resultGloss.isAr ? "mhome-gloss-ar" : ""}`}
+                dir={resultGloss.isAr ? "rtl" : "ltr"}
+                lang={resultGloss.isAr ? "ar" : undefined}
+              >
+                “{resultGloss.text}”
               </span>
             )}
           </div>
@@ -475,7 +537,7 @@ function VerseCarousel({
   examples: ExampleVerse[];
   color: string;
   rootBare: string;
-  glossOf: (root: string) => string | null;
+  glossOf: (root: string) => ResolvedGloss | null;
   onOpenGraph: (ex: ExampleVerse) => void;
 }) {
   const t = useTranslations("Home");
@@ -585,7 +647,15 @@ function VerseCarousel({
                         {Array.from(w.root).join("-")}
                       </span>
                       <span className="mhome-bd-pos">{t(`pos.${w.pos}`)}</span>
-                      {gloss && <span className="mhome-bd-gloss">{gloss}</span>}
+                      {gloss && (
+                        <span
+                          className={`mhome-bd-gloss ${gloss.isAr ? "mhome-gloss-ar" : ""}`}
+                          dir={gloss.isAr ? "rtl" : undefined}
+                          lang={gloss.isAr ? "ar" : undefined}
+                        >
+                          {gloss.text}
+                        </span>
+                      )}
                     </span>
                   </div>
                 );
@@ -998,6 +1068,12 @@ const styles = `
   .mhome-cta-s { height: 44px; padding: 0 18px; border-radius: 12px; background: var(--mh-raised); border: 1px solid var(--mh-hairline); color: var(--mh-ink); font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
   .mhome-cta-g { height: 44px; padding: 0 18px; border-radius: 12px; background: transparent; border: 1px solid var(--mh-hairline); color: var(--mh-ink-72); font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; transition: border-color 0.15s; }
   .mhome-cta-s:hover, .mhome-cta-g:hover { border-color: var(--mh-accent-border); }
+
+  /* Curated Arabic glosses (ar locale, lib/data/rootGlossesAr.ts) render in
+     the Arabic type family, same as every other Arabic-script element on
+     this screen — layered after the *-gloss rules above so it wins the
+     font-family tie-break while keeping each site's own size/color/spacing. */
+  .mhome-gloss-ar { font-family: 'Amiri', serif; }
 
   @keyframes mhfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 

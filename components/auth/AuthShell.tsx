@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 interface AuthShellProps {
   title: string;
@@ -10,12 +11,13 @@ interface AuthShellProps {
 }
 
 export default function AuthShell({ title, description, footer, children }: AuthShellProps) {
+  const t = useTranslations("Index");
   return (
     <main className="ui-page-shell ui-page-shell-centered ui-theme-scope">
       <div className="ui-shell-backdrop" aria-hidden />
       <section className="ui-panel ui-page-panel ui-page-panel-narrow">
         <header>
-          <p className="ui-kicker">Quran Corpus Visualizer</p>
+          <p className="ui-kicker">{t("eyebrow")}</p>
           <h1 className="ui-title">{title}</h1>
           {description ? <p className="ui-subtitle">{description}</p> : null}
         </header>
