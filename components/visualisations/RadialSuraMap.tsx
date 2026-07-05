@@ -78,7 +78,7 @@ export default function RadialSuraMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
-  const { svgRef, gRef, fitToView, zoomBy } = useZoom<SVGSVGElement>({
+  const { svgRef, gRef, fitToView, fitBounds, zoomBy } = useZoom<SVGSVGElement>({
     minScale: 0.3,
     maxScale: 6,
     ready: isMounted,
@@ -86,6 +86,7 @@ export default function RadialSuraMap({
   });
   const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
+  const [dimensionsReady, setDimensionsReady] = useState(false);
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
   const [hoveredAyah, setHoveredAyah] = useState<number | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
@@ -96,6 +97,10 @@ export default function RadialSuraMap({
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
+  // Captures whether a root was already selected the moment this map first
+  // mounted (e.g. a deep link) — see the initial-focus effect below.
+  const initialHighlightRootRef = useRef<string | null>(highlightRoot ?? null);
+  const hasAppliedInitialFocusRef = useRef(false);
 
 
 
@@ -419,6 +424,7 @@ export default function RadialSuraMap({
           width: Math.max(width, 600),
           height: Math.max(height, 600),
         });
+        setDimensionsReady(true);
       }
     });
 
@@ -431,6 +437,7 @@ export default function RadialSuraMap({
         width: Math.max(rect.width, 600),
         height: Math.max(rect.height, 600),
       });
+      setDimensionsReady(true);
     }
 
     return () => observer.disconnect();
@@ -554,6 +561,86 @@ export default function RadialSuraMap({
       return { bar, angleRad, startX, startY, endX, endY, rootNodes };
     });
   }, [ayahBars, centerX, centerY, innerRadius, ayahRootEntriesByAyah, ayahRootMax, compactLayout, getRootBaseColor]);
+
+  // Deep-linked entry can mount with `highlightRoot` already set — hydrated
+  // from the URL before this surah's tokens (and their root/morphology data,
+  // which streams in *after* the base token structure) have fully landed.
+  // The ring's geometry is correct as soon as real positions exist, but the
+  // camera is left at its default transform; when a highlighted root only
+  // touches one or two ayahs (as in a small surah), that can leave the one
+  // thing worth seeing pinned near — or past — the viewport edge, while
+  // every other ayah is dimmed to near invisibility.
+  //
+  // Once the highlighted root actually resolves to real ayah positions, snap
+  // the camera to frame the full ring plus whichever ayahs contain it — but
+  // only once, so it never fights the Focus button or manual zoom/pan
+  // afterwards, and normal entry (no initial highlight) never moves the
+  // camera at all. Until the root resolves to at least one ayah, keep
+  // retrying on each data update rather than committing early — root data
+  // can still be streaming in even after the ayah bars themselves exist.
+  useEffect(() => {
+    if (hasAppliedInitialFocusRef.current) return;
+    if (!dimensionsReady || !isMounted) return;
+
+    const initialRoot = initialHighlightRootRef.current;
+    if (!initialRoot) {
+      hasAppliedInitialFocusRef.current = true;
+      return;
+    }
+
+    const currentRoot = highlightRoot ?? null;
+    if (currentRoot !== initialRoot) {
+      // Selection already moved on from the deep-linked root — abandon the
+      // one-time correction rather than act on stale intent.
+      hasAppliedInitialFocusRef.current = true;
+      return;
+    }
+
+    if (barsWithGeometry.length === 0) return; // this surah's tokens haven't landed yet
+
+    const targetAyahs = highlightAyahSet.size > 0 ? highlightAyahSet : null;
+    if (!targetAyahs) return; // root hasn't resolved to an ayah yet — keep waiting, don't mark handled
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const entry of barsWithGeometry) {
+      if (!targetAyahs.has(entry.bar.ayah)) continue;
+      minX = Math.min(minX, entry.startX, entry.endX);
+      maxX = Math.max(maxX, entry.startX, entry.endX);
+      minY = Math.min(minY, entry.startY, entry.endY);
+      maxY = Math.max(maxY, entry.startY, entry.endY);
+      for (const node of entry.rootNodes) {
+        minX = Math.min(minX, node.x - node.r);
+        maxX = Math.max(maxX, node.x + node.r);
+        minY = Math.min(minY, node.y - node.r);
+        maxY = Math.max(maxY, node.y + node.r);
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return;
+    }
+
+    // Keep the whole orbit ring in frame too, so this reads as "the ring,
+    // with the match highlighted" rather than an isolated fragment adrift
+    // with no context.
+    minX = Math.min(minX, centerX - innerRadius);
+    minY = Math.min(minY, centerY - innerRadius);
+    maxX = Math.max(maxX, centerX + innerRadius);
+    maxY = Math.max(maxY, centerY + innerRadius);
+
+    hasAppliedInitialFocusRef.current = true;
+    fitBounds(
+      { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) },
+      // More breathing room than the manual Focus button's default (0.88):
+      // this fires automatically, with no user-driven feedback loop to
+      // correct it, and the canvas's own bottom edge sits partly behind the
+      // app's fixed viz toolbar/footer chrome — a tighter fit can still land
+      // the highlighted node right underneath it.
+      { padding: 0.6, duration: 0 }
+    );
+  }, [dimensionsReady, isMounted, barsWithGeometry, highlightAyahSet, highlightRoot, centerX, centerY, innerRadius, fitBounds]);
 
   const selectedAyahData = useMemo(
     () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),

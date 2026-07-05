@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import * as d3 from "d3";
-import { fitGraphToView } from "@/lib/viz/fitToView";
+import { fitGraphToView, fitBoundsToView, type ViewBounds } from "@/lib/viz/fitToView";
 
 interface ZoomOptions {
     minScale?: number;
@@ -98,5 +98,23 @@ export function useZoom<SVGType extends SVGSVGElement>({
         });
     };
 
-    return { svgRef, gRef, resetZoom, fitToView, zoomBy };
+    /**
+     * Frame an explicit region instead of the whole graph — used to snap the
+     * camera onto whatever an initial deep-linked focus made relevant, once
+     * real layout positions exist, without waiting on/disturbing the rest of
+     * the graph. Memoized so it can safely sit in a caller's effect deps.
+     */
+    const fitBounds = useCallback(
+        (bounds: ViewBounds, opts: { padding?: number; duration?: number } = {}) => {
+            fitBoundsToView(svgRef.current, bounds, zoomInstanceRef.current, {
+                padding: opts.padding ?? 0.88,
+                duration: opts.duration,
+                minScale,
+                maxScale,
+            });
+        },
+        [minScale, maxScale]
+    );
+
+    return { svgRef, gRef, resetZoom, fitToView, fitBounds, zoomBy };
 }
