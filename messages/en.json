@@ -549,7 +549,7 @@
             "hideHelp": "Hide Help",
             "showHelp": "Show Help",
             "filtering": "Filtering",
-            "linkedAyahs": "Linked Ayahs",
+            "occursInAyahs": "Occurs in {count, plural, one {# ayah} other {# ayahs}}",
             "selectedRoot": "Selected Root",
             "ayahCaps": "AYAH",
             "surahCaps": "SURAH",
@@ -596,18 +596,20 @@
             "learning": "Learning",
             "learned": "Learned",
             "untracked": "Untracked",
-            "global": "Global"
+            "global": "Global",
+            "makki": "Makki",
+            "madani": "Madani",
+            "revelationPlace": "Revelation"
         },
         "SurahDistribution": {
-            "fewerAyahs": "Fewer ayahs",
-            "moderateAyahs": "Moderate ayahs",
-            "moreAyahs": "More ayahs",
             "selectedRoot": "Selected / contains selected root",
-            "tokenCountSize": "Node size = token count",
+            "sizeAyahs": "Size = ayahs",
+            "heightWords": "Height = words",
             "xAxis": "SURAH INDEX",
-            "yAxis": "TOKEN COUNT",
+            "yAxis": "WORDS",
             "surah": "Surah",
             "words": "Words",
+            "caption": "Every sūrah by length and revelation place",
             "Help": {
                 "title": "Surah Distribution Graph",
                 "description": "Compares surahs by token volume in one view.",
@@ -671,6 +673,7 @@
             "hints": "Hover for preview, click to pin, drag to pan, scroll to zoom.",
             "helpText": "Bars represent ayahs (length = token count, color = dominant POS). Arcs connect ayahs that share roots.",
             "filtering": "Filtering: {root}",
+            "matchSummary": "{matchCount, plural, one {# match} other {# matches}} · {matchAyahCount, plural, one {# ayah} other {# ayahs}}",
             "linkedVerses": "Linked verses: {verses}",
             "selectedRoot": "Selected Root",
             "nodeAyah": "Ayah {id}",
@@ -770,8 +773,8 @@
             "helpBands": "Each curved band maps one root to one lemma.",
             "helpThickness": "Thicker bands mean higher frequency in the current scope.",
             "helpHover": "Hover a band to preview a sample token; click to inspect.",
-            "rootNode": "Root Nodes",
-            "lemmaNode": "Lemma Nodes",
+            "rootNode": "Roots",
+            "lemmaNode": "Word forms",
             "Help": {
                 "title": "Root-Lemma Flow",
                 "description": "A Sankey view of how roots distribute across derived lemmas.",
@@ -852,6 +855,15 @@
             "pmiHigher": "Higher PMI (stronger than expected association)",
             "pmiLower": "Lower PMI (weaker association)",
             "lemmaLayerHint": "Hover or tap a collocate to reveal lemma samples.",
+            "SeededExample": {
+                "title": "Example — words that travel with {root}",
+                "subtitle": "Search or pick any root to see its own neighborhood."
+            },
+            "HeuristicBadge": {
+                "label": "Heuristic estimate",
+                "tooltip": "Co-occurrence strength is a statistical estimate (PMI) based on word proximity. Pairs seen together fewer than {n} times are excluded."
+            },
+            "nodeCapDisclosure": "Showing top {n} by strength",
             "Help": {
                 "title": "Collocation Network",
                 "description": "Maps the semantic neighborhood of a selected root using statistical co-occurrence.",
@@ -1125,15 +1137,18 @@
                 "click": "Click a surah to dive into its token-level view.",
                 "zoom": "Scroll to zoom in or out."
             },
-            "purpose": "Quickly compare surah sizes and spot where specific roots concentrate."
+            "purpose": "Quickly compare surah sizes and spot where specific roots concentrate.",
+            "claim": "How long each surah is, and where a root clusters."
         },
         "corpus-architecture": {
             "summary": "A hierarchical treemap of the Quran's physical structure: juz → surah → ayah groups.",
             "hint": {
                 "expand": "Click a block to expand and see its contents.",
-                "click": "Click a surah cell to focus on it."
+                "click": "Click a surah cell to focus on it.",
+                "zoom": "Scroll to zoom in for more detail."
             },
-            "purpose": "Understand the Quran's structural layout before diving into individual views."
+            "purpose": "Understand the Quran's structural layout before diving into individual views.",
+            "claim": "How the Quran nests: juz, then surah, then ayah."
         },
         "radial-sura": {
             "summary": "A circular layout of every token in one surah, colored by linguistic role.",
@@ -1143,23 +1158,28 @@
                 "drag": "Drag to pan around the surah.",
                 "zoom": "Scroll to zoom in or out."
             },
-            "purpose": "Read one surah visually and spot grammatical patterns at the token level."
+            "purpose": "Read one surah visually and spot grammatical patterns at the token level.",
+            "claim": "Every word in one surah, laid out in a circle."
         },
         "dependency-tree": {
             "summary": "A tree diagram showing syntactic dependencies between words in a verse.",
             "hint": {
                 "hover": "Hover a node to highlight its dependents.",
-                "click": "Click a node to see full morphology."
+                "click": "Click a node to see full morphology.",
+                "zoom": "Scroll to zoom in on a dense ayah."
             },
-            "purpose": "Study how words in an ayah relate grammatically."
+            "purpose": "Study how words in an ayah relate grammatically.",
+            "claim": "Which word each word depends on, grammatically."
         },
         "arc-flow": {
             "summary": "Arcs connect co-occurring roots and lemmas within each ayah.",
             "hint": {
                 "hover": "Hover an arc to see which pair it connects.",
-                "click": "Click a token to lock focus on its connections."
+                "click": "Click a token to lock focus on its connections.",
+                "pan": "Drag to pan across a busy ayah."
             },
-            "purpose": "Discover which roots and lemmas appear together in the same verse."
+            "purpose": "Discover which roots and lemmas appear together in the same verse.",
+            "claim": "Which roots and lemmas share a verse."
         },
         "root-network": {
             "summary": "A force-directed graph where nodes are roots and edges show co-occurrence.",
@@ -1168,15 +1188,18 @@
                 "click": "Click to lock focus and filter the network.",
                 "drag": "Drag nodes to rearrange the layout."
             },
-            "purpose": "Explore how roots relate to each other across the entire corpus."
+            "purpose": "Explore how roots relate to each other across the entire corpus.",
+            "claim": "Which roots keep company with each other, across the Quran."
         },
         "sankey-flow": {
             "summary": "A flow diagram tracing how one root branches into lemmas and tokens.",
             "hint": {
                 "hover": "Hover a flow band to see the count and path.",
-                "click": "Click a lemma or token to focus the inspector."
+                "click": "Click a lemma or token to focus the inspector.",
+                "path": "Follow the path: root, then lemma, then token."
             },
-            "purpose": "Trace the derivational flow from root to every surface form."
+            "purpose": "Trace the derivational flow from root to every surface form.",
+            "claim": "How one root branches into lemmas, then tokens."
         },
         "collocation-network": {
             "summary": "A network of root pairs that frequently appear near each other.",
@@ -1185,24 +1208,33 @@
                 "click": "Click a node to filter to that root's collocations.",
                 "drag": "Drag nodes to rearrange the network."
             },
-            "purpose": "Find statistically significant root pairings in the text."
+            "purpose": "Find statistically significant root pairings in the text.",
+            "claim": "Which words travel together in the text."
         },
         "knowledge-graph": {
             "summary": "An interactive map of tracked roots and studied topics.",
             "hint": {
                 "hover": "Hover a node to see your study progress.",
-                "click": "Click to review or drill into a topic."
+                "click": "Click to review or drill into a topic.",
+                "legend": "Brighter nodes are tracked; dim ones aren't yet."
             },
-            "purpose": "Track your learning journey and find gaps in your exploration."
+            "purpose": "Track your learning journey and find gaps in your exploration.",
+            "claim": "Which roots you've tracked, and where the gaps are."
         },
         "heatmap": {
             "summary": "A grid where color intensity shows word frequency across surahs.",
             "hint": {
                 "hover": "Hover a cell to see the exact count.",
-                "click": "Click a cell to jump to the corresponding surah view."
+                "click": "Click a cell to jump to the corresponding surah view.",
+                "legend": "Warmer colors mean the word appears more often."
             },
-            "purpose": "Spot frequency patterns at a glance across the entire Quran."
+            "purpose": "Spot frequency patterns at a glance across the entire Quran.",
+            "claim": "Where a word shows up most, across every surah."
         }
+    },
+    "VizIntroCard": {
+        "howToReadLabel": "How to read it",
+        "gotIt": "Got it"
     },
     "Glossary": {
         "label": "Linguistic glossary",

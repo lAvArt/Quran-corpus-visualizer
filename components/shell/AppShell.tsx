@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import TopBar from "@/components/shell/TopBar";
 import StatusBar from "@/components/shell/StatusBar";
@@ -10,6 +11,7 @@ import GraphToolbar from "@/components/shell/GraphToolbar";
 import VisualizationViewport from "@/components/home/VisualizationViewport";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
+import VizIntroCard from "@/components/ui/VizIntroCard";
 import FirstRunMission from "@/components/onboarding/FirstRunMission";
 import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
@@ -50,12 +52,60 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     closeRight: handleCloseRight,
   });
 
-  // Deep-link hydration: ?viz=&surah=&ayah=&root=&lemma=&token= (e.g. from /search).
-  const hydratedRef = useRef(false);
+  // Deep-link hydration: ?viz=&surah=&ayah=&root=&lemma=&token= (e.g. from
+  // /search or the minimal home's CTAs). Read via useSearchParams — NOT
+  // window.location — because during a client-side navigation this effect can
+  // run before the browser URL is updated, which used to strand the selection
+  // until a hard refresh. useSearchParams is reactive to soft navigations, so
+  // changed params re-apply; the ref keeps identical params from re-applying.
+  const searchParams = useSearchParams();
+  const lastAppliedParamsRef = useRef<string | null>(null);
   const navigateToResult = c.handleSearchResultNavigate;
+
+  // Mirror the current viz mode for use inside the hydration effect without
+  // re-running it on every mode switch. Declared before that effect so the
+  // mirror updates first within each commit.
+  const vizModeRef = useRef(c.vizMode);
   useEffect(() => {
-    if (hydratedRef.current) return;
-    const sp = new URLSearchParams(window.location.search);
+    vizModeRef.current = c.vizMode;
+  }, [c.vizMode]);
+
+  // First-open intro card: a deep link WITH a selection (?root= / ?token=)
+  // means the user arrives mid-task, so the intro card for the landing mode is
+  // suppressed. Initialized synchronously from the URL so the card never
+  // flashes on first paint; the hydration effect keeps it in sync on soft navs.
+  const [introSuppressedMode, setIntroSuppressedMode] = useState<VisualizationMode | null>(() => {
+    if (!searchParams.get("root") && !searchParams.get("token")) return null;
+    const vizParam = searchParams.get("viz");
+    return ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
+      ? (vizParam as VisualizationMode)
+      : c.vizMode;
+  });
+
+  // Stage → apply as a two-commit chain: the controller's own localStorage
+  // hydration effect runs in the mount commit and can queue state updates
+  // AFTER ours (clobbering the deep link with persisted defaults). Staging the
+  // params string first means the apply effect belongs to a later commit,
+  // whose updates deterministically flush after the controller's — the deep
+  // link always wins, in dev (StrictMode double-invoke) and prod alike.
+  const [pendingDeepLink, setPendingDeepLink] = useState<string | null>(null);
+  useEffect(() => {
+    const hasRelevantParam =
+      searchParams.get("root") ||
+      searchParams.get("lemma") ||
+      searchParams.get("surah") ||
+      searchParams.get("ayah") ||
+      searchParams.get("token") ||
+      searchParams.get("viz");
+    if (!hasRelevantParam) return;
+    // Same string re-sets are no-ops for React, so this can't loop.
+    setPendingDeepLink(searchParams.toString());
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!pendingDeepLink || lastAppliedParamsRef.current === pendingDeepLink) return;
+    lastAppliedParamsRef.current = pendingDeepLink;
+    const sp = new URLSearchParams(pendingDeepLink);
     const root = sp.get("root");
     const lemma = sp.get("lemma");
     const surah = sp.get("surah");
@@ -67,8 +117,9 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     const viz = ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
       ? (vizParam as VisualizationMode)
       : null;
-    if (!root && !lemma && !surah && !ayah && !token && !vizParam) return;
-    hydratedRef.current = true;
+    if (root || token) {
+      setIntroSuppressedMode(viz ?? vizModeRef.current);
+    }
     navigateToResult({
       id: "deeplink",
       kind: "ayah",
@@ -85,7 +136,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         },
       },
     });
-  }, [navigateToResult]);
+  }, [pendingDeepLink, navigateToResult]);
 
   const clearFocus = useCallback(() => {
     c.setFocusedTokenId(null);
@@ -207,6 +258,19 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         selectedAyah={c.selectedAyahInSurah}
         selectedRoot={c.selectedRootValue}
         onBreadcrumbNavigate={c.handleBreadcrumbNavigate}
+      />
+
+      {/* First-open intro card — introduces the active viz once per mode
+          (persisted in localStorage). keyed by mode so switching modes mounts a
+          fresh instance (fresh dismiss check + focus lifecycle). Hidden while
+          the first-run overlay is up, and when the user deep-linked in with a
+          selection (mid-task). */}
+      <VizIntroCard
+        key={c.vizMode}
+        vizMode={c.vizMode}
+        modeLabel={tViz(`${c.vizMode}.label`)}
+        stageRef={c.mainVizRef}
+        suppressed={c.firstRunState === "intent-selection" || introSuppressedMode === c.vizMode}
       />
 
       {/* First-task feedback prompt */}

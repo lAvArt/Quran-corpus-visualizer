@@ -9,7 +9,7 @@ import { getAyah } from "@/lib/corpus/corpusLoader";
 import { getNodeColor, resolveVisualizationTheme, SELECTION_RING } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 
@@ -61,6 +61,22 @@ interface AyahRootNode extends AyahRootEntry {
   baseColor: string;
 }
 
+// Non-matching elements, while a root is highlighted, must stay legible as
+// *that POS/root's own hue* — just quieter — rather than flattening to grey.
+// Grey would make the legend a lie (on-canvas colors no longer match what the
+// legend documents); a desaturated, lower-opacity version of the true hue
+// keeps every bar/node reading as "still that part of speech / root" while
+// clearly signalling "not the current match".
+const DIM_OPACITY = 0.38;
+const DIM_SATURATION_RETAIN = 0.4; // keep 40% saturation => ~60% reduction
+
+function dimTone(color: string, opacity: number = DIM_OPACITY): string {
+  const hsl = d3.hsl(color);
+  hsl.s *= DIM_SATURATION_RETAIN;
+  hsl.opacity = opacity;
+  return hsl.toString();
+}
+
 export default function RadialSuraMap({
   tokens,
   suraId,
@@ -75,6 +91,10 @@ export default function RadialSuraMap({
 }: RadialSuraMapProps) {
   const t = useTranslations("Visualizations.RadialSura");
   const ts = useTranslations("Visualizations.Shared");
+  const locale = useLocale();
+  // Tracking (letter-spacing) visually tears Arabic cursive joins apart, so
+  // the eyebrow-style treatment of the center annotation is Latin-only.
+  const centerAnnotationSpacing = locale === "ar" ? undefined : "1.5px";
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
@@ -286,9 +306,7 @@ export default function RadialSuraMap({
       if (highlightRoot) {
         barColor = containsRoot
           ? themeColors.accent
-          : theme === "dark"
-            ? "rgba(255,255,255,0.1)"
-            : "rgba(31, 28, 25, 0.16)";
+          : dimTone(getNodeColor(dominantPOS));
       }
 
       bars.push({
@@ -652,13 +670,15 @@ export default function RadialSuraMap({
   }, [selectedAyah, ayahRootEntriesByAyah]);
 
   const renderedConnections = useMemo(() => {
-    const selectedRoot = selectedConnection?.root ?? highlightRoot ?? null;
+    // Keep every root's connections in view even while a root is highlighted —
+    // dimming (not hiding) the non-matching ones so the surah's overall
+    // connective structure stays legible instead of vanishing behind a single
+    // isolated arc. See the per-connection opacity logic in the render loop.
     return rootConnections.filter((conn) => {
-      if (selectedRoot && conn.root !== selectedRoot) return false;
       if (selectedAyah && conn.sourceAyah !== selectedAyah && conn.targetAyah !== selectedAyah) return false;
       return true;
     });
-  }, [rootConnections, selectedConnection, highlightRoot, selectedAyah]);
+  }, [rootConnections, selectedAyah]);
 
   const barsForRender = useMemo(() => {
     return barsWithGeometry.map((entry) => {
@@ -802,7 +822,7 @@ export default function RadialSuraMap({
         </div>
         {highlightRoot && highlightAyahs.length > 0 && (
           <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: "0.78rem" }}>
-            {ts("linkedAyahs")}: {highlightAyahs.join(", ")}
+            {ts("occursInAyahs", { count: highlightAyahs.length })}
           </div>
         )}
       </div>
@@ -849,9 +869,21 @@ export default function RadialSuraMap({
                 <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
                 <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
                 {highlightAyahs.length > 0 && (
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">{ts("linkedAyahs")}</span>
-                    <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
+                  <div className="viz-tooltip-row viz-tooltip-row--stacked">
+                    <span className="viz-tooltip-label">
+                      {ts("occursInAyahs", { count: highlightAyahs.length })}
+                    </span>
+                    <div className="viz-ayah-chip-row">
+                      {highlightAyahs.map((ayahNum) => (
+                        <span
+                          key={ayahNum}
+                          className="viz-ayah-chip"
+                          aria-label={`${ts("surah")} ${suraId}, ${ts("ayah")} ${ayahNum}`}
+                        >
+                          {suraId}:{ayahNum}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1239,6 +1271,22 @@ export default function RadialSuraMap({
                 >
                   {ayahCount} {ts("ayah")}
                 </text>
+                {highlightRoot && highlightAyahs.length > 0 && (
+                  <text
+                    y={64}
+                    textAnchor="middle"
+                    fill={themeColors.textColors.muted}
+                    fontSize="11"
+                    fontWeight={600}
+                    letterSpacing={centerAnnotationSpacing}
+                    style={{ textTransform: "uppercase" }}
+                  >
+                    {t("matchSummary", {
+                      matchCount: rootTokenTotals.get(highlightRoot) ?? highlightAyahs.length,
+                      matchAyahCount: highlightAyahs.length,
+                    })}
+                  </text>
+                )}
               </g>
 
               {/* Root connections (flowing curves inside the circle) */}
@@ -1250,6 +1298,11 @@ export default function RadialSuraMap({
                   const isHighlighted = highlightRoot
                     ? (conn.root === highlightRoot || hoveredRoot === conn.root)
                     : (hoveredRoot === conn.root || isActiveAyah);
+                  // With a root highlighted, other roots' connections dim further
+                  // (0.2) than the default unfiltered view (0.3) — the highlighted
+                  // root's own arcs read as the clear signal, while the rest of the
+                  // surah's root web stays faintly present instead of disappearing.
+                  const dimmedOpacity = highlightRoot ? 0.2 : 0.3;
                   const pathKey = `${conn.sourceAyah}-${conn.targetAyah}`;
                   const pathD = connectionPaths.get(pathKey) ?? "";
 
@@ -1271,7 +1324,7 @@ export default function RadialSuraMap({
                           fill="none"
                           pointerEvents="none"
                           initial={{ pathLength: 0, opacity: 0 }}
-                          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
+                          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : dimmedOpacity }}
                           transition={{ duration: 1.1, delay: idx * 0.012 }}
                           filter={isHighlighted ? "url(#glow)" : undefined}
                           onMouseEnter={() => handleConnectionHover(conn)}
@@ -1283,7 +1336,7 @@ export default function RadialSuraMap({
                           className={`connection ${isHighlighted ? "highlighted" : ""}`}
                           stroke={strokeColor}
                           strokeWidth={isHighlighted ? 2.5 : 1.5}
-                          style={{ opacity: isHighlighted ? 1 : 0.3 }}
+                          style={{ opacity: isHighlighted ? 1 : dimmedOpacity }}
                           fill="none"
                           pointerEvents="none"
                           filter={isHighlighted ? "url(#glow)" : undefined}
@@ -1340,9 +1393,7 @@ export default function RadialSuraMap({
                         const isRootHighlighted = hoveredRoot === node.root || highlightRoot === node.root;
                         const isDimmed = !!highlightRoot && node.root !== highlightRoot;
                         const displayRadius = isRootHighlighted ? node.r + 0.7 : node.r;
-                        const tintColor = isDimmed
-                          ? (theme === "dark" ? "rgba(255,255,255,0.14)" : "rgba(31, 28, 25, 0.2)")
-                          : node.baseColor;
+                        const tintColor = isDimmed ? dimTone(node.baseColor, 1) : node.baseColor;
                         const highlightedRootColor = theme === "dark" ? "#FFD166" : "#E27B13";
 
                         const shouldShowRootLabel =
@@ -1394,7 +1445,7 @@ export default function RadialSuraMap({
                               fill="transparent"
                               stroke={isRootHighlighted ? highlightedRootColor : tintColor}
                               strokeWidth={isRootHighlighted ? 2.5 : 1.8}
-                              opacity={isDimmed ? 0.35 : 0.9}
+                              opacity={isDimmed ? 0.38 : 0.9}
                               filter={isRootHighlighted ? "url(#glow)" : undefined}
                               style={{ cursor: "pointer" }}
                               onMouseEnter={() => handleRootNodeHover(bar.ayah, node.root)}
@@ -1423,9 +1474,11 @@ export default function RadialSuraMap({
                                 fill={
                                   isRootHighlighted
                                     ? highlightedRootColor
-                                    : theme === "dark"
-                                      ? "rgba(255,255,255,0.78)"
-                                      : "rgba(31, 28, 25, 0.78)"
+                                    : isDimmed
+                                      ? (theme === "dark" ? "rgba(255,255,255,0.32)" : "rgba(31, 28, 25, 0.32)")
+                                      : theme === "dark"
+                                        ? "rgba(255,255,255,0.78)"
+                                        : "rgba(31, 28, 25, 0.78)"
                                 }
                                 fontSize={rootLabelFontSize}
                                 fontWeight={isRootHighlighted ? 600 : 500}

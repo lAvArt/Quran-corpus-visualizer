@@ -34,6 +34,7 @@ interface SurahNode {
     radius: number;
     tokens: CorpusToken[];
     color: string;
+    revelationPlace: "makkah" | "madinah";
     containsRoot: boolean;
     dominantRoot: string | null;
     dominantRootCount: number;
@@ -121,11 +122,17 @@ export default function SurahDistributionGraph({
         const xScale = d3.scaleLinear()
             .domain([1, 114])
             .range([padding, dimensions.width - padding]);
+        // Y position is the real, labeled encoding (word count) — see yAxis
+        // translation key. Node radius below is a separate, small-range
+        // encoding (ayah count) so the two never read as the same variable.
         const yScale = d3.scaleSqrt()
             .domain([minTokens, maxTokens === minTokens ? minTokens + 1 : maxTokens])
             .range([dimensions.height - padding, padding]);
-        const colorScale = d3.scaleSequential(theme === "dark" ? d3.interpolateTurbo : d3.interpolateViridis)
-            .domain([minAyahs, maxAyahs === minAyahs ? minAyahs + 1 : maxAyahs]);
+        // Dot size = ayah count, kept in a small 3–9px range so it reads as a
+        // minor accent rather than a second competing "bigger = more" signal.
+        const radiusScale = d3.scaleSqrt()
+            .domain([minAyahs, maxAyahs === minAyahs ? minAyahs + 1 : maxAyahs])
+            .range([3, 9]);
 
         const nodes: SurahNode[] = [];
 
@@ -141,14 +148,18 @@ export default function SurahDistributionGraph({
                     dominantRoot = root;
                 }
             });
-            const radius = 6 + Math.sqrt(data.tokens.length / maxTokens) * 22;
+            const radius = radiusScale(data.ayahs.size);
             const rootRatio = Math.log1p(dominantRootCount) / Math.log1p(maxDominantRootCount);
+            const revelationPlace = SURAH_NAMES[suraId]?.revelationPlace ?? "makkah";
             const nodeColor =
                 lexicalColorMode === "frequency"
                     ? getFrequencyColor(rootRatio, theme)
                     : lexicalColorMode === "identity"
                         ? getIdentityColor(dominantRoot ?? `surah-${suraId}`, theme)
-                        : colorScale(data.ayahs.size);
+                        // Default encoding: revelation place, via the same theme
+                        // accent variables the rest of the app uses — never a
+                        // red/green rainbow. Resolves live per --accent[-2].
+                        : revelationPlace === "madinah" ? "var(--accent)" : "var(--accent-2)";
             nodes.push({
                 id: suraId,
                 name: SURAH_NAMES[suraId]?.name || `Surah ${suraId}`,
@@ -160,6 +171,7 @@ export default function SurahDistributionGraph({
                 radius,
                 tokens: data.tokens,
                 color: nodeColor,
+                revelationPlace,
                 containsRoot,
                 dominantRoot,
                 dominantRootCount,
@@ -178,11 +190,10 @@ export default function SurahDistributionGraph({
             padding,
             ayahExtent: [minAyahs, maxAyahs] as [number, number],
             tokenExtent: [minTokens, maxTokens] as [number, number],
-            colorScale
         };
     }, [tokens, dimensions, highlightRoot, theme, lexicalColorMode]);
 
-    const { surahNodes, xScale, yScale, xTicks, yTicks, padding, ayahExtent, colorScale } = layout;
+    const { surahNodes, xScale, yScale, xTicks, yTicks, padding } = layout;
 
     // Entrance animation applies only to the first committed non-empty set
     // (organic entry: the full corpus at once — unchanged; deep-linked entry:
@@ -243,6 +254,7 @@ export default function SurahDistributionGraph({
                 className="viz-container"
                 style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}
             >
+                <p className="surah-distribution-caption">{t("caption")}</p>
                 <svg
                     ref={svgRef}
                     viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
@@ -373,7 +385,12 @@ export default function SurahDistributionGraph({
                                 // Dim if filtering by root and this node doesn't have it
                                 const isDimmed = highlightRoot && !hasRoot;
                                 const showPulse = zoomLevel > 0.75;
-                                const showName = zoomLevel > 0.85 && (node.radius > 18 || isHighlighted);
+                                // Dots are small (3–9px radius) by design, so the surah
+                                // number baked into each one only renders once zoomed in
+                                // enough to be legible, or for the node under focus —
+                                // otherwise 114 tiny digits would clutter the scatter.
+                                const showNumber = isHighlighted || zoomLevel > 1.2;
+                                const showName = zoomLevel > 0.85 && isHighlighted;
 
                                 return (
                                     <motion.g
@@ -425,18 +442,20 @@ export default function SurahDistributionGraph({
                                             filter={isHighlighted ? "url(#surahGlow)" : undefined}
                                         />
 
-                                        {/* Surah number label */}
-                                        <text
-                                            x={node.x}
-                                            y={node.y + (node.radius > 15 ? 4 : 2)}
-                                            textAnchor="middle"
-                                            fill={themeColors.foreground}
-                                            fontSize={node.radius > 12 ? "10px" : "6px"}
-                                            fontWeight="600"
-                                            style={{ pointerEvents: "none" }}
-                                        >
-                                            {node.id}
-                                        </text>
+                                        {/* Surah number label — only when legible (zoomed in) or focused */}
+                                        {showNumber && (
+                                            <text
+                                                x={node.x}
+                                                y={node.y + 2}
+                                                textAnchor="middle"
+                                                fill={themeColors.foreground}
+                                                fontSize="6px"
+                                                fontWeight="600"
+                                                style={{ pointerEvents: "none" }}
+                                            >
+                                                {node.id}
+                                            </text>
+                                        )}
 
                                         {/* Surah name (only for larger nodes or when zoomed/hovered) */}
                                         {showName && (
@@ -503,16 +522,14 @@ export default function SurahDistributionGraph({
                                                 </div>
                                                 <div className="viz-tooltip-row">
                                                     <span className="viz-tooltip-label">{ts("ayah")}</span>
-                                                    <span className="viz-tooltip-value">{node.ayahCount}</span>
+                                                    <span className="viz-tooltip-value">{node.ayahCount.toLocaleString()}</span>
                                                 </div>
-                                                {node.tokens[0] && (
-                                                    <div className="viz-tooltip-row">
-                                                        <span className="viz-tooltip-label">{ts("lemma")}</span>
-                                                        <span className="viz-tooltip-value arabic-text">
-                                                            {node.tokens[0].text}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                                <div className="viz-tooltip-row">
+                                                    <span className="viz-tooltip-label">{ts("revelationPlace")}</span>
+                                                    <span className="viz-tooltip-value">
+                                                        {node.revelationPlace === "madinah" ? ts("madani") : ts("makki")}
+                                                    </span>
+                                                </div>
                                             </>
                                         );
                                     })()}
@@ -530,23 +547,16 @@ export default function SurahDistributionGraph({
                                     <div className="viz-legend-item">
                                         <div
                                             className="viz-legend-dot"
-                                            style={{ background: colorScale(ayahExtent[0]), width: 12, height: 12 }}
+                                            style={{ background: "var(--accent-2)", width: 12, height: 12 }}
                                         />
-                                        <span>{t("fewerAyahs")}</span>
+                                        <span>{ts("makki")}</span>
                                     </div>
                                     <div className="viz-legend-item">
                                         <div
                                             className="viz-legend-dot"
-                                            style={{ background: colorScale((ayahExtent[0] + ayahExtent[1]) / 2), width: 12, height: 12 }}
+                                            style={{ background: "var(--accent)", width: 12, height: 12 }}
                                         />
-                                        <span>{t("moderateAyahs")}</span>
-                                    </div>
-                                    <div className="viz-legend-item">
-                                        <div
-                                            className="viz-legend-dot"
-                                            style={{ background: colorScale(ayahExtent[1]), width: 12, height: 12 }}
-                                        />
-                                        <span>{t("moreAyahs")}</span>
+                                        <span>{ts("madani")}</span>
                                     </div>
                                 </>
                             ) : lexicalColorMode === "frequency" ? (
@@ -582,7 +592,18 @@ export default function SurahDistributionGraph({
                                         height: 8
                                     }}
                                 />
-                                <span>{t("tokenCountSize")}</span>
+                                <span>{t("sizeAyahs")}</span>
+                            </div>
+                            <div className="viz-legend-item">
+                                <div
+                                    className="viz-legend-dot"
+                                    style={{
+                                        background: "var(--line)",
+                                        width: 8,
+                                        height: 8
+                                    }}
+                                />
+                                <span>{t("heightWords")}</span>
                             </div>
                         </div>
                     </div>

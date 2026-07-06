@@ -11,7 +11,6 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
-import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 
 interface RootFlowSankeyProps {
   flows: RootWordFlow[];
@@ -79,6 +78,12 @@ function sortNodes(a: [string, { total: number; stackHeight: number }], b: [stri
   return a[0].localeCompare(b[0]);
 }
 
+/** A root or lemma node, used to track which column/id is being emphasized. */
+interface SankeyNodeRef {
+  kind: "root" | "lemma";
+  id: string;
+}
+
 export default function RootFlowSankey({
   flows,
   roots: globalRoots,
@@ -97,6 +102,8 @@ export default function RootFlowSankey({
   const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [hoveredFlowKey, setHoveredFlowKey] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<SankeyNodeRef | null>(null);
+  const [pinnedNode, setPinnedNode] = useState<SankeyNodeRef | null>(null);
   const { isLeftSidebarOpen } = useVizControl();
   const isBeginner = experienceLevel === "beginner";
 
@@ -104,14 +111,29 @@ export default function RootFlowSankey({
     setIsMounted(true);
   }, []);
 
+  // 0. Some tokens carry no root at all (e.g. prepositions, conjunctions,
+  // pronouns — function words with no triliteral root in the QAC morphology
+  // data). Upstream, `buildRootWordFlows` groups them into a root: "" bucket,
+  // which renders as an unlabeled phantom node in the Root column. Drop those
+  // (and, symmetrically, any flow with a blank lemma) before any further
+  // scoping/filtering/layout math sees them.
+  const cleanFlows = useMemo(
+    () => flows.filter((flow) => flow.root.trim().length > 0 && flow.lemma.trim().length > 0),
+    [flows]
+  );
+  const cleanGlobalRoots = useMemo(
+    () => globalRoots.filter((root) => root.trim().length > 0),
+    [globalRoots]
+  );
+
   // 1. Calculate flows scoped to the current Surah (if selected)
   // This ensures counts reflect the local scope, not the global corpus
   const scopedFlows = useMemo(() => {
-    if (!selectedSurahId) return flows;
+    if (!selectedSurahId) return cleanFlows;
 
     const newFlows: RootWordFlow[] = [];
 
-    for (const flow of flows) {
+    for (const flow of cleanFlows) {
       // Filter tokens that belong to the selected surah
       const flowsInSurah = flow.tokenIds.filter((id) => {
         const t = tokenById.get(id);
@@ -128,14 +150,14 @@ export default function RootFlowSankey({
     }
 
     return newFlows.sort((a, b) => b.count - a.count || a.root.localeCompare(b.root));
-  }, [flows, selectedSurahId, tokenById]);
+  }, [cleanFlows, selectedSurahId, tokenById]);
 
   // 2. Derive available roots from the scoped flows
   const availableRoots = useMemo(() => {
-    if (!selectedSurahId) return globalRoots;
+    if (!selectedSurahId) return cleanGlobalRoots;
     const rootsSet = new Set(scopedFlows.map((f) => f.root));
     return Array.from(rootsSet).sort((a, b) => a.localeCompare(b));
-  }, [scopedFlows, globalRoots, selectedSurahId]);
+  }, [scopedFlows, cleanGlobalRoots, selectedSurahId]);
 
   // Reset selected root if it's no longer available in the new scope
   useEffect(() => {
@@ -193,11 +215,15 @@ export default function RootFlowSankey({
   const scopeLabel = selectedSurahId ? ts("surah") + " " + selectedSurahId : ts("global");
   const selectedRootLabel = selectedRoot === "all" ? t("allRoots") + " (" + availableRoots.length + ")" : selectedRoot;
   const maxCount = Math.max(...visibleFlows.map((flow) => flow.count), 1);
-  const themeColors = resolveVisualizationTheme(theme);
 
+  // Ribbon fill for the "identity"/"frequency" color modes only — these
+  // encode real per-flow information (root identity, occurrence frequency),
+  // so they keep their own hue. The default "theme" mode is handled separately
+  // below: a flat, muted neutral with accent used only for hover/click
+  // emphasis ("monochrome structure, accent for emphasis"), never a per-flow
+  // hue that implies meaning it doesn't have.
   const flowColorFor = useCallback(
     (flow: RootWordFlow): string => {
-      if (lexicalColorMode === "theme") return "url(#flowGrad)";
       if (lexicalColorMode === "identity") return getIdentityColor(flow.root, theme);
       const ratio = Math.log1p(flow.count) / Math.log1p(maxCount || 1);
       return getFrequencyColor(ratio, theme);
@@ -332,10 +358,59 @@ export default function RootFlowSankey({
     }
   }, [hoveredFlowKey, sankeyLayout.flowLayouts, onTokenHover]);
 
+  // Drop a hovered/pinned node reference once it scrolls out of the current
+  // layout (root filter changed, "show more" reshuffled columns, etc.).
+  useEffect(() => {
+    for (const [node, setNode] of [
+      [hoveredNode, setHoveredNode],
+      [pinnedNode, setPinnedNode],
+    ] as const) {
+      if (!node) continue;
+      const columns = node.kind === "root" ? sankeyLayout.rootNodes : sankeyLayout.lemmaNodes;
+      if (!columns.some((n) => n.id === node.id)) setNode(null);
+    }
+  }, [hoveredNode, pinnedNode, sankeyLayout.rootNodes, sankeyLayout.lemmaNodes]);
+
   const hoveredFlow = useMemo(
     () => sankeyLayout.flowLayouts.find((flow) => flow.key === hoveredFlowKey) ?? null,
     [hoveredFlowKey, sankeyLayout.flowLayouts]
   );
+
+  // Unified emphasis context: hovering/clicking a root or lemma node highlights
+  // every ribbon touching it; hovering a ribbon directly highlights just that
+  // one. `root`/`lemma` being non-null narrows the match to that side only.
+  const activeNode = hoveredNode ?? pinnedNode;
+  const emphasis = useMemo<{ root: string | null; lemma: string | null } | null>(() => {
+    if (hoveredFlow) return { root: hoveredFlow.flow.root, lemma: hoveredFlow.flow.lemma };
+    if (activeNode?.kind === "root") return { root: activeNode.id, lemma: null };
+    if (activeNode?.kind === "lemma") return { root: null, lemma: activeNode.id };
+    return null;
+  }, [hoveredFlow, activeNode]);
+
+  const isFlowEmphasized = useCallback(
+    (flow: RootWordFlow): boolean => {
+      if (!emphasis) return false;
+      if (emphasis.root !== null && flow.root !== emphasis.root) return false;
+      if (emphasis.lemma !== null && flow.lemma !== emphasis.lemma) return false;
+      return true;
+    },
+    [emphasis]
+  );
+
+  // Sets of root/lemma ids reachable by the current emphasis, so node chips on
+  // *either* side can tell whether they should stay lit or fade out.
+  const { activeRootIds, activeLemmaIds } = useMemo(() => {
+    if (!emphasis) return { activeRootIds: null as Set<string> | null, activeLemmaIds: null as Set<string> | null };
+    const rootIds = new Set<string>();
+    const lemmaIds = new Set<string>();
+    for (const layout of sankeyLayout.flowLayouts) {
+      if (isFlowEmphasized(layout.flow)) {
+        rootIds.add(layout.flow.root);
+        lemmaIds.add(layout.flow.lemma);
+      }
+    }
+    return { activeRootIds: rootIds, activeLemmaIds: lemmaIds };
+  }, [emphasis, sankeyLayout.flowLayouts, isFlowEmphasized]);
 
   const handleLoadMore = useCallback(() => {
     setVisibleCount((prev) => prev + LOAD_MORE_COUNT);
@@ -345,6 +420,8 @@ export default function RootFlowSankey({
     setSelectedRoot(event.target.value);
     setVisibleCount(INITIAL_VISIBLE);
     setHoveredFlowKey(null);
+    setHoveredNode(null);
+    setPinnedNode(null);
     onTokenHover(null);
   }, [onTokenHover]);
 
@@ -423,6 +500,142 @@ export default function RootFlowSankey({
           ]
         }}
       />
+
+      {/*
+        This block is teleported into #viz-sidebar-portal via createPortal above,
+        so its markup is NOT a descendant of this component's main returned JSX
+        tree from the styled-jsx compiler's point of view. styled-jsx only scopes
+        elements that are lexically inside the same JSX literal as the <style jsx>
+        tag that styles them — a <style jsx> living in the bottom-level return
+        never reaches elements built in this separate `sidebarCards` literal.
+        Keeping a dedicated <style jsx> here (rather than in the main return)
+        is what makes `.sankey-meta-row`/`.sankey-stats-row` actually apply
+        instead of silently no-op'ing to block/inline defaults.
+      */}
+      <style jsx>{`
+        .sankey-control-card {
+          display: grid;
+          gap: 10px;
+          background:
+            linear-gradient(160deg, var(--bg-1), var(--bg-2)),
+            radial-gradient(circle at 10% 12%, rgba(15, 118, 110, 0.11), transparent 46%);
+        }
+
+        .sankey-card-head {
+          display: grid;
+          gap: 4px;
+        }
+
+        .sankey-field {
+          display: grid;
+          gap: 6px;
+        }
+
+        .sankey-label {
+          font-size: 0.72rem;
+          letter-spacing: 0.06em;
+          color: var(--ink-muted);
+          text-transform: uppercase;
+          font-weight: 600;
+        }
+
+        .sankey-select-shell {
+          position: relative;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+        }
+
+        .sankey-select-shell::after {
+          content: "";
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          width: 7px;
+          height: 7px;
+          border-left: 2px solid var(--ink-muted);
+          border-bottom: 2px solid var(--ink-muted);
+          transform: translateY(-70%) rotate(-45deg);
+          pointer-events: none;
+        }
+
+        .sankey-select {
+          width: 100%;
+          height: 40px;
+          border: 0;
+          border-radius: 12px;
+          padding: 0 34px 0 12px;
+          color: var(--ink);
+          background: transparent;
+          outline: none;
+          font-size: 0.85rem;
+          font-weight: 550;
+          appearance: none;
+        }
+
+        /* Eyebrow-style label + value row (Scope / Active Root). Small-cap,
+           letterspaced, muted label on the left; plain value on the right —
+           the flex row is what keeps them from fusing into one word. */
+        .sankey-meta-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 10px;
+          border-top: 1px solid var(--line);
+          padding-top: 6px;
+          font-size: 0.8rem;
+        }
+
+        .sankey-meta-key {
+          color: var(--ink-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 600;
+          font-size: 0.7rem;
+        }
+
+        .sankey-meta-value {
+          color: var(--ink-secondary);
+          font-weight: 600;
+          text-align: right;
+        }
+
+        .sankey-meta-arabic {
+          font-family: "Amiri", serif;
+          font-size: 0.96rem;
+        }
+
+        .sankey-stats-row {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        /* Value stacked above its eyebrow-style label — same discipline as
+           the meta rows above, just vertical instead of side-by-side. */
+        .sankey-stat-item {
+          display: grid;
+          justify-items: center;
+          gap: 2px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 7px 6px;
+          background: var(--bg-1);
+        }
+
+        .sankey-stat-value {
+          font-size: 0.92rem;
+          font-weight: 700;
+        }
+
+        .sankey-stat-key {
+          font-size: 0.62rem;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 600;
+          color: var(--ink-muted);
+        }
+      `}</style>
     </div >
   );
 
@@ -436,7 +649,7 @@ export default function RootFlowSankey({
         <span className="sankey-pill">{ts("scope")}: {scopeLabel}</span>
         <span className="sankey-pill">{ts("activeRoot")}: {selectedRootLabel}</span>
         <span className="sankey-pill">
-          {ts("showing")} {visibleFlows.length} {ts("of")} {totalFlows} {ts("flows")}
+          {ts("showing")} {visibleFlows.length} {ts("of")} {totalFlows} {ts("flows")} · {visibleRatio}% {ts("coverage").toLocaleLowerCase()}
         </span>
       </div>
 
@@ -457,14 +670,6 @@ export default function RootFlowSankey({
               (e.target as HTMLElement).style.cursor = "grab";
             }}
           >
-            <defs>
-              <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor={themeColors.accentSecondary} />
-                <stop offset="48%" stopColor={themeColors.accent} />
-                <stop offset="100%" stopColor="var(--accent-3)" />
-              </linearGradient>
-            </defs>
-
             <g ref={gRef}>
               <rect x={ROOT_COLUMN_X} y="26" width={COLUMN_WIDTH} height={sankeyLayout.height - 56} rx="20" className="column root-column" />
               <rect x={LEMMA_COLUMN_X} y="26" width={COLUMN_WIDTH} height={sankeyLayout.height - 56} rx="20" className="column lemma-column" />
@@ -477,22 +682,27 @@ export default function RootFlowSankey({
 
               {sankeyLayout.flowLayouts.map((layout) => {
                 const flow = layout.flow;
-                const isActive = hoveredFlowKey === layout.key;
-                const isDimmed = hoveredFlowKey !== null && !isActive;
-                const shellOpacity = isDimmed ? 0.06 : isActive ? 0.65 : 0.28;
-                const coreOpacity = isDimmed ? 0.08 : isActive ? 0.92 : 0.72;
+                const isDirectHover = hoveredFlowKey === layout.key;
+                const isThemeMode = lexicalColorMode === "theme";
+                const isEmphasized = isFlowEmphasized(flow);
+                const isFaded = emphasis !== null && !isEmphasized;
+                // Default "theme" mode: monochrome structure, accent for emphasis —
+                // every ribbon is the same muted neutral until its root or lemma
+                // node (or the ribbon itself) is hovered/clicked, then it alone
+                // switches to the accent color. "identity"/"frequency" modes keep
+                // their own per-flow hue (it encodes real data) and only their
+                // opacity responds to emphasis.
+                const fill = isThemeMode ? (isEmphasized ? "var(--accent)" : "var(--ink)") : flowColorFor(flow);
+                const opacity = isThemeMode
+                  ? (isEmphasized ? 0.75 : isFaded ? 0.1 : 0.2)
+                  : (isEmphasized ? 0.92 : isFaded ? 0.08 : 0.72);
                 const sampleToken = (flow.tokenIds[0] && tokenById.get(flow.tokenIds[0])?.text) ?? "";
                 return (
                   <g key={layout.key}>
                     <path
-                      d={ribbonPath(FLOW_START_X, FLOW_END_X, layout.startY, layout.endY, layout.width + 3)}
-                      className="flow-band-base"
-                      opacity={shellOpacity}
-                    />
-                    <path
                       d={ribbonPath(FLOW_START_X, FLOW_END_X, layout.startY, layout.endY, layout.width)}
-                      fill={flowColorFor(flow)}
-                      opacity={coreOpacity}
+                      fill={fill}
+                      opacity={opacity}
                       onMouseEnter={() => {
                         setHoveredFlowKey(layout.key);
                         onTokenHover(flow.tokenIds[0] ?? null);
@@ -508,7 +718,7 @@ export default function RootFlowSankey({
                     >
                       <title>{`${flow.root} -> ${flow.lemma} (${flow.count})${sampleToken ? ` | ${sampleToken}` : ""}`}</title>
                     </path>
-                    {isActive && (
+                    {isDirectHover && (
                       <text
                         x={(FLOW_START_X + FLOW_END_X) / 2}
                         y={(layout.startY + layout.endY) / 2 - 4}
@@ -522,9 +732,19 @@ export default function RootFlowSankey({
               })}
 
               {sankeyLayout.rootNodes.map((node) => {
-                const isDimmed = hoveredFlow !== null && hoveredFlow.flow.root !== node.id;
+                const isDimmed = activeRootIds !== null && !activeRootIds.has(node.id);
+                const isNodeActive = activeNode?.kind === "root" && activeNode.id === node.id;
                 return (
-                  <g key={`root-${node.id}`} className={isDimmed ? "flow-node is-muted" : "flow-node"}>
+                  <g
+                    key={`root-${node.id}`}
+                    className={`flow-node${isDimmed ? " is-muted" : ""}${isNodeActive ? " is-active" : ""}`}
+                    onMouseEnter={() => setHoveredNode({ kind: "root", id: node.id })}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    onClick={() =>
+                      setPinnedNode((prev) => (prev?.kind === "root" && prev.id === node.id ? null : { kind: "root", id: node.id }))
+                    }
+                    style={{ cursor: "pointer" }}
+                  >
                     <rect
                       x={ROOT_COLUMN_X + 12}
                       y={node.y - node.height / 2}
@@ -544,9 +764,19 @@ export default function RootFlowSankey({
               })}
 
               {sankeyLayout.lemmaNodes.map((node) => {
-                const isDimmed = hoveredFlow !== null && hoveredFlow.flow.lemma !== node.id;
+                const isDimmed = activeLemmaIds !== null && !activeLemmaIds.has(node.id);
+                const isNodeActive = activeNode?.kind === "lemma" && activeNode.id === node.id;
                 return (
-                  <g key={`lemma-${node.id}`} className={isDimmed ? "flow-node is-muted" : "flow-node"}>
+                  <g
+                    key={`lemma-${node.id}`}
+                    className={`flow-node${isDimmed ? " is-muted" : ""}${isNodeActive ? " is-active" : ""}`}
+                    onMouseEnter={() => setHoveredNode({ kind: "lemma", id: node.id })}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    onClick={() =>
+                      setPinnedNode((prev) => (prev?.kind === "lemma" && prev.id === node.id ? null : { kind: "lemma", id: node.id }))
+                    }
+                    style={{ cursor: "pointer" }}
+                  >
                     <rect
                       x={LEMMA_COLUMN_X + 12}
                       y={node.y - node.height / 2}
@@ -600,13 +830,30 @@ export default function RootFlowSankey({
             linear-gradient(160deg, var(--bg-0), var(--bg-1));
         }
 
+        /*
+          StatusBar (components/shell/StatusBar.tsx) is a fixed, centered pill
+          at top: var(--header-clearance) + 6px margin; it is ~35px tall idle
+          and ~41px tall while the corpus-loading progress strip shows, so its
+          bottom edge reaches header-clearance + 47px. In normal flow this row
+          rendered at the wrapper's padding-top (header-dock-height + 20px),
+          landing right in the middle of that pill and getting visually
+          clipped by it. Pull it out of flow and pin it just below the status
+          bar's tallest state instead (same technique as .ui-overlay-pill in
+          globals.css, with extra room for the loading-state height).
+        */
         .sankey-context-bar {
-          padding: 0 20px 6px;
+          position: absolute;
+          top: calc(var(--header-clearance, 70px) + 52px);
+          left: 0;
+          right: 0;
+          z-index: 20;
+          padding: 0 20px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 10px;
           flex-wrap: wrap;
+          pointer-events: none;
         }
 
         .sankey-pill {
@@ -694,91 +941,28 @@ export default function RootFlowSankey({
           opacity: 0.34;
         }
 
-        .flow-band-base {
-          fill: var(--accent-2-glow);
-          pointer-events: none;
+        .flow-node.is-active .node-chip {
+          stroke: var(--accent);
+          stroke-width: 1.5;
         }
 
+        /*
+          animation/filter are explicitly zeroed: legacy global .flow-path
+          rules (globals.css ran an infinite pulse-link opacity animation;
+          styles/dark-theme.css runs a stroke-draw animation) would otherwise
+          override the per-ribbon opacity attribute that carries the
+          monochrome/accent emphasis states. CSS animations beat presentation
+          attributes, so any opacity keyframe kills the interaction.
+        */
         .flow-path {
           cursor: pointer;
-          transition: opacity 0.16s ease, filter 0.16s ease;
-          filter: saturate(1.06);
+          transition: opacity 0.16s ease;
+          animation: none;
+          filter: none;
         }
 
         .flow-path:hover {
-          filter: drop-shadow(0 0 6px var(--accent-glow)) brightness(1.08) saturate(1.2);
-        }
-
-        .sankey-select-menu {
-          position: absolute;
-          top: calc(100% + 8px);
-          left: 0;
-          right: 0;
-          z-index: 40;
-          max-height: 280px;
-          overflow-y: auto;
-          overflow-x: hidden;
-          padding: 6px;
-          border-radius: 12px;
-          background: var(--panel);
-          backdrop-filter: blur(24px) saturate(1.5);
-          -webkit-backdrop-filter: blur(24px) saturate(1.5);
-          border: 1px solid var(--line);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--line);
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          scrollbar-width: thin;
-          scrollbar-color: var(--line) transparent;
-        }
-
-        .sankey-select-menu::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .sankey-select-menu::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .sankey-select-menu::-webkit-scrollbar-thumb {
-          background: var(--line);
-          border-radius: 4px;
-        }
-
-        .sankey-option {
-          width: 100%;
-          border: 0;
-          border-radius: 6px;
-          background: transparent;
-          color: var(--ink-secondary);
-          padding: 8px 12px;
-          font-size: 0.85rem;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .sankey-option:hover {
-          background: var(--bg-2);
-          color: var(--ink);
-          transform: translateX(2px);
-        }
-
-        .sankey-option.active {
-          background: var(--accent-glow);
-          color: var(--accent);
-          font-weight: 600;
-        }
-
-        .sankey-option.arabic-text {
-          direction: rtl;
-          text-align: right;
-          font-family: "Amiri", serif;
-          font-size: 1.1rem;
-        }
-
-        .sankey-option.arabic-text:hover {
-          transform: translateX(-2px);
+          filter: drop-shadow(0 0 6px var(--accent-glow));
         }
 
         .count-label {
@@ -819,145 +1003,6 @@ export default function RootFlowSankey({
         .load-more-btn:hover {
           background: var(--accent);
           color: #fff;
-        }
-
-        .sankey-sidebar-stack .sankey-control-card h3 {
-          margin: 4px 0 0;
-          font-size: 1.02rem;
-        }
-
-        .sankey-control-card {
-          display: grid;
-          gap: 10px;
-          background:
-            linear-gradient(160deg, var(--bg-1), var(--bg-2)),
-            radial-gradient(circle at 10% 12%, rgba(15, 118, 110, 0.11), transparent 46%);
-        }
-
-        .sankey-card-head {
-          display: grid;
-          gap: 4px;
-        }
-
-        .sankey-field {
-          display: grid;
-          gap: 6px;
-        }
-
-        .sankey-label {
-          font-size: 0.72rem;
-          letter-spacing: 0.06em;
-          color: var(--ink-muted);
-          text-transform: uppercase;
-          font-weight: 600;
-        }
-
-        .sankey-select-shell {
-          position: relative;
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
-        }
-
-        .sankey-select-shell::after {
-          content: "";
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          width: 7px;
-          height: 7px;
-          border-left: 2px solid var(--ink-muted);
-          border-bottom: 2px solid var(--ink-muted);
-          transform: translateY(-70%) rotate(-45deg);
-          pointer-events: none;
-        }
-
-        .sankey-select {
-          width: 100%;
-          height: 40px;
-          border: 0;
-          border-radius: 12px;
-          padding: 0 34px 0 12px;
-          color: var(--ink);
-          background: transparent;
-          outline: none;
-          font-size: 0.85rem;
-          font-weight: 550;
-          appearance: none;
-        }
-
-        .sankey-meta-row {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          border-top: 1px solid var(--line);
-          padding-top: 6px;
-          font-size: 0.8rem;
-        }
-
-        .sankey-meta-key {
-          color: var(--ink-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .sankey-meta-value {
-          color: var(--ink-secondary);
-          font-weight: 600;
-          text-align: right;
-        }
-
-        .sankey-meta-arabic {
-          font-family: "Amiri", serif;
-          font-size: 0.96rem;
-        }
-
-        .sankey-stats-row {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 8px;
-        }
-
-        .sankey-stat-item {
-          display: grid;
-          justify-items: center;
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          padding: 7px 6px;
-          background: var(--bg-1);
-        }
-
-        .sankey-stat-value {
-          font-size: 0.92rem;
-          font-weight: 700;
-        }
-
-        .sankey-stat-key {
-          font-size: 0.62rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--ink-muted);
-        }
-
-        .sankey-help-card {
-          display: grid;
-          gap: 8px;
-        }
-
-        .sankey-help-title {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: var(--ink-secondary);
-        }
-
-        .sankey-help-list {
-          margin: 0;
-          padding-left: 16px;
-          display: grid;
-          gap: 6px;
-          color: var(--ink-secondary);
-          font-size: 0.78rem;
-          line-height: 1.35;
         }
 
         :global([data-theme="dark"]) .sankey-wrapper {

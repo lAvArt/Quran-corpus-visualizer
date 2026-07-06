@@ -42,6 +42,35 @@ import type { SearchResultItem } from "@/lib/search/searchTypes";
 
 const STORAGE_KEY = "quran-corpus-viz-state";
 
+/**
+ * Resolve the focused-token id for a search-result / deep-link selection.
+ *
+ * `selection.tokenId` wins when present. Otherwise, a bare `selection.ayah`
+ * (e.g. `?surah=2&ayah=255` with no `token=`, as produced by the AppShell
+ * deep-link hydration effect) is turned into a synthetic "first word of the
+ * ayah" token id: token ids are deterministic `"{sura}:{ayah}:{word}"`
+ * strings and word numbering starts at 1 (see `wordToToken` in
+ * lib/corpus/corpusLoader.ts), so `${surah}:${ayah}:1` always names a real
+ * token once that ayah's tokens exist. `selection.surahId` is preferred over
+ * the currently-selected surah so an explicit deep link always wins.
+ *
+ * The synthesized id may not resolve to a token immediately if that ayah
+ * hasn't streamed into `allTokens` yet — that's fine and needs no extra data-
+ * race handling: `focusedToken` (useSelectionState) is a
+ * `tokenById.get(focusedTokenId)` lookup recomputed from `allTokens` on every
+ * render, so it resolves reactively the instant the token streams in, the
+ * same way a real deep-linked `tokenId` already does today.
+ */
+export function resolveFocusedTokenIdForSelection(
+  selection: SearchResultItem["actionTarget"]["selection"] | undefined,
+  currentSurahId: number
+): string | null {
+  const sel = selection ?? {};
+  if (sel.tokenId) return sel.tokenId;
+  if (sel.ayah) return `${sel.surahId ?? currentSurahId}:${sel.ayah}:1`;
+  return null;
+}
+
 export function useHomePageController(
   initialCorpusData?: CorpusOverviewData,
   initialThemePreference: ThemePreferenceState = DEFAULT_THEME_PREFERENCE_STATE
@@ -589,12 +618,13 @@ export function useHomePageController(
         setSearchLockedRoot(null);
       }
       setSelectedLemma(sel.lemma ?? null);
-      setFocusedTokenId(sel.tokenId ?? null);
+      setFocusedTokenId(resolveFocusedTokenIdForSelection(sel, selectedSurahId));
       setHoverTokenId(null);
       if (!isMobileViewport) setIsSidebarOpen(true);
       if (firstRunState === "mission-active") handleMissionTaskComplete("search");
     },
     [
+      selectedSurahId,
       setVizMode,
       setShowAdvancedModes,
       setSelectedSurahId,

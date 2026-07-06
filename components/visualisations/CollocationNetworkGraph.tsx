@@ -15,6 +15,7 @@ import {
     getPairCooccurrence,
     type CollocationOptions,
     type CollocationTermKind,
+    type RootFrequencyData,
 } from "@/lib/search/collocation";
 import { HelpIcon, VizExplainerDialog } from "@/components/ui/VizExplainerDialog";
 import { fitGraphToView } from "@/lib/viz/fitToView";
@@ -166,6 +167,51 @@ function buildCurvedPath(source: CollocationNode, target: CollocationNode, bendS
     return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
 }
 
+// Rendered collocate slots per neighborhood (~40 nodes) — keeps the force graph
+// legible and performant. Pre-existing cap; now surfaced via nodeCapDisclosure
+// instead of truncating silently.
+const COLLOCATE_NODE_CAP = 34;
+
+// Root used to seed a neighborhood preview when nothing is selected yet
+// (e.g. the bare `?viz=collocation-network` deep link). رحم ("mercy/womb")
+// is chosen for thematic resonance (Ar-Rahman/Ar-Raheem) and is reliably
+// dense in co-occurrences.
+const SEEDED_EXAMPLE_ROOT = "رحم";
+
+/**
+ * Picks the root used for the seeded "no selection yet" example neighborhood.
+ * Prefers SEEDED_EXAMPLE_ROOT when it is actually present in the loaded
+ * corpus; otherwise falls back to the most frequent root present so the
+ * example never renders empty.
+ */
+function pickSeededExampleRoot(freqData: RootFrequencyData): string {
+    const normalizedSeed = normalizeArabicForMatch(SEEDED_EXAMPLE_ROOT);
+    let seedPresent = false;
+    let fallbackKey = "";
+    let fallbackCount = -1;
+
+    for (const [key, count] of freqData.rootFrequencies.entries()) {
+        if (normalizeArabicForMatch(key) === normalizedSeed) {
+            seedPresent = true;
+        }
+        if (count > fallbackCount) {
+            fallbackCount = count;
+            fallbackKey = key;
+        }
+    }
+
+    return seedPresent ? SEEDED_EXAMPLE_ROOT : fallbackKey;
+}
+
+// Fixed semantic amber for the "heuristic estimate" honesty badge — kept
+// independent of the user's selected accent theme (accent/accent-2 shift
+// per color theme, see lib/theme/colorThemes.ts) so the caution signal
+// stays recognizable no matter which palette is active.
+const HEURISTIC_AMBER = {
+    dark: { fg: "#fcd34d", border: "rgba(252, 211, 77, 0.55)", bg: "rgba(217, 119, 6, 0.16)" },
+    light: { fg: "#92400e", border: "rgba(180, 83, 9, 0.5)", bg: "rgba(245, 158, 11, 0.14)" },
+} as const;
+
 export default function CollocationNetworkGraph({
     tokens,
     onTokenHover: _onTokenHover,
@@ -284,9 +330,17 @@ export default function CollocationNetworkGraph({
         minWidth: 82,
     } as const;
 
+    const freqData = useMemo(() => calculateRootFrequencies(tokens), [tokens]);
+    const seededExampleRoot = useMemo(() => pickSeededExampleRoot(freqData), [freqData]);
+
     const normalizedTargetValue = useMemo(() => targetValue.trim(), [targetValue]);
     const normalizedPairValue = useMemo(() => pairValue.trim(), [pairValue]);
-    const activeTargetValue = normalizedTargetValue || (targetKind === "root" ? (highlightRoot ?? "") : "");
+    // No root selected yet (no manual input, no highlighted root): seed the
+    // view with a real neighborhood instead of the empty state, framed as an
+    // "Example" — see isSeededExample usage below.
+    const isSeededExample = targetKind === "root" && !normalizedTargetValue && !highlightRoot && Boolean(seededExampleRoot);
+    const activeTargetValue = normalizedTargetValue
+        || (targetKind === "root" ? (highlightRoot || (isSeededExample ? seededExampleRoot : "")) : "");
     const activePairValue = normalizedPairValue;
     const targetTerm = useMemo(
         () => (activeTargetValue ? { kind: targetKind, value: activeTargetValue } : null),
@@ -301,8 +355,6 @@ export default function CollocationNetworkGraph({
         () => `colloc-neural-${hashString(`${targetKind}:${activeTargetValue || "none"}:${groupBy}`)}`,
         [targetKind, activeTargetValue, groupBy]
     );
-
-    const freqData = useMemo(() => calculateRootFrequencies(tokens), [tokens]);
 
     useEffect(() => {
         if (!highlightRoot || targetKind !== "root") return;
@@ -356,8 +408,8 @@ export default function CollocationNetworkGraph({
         return getPairCooccurrence(targetTerm, pairTerm, tokens, { windowType, distance });
     }, [targetTerm, pairTerm, tokens, windowType, distance]);
 
-    const { initialNodes, initialLinks } = useMemo(() => {
-        if (!targetTerm) return { initialNodes: [], initialLinks: [] };
+    const { initialNodes, initialLinks, totalCollocateCount } = useMemo(() => {
+        if (!targetTerm) return { initialNodes: [], initialLinks: [], totalCollocateCount: 0 };
 
         const results = getCollocations(targetTerm, tokens, freqData, {
             windowType,
@@ -369,9 +421,9 @@ export default function CollocationNetworkGraph({
             },
             pairTerm,
         });
-        if (results.length === 0) return { initialNodes: [], initialLinks: [] };
+        if (results.length === 0) return { initialNodes: [], initialLinks: [], totalCollocateCount: 0 };
 
-        const topResults = results.slice(0, 34);
+        const topResults = results.slice(0, COLLOCATE_NODE_CAP);
         const [rawMinPmi = 0, rawMaxPmi = 1] = d3.extent(topResults, (d) => d.pmi);
         const minPmi = Number.isFinite(rawMinPmi) ? rawMinPmi : 0;
         const maxPmi = Number.isFinite(rawMaxPmi) ? rawMaxPmi : 1;
@@ -478,8 +530,13 @@ export default function CollocationNetworkGraph({
             }
         }
 
-        return { initialNodes: nodesResult, initialLinks: linksResult };
+        return { initialNodes: nodesResult, initialLinks: linksResult, totalCollocateCount: results.length };
     }, [targetTerm, tokens, freqData, windowType, distance, minFrequency, themeColors.accent, neonPalette, groupBy, filterPos, pairTerm, targetCount]);
+
+    // Node cap is pre-existing (COLLOCATE_NODE_CAP); this only makes the
+    // truncation visible instead of silent when more collocates exist than
+    // are rendered.
+    const isNodeCapped = totalCollocateCount > COLLOCATE_NODE_CAP;
 
     const stars = useMemo(() => {
         const seed = hashString(`${activeTargetValue || "none"}:${dimensions.width}:${dimensions.height}`);
@@ -1151,6 +1208,80 @@ export default function CollocationNetworkGraph({
                     </svg>
                 )}
             </div>
+
+            {targetTerm && (
+                <div
+                    style={{
+                        position: "absolute",
+                        insetInlineStart: 0,
+                        insetInlineEnd: 0,
+                        // Sit just below the fixed status/breadcrumb bar, which
+                        // occupies top: var(--header-clearance) at a higher
+                        // z-index — keeps the badge visible next to it instead
+                        // of underneath it.
+                        top: "calc(var(--header-clearance) + 44px)",
+                        zIndex: 25,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        paddingInline: 16,
+                        textAlign: "center",
+                        pointerEvents: "none",
+                    }}
+                >
+                    <span
+                        title={t("HeuristicBadge.tooltip", { n: minFrequency })}
+                        aria-label={`${t("HeuristicBadge.label")} — ${t("HeuristicBadge.tooltip", { n: minFrequency })}`}
+                        tabIndex={0}
+                        style={{
+                            pointerEvents: "auto",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "3px 10px",
+                            borderRadius: 999,
+                            fontSize: "0.68rem",
+                            fontWeight: 700,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            color: theme === "dark" ? HEURISTIC_AMBER.dark.fg : HEURISTIC_AMBER.light.fg,
+                            background: theme === "dark" ? HEURISTIC_AMBER.dark.bg : HEURISTIC_AMBER.light.bg,
+                            border: `1px solid ${theme === "dark" ? HEURISTIC_AMBER.dark.border : HEURISTIC_AMBER.light.border}`,
+                            cursor: "help",
+                        }}
+                    >
+                        {t("HeuristicBadge.label")}
+                    </span>
+
+                    {isSeededExample && (
+                        <div style={{ maxWidth: 460 }}>
+                            <p
+                                style={{
+                                    margin: 0,
+                                    fontSize: "0.92rem",
+                                    fontWeight: 600,
+                                    color: themeColors.textColors.primary,
+                                    textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                }}
+                            >
+                                {t("SeededExample.title", { root: targetTerm.value })}
+                            </p>
+                            <p
+                                style={{
+                                    margin: "2px 0 0",
+                                    fontSize: "0.74rem",
+                                    color: themeColors.textColors.secondary,
+                                    textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                }}
+                            >
+                                {t("SeededExample.subtitle")}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {!targetTerm && (
                 <div
                     style={{
@@ -1480,6 +1611,21 @@ export default function CollocationNetworkGraph({
                             <div className="viz-legend-line" style={{ background: withAlpha(themeColors.edgeColors.default, 0.36), height: 1.5 }} />
                             <span>{t("lemmaLayerHint")}</span>
                         </div>
+                        {isNodeCapped && (
+                            <div
+                                data-testid="collocation-node-cap-disclosure"
+                                style={{
+                                    marginTop: 8,
+                                    paddingTop: 8,
+                                    borderTop: `1px solid ${panelBorder}`,
+                                    fontSize: "0.7rem",
+                                    color: "var(--ink-muted)",
+                                    lineHeight: 1.4,
+                                }}
+                            >
+                                {t("nodeCapDisclosure", { n: COLLOCATE_NODE_CAP })}
+                            </div>
+                        )}
                     </div>
                 </div>,
                 document.getElementById('viz-sidebar-portal')!

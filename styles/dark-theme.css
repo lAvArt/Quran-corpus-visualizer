@@ -432,6 +432,37 @@
   font-weight: 500;
 }
 
+.viz-tooltip-row--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.viz-ayah-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viz-ayah-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+  color: var(--ink-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .viz-ayah-chip {
+  background: color-mix(in srgb, var(--accent), transparent 78%);
+  border-color: rgba(198, 222, 230, 0.16);
+}
+
 /* ============================================================================
    Legend Styles
    ============================================================================ */

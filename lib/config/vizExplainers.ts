@@ -16,6 +16,14 @@ export interface VizExplainer {
   hintKeys: string[];
   /** Why this view is useful (i18n key) */
   purposeKey: string;
+  /**
+   * One-line "claim" — what this view lets you discover. Powers the
+   * first-open intro card (`VizIntroCard`), distinct from the persistent
+   * "What am I seeing?" panel above.
+   */
+  claimKey: string;
+  /** Exactly 3 short "how to read it" steps for the intro card (i18n keys). */
+  howToReadKeys: readonly [string, string, string];
 }
 
 /**
@@ -46,6 +54,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "surah-distribution.hint.zoom",
     ],
     purposeKey: "surah-distribution.purpose",
+    claimKey: "surah-distribution.claim",
+    howToReadKeys: [
+      "surah-distribution.hint.hover",
+      "surah-distribution.hint.click",
+      "surah-distribution.hint.zoom",
+    ],
   },
 
   "corpus-architecture": {
@@ -60,6 +74,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "corpus-architecture.hint.click",
     ],
     purposeKey: "corpus-architecture.purpose",
+    claimKey: "corpus-architecture.claim",
+    howToReadKeys: [
+      "corpus-architecture.hint.expand",
+      "corpus-architecture.hint.click",
+      "corpus-architecture.hint.zoom",
+    ],
   },
 
   // Canvas colours POS dots via getNodeColor() — matches the on-canvas legend exactly.
@@ -79,6 +99,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "radial-sura.hint.zoom",
     ],
     purposeKey: "radial-sura.purpose",
+    claimKey: "radial-sura.claim",
+    howToReadKeys: [
+      "radial-sura.hint.hover",
+      "radial-sura.hint.click",
+      "radial-sura.hint.zoom",
+    ],
   },
 
   // Tokens coloured by getNodeColor(pos); edges use var(--accent).
@@ -93,6 +119,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "dependency-tree.hint.click",
     ],
     purposeKey: "dependency-tree.purpose",
+    claimKey: "dependency-tree.claim",
+    howToReadKeys: [
+      "dependency-tree.hint.hover",
+      "dependency-tree.hint.click",
+      "dependency-tree.hint.zoom",
+    ],
   },
 
   // Tokens coloured by getNodeColor(pos); arcs use the theme accent gradient.
@@ -107,6 +139,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "arc-flow.hint.click",
     ],
     purposeKey: "arc-flow.purpose",
+    claimKey: "arc-flow.claim",
+    howToReadKeys: [
+      "arc-flow.hint.hover",
+      "arc-flow.hint.click",
+      "arc-flow.hint.pan",
+    ],
   },
 
   // Root nodes use the theme accent; lemma nodes use getNodeColor(pos).
@@ -123,6 +161,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "root-network.hint.drag",
     ],
     purposeKey: "root-network.purpose",
+    claimKey: "root-network.claim",
+    howToReadKeys: [
+      "root-network.hint.hover",
+      "root-network.hint.click",
+      "root-network.hint.drag",
+    ],
   },
 
   "sankey-flow": {
@@ -137,6 +181,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "sankey-flow.hint.click",
     ],
     purposeKey: "sankey-flow.purpose",
+    claimKey: "sankey-flow.claim",
+    howToReadKeys: [
+      "sankey-flow.hint.hover",
+      "sankey-flow.hint.click",
+      "sankey-flow.hint.path",
+    ],
   },
 
   "collocation-network": {
@@ -152,6 +202,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "collocation-network.hint.drag",
     ],
     purposeKey: "collocation-network.purpose",
+    claimKey: "collocation-network.claim",
+    howToReadKeys: [
+      "collocation-network.hint.hover",
+      "collocation-network.hint.click",
+      "collocation-network.hint.drag",
+    ],
   },
 
   // Canvas tints tracked roots with the accent, ghosts stay neutral.
@@ -167,6 +223,12 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "knowledge-graph.hint.click",
     ],
     purposeKey: "knowledge-graph.purpose",
+    claimKey: "knowledge-graph.claim",
+    howToReadKeys: [
+      "knowledge-graph.hint.hover",
+      "knowledge-graph.hint.click",
+      "knowledge-graph.hint.legend",
+    ],
   },
 
   // Frequency ramp in the warm V2 spectrum (yellow → amber → coral).
@@ -182,5 +244,11 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
       "heatmap.hint.click",
     ],
     purposeKey: "heatmap.purpose",
+    claimKey: "heatmap.claim",
+    howToReadKeys: [
+      "heatmap.hint.hover",
+      "heatmap.hint.click",
+      "heatmap.hint.legend",
+    ],
   },
 };

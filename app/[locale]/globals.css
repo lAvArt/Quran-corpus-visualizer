@@ -2274,6 +2274,34 @@ button.site-footer-link {
   font-weight: 600;
 }
 
+/* Muted one-line message under the graph header (status strip) — same
+   quiet voice as .eyebrow, but sentence case since it carries a full
+   phrase rather than a short label. Centered beneath the status bar
+   (fixed at var(--header-clearance)), like the strip itself, so it works
+   identically in LTR and RTL. */
+.surah-distribution-caption {
+  position: fixed;
+  top: calc(var(--header-clearance) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  margin: 0;
+  max-width: min(520px, calc(100vw - 32px));
+  font-size: 0.78rem;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .surah-distribution-caption {
+    display: none;
+  }
+}
+
 .panel {
   margin-top: 28px;
   border: 1px solid var(--line);
@@ -2352,15 +2380,16 @@ button.site-footer-link {
   fill: var(--ink-secondary);
 }
 
+/* Sankey ribbons (RootFlowSankey). No animation/filter/opacity here: the
+   component drives per-ribbon opacity via the SVG attribute for its
+   muted-neutral / accent-emphasis states, and a CSS opacity animation or an
+   :hover opacity override would silently beat that attribute. */
 .flow-path {
   cursor: pointer;
   transition: opacity 180ms ease, filter 180ms ease;
-  filter: drop-shadow(0 0 5px var(--accent-2-glow));
-  animation: pulse-link 2.4s ease-in-out infinite alternate;
 }
 
 .flow-path:hover {
-  opacity: 1;
   filter: drop-shadow(0 0 12px var(--accent-glow));
 }
 
@@ -2534,16 +2563,6 @@ button.site-footer-link {
 @keyframes draw-edge {
   to {
     stroke-dashoffset: 0;
-  }
-}
-
-@keyframes pulse-link {
-  from {
-    opacity: 0.6;
-  }
-
-  to {
-    opacity: 0.92;
   }
 }
 
