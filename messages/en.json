@@ -674,6 +674,8 @@
             "helpText": "Bars represent ayahs (length = token count, color = dominant POS). Arcs connect ayahs that share roots.",
             "filtering": "Filtering: {root}",
             "matchSummary": "{matchCount, plural, one {# match} other {# matches}} · {matchAyahCount, plural, one {# ayah} other {# ayahs}}",
+            "overviewLine": "overview · {count, plural, one {# ayah} other {# ayahs}} — zoom for words",
+            "matchesLabel": "Matches",
             "linkedVerses": "Linked verses: {verses}",
             "selectedRoot": "Selected Root",
             "nodeAyah": "Ayah {id}",

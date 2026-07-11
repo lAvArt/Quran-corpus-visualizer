@@ -13,6 +13,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { prefersReducedMotion } from "@/lib/viz/motionPrefs";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -77,6 +78,11 @@ export default function CorpusArchitectureMap({
 
     const [isMounted, setIsMounted] = useState(false);
     const { isLeftSidebarOpen } = useVizControl();
+    // JS-driven motion (framer-motion) bypasses the global CSS
+    // `prefers-reduced-motion` rule in globals.css — this component's only
+    // framer usage (the selected-root info panel below) must collapse to
+    // instant manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
     useEffect(() => { setIsMounted(true); }, []);
 
     useEffect(() => {
@@ -652,6 +658,7 @@ export default function CorpusArchitectureMap({
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={reduceMotion ? { duration: 0 } : undefined}
                                     >
                                         <div className="viz-tooltip-title arabic-text" style={{ fontSize: '1.3em' }}>{selectedRootInfo.root}</div>
                                         <div className="viz-tooltip-subtitle" style={{ fontSize: '0.8em', marginTop: 4 }}>

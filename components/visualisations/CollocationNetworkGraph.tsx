@@ -19,6 +19,7 @@ import {
 } from "@/lib/search/collocation";
 import { HelpIcon, VizExplainerDialog } from "@/components/ui/VizExplainerDialog";
 import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 
 interface CollocationNetworkGraphProps {
     tokens: CorpusToken[];
@@ -254,6 +255,10 @@ export default function CollocationNetworkGraph({
     const isBeginner = experienceLevel === "beginner";
 
     const themeColors = resolveVisualizationTheme(theme);
+    // Framer-motion pulse/reveal animations below are JS-driven and bypass
+    // the global CSS prefers-reduced-motion rule (globals.css) — gate them
+    // manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
     const neonPalette = useMemo(() => {
         const source = [
             themeColors.accent,
@@ -1114,7 +1119,11 @@ export default function CollocationNetworkGraph({
                                                     stroke={withAlpha(themeColors.accent, 0.28)}
                                                     strokeWidth={1.1}
                                                     animate={{ opacity: [0.06, 0.2, 0.06], scale: [0.98, 1.06, 0.98] }}
-                                                    transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut" }}
+                                                    transition={
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : { repeat: Infinity, duration: 2.8, ease: "easeInOut" }
+                                                    }
                                                 />
                                             )}
 
@@ -1308,7 +1317,9 @@ export default function CollocationNetworkGraph({
                       </div>
                       <div className="viz-zoom-row">
                         <button type="button" className="viz-zoom-reset-btn" onClick={() => {
-                                    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                                    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+                                        duration: motionSafeDuration(750),
+                                    });
                                 }}>
                           {ts("focus")}
                         </button>
@@ -1554,6 +1565,7 @@ export default function CollocationNetworkGraph({
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
+                                        transition={reduceMotion ? { duration: 0 } : undefined}
                                         style={{ overflow: "hidden", display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
                                     >
                                         <span style={{ ...controlLabelStyle, minWidth: "auto" }}>

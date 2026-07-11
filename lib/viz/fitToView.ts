@@ -1,4 +1,5 @@
 import * as d3 from "d3";
+import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 
 export interface ViewBounds {
   x: number;
@@ -33,7 +34,12 @@ export function fitBoundsToView(
   zoom: d3.ZoomBehavior<any, unknown> | null | undefined,
   opts: FitOptions = {}
 ): void {
-  const { padding = 0.88, duration = 750, minScale = 0.1, maxScale = 8 } = opts;
+  const { padding = 0.88, minScale = 0.1, maxScale = 8 } = opts;
+  // Reduced motion wins even over an explicit caller duration — callers pass
+  // *intent* ("animated glide"), but the user preference decides whether that
+  // intent renders as a glide or an instant jump. Non-reduced behavior is
+  // unchanged (motionSafeDuration is the identity there).
+  const duration = motionSafeDuration(opts.duration ?? 750);
   if (!svg || !zoom || !bounds || bounds.width === 0 || bounds.height === 0) return;
 
   // Prefer the SVG's user-space viewBox; fall back to its pixel size (assume 1:1).

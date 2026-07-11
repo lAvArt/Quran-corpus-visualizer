@@ -12,6 +12,7 @@ import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/sche
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
 import { fitGraphToView } from "@/lib/viz/fitToView";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
@@ -378,7 +379,9 @@ export default function AyahDependencyGraph({
   }, [dimensions.width, graphWidth, activeSurah, activeAyah, sortedTokens.length]);
 
   const handleResetZoom = useCallback(() => {
-    fitGraphToView(svgRef.current, zoomLayerRef.current, zoomBehaviorRef.current);
+    fitGraphToView(svgRef.current, zoomLayerRef.current, zoomBehaviorRef.current, {
+      duration: motionSafeDuration(750),
+    });
   }, []);
 
   const handleNextAyah = useCallback(() => {
@@ -527,7 +530,7 @@ export default function AyahDependencyGraph({
               className="dep-zoom-btn dep-zoom-step-btn"
               onClick={() => {
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
-                d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 1.2);
+                d3.select(svgRef.current).transition().duration(motionSafeDuration(140)).call(zoomBehaviorRef.current.scaleBy, 1.2);
               }}
               aria-label={ts("zoomIn")}
             >
@@ -538,7 +541,7 @@ export default function AyahDependencyGraph({
               className="dep-zoom-btn dep-zoom-step-btn"
               onClick={() => {
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
-                d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 0.85);
+                d3.select(svgRef.current).transition().duration(motionSafeDuration(140)).call(zoomBehaviorRef.current.scaleBy, 0.85);
               }}
               aria-label={ts("zoomOut")}
             >

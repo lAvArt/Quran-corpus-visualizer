@@ -8,6 +8,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
+import { motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useTranslations } from "next-intl";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
@@ -78,6 +79,10 @@ export default function SurahDistributionGraph({
 
 
     const { isLeftSidebarOpen } = useVizControl();
+    // Framer-motion entrance stagger + hover pulse below are JS-driven and
+    // bypass the global CSS prefers-reduced-motion rule (globals.css) — gate
+    // them manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
 
     useEffect(() => {
         setIsMounted(true);
@@ -396,7 +401,7 @@ export default function SurahDistributionGraph({
                                     <motion.g
                                         key={node.id}
                                         className="surah-node-group"
-                                        initial={animateEntrance ? { scale: 0, opacity: 0 } : false}
+                                        initial={animateEntrance && !reduceMotion ? { scale: 0, opacity: 0 } : false}
                                         animate={{
                                             scale: 1,
                                             opacity: isDimmed ? 0.2 : 1
@@ -405,7 +410,11 @@ export default function SurahDistributionGraph({
                                             type: "spring",
                                             stiffness: 100,
                                             damping: 15,
-                                            delay: node.id * 0.01,
+                                            // Per-surah entrance delay, capped so the wave across all 114
+                                            // surahs never exceeds ~600ms total (was up to ~1.14s
+                                            // uncapped); zeroed outright under reduced motion.
+                                            delay: motionSafeStagger(node.id, 10, 600) / 1000,
+                                            ...(reduceMotion ? { type: "tween", duration: 0, delay: 0 } : {}),
                                         }}
                                         style={{ cursor: "pointer" }}
                                         onMouseEnter={() => handleSurahHover(node)}
@@ -423,11 +432,11 @@ export default function SurahDistributionGraph({
                                                 strokeWidth={hasRoot ? 3 : 2}
                                                 initial={{ scale: 0.8, opacity: 0 }}
                                                 animate={{ scale: 1.1, opacity: 0.7 }}
-                                                transition={{
-                                                    repeat: Infinity,
-                                                    repeatType: "reverse",
-                                                    duration: 0.8,
-                                                }}
+                                                transition={
+                                                    reduceMotion
+                                                        ? { duration: 0 }
+                                                        : { repeat: Infinity, repeatType: "reverse", duration: 0.8 }
+                                                }
                                             />
                                         )}
 
@@ -505,6 +514,7 @@ export default function SurahDistributionGraph({
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
+                                    transition={reduceMotion ? { duration: 0 } : undefined}
                                 >
                                     {(() => {
                                         const node = surahNodes.find(n => n.id === (hoveredSurah ?? selectedSurah));

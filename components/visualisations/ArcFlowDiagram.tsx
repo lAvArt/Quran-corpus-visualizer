@@ -13,6 +13,7 @@ import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import type { ExperienceLevel } from "@/lib/schema/experience";
 import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -186,6 +187,11 @@ export default function ArcFlowDiagram({
   }, [dimensions.width, dimensions.height]);
 
   const themeColors = resolveVisualizationTheme(theme);
+  // Framer-motion entrance staggers and D3 zoom transitions below are
+  // JS-driven and bypass the global CSS prefers-reduced-motion rule
+  // (globals.css) — gate them manually. Read once per render;
+  // matchMedia-backed, SSR-safe.
+  const reduceMotion = prefersReducedMotion();
 
   const scopedTokens = useMemo(() => {
     if (!selectedSurahId) return tokens;
@@ -631,7 +637,7 @@ export default function ArcFlowDiagram({
     if (!svgRef.current || !zoomBehaviorRef.current) return;
     d3.select(svgRef.current)
       .transition()
-      .duration(180)
+      .duration(motionSafeDuration(180))
       .call(zoomBehaviorRef.current.scaleBy, 1.2);
   }, []);
 
@@ -639,12 +645,14 @@ export default function ArcFlowDiagram({
     if (!svgRef.current || !zoomBehaviorRef.current) return;
     d3.select(svgRef.current)
       .transition()
-      .duration(180)
+      .duration(motionSafeDuration(180))
       .call(zoomBehaviorRef.current.scaleBy, 0.85);
   }, []);
 
   const handleResetZoom = useCallback(() => {
-    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+      duration: motionSafeDuration(750),
+    });
   }, []);
 
   const selectedSummary = useMemo(() => {
@@ -973,7 +981,10 @@ export default function ArcFlowDiagram({
                         pathLength: 1,
                         opacity: isHoverHit ? 0.95 : isContextHit ? 0.7 : 0.42,
                       }}
-                      transition={{ duration: 1.5, delay: idx * 0.02 }}
+                      transition={{
+                        duration: motionSafeDuration(1500) / 1000,
+                        delay: motionSafeStagger(idx, 20, 600) / 1000,
+                      }}
                       filter={isHoverHit || isContextHit ? "url(#barGlow)" : undefined}
                     />
                   );
@@ -1006,7 +1017,10 @@ export default function ArcFlowDiagram({
                       key={node.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: idx * 0.012 }}
+                      transition={{
+                        duration: motionSafeDuration(300) / 1000,
+                        delay: motionSafeStagger(idx, 12, 600) / 1000,
+                      }}
                       style={{ cursor: "pointer" }}
                       onMouseEnter={() => handleNodeHover(node)}
                       onMouseLeave={() => handleNodeHover(null)}
@@ -1023,7 +1037,10 @@ export default function ArcFlowDiagram({
                         filter={isHovered || isContextNode ? "url(#barGlow)" : undefined}
                         initial={{ pathLength: 0 }}
                         animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.7, delay: idx * 0.01 }}
+                        transition={{
+                          duration: motionSafeDuration(700) / 1000,
+                          delay: motionSafeStagger(idx, 10, 600) / 1000,
+                        }}
                       />
 
                       <circle
@@ -1061,6 +1078,7 @@ export default function ArcFlowDiagram({
                           }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
+                          transition={reduceMotion ? { duration: 0 } : undefined}
                         >
                           {node.label}
                         </motion.text>
@@ -1081,6 +1099,7 @@ export default function ArcFlowDiagram({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
+              transition={reduceMotion ? { duration: 0 } : undefined}
               style={{
                 position: "absolute",
                 bottom: 20,

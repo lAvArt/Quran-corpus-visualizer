@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { fitGraphToView, fitBoundsToView, type ViewBounds } from "@/lib/viz/fitToView";
+import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 
 interface ZoomOptions {
     minScale?: number;
@@ -66,11 +67,15 @@ export function useZoom<SVGType extends SVGSVGElement>({
         };
     }, [minScale, maxScale, initialScale, ready]);
 
+    // Camera transitions consult reduced-motion AT THE SOURCE (durations
+    // collapse to 0), so every visualization built on this hook honors the
+    // preference without per-call-site wrapping. fitToView/fitBounds get the
+    // same treatment inside fitBoundsToView.
     const resetZoom = () => {
         if (svgRef.current && zoomInstanceRef.current) {
             d3.select(svgRef.current)
                 .transition()
-                .duration(750)
+                .duration(motionSafeDuration(750))
                 .call(zoomInstanceRef.current.transform, d3.zoomIdentity.translate(0, 0).scale(initialScale));
             onZoomRef.current?.(d3.zoomIdentity.translate(0, 0).scale(initialScale));
         }
@@ -80,7 +85,7 @@ export function useZoom<SVGType extends SVGSVGElement>({
         if (svgRef.current && zoomInstanceRef.current) {
             d3.select(svgRef.current)
                 .transition()
-                .duration(200)
+                .duration(motionSafeDuration(200))
                 .call(zoomInstanceRef.current.scaleBy, factor);
         }
     };

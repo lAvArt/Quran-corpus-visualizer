@@ -9,6 +9,7 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 import { useTranslations } from "next-intl";
 
 interface RootNetworkGraphProps {
@@ -75,6 +76,10 @@ export default function RootNetworkGraph({
   const effectiveRootLimit = experienceLevel === "beginner" ? 30 : rootLimit;
 
   const themeColors = resolveVisualizationTheme(theme);
+  // Framer-motion entrance/pulse animations below are JS-driven and bypass
+  // the global CSS prefers-reduced-motion rule (globals.css) — gate them
+  // manually. Read once per render; matchMedia-backed, SSR-safe.
+  const reduceMotion = prefersReducedMotion();
 
   // Filter tokens by surah if selected
   const scopedTokens = useMemo(() => {
@@ -485,7 +490,10 @@ export default function RootNetworkGraph({
                         pathLength: 1,
                         opacity: isHighlighted ? 0.9 : 0.3,
                       }}
-                      transition={{ duration: 1, delay: idx * 0.01 }}
+                      transition={{
+                        duration: motionSafeDuration(1000) / 1000,
+                        delay: motionSafeStagger(idx, 10, 600) / 1000,
+                      }}
                       filter={isHighlighted ? "url(#subtleGlow)" : undefined}
                     />
                   );
@@ -529,11 +537,11 @@ export default function RootNetworkGraph({
                           opacity={0.5}
                           initial={{ scale: 0.8, opacity: 0 }}
                           animate={{ scale: 1.1, opacity: 0.5 }}
-                          transition={{
-                            repeat: Infinity,
-                            repeatType: "reverse",
-                            duration: 1,
-                          }}
+                          transition={
+                            reduceMotion
+                              ? { duration: 0 }
+                              : { repeat: Infinity, repeatType: "reverse", duration: 1 }
+                          }
                         />
                       )}
 
@@ -598,7 +606,9 @@ export default function RootNetworkGraph({
                 type="button"
                 className="viz-zoom-reset-btn"
                 onClick={() => {
-                  fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                  fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+                    duration: motionSafeDuration(750),
+                  });
                 }}
               >
                 {ts("focus")}

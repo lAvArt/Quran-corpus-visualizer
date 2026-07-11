@@ -676,6 +676,8 @@
             "helpText": "الأشرطة = آيات (الطول = عدد الكلمات، اللون = القسم السائد). النقاط = نهايات الآيات (اضغط للتركيز). الأقواس = جذور مشتركة بين الآيات (اضغط لتصفية هذا الجذر).",
             "filtering": "تصفية: {root}",
             "matchSummary": "{matchCount, plural, one {مطابقة واحدة} other {# مطابقات}} · {matchAyahCount, plural, one {آية واحدة} other {# آيات}}",
+            "overviewLine": "نظرة عامة · {count, plural, one {آية واحدة} other {# آيات}} — كبّر لرؤية الكلمات",
+            "matchesLabel": "المطابقات",
             "linkedVerses": "الآيات المرتبطة: {verses}",
             "selectedRoot": "الجذر المختار",
             "nodeAyah": "آية {id}",

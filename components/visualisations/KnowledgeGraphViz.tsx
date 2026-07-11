@@ -8,6 +8,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 import { useTranslations } from "next-intl";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -61,6 +62,10 @@ export default function KnowledgeGraphViz({
     const ts = useTranslations("Visualizations.Shared");
     const tk = useTranslations("CurrentSelectionPanel.knowledge");
     const themeColors = resolveVisualizationTheme(theme);
+    // Framer-motion entrance/pulse animations below are JS-driven and bypass
+    // the global CSS prefers-reduced-motion rule (globals.css) — gate them
+    // manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
 
     const svgRef = useRef<SVGSVGElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -579,7 +584,10 @@ export default function KnowledgeGraphViz({
                                             strokeWidth={highlighted ? 2.5 : 1}
                                             initial={{ pathLength: 0, opacity: 0 }}
                                             animate={{ pathLength: 1, opacity: highlighted ? 0.85 : 0.5 }}
-                                            transition={{ duration: 1.2, delay: idx * 0.004 }}
+                                            transition={{
+                                                duration: motionSafeDuration(1200) / 1000,
+                                                delay: motionSafeStagger(idx, 4, 600) / 1000,
+                                            }}
                                             filter={highlighted ? "url(#kg-subtleGlow)" : undefined}
                                         />
                                     );
@@ -622,9 +630,11 @@ export default function KnowledgeGraphViz({
                                                         opacity: node.state === "learning" ? [0.4, 0.1, 0.4] : 0.3,
                                                     }}
                                                     transition={
-                                                        node.state === "learning"
-                                                            ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" }
-                                                            : { duration: 0.5 }
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : node.state === "learning"
+                                                                ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" }
+                                                                : { duration: 0.5 }
                                                     }
                                                 />
                                             )}
@@ -681,7 +691,7 @@ export default function KnowledgeGraphViz({
                             initial={{ opacity: 0, y: 8, x: "-50%" }}
                             animate={{ opacity: 1, y: 0, x: "-50%" }}
                             exit={{ opacity: 0, y: 8, x: "-50%" }}
-                            transition={{ duration: 0.18 }}
+                            transition={{ duration: motionSafeDuration(180) / 1000 }}
                         >
                             {(() => {
                                 const node = nodes.find((n) => n.id === (hoveredNode ?? selectedNode));
@@ -734,7 +744,9 @@ export default function KnowledgeGraphViz({
                                     type="button"
                                     className="viz-zoom-reset-btn"
                                     onClick={() => {
-                                        fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current);
+                                        fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+                                            duration: motionSafeDuration(750),
+                                        });
                                     }}
                                 >
                                     {ts("focus")}
