@@ -15,11 +15,34 @@ interface FitOptions {
   maxScale?: number;
 }
 
-/** Class name of the fixed floating panel that hosts `#viz-sidebar-portal` —
- *  the legend/zoom/selection stack docked to one inline edge of the canvas
- *  (see components/shell/AppShell.tsx, `.viz-sidebar-stack`). Single constant
- *  so a future rename only needs updating here. */
+/** Class name of the fixed left dock — spine (journey rail) + body
+ *  (`#viz-sidebar-portal`'s legend/zoom/selection stack) fused into one
+ *  glass container (see components/shell/AppShell.tsx, `.viz-dock`). Its
+ *  rect is exactly the occluded band whether the body is expanded or
+ *  collapsed: a collapsed body contributes zero width inside the dock, so
+ *  the dock's own rect simply measures narrower. Preferred over
+ *  `FLOATING_PANEL_SELECTOR` below when present with a real box. */
+const DOCK_SELECTOR = ".viz-dock";
+
+/** Class name of the legend/zoom/selection stack itself (see
+ *  components/shell/AppShell.tsx, `.viz-sidebar-stack`) — the fallback
+ *  occlusion target for contexts with no dock: mobile (`.viz-dock` is
+ *  `display: contents` there, so it has no box of its own to measure) and
+ *  embeds that render the panel without the rest of the app shell. Single
+ *  constant so a future rename only needs updating here. */
 const FLOATING_PANEL_SELECTOR = ".viz-sidebar-stack";
+
+/** First element matching `selector` that actually occupies space on
+ *  screen. Elements that are absent, `display: none`/zero-size, or
+ *  `display: contents` (no box of its own — e.g. the mobile `.viz-dock`)
+ *  all report a zero-size `getBoundingClientRect()` and none of them should
+ *  count as an occluding panel. */
+function getOccludingElement(selector: string): HTMLElement | null {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 ? el : null;
+}
 
 /**
  * How much of the SVG's own on-screen width is covered by the floating panel,
@@ -32,17 +55,18 @@ const FLOATING_PANEL_SELECTOR = ".viz-sidebar-stack";
  * decided here from the panel's on-screen position relative to the viewport
  * centre, not from `dir`/locale, so both cases fall out of the same check.
  *
- * Returns zero on both sides when the panel is absent from the DOM, hidden
- * (zero-size), collapsed off-screen (it slides out via a CSS transform — see
- * `.viz-sidebar-stack.collapsed`), or simply doesn't overlap this particular
- * SVG (e.g. an embed rendered without the app shell).
+ * Returns zero on both sides when neither panel is present/on-screen — the
+ * dock and the standalone panel are both absent, hidden (zero-size),
+ * collapsed off-screen (the standalone panel slides out via a CSS transform
+ * — see `.viz-sidebar-stack.collapsed`) — or simply doesn't overlap this
+ * particular SVG (e.g. an embed rendered without the app shell).
  */
 function getPanelOcclusionInset(svg: SVGSVGElement, vw: number): { start: number; end: number } {
-  const panel = document.querySelector<HTMLElement>(FLOATING_PANEL_SELECTOR);
+  const panel = getOccludingElement(DOCK_SELECTOR) ?? getOccludingElement(FLOATING_PANEL_SELECTOR);
   if (!panel) return { start: 0, end: 0 };
 
+  // getOccludingElement already guarantees a non-zero-size box.
   const panelRect = panel.getBoundingClientRect();
-  if (panelRect.width <= 0 || panelRect.height <= 0) return { start: 0, end: 0 };
 
   const svgRect = svg.getBoundingClientRect();
   if (svgRect.width <= 0 || svgRect.height <= 0) return { start: 0, end: 0 };

@@ -50,12 +50,22 @@
     },
     "JourneyRail": {
         "label": "App mode navigation",
-        "discover": "Discover",
+        "groupViews": "Views",
+        "groupPages": "Pages",
+        "discover": "Overview",
+        "discoverHint": "All 114 surahs at a glance",
         "root": "Roots",
-        "ayah": "Ayah",
+        "rootHint": "Explore a root's network across the corpus",
+        "ayah": "Surah",
+        "ayahHint": "Map one surah word by word",
         "searchRoute": "Search",
+        "searchHint": "Search the whole corpus",
         "studyRoute": "Study",
-        "quizRoute": "Quiz"
+        "studyHint": "Your tracked roots and study plan",
+        "quizRoute": "Quiz",
+        "quizHint": "Quiz yourself on what you've tracked",
+        "collapsePanel": "Hide info panel",
+        "expandPanel": "Show info panel"
     },
     "ContextDrawer": {
         "label": "Context panel",

@@ -28,14 +28,42 @@ interface AppShellProps {
   initialThemePreference: ThemePreferenceState;
 }
 
+/** Persists the left dock's collapsed/expanded state across sessions — its
+ *  own key (not folded into useHomePageController's viz-state blob) since
+ *  it's dock chrome, not a viz preference. */
+const LEFT_DOCK_STORAGE_KEY = "quran-corpus-left-dock";
+
 function AppShellContent({ initialCorpusData, initialThemePreference }: AppShellProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
-  const tMobile = useTranslations("MobileBottomBar");
   const c = useHomePageController(initialCorpusData, initialThemePreference);
   // Expanded by default so the zoom controls + legend are always visible in a
   // fixed, predictable dock (top-anchored, grows downward). Collapsible on demand.
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+
+  // Hydrate the collapsed state from localStorage once mounted. Starting
+  // from the `false` default above (rather than a lazy useState initializer
+  // reading localStorage directly) keeps the server-rendered markup and the
+  // client's first render identical — no hydration mismatch — then this
+  // effect reconciles to the stored value right after, same pattern as
+  // useHomePageController's own localStorage hydration.
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(LEFT_DOCK_STORAGE_KEY) === "true") {
+        setIsLeftPanelCollapsed(true);
+      }
+    } catch {
+      // Ignore localStorage errors (private mode, quota, disabled storage, etc.)
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LEFT_DOCK_STORAGE_KEY, String(isLeftPanelCollapsed));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [isLeftPanelCollapsed]);
 
   // Edge-swipe gestures (touch): swipe in from the left edge to reveal the legend,
   // from the right edge to reveal the inspector; swipe back over a panel to dismiss.
@@ -155,11 +183,49 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onResultNavigate={c.handleSearchResultNavigate}
       />
 
-      {/* ── Left journey rail (desktop only via CSS) ── */}
-      <JourneyRail
-        vizMode={c.vizMode}
-        onVizModeChange={c.handleVizModeChange}
-      />
+      {/* ── Left dock: journey rail (spine) + viz info panel (body), fused
+          into one glass container — mirrors the right side's single
+          .context-drawer object (see `.viz-dock` in globals.css). Below
+          980px the fusion is a no-op (`.viz-dock` is `display: contents`):
+          the rail becomes its own horizontal top strip and the info panel
+          is reached via MobileBottomBar, exactly as before. Collapsing the
+          dock (the spine's own bottom toggle) shrinks the info column to
+          zero width, leaving only the spine. */}
+      <div className="viz-dock">
+        <JourneyRail
+          vizMode={c.vizMode}
+          onVizModeChange={c.handleVizModeChange}
+          isPanelCollapsed={isLeftPanelCollapsed}
+          onTogglePanelCollapse={() => setIsLeftPanelCollapsed((collapsed) => !collapsed)}
+          inDock
+        />
+        {/* Full-height info panel. Layout: legend pinned top, transient
+            selection cards in the middle, zoom controls + collapse at the
+            bottom. The portal renders legend/selection/zoom; CSS orders them.
+            Conditionally mounted on mobile (only while opened from
+            MobileBottomBar); always mounted on desktop, where collapsing it
+            just shrinks its width to 0 inside the dock. */}
+        {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
+          <aside
+            className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}
+            aria-hidden={isLeftPanelCollapsed || undefined}
+          >
+            <div id="viz-sidebar-portal" className="viz-sidebar-content" />
+            <button
+              type="button"
+              className="viz-left-collapse"
+              onClick={() => setIsLeftPanelCollapsed(true)}
+              aria-label={t("overlay.collapsePanel")}
+              title={t("overlay.collapsePanel")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              <span>{t("overlay.collapsePanel")}</span>
+            </button>
+          </aside>
+        )}
+      </div>
 
       {/* ── Main visualization area ── */}
       <main ref={c.mainVizRef} className="immersive-viewport viz-fullwidth" data-tour-id="main-viewport">
@@ -273,50 +339,6 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
             <button type="button" onClick={c.handleDismissFirstTaskFeedback}>{t("feedbackPrompt.dismiss")}</button>
           </div>
         </div>
-      )}
-
-      {/* Left controls drawer — a full-height panel mirroring the right tools
-          drawer, holding the active viz's zoom + legend. The toggle is a sibling
-          (not a child) so it stays visible when the panel slides away. */}
-      {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
-        <>
-          {/* Full-height left panel. Layout: legend pinned top, transient
-              selection cards in the middle, zoom controls + collapse at the
-              bottom. The portal renders legend/selection/zoom; CSS orders them. */}
-          <aside
-            className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}
-            aria-hidden={isLeftPanelCollapsed || undefined}
-          >
-            <div id="viz-sidebar-portal" className="viz-sidebar-content" />
-            <button
-              type="button"
-              className="viz-left-collapse"
-              onClick={() => setIsLeftPanelCollapsed(true)}
-              aria-label={t("overlay.collapsePanel")}
-              title={t("overlay.collapsePanel")}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span>{t("overlay.collapsePanel")}</span>
-            </button>
-          </aside>
-          {/* Left-edge handle — open/close the legend panel from the screen edge,
-              mirroring the inspector's right-edge handle. Slides to the panel's
-              edge when open; sits at the left edge (clearing the rail) when collapsed. */}
-          <button
-            type="button"
-            className={`legend-edge-handle ${isLeftPanelCollapsed ? "is-collapsed" : ""}`}
-            onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)}
-            aria-label={isLeftPanelCollapsed ? tMobile("showLegend") : t("overlay.collapsePanel")}
-            aria-expanded={!isLeftPanelCollapsed}
-            title={isLeftPanelCollapsed ? tMobile("showLegend") : t("overlay.collapsePanel")}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-        </>
       )}
 
       {/* Viz suggestion toast */}

@@ -43,9 +43,19 @@ beginner/advanced toggle) inside `components/shell/GraphToolbar.tsx`.
 
 - **TopBar** (`shell/TopBar.tsx`) — brand, CommandBar search, language, auth.
 - **StatusBar** (`shell/StatusBar.tsx`) — corpus load state + breadcrumb pill (top center).
-- **Left icon rail** — Discover/Roots/Ayah/Search/Study/Quiz nav.
-- **Left info panel** — floating glass panel; hosts per-viz cards via portal target
-  `#viz-sidebar-portal` (wrapper in AppShell). Collapsible ("Hide info panel").
+- **Left dock** (desktop ≥981px) — ONE glass container `.viz-dock` fusing two flex
+  children: the JourneyRail spine (68px; `inDock` prop strips its standalone chrome)
+  and the info column (`.viz-sidebar-stack`, ~256px; keeps that class — `fitToView`
+  and portals depend on it). Spine groups: "Views" (Overview → surah-distribution,
+  Roots → root-network, Surah → radial-sura) and "Pages" (Search/Study/Quiz links),
+  each button with a `title` hint. A chevron at the spine bottom collapses the dock
+  to spine-only; state persists in localStorage `quran-corpus-left-dock`.
+  `lib/viz/fitToView.ts` measures `.viz-dock` (fallback `.viz-sidebar-stack`) for
+  occlusion. Below 981px the dock is `display: contents`: the rail becomes the
+  horizontal top strip and the panel is reached via MobileBottomBar, as before.
+  JourneyRail is ALSO used standalone (no dock) by `ui/AppWorkspaceShell.tsx` on
+  search/study/quiz pages — dock styling is scoped to `.in-dock`, don't leak it.
+- **Info column content** — per-viz cards via portal target `#viz-sidebar-portal`.
   Each viz renders a `sidebarCards` block into it. Contract after the declutter pass:
   **≤1 functional card (real controls only) + 1 encoding-only legend (≤5 one-line rows)**.
   No interaction instructions, no Zoom % / token-count / scope rows duplicated elsewhere.
@@ -114,6 +124,10 @@ Fixed in `feature/viz-declutter`:
   floating panel (fitToView ignored it).
 - Inspector led with "Translation not available for this form" as the hero subtitle;
   demoted to a muted row in the morphology grid.
+- Icon rail and info panel were two disconnected floating boxes; rail mislabeled its
+  view-switchers (e.g. "Ayah" opened the surah-level radial) and mixed them with page
+  links unlabeled → unified left dock with "Views"/"Pages" groups, honest labels
+  (Overview/Roots/Surah), tooltips, and a spine-collapse replacing the edge handle.
 
 Known, deliberately deferred (next iterations):
 

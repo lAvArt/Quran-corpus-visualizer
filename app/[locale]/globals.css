@@ -3541,11 +3541,62 @@ button.site-footer-link {
   color: var(--ink-secondary);
 }
 
-/* Unified Sidebar Stack */
+/* Unified left dock */
+/* Spine (journey rail) + body (viz info panel) fused into ONE glass
+   container on desktop — mirrors the right side's single .context-drawer
+   object. Below 980px the fusion is switched off (`display: contents`), so
+   the rail (horizontal top strip) and the info panel (MobileBottomBar sheet)
+   keep their own independent, unchanged mobile layouts — see each element's
+   own `@media (max-width: 980px)` rules. */
+.viz-dock {
+  display: contents;
+}
+
+@media (min-width: 981px) {
+  .viz-dock {
+    position: fixed;
+    inset-inline-start: 8px;
+    top: var(--header-clearance);
+    bottom: calc(var(--footer-height) + 0.5rem);
+    z-index: 40;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    pointer-events: auto;
+  }
+
+  [data-theme="dark"] .viz-dock {
+    background: rgba(22, 33, 39, 0.92);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* The spine's own floating-box chrome is stripped when it's fused into this
+   dock — see JourneyRail.tsx's `inDock` prop / `.journey-rail.in-dock`. That
+   override lives in JourneyRail's own styled-jsx (not here): styled-jsx
+   appends a scoping class to every rule the component owns, so an external
+   `.viz-dock .journey-rail` selector here would tie in specificity with the
+   rail's own rules and lose the tie (this stylesheet loads before
+   styled-jsx's injected <style> tag) — the rail stayed fixed-position and
+   floated on top of the panel body instead of beside it. Overriding from
+   inside the component's own style block instead keeps the fix at higher
+   specificity, unconditionally. */
+
 /* Compact bottom-left overlay (clears the rail) holding the active viz's
    zoom + legend. The graph is full-bleed; this floats over its lower-left. */
 /* Full-height left controls drawer — mirrors the right .context-drawer (same
-   panel treatment), on the left, holding the active viz's zoom + legend. */
+   panel treatment), on the left, holding the active viz's zoom + legend.
+   >=981px this is the dock's body, a plain flex child (see `.viz-dock`
+   above) — its own fixed position + glass chrome below only apply where
+   there's no dock to fuse it with (`.viz-dock` is `display: contents`). */
 .viz-sidebar-stack {
   position: fixed;
   inset-inline-start: 84px; /* clear the journey rail */
@@ -3581,10 +3632,47 @@ button.site-footer-link {
   transform: translateX(calc(100% + 96px));
 }
 
-/* Toggle — a sibling of the panel so it stays put when the panel slides away.
-   Open: a collapse chevron at the panel's top-right. Collapsed: a "Show Legend"
-   pill at the left edge. */
-/* Collapse = a full-width button at the very bottom of the panel. */
+@media (min-width: 981px) {
+  /* Demoted from a floating box to the dock's body — a plain flex child that
+     just supplies width + its own scroll area; the dock (its new parent) now
+     owns the shared glass surface, position, and z-index (see `.viz-dock`
+     above). */
+  .viz-sidebar-stack {
+    position: static;
+    inset-inline-start: auto;
+    top: auto;
+    bottom: auto;
+    z-index: auto;
+    width: min(256px, calc(100vw - 96px));
+    min-width: 0;
+    flex: 0 1 auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+  }
+
+  /* Collapsing the dock removes this column from layout by shrinking it to
+     zero width (not `display: none` — #viz-sidebar-portal must stay mounted,
+     see AppShell.tsx) so only the spine remains. `min-width: 0` matters here:
+     flex items default to `min-width: auto`, which can otherwise refuse to
+     shrink a column below its content's intrinsic width. The mobile
+     slide-out transform above doesn't apply once this is a static flex child
+     rather than a fixed box, so it's cancelled too. */
+  .viz-sidebar-stack.collapsed {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: none;
+  }
+}
+
+/* Collapse = a full-width button at the very bottom of the panel. Desktop
+   (>=981px) hides this in favour of the spine's own toggle — see below. */
 .viz-left-collapse {
   flex-shrink: 0;
   display: flex;
@@ -3611,94 +3699,14 @@ button.site-footer-link {
   background: color-mix(in srgb, var(--selection) 7%, transparent);
 }
 
-/* Left-edge open/close handle for the legend panel — mirrors the inspector's
-   right-edge handle. Global (the button is a sibling of the panel aside). */
-.legend-edge-handle {
-  position: fixed;
-  top: 50%;
-  inset-inline-start: calc(84px + min(264px, calc(100vw - 104px)));
-  transform: translateY(-50%);
-  z-index: 41;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 66px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-inline-start: none;
-  /* Logical radii: rounded on the canvas-facing side, square where it attaches
-     to the panel — correct in both LTR and RTL. */
-  border-radius: 0;
-  border-start-end-radius: 12px;
-  border-end-end-radius: 12px;
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: var(--ink-secondary);
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-  /* The open/collapsed anchors differ on both axes — reposition instantly
-     rather than animating a diagonal. */
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.legend-edge-handle:hover {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-
-.legend-edge-handle svg {
-  transition: transform 0.3s ease;
-}
-
-/* Open: chevron points left (push the panel out). Collapsed: a pull-tab flush
-   with the screen edge near the bottom — clear of the journey rail, mirroring
-   the drawer's edge-tab affordance. Position swap is instant (no transition)
-   to avoid a diagonal teleport-slide between the two anchors. */
-.legend-edge-handle.is-collapsed {
-  inset-inline-start: 0;
-  top: auto;
-  bottom: calc(var(--footer-height) + 24px);
-  transform: none;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.legend-edge-handle.is-collapsed svg {
-  transform: scaleX(-1);
-}
-
-[dir="rtl"] .legend-edge-handle svg {
-  transform: scaleX(-1);
-}
-
-[dir="rtl"] .legend-edge-handle.is-collapsed svg {
-  transform: scaleX(1);
-}
-
-@media (max-width: 980px) {
-  .legend-edge-handle {
+@media (min-width: 981px) {
+  /* Superseded by the single collapse/expand toggle at the bottom of the
+     spine (JourneyRail's `.rail-collapse-btn`) once the rail and info panel
+     share one dock. Mobile keeps this as its only affordance to hide the
+     panel — the spine toggle is hidden there too (see JourneyRail.tsx). */
+  .viz-left-collapse {
     display: none;
   }
-}
-
-.viz-sidebar-collapse-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-[data-theme="dark"] .legend-edge-handle {
-  background: rgba(22, 33, 39, 0.92);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .legend-edge-handle:hover {
-  border-color: var(--accent);
 }
 
 /* Right-edge open/close handle for the inspector drawer — a pull-tab at the

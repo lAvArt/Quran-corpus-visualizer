@@ -50,12 +50,22 @@
     },
     "JourneyRail": {
         "label": "التنقل",
-        "discover": "استكشاف",
+        "groupViews": "العروض",
+        "groupPages": "الصفحات",
+        "discover": "نظرة عامة",
+        "discoverHint": "كل السور الـ١١٤ في لمحة واحدة",
         "root": "الجذور",
-        "ayah": "الآية",
+        "rootHint": "استكشف شبكة جذر عبر القرآن كله",
+        "ayah": "السورة",
+        "ayahHint": "تخطيط سورة واحدة كلمة بكلمة",
         "searchRoute": "بحث",
+        "searchHint": "ابحث في القرآن كله",
         "studyRoute": "دراسة",
-        "quizRoute": "اختبار"
+        "studyHint": "جذورك المتتبعة وخطة دراستك",
+        "quizRoute": "اختبار",
+        "quizHint": "اختبر نفسك فيما تتبعته",
+        "collapsePanel": "إخفاء لوحة المعلومات",
+        "expandPanel": "إظهار لوحة المعلومات"
     },
     "ContextDrawer": {
         "label": "لوحة السياق",
