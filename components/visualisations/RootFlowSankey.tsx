@@ -461,30 +461,6 @@ export default function RootFlowSankey({
             </div>
           </label>
         )}
-
-        <div className="sankey-meta-row">
-          <span className="sankey-meta-key">{ts("scope")}</span>
-          <span className="sankey-meta-value">{scopeLabel}</span>
-        </div>
-        <div className="sankey-meta-row">
-          <span className="sankey-meta-key">{ts("activeRoot")}</span>
-          <span className="sankey-meta-value sankey-meta-arabic">{selectedRootLabel}</span>
-        </div>
-
-        <div className="sankey-stats-row">
-          <div className="sankey-stat-item">
-            <span className="sankey-stat-value">{visibleFlows.length}</span>
-            <span className="sankey-stat-key">{ts("shown")}</span>
-          </div>
-          <div className="sankey-stat-item">
-            <span className="sankey-stat-value">{totalFlows}</span>
-            <span className="sankey-stat-key">{ts("total")}</span>
-          </div>
-          <div className="sankey-stat-item">
-            <span className="sankey-stat-value">{visibleRatio}%</span>
-            <span className="sankey-stat-key">{ts("coverage")}</span>
-          </div>
-        </div>
       </div>
 
       <VizExplainerDialog

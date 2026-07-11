@@ -161,10 +161,12 @@ export default function SurahDistributionGraph({
                     ? getFrequencyColor(rootRatio, theme)
                     : lexicalColorMode === "identity"
                         ? getIdentityColor(dominantRoot ?? `surah-${suraId}`, theme)
-                        // Default encoding: revelation place, via the same theme
-                        // accent variables the rest of the app uses — never a
-                        // red/green rainbow. Resolves live per --accent[-2].
-                        : revelationPlace === "madinah" ? "var(--accent)" : "var(--accent-2)";
+                        // Default encoding: revelation place, via dedicated
+                        // theme-stable category tokens — never a red/green
+                        // rainbow, and NOT --accent/--accent-2 (those swap
+                        // hues between light/dark, which would flip which
+                        // color means Makki vs Madani across themes).
+                        : revelationPlace === "madinah" ? "var(--viz-cat-madani)" : "var(--viz-cat-makki)";
             nodes.push({
                 id: suraId,
                 name: SURAH_NAMES[suraId]?.name || `Surah ${suraId}`,
@@ -557,14 +559,14 @@ export default function SurahDistributionGraph({
                                     <div className="viz-legend-item">
                                         <div
                                             className="viz-legend-dot"
-                                            style={{ background: "var(--accent-2)", width: 12, height: 12 }}
+                                            style={{ background: "var(--viz-cat-makki)", width: 12, height: 12 }}
                                         />
                                         <span>{ts("makki")}</span>
                                     </div>
                                     <div className="viz-legend-item">
                                         <div
                                             className="viz-legend-dot"
-                                            style={{ background: "var(--accent)", width: 12, height: 12 }}
+                                            style={{ background: "var(--viz-cat-madani)", width: 12, height: 12 }}
                                         />
                                         <span>{ts("madani")}</span>
                                     </div>
@@ -593,28 +595,11 @@ export default function SurahDistributionGraph({
                                 />
                                 <span>{t("selectedRoot")}</span>
                             </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{
-                                        background: "var(--line)",
-                                        width: 8,
-                                        height: 8
-                                    }}
-                                />
-                                <span>{t("sizeAyahs")}</span>
-                            </div>
-                            <div className="viz-legend-item">
-                                <div
-                                    className="viz-legend-dot"
-                                    style={{
-                                        background: "var(--line)",
-                                        width: 8,
-                                        height: 8
-                                    }}
-                                />
-                                <span>{t("heightWords")}</span>
-                            </div>
+                            {/* Encoding notes, not categories — no swatch dot
+                                (a grey "disabled-looking" dot here would read
+                                as a color-coded category it isn't). */}
+                            <p className="viz-legend-note">{t("sizeAyahs")}</p>
+                            <p className="viz-legend-note">{t("heightWords")}</p>
                         </div>
                     </div>
                 </>,

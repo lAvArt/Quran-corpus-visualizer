@@ -24,6 +24,11 @@
   --accent-2: #56a697;
   --accent-glow: rgba(232, 146, 74, 0.5);
   --accent-2-glow: rgba(86, 166, 151, 0.45);
+  /* Theme-stable category colors — same hue family as light (teal/amber),
+     lightness tuned for the dark canvas. See app/[locale]/globals.css :root
+     for the matching light values and full rationale. */
+  --viz-cat-makki: #56a697;
+  --viz-cat-madani: #e8924a;
   --accent-ink: #2a1606;
   --selection: #fbead2;
 }

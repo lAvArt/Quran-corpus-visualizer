@@ -6,6 +6,7 @@ import * as d3 from "d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
+import { SURAH_NAMES } from "@/lib/data/surahData";
 import { getNodeColor, resolveVisualizationTheme, SELECTION_RING } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
@@ -414,6 +415,22 @@ export default function RadialSuraMap({
   const isLargeSurah = totalWordCount > OVERVIEW_WORD_THRESHOLD;
   const isOverviewMode = isLargeSurah && zoomScale < DETAIL_ZOOM_THRESHOLD;
 
+  // `tokens` can still be the tiny hardcoded shell sample (a handful of
+  // tokens kept around so every surah "looks populated" before its real data
+  // arrives) when this surah first mounts — `loadSurahContext` resolves the
+  // complete per-surah token set in one atomic update, not progressively,
+  // but until that resolves, `ayahBars`/`totalWordCount` reflect only the
+  // stub. A large surah whose stub fragment happens to be a couple of short
+  // ayahs reads as "small" (`isLargeSurah` false) purely because its real
+  // bulk hasn't landed yet. Anything below that commits to `isLargeSurah`'s
+  // branch and then locks itself via a ref (the entry-fit and deep-link-
+  // focus effects) must wait for this to be true first, or it stays
+  // permanently framed for a couple of stray tokens instead of the real,
+  // often much larger ring — see the large-surah entry-fit regression this
+  // guards against.
+  const expectedAyahCount = SURAH_NAMES[suraId]?.verses ?? 0;
+  const isSurahDataComplete = expectedAyahCount === 0 || ayahCount >= expectedAyahCount;
+
   const highlightAyahs = useMemo(() => {
     if (!highlightRoot) return [];
     const list = rootOccurrences.get(highlightRoot) ?? [];
@@ -710,6 +727,7 @@ export default function RadialSuraMap({
     }
 
     if (barsWithGeometry.length === 0) return; // this surah's tokens haven't landed yet
+    if (!isSurahDataComplete) return; // stub/shell data — isLargeSurah below isn't trustworthy yet
 
     const targetAyahs = highlightAyahSet.size > 0 ? highlightAyahSet : null;
     if (!targetAyahs) return; // root hasn't resolved to an ayah yet — keep waiting, don't mark handled
@@ -769,22 +787,28 @@ export default function RadialSuraMap({
       // the highlighted node right underneath it.
       { padding: 0.6, duration: 0 }
     );
-  }, [dimensionsReady, isMounted, barsWithGeometry, highlightAyahSet, highlightRoot, centerX, centerY, innerRadius, fitBounds, isLargeSurah, overviewTicksByAyah]);
+  }, [dimensionsReady, isMounted, barsWithGeometry, highlightAyahSet, highlightRoot, centerX, centerY, innerRadius, fitBounds, isLargeSurah, isSurahDataComplete, overviewTicksByAyah]);
 
-  // Large surahs need a one-shot "frame the ring" on entry: their density-
-  // scaled innerRadius intentionally overflows the canvas (detail mode is a
-  // zoom-map), so at the default transform the whole tick ring sits off-
-  // screen and overview mode would show nothing but the center label. Runs
-  // once per surah, as soon as geometry exists — i.e. before the user could
-  // meaningfully interact — and never for small surahs, whose default camera
-  // must stay pixel-identical to current behavior. Declared AFTER the deep-
-  // link focus effect above so that when a deep-linked root has already
-  // resolved and framed its own (tighter, ring-inclusive) shot in the same
-  // commit, this effect sees that and stands down instead of overriding it.
+  // Every surah needs a one-shot "frame the ring" on entry, because the
+  // default camera (scale 1, translate 0,0 — see useZoom's initial
+  // transform) has no idea how big this surah's geometry actually is:
+  // - Large surahs' density-scaled innerRadius intentionally overflows the
+  //   canvas (detail mode is a zoom-map), so at the default transform the
+  //   whole tick ring sits off-screen and overview mode would show nothing
+  //   but the center label.
+  // - Every other surah renders full detail geometry (bars + outer
+  //   ayah-number labels) from the start, and that combined extent commonly
+  //   exceeds the canvas too — e.g. even Al-Fatihah's ring, at scale 1,
+  //   overflowed on every edge (cropped on all sides) before this ran for
+  //   small surahs too.
+  // Runs once per surah, as soon as geometry exists — i.e. before the user
+  // could meaningfully interact. Declared AFTER the deep-link focus effect
+  // above so that when a deep-linked root has already resolved and framed
+  // its own (tighter, ring-inclusive) shot in the same commit, this effect
+  // sees that and stands down instead of overriding it.
   const entryFitSuraRef = useRef<number | null>(null);
   useEffect(() => {
     if (!dimensionsReady || !isMounted) return;
-    if (!isLargeSurah) return;
     if (entryFitSuraRef.current === suraId) return;
     if (barsWithGeometry.length === 0) return; // tokens haven't landed yet
 
@@ -794,19 +818,50 @@ export default function RadialSuraMap({
       return;
     }
 
+    // Stub/shell data (see isSurahDataComplete above) makes `isLargeSurah`
+    // unreliable — wait for this surah's real token set before committing to
+    // (and locking, via entryFitSuraRef) a branch, or a large surah whose
+    // shell fragment reads as tiny gets permanently framed for that tiny
+    // fragment once its real ~thousands-of-words geometry lands.
+    if (!isSurahDataComplete) return;
+
     entryFitSuraRef.current = suraId;
-    const tickExtent =
-      innerRadius * (1 + OVERVIEW_TICK_MAX_RATIO + OVERVIEW_TICK_MATCH_BONUS_RATIO);
+
+    if (isLargeSurah) {
+      // Unchanged from before small-surah support: overview mode's short
+      // ticks are the only thing outside the ring at this zoom, so frame
+      // ring + max tick length exactly as before.
+      const tickExtent =
+        innerRadius * (1 + OVERVIEW_TICK_MAX_RATIO + OVERVIEW_TICK_MATCH_BONUS_RATIO);
+      fitBounds(
+        {
+          x: centerX - tickExtent,
+          y: centerY - tickExtent,
+          width: tickExtent * 2,
+          height: tickExtent * 2,
+        },
+        { padding: 0.85, duration: 0 }
+      );
+      return;
+    }
+
+    // Detail-mode geometry (every non-large surah, always): frame ring +
+    // longest bar + the outer ayah-number label band — the same radial
+    // offset the label render uses below (innerRadius + barHeight + 14/18) —
+    // with a tighter ~10% margin, so the whole ring reliably lands inside
+    // the canvas instead of at the previous default scale-1 transform.
+    const labelBand = compactLayout ? 14 : 18;
+    const detailExtent = innerRadius + maxBarHeight + labelBand;
     fitBounds(
       {
-        x: centerX - tickExtent,
-        y: centerY - tickExtent,
-        width: tickExtent * 2,
-        height: tickExtent * 2,
+        x: centerX - detailExtent,
+        y: centerY - detailExtent,
+        width: detailExtent * 2,
+        height: detailExtent * 2,
       },
-      { padding: 0.85, duration: 0 }
+      { padding: 0.9, duration: 0 }
     );
-  }, [dimensionsReady, isMounted, isLargeSurah, suraId, barsWithGeometry, innerRadius, centerX, centerY, fitBounds]);
+  }, [dimensionsReady, isMounted, isLargeSurah, isSurahDataComplete, suraId, barsWithGeometry, innerRadius, centerX, centerY, fitBounds, maxBarHeight, compactLayout]);
 
   const selectedAyahData = useMemo(
     () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),

@@ -15,6 +15,82 @@ interface FitOptions {
   maxScale?: number;
 }
 
+/** Class name of the fixed floating panel that hosts `#viz-sidebar-portal` —
+ *  the legend/zoom/selection stack docked to one inline edge of the canvas
+ *  (see components/shell/AppShell.tsx, `.viz-sidebar-stack`). Single constant
+ *  so a future rename only needs updating here. */
+const FLOATING_PANEL_SELECTOR = ".viz-sidebar-stack";
+
+/**
+ * How much of the SVG's own on-screen width is covered by the floating panel,
+ * expressed in the SVG's user-space units (the same space `bounds` is in) —
+ * split into a `start` (screen-left) and `end` (screen-right) inset so a
+ * caller can shrink the "visible" width from whichever side is occluded.
+ *
+ * Side-agnostic on purpose: the panel docks via `inset-inline-start`, so it
+ * sits on the visual left in LTR and the visual right in RTL. Which side is
+ * decided here from the panel's on-screen position relative to the viewport
+ * centre, not from `dir`/locale, so both cases fall out of the same check.
+ *
+ * Returns zero on both sides when the panel is absent from the DOM, hidden
+ * (zero-size), collapsed off-screen (it slides out via a CSS transform — see
+ * `.viz-sidebar-stack.collapsed`), or simply doesn't overlap this particular
+ * SVG (e.g. an embed rendered without the app shell).
+ */
+function getPanelOcclusionInset(svg: SVGSVGElement, vw: number): { start: number; end: number } {
+  const panel = document.querySelector<HTMLElement>(FLOATING_PANEL_SELECTOR);
+  if (!panel) return { start: 0, end: 0 };
+
+  const panelRect = panel.getBoundingClientRect();
+  if (panelRect.width <= 0 || panelRect.height <= 0) return { start: 0, end: 0 };
+
+  const svgRect = svg.getBoundingClientRect();
+  if (svgRect.width <= 0 || svgRect.height <= 0) return { start: 0, end: 0 };
+
+  // Overlap between the panel's rect and the SVG's own on-screen rect, in CSS
+  // pixels. A collapsed (translated fully off-screen) or otherwise
+  // non-overlapping panel contributes no occlusion.
+  const overlapX = Math.min(panelRect.right, svgRect.right) - Math.max(panelRect.left, svgRect.left);
+  const overlapY = Math.min(panelRect.bottom, svgRect.bottom) - Math.max(panelRect.top, svgRect.top);
+  if (overlapX <= 0 || overlapY <= 0) return { start: 0, end: 0 };
+
+  // Convert the CSS-pixel overlap into the SVG's own user-space units, via
+  // the same viewBox-to-rendered-size ratio the vw/vh fallback above relies on.
+  const pxToUser = vw / svgRect.width;
+  const overlapUser = overlapX * pxToUser;
+
+  const viewportCenter = window.innerWidth / 2;
+  const panelCenter = panelRect.left + panelRect.width / 2;
+  return panelCenter < viewportCenter
+    ? { start: overlapUser, end: 0 } // panel docked on the screen-left edge
+    : { start: 0, end: overlapUser }; // panel docked on the screen-right edge (RTL)
+}
+
+/**
+ * Raw panel occlusion inset (see `getPanelOcclusionInset`), clamped so the
+ * free band can never collapse below 40% of `vw` — on a narrow viewport with
+ * the panel pinned open, that keeps whatever consults this landing a legible
+ * (if tighter) result instead of an extreme, unusable squeeze.
+ *
+ * Exported separately from `fitBoundsToView` so call sites that position
+ * content WITHOUT going through a zoom-to-fit — e.g. a fixed-scale initial
+ * centering that only translates, never scales, like
+ * AyahDependencyGraph's default tree layout — can still steer clear of the
+ * floating panel using the exact same measurement + clamp `fitBoundsToView`
+ * itself relies on.
+ */
+export function getPanelAdjustedWidth(
+  svg: SVGSVGElement | null,
+  vw: number
+): { insetStart: number; insetEnd: number; availableWidth: number } {
+  if (!svg || !vw) return { insetStart: 0, insetEnd: 0, availableWidth: vw };
+  const panelInset = getPanelOcclusionInset(svg, vw);
+  const maxInset = vw * 0.6;
+  const insetStart = Math.min(panelInset.start, maxInset);
+  const insetEnd = Math.min(panelInset.end, maxInset);
+  return { insetStart, insetEnd, availableWidth: vw - insetStart - insetEnd };
+}
+
 /**
  * Frame an explicit region (in the graph's own user-space coordinates) within
  * an SVG's viewport, centring it with a little breathing room instead of
@@ -48,11 +124,19 @@ export function fitBoundsToView(
   const vh = vb && vb.height ? vb.height : svg.clientHeight;
   if (!vw || !vh) return;
 
+  // The floating legend/inspector panel sits ON TOP of the canvas (fixed,
+  // docked to one inline edge), not beside it — a fit centred on the FULL
+  // canvas width can seat content half-hidden underneath it. Frame within
+  // whatever band is actually free of it instead; zero on both sides when
+  // the panel is absent, hidden, or collapsed off-screen (mobile, embeds).
+  const { insetStart, availableWidth } = getPanelAdjustedWidth(svg, vw);
+
   const scale = Math.max(
     minScale,
-    Math.min(maxScale, padding * Math.min(vw / bounds.width, vh / bounds.height))
+    Math.min(maxScale, padding * Math.min(availableWidth / bounds.width, vh / bounds.height))
   );
-  const tx = vw / 2 - scale * (bounds.x + bounds.width / 2);
+  const visibleCenterX = insetStart + availableWidth / 2;
+  const tx = visibleCenterX - scale * (bounds.x + bounds.width / 2);
   const ty = vh / 2 - scale * (bounds.y + bounds.height / 2);
   const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
 

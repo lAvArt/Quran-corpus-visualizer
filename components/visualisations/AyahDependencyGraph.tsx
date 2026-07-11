@@ -10,7 +10,7 @@ import { getAyah } from "@/lib/corpus/corpusLoader";
 import { quranApi, type QuranWord } from "@/lib/api/quranApi";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
-import { fitGraphToView } from "@/lib/viz/fitToView";
+import { fitGraphToView, getPanelAdjustedWidth } from "@/lib/viz/fitToView";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
@@ -361,7 +361,16 @@ export default function AyahDependencyGraph({
         setZoomScale(event.transform.k);
       });
 
-    const initialX = (dimensions.width - graphWidth) / 2;
+    // Center within whatever band of the canvas is actually free of the
+    // floating legend/inspector panel (`.viz-sidebar-stack`) rather than the
+    // full canvas width — a plain (dimensions.width - graphWidth) / 2 seats
+    // the leftmost tokens half-hidden underneath it (RTL reading order puts
+    // the ayah's later words there, on the same inline-start edge the panel
+    // docks to). Same measurement + 40%-of-canvas clamp `fitBoundsToView`
+    // uses for the manual "Focus" reset, just applied to this fixed-scale,
+    // translate-only initial placement instead of a zoom-to-fit.
+    const { insetStart, availableWidth } = getPanelAdjustedWidth(svgRef.current, dimensions.width);
+    const initialX = insetStart + (availableWidth - graphWidth) / 2;
     const initialY = 26;
 
     zoomBehaviorRef.current = zoomBehavior;
@@ -421,7 +430,6 @@ export default function AyahDependencyGraph({
 
       <div className="viz-left-panel dep-control-card">
         <div className="dep-card-head">
-          <p className="eyebrow">{ts("advancedViz")}</p>
           <h3>{t("title")}</h3>
         </div>
 
@@ -515,10 +523,6 @@ export default function AyahDependencyGraph({
           <div className="dep-stat-item">
             <span className="dep-stat-value">{edgeLayouts.length}</span>
             <span className="dep-stat-key">{ts("total")}</span>
-          </div>
-          <div className="dep-stat-item">
-            <span className="dep-stat-value">{Math.round(zoomScale * 100)}%</span>
-            <span className="dep-stat-key">{ts("zoom")}</span>
           </div>
         </div>
 

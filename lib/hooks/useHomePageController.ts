@@ -620,7 +620,15 @@ export function useHomePageController(
       setSelectedLemma(sel.lemma ?? null);
       setFocusedTokenId(resolveFocusedTokenIdForSelection(sel, selectedSurahId));
       setHoverTokenId(null);
-      if (!isMobileViewport) setIsSidebarOpen(true);
+      // Only pop the inspector open when there's actually something to
+      // inspect. A bare `?viz=` deep link (e.g. the minimal home's "skip to
+      // app", which carries a mode but no selection) must land on a
+      // collapsed drawer, not an empty column — and `surahId` alone doesn't
+      // count either: it just switches which surah the active viz scopes
+      // to (e.g. `?viz=radial-sura&surah=1`), not something to inspect, so
+      // a bare-surah navigation must leave the drawer exactly as it was.
+      const hasSelection = Boolean(sel.root || sel.lemma || sel.tokenId || sel.ayah);
+      if (!isMobileViewport && hasSelection) setIsSidebarOpen(true);
       if (firstRunState === "mission-active") handleMissionTaskComplete("search");
     },
     [

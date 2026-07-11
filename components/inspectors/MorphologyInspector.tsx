@@ -270,11 +270,25 @@ export default function MorphologyInspector({
                 ) : null}
             </div>
 
-            {/* ── 1. SELECTED-WORD CARD ── */}
+            {/* ── 1. SELECTED-WORD CARD ──
+                 When the corpus has no gloss for this form, the subtitle
+                 falls back to data that IS already available (root · POS)
+                 instead of an apology — the apology itself moves into the
+                 data grid below (small, muted, not the hero line). */}
             <div className="mi-word-card">
                 <div className="mi-arabic-word" lang="ar" dir="rtl">{token.text}</div>
                 <div className="mi-word-sub">
-                    {gloss ? gloss : <span className="mi-sub-faint">{t("noGloss")}</span>}
+                    {gloss ? (
+                        gloss
+                    ) : token.root ? (
+                        <>
+                            <span lang="ar" dir="rtl">{token.root}</span>
+                            {" · "}
+                            {posLabel}
+                        </>
+                    ) : (
+                        posLabel
+                    )}
                 </div>
             </div>
 
@@ -310,7 +324,12 @@ export default function MorphologyInspector({
                         <span className="mi-grid-label">GLOSS</span>
                         <span className="mi-grid-value mi-gloss-value">{gloss}</span>
                     </>
-                ) : null}
+                ) : (
+                    <>
+                        <span className="mi-grid-label">GLOSS</span>
+                        <span className="mi-grid-value mi-gloss-value mi-gloss-missing">{t("noGloss")}</span>
+                    </>
+                )}
             </div>
 
             {/* ── 3. OCCURRENCE CARD ── */}
@@ -506,10 +525,6 @@ export default function MorphologyInspector({
                     color: rgba(236,228,216,0.55);
                     letter-spacing: 0.01em;
                 }
-                .mi-sub-faint {
-                    opacity: 0.6;
-                    font-style: italic;
-                }
 
                 /* ── 2. Data grid ── */
                 .mi-data-grid {
@@ -563,6 +578,11 @@ export default function MorphologyInspector({
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 14px;
                     color: rgba(236,228,216,0.72);
+                }
+                .mi-gloss-missing {
+                    color: rgba(236,228,216,0.4);
+                    font-size: 12px;
+                    font-style: italic;
                 }
                 .mi-faint {
                     color: rgba(236,228,216,0.35);

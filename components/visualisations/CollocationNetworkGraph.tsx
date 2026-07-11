@@ -1219,41 +1219,40 @@ export default function CollocationNetworkGraph({
             </div>
 
             {targetTerm && (
-                <div
-                    style={{
-                        position: "absolute",
-                        insetInlineStart: 0,
-                        insetInlineEnd: 0,
-                        // Sit just below the fixed status/breadcrumb bar, which
-                        // occupies top: var(--header-clearance) at a higher
-                        // z-index — keeps the badge visible next to it instead
-                        // of underneath it.
-                        top: "calc(var(--header-clearance) + 44px)",
-                        zIndex: 25,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        paddingInline: 16,
-                        textAlign: "center",
-                        pointerEvents: "none",
-                    }}
-                >
+                <>
+                    {/*
+                      Honesty signal, calmed: a small muted warning-tint tag,
+                      top-center (not a bright, all-caps pill spanning the
+                      top) — present but no longer competing with the graph
+                      for attention. Top-center rather than the canvas's top
+                      inline-end corner: the right drawer floats OVER that
+                      corner whenever it's open, hiding the badge entirely.
+                      Centered the same way the "How to read this view" chip
+                      is (left: 50% + translateX(-50%) — direction-agnostic,
+                      so this is RTL-safe without any dir-specific branching),
+                      and offset far enough below that chip's own row
+                      (top: header-clearance + 58px, 36px tall) that the two
+                      never collide.
+                    */}
                     <span
                         title={t("HeuristicBadge.tooltip", { n: minFrequency })}
                         aria-label={`${t("HeuristicBadge.label")} — ${t("HeuristicBadge.tooltip", { n: minFrequency })}`}
                         tabIndex={0}
                         style={{
-                            pointerEvents: "auto",
+                            position: "absolute",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            top: "calc(var(--header-clearance) + 102px)",
+                            zIndex: 25,
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 6,
                             padding: "3px 10px",
                             borderRadius: 999,
                             fontSize: "0.68rem",
-                            fontWeight: 700,
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
+                            fontWeight: 600,
+                            letterSpacing: "0.02em",
+                            whiteSpace: "nowrap",
                             color: theme === "dark" ? HEURISTIC_AMBER.dark.fg : HEURISTIC_AMBER.light.fg,
                             background: theme === "dark" ? HEURISTIC_AMBER.dark.bg : HEURISTIC_AMBER.light.bg,
                             border: `1px solid ${theme === "dark" ? HEURISTIC_AMBER.dark.border : HEURISTIC_AMBER.light.border}`,
@@ -1264,31 +1263,48 @@ export default function CollocationNetworkGraph({
                     </span>
 
                     {isSeededExample && (
-                        <div style={{ maxWidth: 460 }}>
-                            <p
-                                style={{
-                                    margin: 0,
-                                    fontSize: "0.92rem",
-                                    fontWeight: 600,
-                                    color: themeColors.textColors.primary,
-                                    textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
-                                }}
-                            >
-                                {t("SeededExample.title", { root: targetTerm.value })}
-                            </p>
-                            <p
-                                style={{
-                                    margin: "2px 0 0",
-                                    fontSize: "0.74rem",
-                                    color: themeColors.textColors.secondary,
-                                    textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
-                                }}
-                            >
-                                {t("SeededExample.subtitle")}
-                            </p>
+                        <div
+                            style={{
+                                position: "absolute",
+                                insetInlineStart: 0,
+                                insetInlineEnd: 0,
+                                // Sits below the top-center badge's own row (badge
+                                // top offset + its height + the same stacking gap
+                                // the two used before) so they don't overlap.
+                                top: "calc(var(--header-clearance) + 136px)",
+                                zIndex: 24,
+                                display: "flex",
+                                justifyContent: "center",
+                                paddingInline: 16,
+                                pointerEvents: "none",
+                            }}
+                        >
+                            <div style={{ maxWidth: 460, textAlign: "center" }}>
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: "0.92rem",
+                                        fontWeight: 600,
+                                        color: themeColors.textColors.primary,
+                                        textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                    }}
+                                >
+                                    {t("SeededExample.title", { root: targetTerm.value })}
+                                </p>
+                                <p
+                                    style={{
+                                        margin: "2px 0 0",
+                                        fontSize: "0.74rem",
+                                        color: themeColors.textColors.secondary,
+                                        textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                    }}
+                                >
+                                    {t("SeededExample.subtitle")}
+                                </p>
+                            </div>
                         </div>
                     )}
-                </div>
+                </>
             )}
 
             {!targetTerm && (
@@ -1618,10 +1634,6 @@ export default function CollocationNetworkGraph({
                         <div className="viz-legend-item">
                             <div className="viz-legend-line" style={{ background: legendSoft, height: 2 }} />
                             <span>{t("pmiLower")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div className="viz-legend-line" style={{ background: withAlpha(themeColors.edgeColors.default, 0.36), height: 1.5 }} />
-                            <span>{t("lemmaLayerHint")}</span>
                         </div>
                         {isNodeCapped && (
                             <div

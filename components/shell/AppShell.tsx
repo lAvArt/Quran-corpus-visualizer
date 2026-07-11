@@ -43,6 +43,18 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
   const handleCloseLeft = useCallback(() => setIsLeftPanelCollapsed(true), []);
   const handleOpenRight = useCallback(() => c.setIsSidebarOpen(true), [c.setIsSidebarOpen]);
   const handleCloseRight = useCallback(() => c.setIsSidebarOpen(false), [c.setIsSidebarOpen]);
+
+  // Intro chip → drawer wiring: clicking the chip's label must open the
+  // drawer AND land on its Explain tab. ContextDrawer's active tab is its
+  // own internal state (it already reacts to a prop changing this way — see
+  // its token-focus-triggers-Inspect effect), so a bump counter is enough to
+  // ask it to switch without lifting the whole tab state up here.
+  const [explainRequestId, setExplainRequestId] = useState(0);
+  const handleOpenExplain = useCallback(() => {
+    c.setIsSidebarOpen(true);
+    setExplainRequestId((n) => n + 1);
+  }, [c.setIsSidebarOpen]);
+
   useEdgeSwipe({
     leftOpen: !isLeftPanelCollapsed,
     rightOpen: c.isSidebarOpen,
@@ -61,26 +73,6 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
   const searchParams = useSearchParams();
   const lastAppliedParamsRef = useRef<string | null>(null);
   const navigateToResult = c.handleSearchResultNavigate;
-
-  // Mirror the current viz mode for use inside the hydration effect without
-  // re-running it on every mode switch. Declared before that effect so the
-  // mirror updates first within each commit.
-  const vizModeRef = useRef(c.vizMode);
-  useEffect(() => {
-    vizModeRef.current = c.vizMode;
-  }, [c.vizMode]);
-
-  // First-open intro card: a deep link WITH a selection (?root= / ?token=)
-  // means the user arrives mid-task, so the intro card for the landing mode is
-  // suppressed. Initialized synchronously from the URL so the card never
-  // flashes on first paint; the hydration effect keeps it in sync on soft navs.
-  const [introSuppressedMode, setIntroSuppressedMode] = useState<VisualizationMode | null>(() => {
-    if (!searchParams.get("root") && !searchParams.get("token")) return null;
-    const vizParam = searchParams.get("viz");
-    return ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
-      ? (vizParam as VisualizationMode)
-      : c.vizMode;
-  });
 
   // Stage → apply as a two-commit chain: the controller's own localStorage
   // hydration effect runs in the mount commit and can queue state updates
@@ -117,9 +109,6 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     const viz = ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
       ? (vizParam as VisualizationMode)
       : null;
-    if (root || token) {
-      setIntroSuppressedMode(viz ?? vizModeRef.current);
-    }
     navigateToResult({
       id: "deeplink",
       kind: "ayah",
@@ -227,6 +216,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         inspectorToken={c.inspectorTokenFinal}
         inspectorMode={c.inspectorModeFinal}
         selectedSurahId={c.selectedSurahId}
+        explainRequestId={explainRequestId}
         clearFocus={clearFocus}
         onTokenHover={c.setHoverTokenId}
         onTokenSelect={c.handleTokenSelect}
@@ -260,17 +250,17 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onBreadcrumbNavigate={c.handleBreadcrumbNavigate}
       />
 
-      {/* First-open intro card — introduces the active viz once per mode
-          (persisted in localStorage). keyed by mode so switching modes mounts a
-          fresh instance (fresh dismiss check + focus lifecycle). Hidden while
-          the first-run overlay is up, and when the user deep-linked in with a
-          selection (mid-task). */}
+      {/* Intro chip — a small non-blocking "How to read this view" pill under
+          the breadcrumb, introducing the active viz once per mode (persisted
+          in localStorage). Keyed by mode so switching modes mounts a fresh
+          instance (fresh dismiss check + auto-fade timer). Hidden only while
+          the first-run overlay is up — being non-blocking, it no longer needs
+          special-casing for deep links that arrive mid-task. */}
       <VizIntroCard
         key={c.vizMode}
         vizMode={c.vizMode}
-        modeLabel={tViz(`${c.vizMode}.label`)}
-        stageRef={c.mainVizRef}
-        suppressed={c.firstRunState === "intent-selection" || introSuppressedMode === c.vizMode}
+        suppressed={c.firstRunState === "intent-selection"}
+        onOpenExplain={handleOpenExplain}
       />
 
       {/* First-task feedback prompt */}

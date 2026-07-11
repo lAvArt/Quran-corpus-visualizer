@@ -15,6 +15,13 @@
   --accent-3: #1d4ed8;
   --accent-glow: rgba(15, 118, 110, 0.4);
   --accent-2-glow: rgba(245, 158, 11, 0.45);
+  /* Theme-stable category colors — e.g. Makki/Madani in SurahDistributionGraph.
+     Never bind a categorical encoding to --accent/--accent-2: those swap
+     hues between light/dark (see dark-theme.css), so a category would read
+     as a different color per theme. Same hue family in both themes (teal for
+     Makki, amber for Madani); only lightness is tuned per theme. */
+  --viz-cat-makki: #0f766e;
+  --viz-cat-madani: #b45309;
   --toolbar-bg: rgba(255, 255, 255, 0.85);
   --footer-glass-bg: rgba(255, 255, 255, 0.56);
   --header-dock-height: 42px;
@@ -1926,8 +1933,14 @@ body {
 }
 
 @media (max-width: 420px) {
+  /* Keep the mode label visible even on small phones — an icon-only trigger
+     leaves the primary mode control unlabeled. Truncate instead of hiding. */
   .ui-viz-switcher-current .ui-viz-switcher-label {
-    display: none;
+    max-width: 38vw;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -1961,6 +1974,24 @@ body {
 /* The minimal home is a calm, chrome-free landing — hide the global footer. */
 .mhome-active .site-footer {
   display: none;
+}
+
+/* Observatory (AppShell) on mobile: the marketing footer stacks a third bar
+   under the graph toolbar and the mobile legend/tools bar, eating vertical
+   space the graph needs. Hide it here only — desktop, and non-viz pages
+   (search/study/quiz), keep it at all widths. `.immersive-dashboard` is
+   AppShell's root, so :has() scopes this to the viz route specifically.
+   Collapsing --footer-height to 0 in the same scope lets every fixed
+   element that clears the footer (mobile bottom bar, graph toolbar, viz
+   legend, etc.) settle into the space the hidden footer leaves behind. */
+@media (max-width: 767px) {
+  body:has(.immersive-dashboard) .site-footer {
+    display: none;
+  }
+
+  body:has(.immersive-dashboard) {
+    --footer-height: 0px;
+  }
 }
 
 [data-theme='dark'] .site-footer {
@@ -3982,6 +4013,17 @@ button.site-footer-link {
   flex-shrink: 0;
 }
 
+/* Encoding notes ("Size = ayahs", "Height = words") — plain muted caption
+   text, not a category swatch row: a fake --line-colored dot next to them
+   reads as a disabled/greyed-out category, when they're really just
+   documenting how a size/height channel maps to data. */
+.viz-legend-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
 @media (max-width: 980px) {
   .current-selection-panel {
     top: var(--header-clearance);
@@ -4267,7 +4309,7 @@ button.site-footer-link {
 
 .dep-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -6321,5 +6363,106 @@ button.site-footer-link {
 
   .global-search[data-variant="panel"] .search-clear {
     display: block;
+  }
+}
+
+/* ── Intro chip ──────────────────────────────────────────────────────────
+   Compact, non-blocking "How to read this view" pill (ui/VizIntroCard.tsx),
+   replacing the old center-screen intro overlay. Anchored under the status
+   bar / breadcrumb pill, same horizontal center — short and capped in
+   height so it never sits over the canvas center. The label opens the right
+   drawer's Explain tab; the ✕ just dismisses. */
+.viz-intro-chip {
+  position: fixed;
+  top: calc(var(--header-clearance) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 44;
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-3, 0 18px 48px rgba(0, 0, 0, 0.35));
+  overflow: hidden;
+  animation: viz-intro-chip-in 0.2s ease-out both;
+  transition: opacity 0.2s ease-out;
+}
+
+.viz-intro-chip.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.viz-intro-chip-label {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-block: 0;
+  padding-inline: 14px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.viz-intro-chip-label:hover {
+  color: var(--accent);
+}
+
+.viz-intro-chip-icon {
+  font-size: 0.92rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.viz-intro-chip-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 30px;
+  border: none;
+  border-inline-start: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.viz-intro-chip-dismiss:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.viz-intro-chip-label:focus-visible,
+.viz-intro-chip-dismiss:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@keyframes viz-intro-chip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 980px) {
+  .viz-intro-chip {
+    top: calc(var(--header-clearance) + 40px);
   }
 }

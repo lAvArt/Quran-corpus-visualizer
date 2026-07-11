@@ -678,10 +678,7 @@ export default function ArcFlowDiagram({
     <div className={`viz-left-stack arcflow-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
 
       <div className="viz-left-panel" style={{ display: "grid", gap: "10px" }} data-testid="arc-flow-control-card">
-        <div>
-          <p className="eyebrow" style={{ marginBottom: 4 }}>{t("title")}</p>
-          <h2 style={{ margin: 0 }}>{t("title")}</h2>
-        </div>
+        <h2 style={{ margin: 0 }}>{t("title")}</h2>
 
         <div style={{ fontSize: "0.83rem", color: "var(--ink-secondary)" }}>
           {t("groups", { count: nodes.length, linkCount: connections.length })}
@@ -712,12 +709,7 @@ export default function ArcFlowDiagram({
 
         <div style={{ display: "grid", gap: "6px", fontSize: "0.78rem", color: "var(--ink-muted)" }}>
           <span>{t("groupedBy", { value: activeGroupLabel })}</span>
-          <span>{t("scope", { value: scopeLabel })}</span>
           {selectedAyah ? <span>{t("ayahContext", { value: selectedAyah })}</span> : null}
-          <span>{ts("surah")} tokens: {scopedTokens.length.toLocaleString()}</span>
-          <span>{t("contextLinks")}: {contextTokenCount.toLocaleString()}</span>
-          <span>{t("zoom", { value: Math.round(zoomLevel * 100) })}</span>
-          <span style={{ lineHeight: 1.4 }}>{modeDescription}</span>
           {activeGroupBy === "pos" ? (
             <span style={{ lineHeight: 1.35 }}>
               {t("posMapping")}
@@ -858,21 +850,6 @@ export default function ArcFlowDiagram({
         <div className="viz-legend-item">
           <div className="viz-legend-line" style={{ background: themeColors.accentSecondary }} />
           <span>{t("contextLinks")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div className="viz-legend-dot" style={{ background: themeColors.accent, width: 12, height: 12 }} />
-          <span>{t("activeNode")}</span>
-        </div>
-        <div className="viz-legend-item">
-          <div
-            className="viz-legend-dot"
-            style={{
-              background: "var(--ink)",
-              width: 10,
-              height: 10,
-            }}
-          />
-          <span>{t("contextMatch")}</span>
         </div>
         <div className="viz-legend-item">
           <div

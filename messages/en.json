@@ -1135,7 +1135,7 @@
         "surah-distribution": {
             "summary": "A radial chart showing surah lengths and root frequency distribution across the Quran.",
             "hint": {
-                "hover": "Hover a segment to see surah name and ayah count.",
+                "hover": "Hover or tap a segment to see surah name and ayah count.",
                 "click": "Click a surah to dive into its token-level view.",
                 "zoom": "Scroll to zoom in or out."
             },
@@ -1155,7 +1155,7 @@
         "radial-sura": {
             "summary": "A circular layout of every token in one surah, colored by linguistic role.",
             "hint": {
-                "hover": "Hover a token to preview its gloss and POS.",
+                "hover": "Hover or tap a token to preview its gloss and POS.",
                 "click": "Click a token to open full details in the inspector.",
                 "drag": "Drag to pan around the surah.",
                 "zoom": "Scroll to zoom in or out."
@@ -1166,7 +1166,7 @@
         "dependency-tree": {
             "summary": "A tree diagram showing syntactic dependencies between words in a verse.",
             "hint": {
-                "hover": "Hover a node to highlight its dependents.",
+                "hover": "Hover or tap a node to highlight its dependents.",
                 "click": "Click a node to see full morphology.",
                 "zoom": "Scroll to zoom in on a dense ayah."
             },
@@ -1176,7 +1176,7 @@
         "arc-flow": {
             "summary": "Arcs connect co-occurring roots and lemmas within each ayah.",
             "hint": {
-                "hover": "Hover an arc to see which pair it connects.",
+                "hover": "Hover or tap an arc to see which pair it connects.",
                 "click": "Click a token to lock focus on its connections.",
                 "pan": "Drag to pan across a busy ayah."
             },
@@ -1186,7 +1186,7 @@
         "root-network": {
             "summary": "A force-directed graph where nodes are roots and edges show co-occurrence.",
             "hint": {
-                "hover": "Hover a root node to see its frequency and connections.",
+                "hover": "Hover or tap a root node to see its frequency and connections.",
                 "click": "Click to lock focus and filter the network.",
                 "drag": "Drag nodes to rearrange the layout."
             },
@@ -1196,7 +1196,7 @@
         "sankey-flow": {
             "summary": "A flow diagram tracing how one root branches into lemmas and tokens.",
             "hint": {
-                "hover": "Hover a flow band to see the count and path.",
+                "hover": "Hover or tap a flow band to see the count and path.",
                 "click": "Click a lemma or token to focus the inspector.",
                 "path": "Follow the path: root, then lemma, then token."
             },
@@ -1206,7 +1206,7 @@
         "collocation-network": {
             "summary": "A network of root pairs that frequently appear near each other.",
             "hint": {
-                "hover": "Hover an edge to see collocation strength.",
+                "hover": "Hover or tap an edge to see collocation strength.",
                 "click": "Click a node to filter to that root's collocations.",
                 "drag": "Drag nodes to rearrange the network."
             },
@@ -1216,7 +1216,7 @@
         "knowledge-graph": {
             "summary": "An interactive map of tracked roots and studied topics.",
             "hint": {
-                "hover": "Hover a node to see your study progress.",
+                "hover": "Hover or tap a node to see your study progress.",
                 "click": "Click to review or drill into a topic.",
                 "legend": "Brighter nodes are tracked; dim ones aren't yet."
             },
@@ -1226,7 +1226,7 @@
         "heatmap": {
             "summary": "A grid where color intensity shows word frequency across surahs.",
             "hint": {
-                "hover": "Hover a cell to see the exact count.",
+                "hover": "Hover or tap a cell to see the exact count.",
                 "click": "Click a cell to jump to the corresponding surah view.",
                 "legend": "Warmer colors mean the word appears more often."
             },
@@ -1235,8 +1235,8 @@
         }
     },
     "VizIntroCard": {
-        "howToReadLabel": "How to read it",
-        "gotIt": "Got it"
+        "chipLabel": "How to read this view",
+        "dismissAria": "Dismiss"
     },
     "Glossary": {
         "label": "Linguistic glossary",

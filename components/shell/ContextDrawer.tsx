@@ -23,6 +23,9 @@ interface ContextDrawerProps {
   inspectorToken: CorpusToken | null;
   inspectorMode: "hover" | "focus" | "idle";
   selectedSurahId: number;
+  /** Bumped by the intro chip to request the Explain tab (mirrors the
+   *  token-focus → Inspect auto-switch below). */
+  explainRequestId?: number;
   clearFocus: () => void;
   onTokenHover: (id: string | null) => void;
   onTokenSelect: (tokenId: string) => void;
@@ -48,6 +51,7 @@ export default function ContextDrawer({
   inspectorToken,
   inspectorMode,
   selectedSurahId,
+  explainRequestId,
   clearFocus,
   onTokenHover,
   onTokenSelect,
@@ -63,6 +67,7 @@ export default function ContextDrawer({
   const [activeTab, setActiveTab] = useState<DrawerTab>("explain");
   const [scannerOpen, setScannerOpen] = useState(false);
   const prevTokenRef = useRef<CorpusToken | null>(null);
+  const prevExplainRequestRef = useRef(explainRequestId);
 
   // Tab behaviour: a deliberate CLICK (focus) on a graph element opens the
   // Inspect tab. HOVER never switches tabs — it only flags a hint on the Inspect
@@ -73,6 +78,16 @@ export default function ContextDrawer({
     }
     prevTokenRef.current = inspectorToken;
   }, [inspectorToken, inspectorMode]);
+
+  // The intro chip's label requests the Explain tab the same way: the ref
+  // starts equal to the initial id (0), so mounting/re-rendering is a no-op —
+  // only an actual bump (a real click) flips the tab.
+  useEffect(() => {
+    if (explainRequestId !== undefined && explainRequestId !== prevExplainRequestRef.current) {
+      setActiveTab("explain");
+    }
+    prevExplainRequestRef.current = explainRequestId;
+  }, [explainRequestId]);
 
   const handleManualTabChange = useCallback((tab: DrawerTab) => {
     setActiveTab(tab);

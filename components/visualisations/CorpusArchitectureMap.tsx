@@ -625,14 +625,7 @@ export default function CorpusArchitectureMap({
                                 </div>
                             </div>
                             <div className="viz-left-panel">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div>
-                                        <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong><br />
-                                        <span style={{ fontSize: '0.72em', opacity: 0.6, lineHeight: 1.4 }}>
-                                            {t("structuralView")}
-                                        </span>
-                                    </div>
-                                </div>
+                                <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong>
                                 <div style={{ marginTop: 8, fontSize: '0.7em', opacity: 0.5, lineHeight: 1.6 }}>
                                     {focusedSurahId ? (
                                         <>
@@ -645,7 +638,7 @@ export default function CorpusArchitectureMap({
                                         </>
                                     ) : (
                                         <>
-                                            {corpusCoverage.totalSurahs} {ts("surah")}s &middot; {corpusCoverage.totalTokens.toLocaleString(locale)} tokens &middot; {corpusCoverage.displayedUniqueRoots}/{corpusCoverage.totalUniqueRoots} {ts("root")}s {t("visibleLabel")}
+                                            {corpusCoverage.displayedUniqueRoots}/{corpusCoverage.totalUniqueRoots} {ts("root")}s {t("visibleLabel")}
                                         </>
                                     )}
                                 </div>
