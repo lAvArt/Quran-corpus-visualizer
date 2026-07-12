@@ -96,6 +96,13 @@ onboarding localStorage `quran-corpus-onboarding`.
   count as an inline inset), StatusBar pill top, GraphToolbar bottom. LTR/RTL aware;
   joint clamps keep ≥40% width / ≥55% height free. Any new viz should use this rather
   than raw viewport math.
+- **Per-tick geometry must be plain SVG** (the collocation pattern). Anything whose
+  transform/`d` changes every simulation tick renders as plain `<g>`/`<path>` — React
+  patches them in one fast commit. framer-motion is reserved for decorative elements
+  whose geometry doesn't tick (pulse rings, sun breathing) and for ONE layer-level
+  entrance/settle fade per layer (keyed by topology, namespaced sibling keys). Wrapping
+  each node/edge in `motion.g` caused bursty frame pacing users read as "wires lagging"
+  (measured: 78.6%→94.4% frame-advance under 2× CPU throttle after the fix).
 - **Category colors must be theme-stable.** Never bind categorical encodings to
   `--accent`/`--accent-2`: those swap hues between light and dark themes.
   Use dedicated tokens (`--viz-cat-makki`, `--viz-cat-madani` — teal family / amber family
@@ -132,9 +139,10 @@ Fixed in `feature/viz-declutter`:
   links unlabeled → unified left dock with "Views"/"Pages" groups, honest labels
   (Overview/Roots/Surah), tooltips, and a spine-collapse replacing the edge handle.
 - root-network was a clumped ring hairball (radial pin at fixed 80/150px, invisible
-  edges, all-nodes labels) → orbital planets/moons redesign; edges glued to nodes
-  during drag (framer-motion was scheduling path `d` a frame late); sim pre-ticks
-  before paint so no wire tangle; blurry center blob → crisp breathing stellar core.
+  edges, all-nodes labels) → orbital planets/moons redesign; sim pre-ticks before
+  paint so no wire tangle; blurry center blob → 48px eased-gradient stellar core;
+  perceived wire-drag lag root-caused to per-element framer-motion wrappers on all
+  per-tick geometry → plain SVG + layer-level fades (see the plain-SVG rule above).
 - arc-flow drew zero arcs: links were "roots sharing a lemma", impossible in this
   corpus (a lemma belongs to one root) → ayah co-occurrence links (audited exact:
   surah 12 top pair اله|قول = 25 shared verses; corpus-wide 514); saturating

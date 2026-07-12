@@ -100,13 +100,17 @@ const ROOT_LABEL_TOP_N = 12; // above the threshold: only the N most frequent la
 const ROOT_LABEL_ZOOM_THRESHOLD = 1.4; // zoomed in this far reveals the rest of the roots
 const LEMMA_LABEL_ZOOM_THRESHOLD = 1.8; // lemma labels need either focus or this much zoom
 
-// Center "stellar core" — a small, crisp sun anchoring the orbit, not the
-// old 100px diffuse blur. Fixed pixel sizes on purpose (not canvas-scaled):
-// the point is for it to stay small next to the orbit rings regardless of
-// canvas size.
-const SUN_CORE_RADIUS = 10; // near-white-warm hot core
-const SUN_GLOW_RADIUS = 80; // gradient reaches full transparency here
-const SUN_CORONA_RADIUS = SUN_CORE_RADIUS * 2; // thin accent ring echoing the orbit decoration
+// Center "stellar core" — a small, crisp sun anchoring the orbit, not a
+// diffuse blur. Fixed pixel sizes on purpose (not canvas-scaled): the point
+// is for it to stay small next to the orbit rings regardless of canvas
+// size. SUN_GLOW_RADIUS was 80px in an earlier pass and still read as a
+// fuzzy cloud with a perceptible edge even with an eased gradient — 48px
+// with the many-small-steps falloff on the <radialGradient> below (see its
+// stops) is what actually reads as a compact, edgeless star. Don't retune
+// either in isolation; they were tuned together against a screenshot crop.
+const SUN_GLOW_RADIUS = 48; // gradient reaches full transparency here
+const SUN_CORONA_RADIUS = 14; // thin accent ring echoing the orbit decoration
+const SUN_CORONA_OPACITY = 0.3; // flat across both themes — only the glow's own stops scale with theme (see sunGlow below)
 
 function zoomTierFor(scale: number): 0 | 1 | 2 {
   if (scale >= LEMMA_LABEL_ZOOM_THRESHOLD) return 2;
@@ -560,7 +564,32 @@ export default function RootNetworkGraph({
     };
   }, [isMounted, dimensions]);
 
-  // D3 Drag behavior for nodes
+  // D3 Drag behavior for nodes. Keyed off the *set* of rendered node ids
+  // (a string, not the `nodes` array) so this only rebinds when the
+  // topology actually changes (mount, surah/root-limit/experience-level
+  // changes) — not on every simulation tick. `nodes` gets a brand-new array
+  // identity every tick (see the force-simulation effect above: d3 mutates
+  // .x/.y in place, but setNodes([...nodesCopy]) is a fresh array each
+  // time, deliberately, so edge/node geometry actually recomputes every
+  // render — see the edges' render comment below), so depending on `nodes`
+  // directly reran this effect ~60x/second during any drag: tearing down
+  // and reconstructing an entire fresh d3.drag() behavior + rebinding
+  // listeners across the whole .rn-node selection on the single hottest,
+  // most latency-sensitive path in this component. This was chased down
+  // while investigating a reported "wire lags behind the dragged node"
+  // defect — an instrumented per-frame probe (recording node position vs.
+  // connected-edge endpoint every rendered frame across a real continuous
+  // drag) found zero desync between a node and its own edges at any frame
+  // (framer-motion never takes over the node's plain `transform` attribute
+  // here, since no x/y/scale motion values are ever assigned to it — only
+  // `opacity` is animated — so both it and the edges' plain `d` are written
+  // by React's ordinary synchronous reconciliation in the same commit).
+  // This rebind churn was still real waste on the drag path, though, so it's
+  // fixed here regardless: a string dependency compares by value, so a
+  // same-topology tick (new array, same ids) is a no-op, while an actual
+  // topology swap (different ids, even at an unchanged count) still
+  // rebinds correctly.
+  const nodeIdsKey = nodes.map((n) => n.id).join("|");
   useEffect(() => {
     if (!gRef.current || !simulationRef.current) return;
 
@@ -596,7 +625,7 @@ export default function RootNetworkGraph({
     return () => {
       g.selectAll<SVGGElement, unknown>(".rn-node").on(".drag", null);
     };
-  }, [nodes]);
+  }, [nodeIdsKey]);
 
   const handleNodeHover = useCallback(
     (node: NetworkNode | null) => {
@@ -651,19 +680,36 @@ export default function RootNetworkGraph({
   // theme's --accent IS amber; light theme's amber lives on --accent-2
   // instead, since --accent there is teal — app/[locale]/globals.css vs.
   // styles/dark-theme.css), so pick whichever token is amber for the active
-  // theme rather than hardcoding a hex. Light theme also wants a deeper,
-  // lower-opacity core so it stays tasteful on a cream canvas instead of
-  // reading as a heavy blob; derived via color-mix (same pattern already
-  // used elsewhere in this codebase, e.g. RadialSuraMap) rather than a
-  // second hardcoded literal.
+  // theme. Used for the corona ring (an "accent token" per the design spec,
+  // not a hardcoded literal) below.
   const sunAmberToken = theme === "dark" ? "var(--accent)" : "var(--accent-2)";
   const sunAmberColor =
     theme === "dark" ? sunAmberToken : `color-mix(in srgb, ${sunAmberToken} 78%, black 22%)`;
-  const sunCoreColor = `color-mix(in srgb, ${sunAmberColor} 45%, white 55%)`;
-  const sunOpacity =
+  // Three-tone glow family (core -> near -> outer) feeding the eased
+  // multi-stop <radialGradient> in defs below, plus the opacity at each of
+  // its five non-zero stops (0/8/18/32/55%; 100% is always fully
+  // transparent — see the stops themselves). Dark theme's hexes are pinned
+  // exactly per the design spec (tuned against the reported "blurry orange
+  // cloud" screenshot) rather than derived from a token, so a future accent
+  // change can't silently drift the fix back toward a blob. Light theme has
+  // no such screenshot anchor, so instead of a second hardcoded palette it
+  // derives the same three-tone shape from the theme's own amber token via
+  // color-mix (matching the sunAmberColor pattern above), at 70% of dark
+  // theme's stop opacities so it stays tasteful on a cream canvas.
+  const sunGlow =
     theme === "dark"
-      ? { core: 0.9, mid: 0.55, corona: 0.22 }
-      : { core: 0.55, mid: 0.32, corona: 0.16 };
+      ? {
+          core: "#fff4e0",
+          near: "#f5c98a",
+          outer: "#e8924a",
+          opacity: [0.95, 0.6, 0.26, 0.1, 0.03],
+        }
+      : {
+          core: `color-mix(in srgb, ${sunAmberToken} 25%, white 75%)`,
+          near: `color-mix(in srgb, ${sunAmberToken} 55%, white 45%)`,
+          outer: sunAmberColor,
+          opacity: [0.95, 0.6, 0.26, 0.1, 0.03].map((o) => o * 0.7),
+        };
 
   return (
     <section className="immersive-viz" data-theme={theme}>
@@ -686,15 +732,17 @@ export default function RootNetworkGraph({
                 {/* Stellar core anchoring the orbit — small and crisp, not a
                     diffuse blur: near-white-warm hot core fading through
                     amber to fully transparent well inside the innermost
-                    orbit ring (SUN_* constants above). */}
+                    orbit ring (SUN_* constants above). Many small opacity
+                    steps (not one linear stop-to-transparent) so the edge is
+                    imperceptible instead of reading as a ring/blob
+                    boundary — don't collapse these back to 2-3 stops. */}
                 <radialGradient id="sunCoreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor={sunCoreColor} stopOpacity={sunOpacity.core} />
-                  <stop
-                    offset={`${(SUN_CORE_RADIUS / SUN_GLOW_RADIUS) * 100}%`}
-                    stopColor={sunAmberColor}
-                    stopOpacity={sunOpacity.mid}
-                  />
-                  <stop offset="100%" stopColor={sunAmberColor} stopOpacity={0} />
+                  <stop offset="0%" stopColor={sunGlow.core} stopOpacity={sunGlow.opacity[0]} />
+                  <stop offset="8%" stopColor={sunGlow.near} stopOpacity={sunGlow.opacity[1]} />
+                  <stop offset="18%" stopColor={sunGlow.outer} stopOpacity={sunGlow.opacity[2]} />
+                  <stop offset="32%" stopColor={sunGlow.outer} stopOpacity={sunGlow.opacity[3]} />
+                  <stop offset="55%" stopColor={sunGlow.outer} stopOpacity={sunGlow.opacity[4]} />
+                  <stop offset="100%" stopColor={sunGlow.outer} stopOpacity={0} />
                 </radialGradient>
 
                 {/* Glow filter for nodes */}
@@ -741,7 +789,7 @@ export default function RootNetworkGraph({
                   origin — same pattern the per-node highlight pulse uses. */}
               <g transform={`translate(${dimensions.width / 2}, ${dimensions.height / 2})`}>
                 {/* Thin corona ring echoing the orbit decoration */}
-                <circle r={SUN_CORONA_RADIUS} fill="none" stroke={sunAmberColor} strokeWidth={1} opacity={sunOpacity.corona} />
+                <circle r={SUN_CORONA_RADIUS} fill="none" stroke={sunAmberColor} strokeWidth={1} opacity={SUN_CORONA_OPACITY} />
                 <motion.circle
                   r={SUN_GLOW_RADIUS}
                   fill="url(#sunCoreGlow)"
@@ -755,8 +803,40 @@ export default function RootNetworkGraph({
                 />
               </g>
 
-              {/* Links */}
-              <g className="links">
+              {/* Links — ONE layer-level fade (this <motion.g>) instead of a
+                  framer-motion wrapper per edge. Previously every edge below
+                  was its own <motion.g>: framer-motion reconciles every
+                  motion element on every simulation tick, and with up to
+                  ~90 edges that per-element overhead contributed to a
+                  reported "wire lags behind the dragged node" defect — a
+                  per-frame DOM probe had already proven the geometry itself
+                  stays glued every frame (0px gap, see the drag-effect
+                  comment below), so the remaining issue was frame PACING,
+                  not position: updates arrived in bursts rather than every
+                  frame, which reads as the wire "waiting". Masked on an
+                  idle dev machine but clearly measurable under modest load
+                  (2x CPU throttling — a proxy for a busier real machine):
+                  the fraction of animation frames where an undragged,
+                  force-pushed node's rendered position actually advanced
+                  during a held drag averaged ~79% (5 runs) with the old
+                  per-element motion wrappers vs. ~94% (5 runs) with the
+                  plain elements below. CollocationNetworkGraph's per-tick
+                  geometry is plain SVG for exactly this reason and feels
+                  smooth. Each edge is now a plain <path>: `d` and `style`
+                  are written by React's ordinary reconciliation every
+                  render, in lockstep with each node's own plain `transform`
+                  string below. Keyed
+                  by nodeIdsKey (the same topology key the drag-rebind
+                  effect above uses) so this fade replays on a real topology
+                  change (new simulation) but never on a positional tick or
+                  a drag. */}
+              <motion.g
+                key={`links-${nodeIdsKey}`}
+                className="links"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isSettlingAsync ? 0 : 1 }}
+                transition={{ duration: motionSafeDuration(250) / 1000 }}
+              >
                 {links.map((link, idx) => {
                   const source = link.source as NetworkNode;
                   const target = link.target as NetworkNode;
@@ -779,53 +859,52 @@ export default function RootNetworkGraph({
                   // spokes now read as belonging to their hub, and heavier
                   // root-lemma links stay visibly thicker via the weight ratio.
                   const defaultStrokeWidth = 1 + (link.weight / maxLinkWeight) * 1.4;
-                  // Positions are already final by the time this renders on
-                  // the (default) synchronous pre-tick path, so entrance is
-                  // just a plain fade at the settled geometry. On the large-N
-                  // async fallback (isSettlingAsync — see the force-simulation
-                  // effect), the layout is still actively moving: hold edges
-                  // at zero opacity so the "wire tangle" of a live settle
-                  // never actually paints, then fade them in once it reports
-                  // settled — reusing this same target/transition, so that
-                  // reveal reads identically to the normal mount fade.
-                  const edgeTargetOpacity = isSettlingAsync ? 0 : isHighlighted ? 0.9 : 0.38;
+                  // The settling-hidden state now lives entirely on the
+                  // layer wrapper above (isSettlingAsync) — this is just the
+                  // highlighted/default split, a plain per-render value, not
+                  // an animated one. `.edge`'s own CSS `transition: all 0.3s
+                  // ease` (styles/dark-theme.css, unscoped so it applies in
+                  // both themes) is what makes this opacity change — and the
+                  // stroke/width change below — animate smoothly on hover,
+                  // for free, off the main thread.
+                  const edgeOpacity = isHighlighted ? 0.9 : 0.38;
 
                   return (
-                    // `d` is one of framer-motion's recognized animatable SVG
-                    // attributes (like cx/cy/r) — even with an explicit
-                    // zero-duration transition, a motion.path carrying both
-                    // `d` and an animated `opacity` can still write the two to
-                    // the DOM on different scheduling passes, which reads as
-                    // the wire trailing a dragged node by a frame or more.
-                    // Structurally separating them removes the ambiguity: the
-                    // fade lives on this wrapper <motion.g> (which has no
-                    // geometry of its own for framer-motion to touch), and the
-                    // actual line is a plain, framer-motion-free <path> whose
-                    // `d` React patches straight onto the DOM every render, in
-                    // lockstep with the node's own plain `transform` string.
-                    <motion.g
+                    <path
                       key={idx}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: edgeTargetOpacity }}
-                      transition={{ duration: motionSafeDuration(250) / 1000 }}
-                    >
-                      <path
-                        d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
-                        className={`edge ${isHighlighted ? "highlighted" : ""}`}
-                        style={{
-                          stroke: isHighlighted ? themeColors.accent : source.color,
-                          strokeWidth: isHighlighted ? 2 : defaultStrokeWidth,
-                          fill: "none",
-                        }}
-                        filter={isHighlighted ? "url(#subtleGlow)" : undefined}
-                      />
-                    </motion.g>
+                      d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
+                      className={`edge ${isHighlighted ? "highlighted" : ""}`}
+                      style={{
+                        stroke: isHighlighted ? themeColors.accent : source.color,
+                        strokeWidth: isHighlighted ? 2 : defaultStrokeWidth,
+                        opacity: edgeOpacity,
+                        fill: "none",
+                      }}
+                      filter={isHighlighted ? "url(#subtleGlow)" : undefined}
+                    />
                   );
                 })}
-              </g>
+              </motion.g>
 
-              {/* Nodes */}
-              <g className="nodes">
+              {/* Nodes — ONE layer-level mount fade (this <motion.g>)
+                  instead of a framer-motion wrapper per node (see the links
+                  layer comment above for the measured pacing cost this
+                  removes). Each node's own <g> below is now plain: its
+                  `transform` is written by React's ordinary reconciliation
+                  every render, exactly like CollocationNetworkGraph's node
+                  groups. Framer-motion survives only on the highlighted-
+                  root pulse ring inside (never more than a handful of nodes
+                  at once, and its own geometry doesn't change per tick) —
+                  the same pattern CollocationNetworkGraph uses for its
+                  target-node ring. Keyed by nodeIdsKey so this fade replays
+                  on a real topology change, not on positional ticks. */}
+              <motion.g
+                key={`nodes-${nodeIdsKey}`}
+                className="nodes"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: motionSafeDuration(250) / 1000 }}
+              >
                 {nodes.map((node) => {
                   if (!node.x || !node.y) return null;
 
@@ -850,18 +929,11 @@ export default function RootNetworkGraph({
                   const labelVisible = isHighlighted || isHubHighlighted || (showLabels && hierarchyAllowsLabel);
 
                   return (
-                    <motion.g
+                    <g
                       key={node.id}
                       className="node-group rn-node"
                       data-node-id={node.id}
                       transform={`translate(${node.x},${node.y})`}
-                      // Matching fade for the settled-on-mount entrance (see
-                      // the edges' comment above) — mount-only, framer-motion
-                      // does not replay this on later re-renders (drag ticks,
-                      // hover, etc.) as long as the element stays mounted.
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: motionSafeDuration(250) / 1000 }}
                       style={{ cursor: "grab" }}
                       onMouseEnter={() => handleNodeHover(node)}
                       onMouseLeave={() => handleNodeHover(null)}
@@ -872,7 +944,10 @@ export default function RootNetworkGraph({
                         }
                       }}
                     >
-                      {/* Outer glow ring for highlighted root nodes */}
+                      {/* Outer glow ring for highlighted root nodes — kept on
+                          framer-motion on purpose: at most a handful exist
+                          at once (only isRoot && isHighlighted nodes), and
+                          its own r/fill/stroke never change per tick. */}
                       {isRoot && isHighlighted && (
                         <motion.circle
                           r={node.radius + 12}
@@ -931,10 +1006,10 @@ export default function RootNetworkGraph({
                           {node.label}
                         </text>
                       )}
-                    </motion.g>
+                    </g>
                   );
                 })}
-              </g>
+              </motion.g>
             </g>
           </svg>
         )}
