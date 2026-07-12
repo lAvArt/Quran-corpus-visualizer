@@ -212,11 +212,13 @@ export default function MorphologyInspector({
      * `word` must be the raw (undotted) corpus string — Almaany takes it
      * as-is in the path, Doha needs it percent-encoded (parity with the
      * legacy CurrentSelectionPanel implementation this restores).
+     * Almaany's `c` param preselects the لسان العرب (Lisan al-Arab)
+     * classical dictionary, the most relevant source for Quranic roots.
      */
     const renderDictBadges = (word: string) => (
         <span className="mi-dict-badges">
             <a
-                href={`https://www.almaany.com/ar/dict/ar-ar/${word}/`}
+                href={`https://www.almaany.com/ar/dict/ar-ar/${word}/?c=${encodeURIComponent("لسان العرب")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mi-dict-badge"
