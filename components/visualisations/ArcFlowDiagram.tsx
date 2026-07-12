@@ -14,6 +14,8 @@ import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog
 import type { ExperienceLevel } from "@/lib/schema/experience";
 import { fitGraphToView } from "@/lib/viz/fitToView";
 import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
+import { SURAH_NAMES } from "@/lib/data/surahData";
+import { FULL_CORPUS_TOKEN_FLOOR } from "@/lib/corpus/corpusExpectations";
 
 interface ArcFlowDiagramProps {
   tokens: CorpusToken[];
@@ -86,10 +88,24 @@ export default function ArcFlowDiagram({
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(0.92);
+  // Entry auto-fit bookkeeping (see the effects below, after `nodes`/
+  // `connections` are computed). `userInteractedRef` flips true the moment a
+  // real wheel/drag/touch gesture reaches the zoom behavior — never for a
+  // programmatic `.transform()` call like the auto-fit itself — so a user
+  // who starts exploring before the corpus finishes streaming never gets the
+  // camera yanked back. `autoFittedRef` marks the current scope (surah +
+  // groupBy) as already framed so the fit only ever runs once per scope;
+  // both reset whenever that scope changes.
+  const userInteractedRef = useRef(false);
+  const autoFittedRef = useRef(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const { isLeftSidebarOpen } = useVizControl();
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  // Distinct from `hoveredNode` (a bar/node id): tracks direct hover/focus of
+  // an arc itself, so a connection's own weight is discoverable even when
+  // neither of its endpoint bars is being hovered.
+  const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
   const [activeGroupBy, setActiveGroupBy] = useState(groupBy);
   const [dimensions, setDimensions] = useState({ width: 1400, height: 900 });
 
@@ -169,6 +185,10 @@ export default function ArcFlowDiagram({
       .scaleExtent([0.3, 8])
       .on("zoom", (event) => {
         gSelection.attr("transform", event.transform.toString());
+        // See userInteractedRef above: only a real gesture carries a
+        // sourceEvent, so this can't be tripped by the entry auto-fit or the
+        // sidebar's +/-/Focus buttons calling `.transform()`/`.scaleBy()`.
+        if (event.sourceEvent) userInteractedRef.current = true;
         setZoomLevel((prev) => {
           const next = Math.round(event.transform.k * 20) / 20;
           return prev === next ? prev : next;
@@ -178,7 +198,6 @@ export default function ArcFlowDiagram({
     zoomBehaviorRef.current = zoomBehavior;
     svgSelection.call(zoomBehavior);
     svgSelection.on("dblclick.zoom", null);
-    svgSelection.call(zoomBehavior.transform, d3.zoomIdentity.scale(0.92));
 
     return () => {
       svgSelection.on(".zoom", null);
@@ -291,7 +310,6 @@ export default function ArcFlowDiagram({
         count: number;
         sampleToken?: CorpusToken;
         category: string;
-        lemmas?: Set<string>;
         matchCount: number;
       }
     >();
@@ -324,7 +342,6 @@ export default function ArcFlowDiagram({
           count: 0,
           sampleToken: undefined,
           category,
-          lemmas: activeGroupBy === "root" ? new Set<string>() : undefined,
           matchCount: 0,
         };
         groups.set(key, group);
@@ -332,9 +349,6 @@ export default function ArcFlowDiagram({
 
       group.count += 1;
       if (!group.sampleToken) group.sampleToken = token;
-      if (activeGroupBy === "root" && token.lemma) {
-        group.lemmas?.add(token.lemma);
-      }
       if (tokenMatchesContext(token)) {
         group.matchCount += 1;
       }
@@ -423,23 +437,34 @@ export default function ArcFlowDiagram({
     const connectionsResult: FlowConnection[] = [];
 
     if (activeGroupBy === "root") {
-      const lemmaToRoots = new Map<string, Set<string>>();
-      for (const [key, data] of sortedGroups) {
-        if (!data.lemmas) continue;
-        for (const lemma of data.lemmas) {
-          const roots = lemmaToRoots.get(lemma) ?? new Set<string>();
-          roots.add(key);
-          lemmaToRoots.set(lemma, roots);
+      // Root pairs come from AYAH CO-OCCURRENCE, not shared lemmas: in this
+      // corpus every lemma maps to exactly one root (see the hamza-
+      // normalization note in lib/corpus), so a shared-lemma test can never
+      // find two distinct roots for a pair — that's why this used to produce
+      // zero connections regardless of scope. Two rendered root-groups are
+      // linked when they both occur in the same ayah; the weight is the
+      // number of ayahs where that co-occurrence happens.
+      const ayahToGroupIds = new Map<string, Set<string>>();
+      for (const token of scopedTokens) {
+        const rootKey = token.root || "unknown";
+        if (!nodeIds.has(rootKey)) continue; // only pair roots actually rendered (top maxGroups)
+        const ayahKey = `${token.sura}:${token.ayah}`;
+        let groupIds = ayahToGroupIds.get(ayahKey);
+        if (!groupIds) {
+          groupIds = new Set<string>();
+          ayahToGroupIds.set(ayahKey, groupIds);
         }
+        groupIds.add(rootKey);
       }
 
       const pairWeights = new Map<string, number>();
-      lemmaToRoots.forEach((roots) => {
-        const rootList = Array.from(roots);
-        for (let i = 0; i < rootList.length; i++) {
-          for (let j = i + 1; j < rootList.length; j++) {
-            const a = rootList[i];
-            const b = rootList[j];
+      ayahToGroupIds.forEach((groupIds) => {
+        if (groupIds.size < 2) return;
+        const idList = Array.from(groupIds);
+        for (let i = 0; i < idList.length; i++) {
+          for (let j = i + 1; j < idList.length; j++) {
+            const a = idList[i];
+            const b = idList[j];
             const pairKey = a < b ? `${a}|${b}` : `${b}|${a}`;
             pairWeights.set(pairKey, (pairWeights.get(pairKey) ?? 0) + 1);
           }
@@ -578,6 +603,72 @@ export default function ArcFlowDiagram({
     return new Set(nodes.filter((node) => node.isContextMatch).map((node) => node.id));
   }, [nodes]);
 
+  // Scope-normalized stroke width (see the arc render below): weight alone
+  // isn't comparable across scopes (a "15" means something different for one
+  // surah vs. the whole corpus), so width is always relative to the busiest
+  // connection actually on screen right now.
+  const maxConnectionWeight = useMemo(
+    () => connections.reduce((max, conn) => Math.max(max, conn.weight), 1),
+    [connections]
+  );
+
+  // Data completeness for the CURRENT scope — mirrors `isSurahDataComplete`
+  // in RadialSuraMap (see docs/VIZ_ARCHITECTURE.md, "Corpus data streams
+  // in"): `tokens`/`scopedTokens` can still be a small stub (shell payload,
+  // or a single surah streamed in ahead of the rest) when this first mounts,
+  // and fitting to that stub's geometry would lock the camera onto a couple
+  // of stray bars instead of the real layout once the rest lands. A surah
+  // scope is complete once every one of its ayahs has appeared; the global
+  // scope (no surah selected) has no per-ayah signal to check, so it falls
+  // back to the same full-corpus token floor `useCorpusData` itself uses to
+  // call a load "full".
+  const isScopeDataComplete = useMemo(() => {
+    if (selectedSurahId) {
+      const expectedAyahCount = SURAH_NAMES[selectedSurahId]?.verses ?? 0;
+      if (expectedAyahCount === 0) return true;
+      const ayahsSeen = new Set(scopedTokens.map((token) => token.ayah)).size;
+      return ayahsSeen >= expectedAyahCount;
+    }
+    // No surah scoped: `scopedTokens` IS `tokens` here (see the memo above),
+    // so the full-corpus floor doubles as the completeness signal.
+    return scopedTokens.length >= FULL_CORPUS_TOKEN_FLOOR;
+  }, [selectedSurahId, scopedTokens]);
+
+  // A new scope (surah or groupBy change) is a completely different layout
+  // and deserves its own framing, regardless of whether the user had already
+  // taken control of the camera in the previous one.
+  useEffect(() => {
+    userInteractedRef.current = false;
+    autoFittedRef.current = false;
+  }, [selectedSurahId, activeGroupBy]);
+
+  // One-time panel-aware fit per scope, replacing the old fixed 0.92 initial
+  // zoom. That fixed scale never accounted for bar length: bar tips at the
+  // fan's extreme angles (near +/-90 deg) extend past the arc's own radius
+  // bound, so a flat identity-ish transform always clipped them — the
+  // "clipped diagonal stripes" framing. Measuring the real rendered bbox via
+  // fitGraphToView sidesteps that regardless. Runs as soon as this scope's
+  // data is complete and stands down for good once it has fired for this
+  // scope or the user pans/zooms.
+  useEffect(() => {
+    if (userInteractedRef.current || autoFittedRef.current) return;
+    if (!isMounted || nodes.length === 0) return;
+    if (!isScopeDataComplete) return;
+
+    autoFittedRef.current = true;
+    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+      duration: motionSafeDuration(600),
+    });
+  }, [
+    isMounted,
+    nodes.length,
+    isScopeDataComplete,
+    selectedSurahId,
+    activeGroupBy,
+    dimensions.width,
+    dimensions.height,
+  ]);
+
   const getNodePosition = useCallback(
     (position: number) => {
       const angle = arcStartAngle + position * (arcEndAngle - arcStartAngle);
@@ -628,9 +719,21 @@ export default function ArcFlowDiagram({
     [onTokenFocus]
   );
 
+  // Mouse AND keyboard share this: the arc's onFocus/onBlur call the same
+  // setter as onMouseEnter/onMouseLeave, so Tab-ing to a connection gets the
+  // identical highlight + tooltip a mouse hover would.
+  const handleConnectionHover = useCallback((connectionId: string | null) => {
+    setHoveredConnectionId(connectionId);
+  }, []);
+
   const hoveredNodeData = useMemo(
     () => (hoveredNode ? nodeById.get(hoveredNode) ?? null : null),
     [hoveredNode, nodeById]
+  );
+
+  const hoveredConnectionData = useMemo(
+    () => (hoveredConnectionId ? connections.find((conn) => conn.id === hoveredConnectionId) ?? null : null),
+    [hoveredConnectionId, connections]
   );
 
   const handleZoomIn = useCallback(() => {
@@ -938,11 +1041,26 @@ export default function ArcFlowDiagram({
                   const targetNode = nodeById.get(conn.targetId);
                   if (!sourceNode || !targetNode) return null;
 
-                  const isHoverHit = hoveredNode === conn.sourceId || hoveredNode === conn.targetId;
+                  const isHoverHit =
+                    hoveredNode === conn.sourceId ||
+                    hoveredNode === conn.targetId ||
+                    hoveredConnectionId === conn.id;
                   const isContextHit =
                     conn.isContextMatch ||
                     contextNodeIds.has(conn.sourceId) ||
                     contextNodeIds.has(conn.targetId);
+
+                  // Scope-normalized: sqrt keeps low-weight arcs visible
+                  // while still clearly differentiating the heaviest ones —
+                  // no fixed cap, so a busy scope's top pairs can't all
+                  // saturate to the same width (the old `Math.min(7, ...)`
+                  // did exactly that above weight ~10.5). The hover boost is
+                  // additive on top of that base, so a hovered thin arc
+                  // still thickens but a hovered thick arc never gets
+                  // thinner than it already was.
+                  const baseStrokeWidth = 1 + 5.5 * Math.sqrt(conn.weight / maxConnectionWeight);
+                  const strokeWidth = isHoverHit ? baseStrokeWidth + 2.5 : baseStrokeWidth;
+                  const connectionLabel = `${sourceNode.label} ↔ ${targetNode.label} · ${t("sharedVerses", { count: conn.weight })}`;
 
                   return (
                     <motion.path
@@ -951,8 +1069,16 @@ export default function ArcFlowDiagram({
                       className={`connection ${isHoverHit ? "highlighted" : ""}`}
                       fill="none"
                       stroke={`url(#grad-${idx})`}
-                      strokeWidth={isHoverHit ? 3.5 : Math.min(7, 1.2 + conn.weight * 0.55)}
+                      strokeWidth={strokeWidth}
                       strokeLinecap="round"
+                      role="img"
+                      aria-label={connectionLabel}
+                      tabIndex={0}
+                      style={{ cursor: "help" }}
+                      onMouseEnter={() => handleConnectionHover(conn.id)}
+                      onMouseLeave={() => handleConnectionHover(null)}
+                      onFocus={() => handleConnectionHover(conn.id)}
+                      onBlur={() => handleConnectionHover(null)}
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{
                         pathLength: 1,
@@ -1070,7 +1196,7 @@ export default function ArcFlowDiagram({
         )}
 
         <AnimatePresence>
-          {hoveredNodeData && (
+          {(hoveredNodeData || hoveredConnectionData) && (
             <motion.div
               className="viz-tooltip"
               initial={{ opacity: 0, y: 10 }}
@@ -1084,40 +1210,55 @@ export default function ArcFlowDiagram({
                 transform: "none",
               }}
             >
-              <div className="viz-tooltip-title arabic-text">{hoveredNodeData.label}</div>
-              <div className="viz-tooltip-subtitle">
-                {activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah")}
-              </div>
-              {activeGroupBy === "pos" ? (
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{t("posMeaning")}</span>
-                  <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label, ts)}</span>
-                </div>
-              ) : null}
-              <div className="viz-tooltip-row">
-                <span className="viz-tooltip-label">{ts("occurrences")}</span>
-                <span className="viz-tooltip-value">{hoveredNodeData.count}</span>
-              </div>
-              {hoveredNodeData.matchCount > 0 && (
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{t("contextMatches")}</span>
-                  <span className="viz-tooltip-value">{hoveredNodeData.matchCount}</span>
-                </div>
-              )}
-              {hoveredNodeData.sampleToken && (
+              {hoveredNodeData ? (
                 <>
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">{ts("lemma")}</span>
-                    <span className="viz-tooltip-value arabic-text">{hoveredNodeData.sampleToken.text}</span>
+                  <div className="viz-tooltip-title arabic-text">{hoveredNodeData.label}</div>
+                  <div className="viz-tooltip-subtitle">
+                    {activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah")}
                   </div>
+                  {activeGroupBy === "pos" ? (
+                    <div className="viz-tooltip-row">
+                      <span className="viz-tooltip-label">{t("posMeaning")}</span>
+                      <span className="viz-tooltip-value">{getPosLabel(hoveredNodeData.label, ts)}</span>
+                    </div>
+                  ) : null}
                   <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">{ts("ref")}</span>
-                    <span className="viz-tooltip-value">
-                      {hoveredNodeData.sampleToken.sura}:{hoveredNodeData.sampleToken.ayah}
-                    </span>
+                    <span className="viz-tooltip-label">{ts("occurrences")}</span>
+                    <span className="viz-tooltip-value">{hoveredNodeData.count}</span>
+                  </div>
+                  {hoveredNodeData.matchCount > 0 && (
+                    <div className="viz-tooltip-row">
+                      <span className="viz-tooltip-label">{t("contextMatches")}</span>
+                      <span className="viz-tooltip-value">{hoveredNodeData.matchCount}</span>
+                    </div>
+                  )}
+                  {hoveredNodeData.sampleToken && (
+                    <>
+                      <div className="viz-tooltip-row">
+                        <span className="viz-tooltip-label">{ts("lemma")}</span>
+                        <span className="viz-tooltip-value arabic-text">{hoveredNodeData.sampleToken.text}</span>
+                      </div>
+                      <div className="viz-tooltip-row">
+                        <span className="viz-tooltip-label">{ts("ref")}</span>
+                        <span className="viz-tooltip-value">
+                          {hoveredNodeData.sampleToken.sura}:{hoveredNodeData.sampleToken.ayah}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : hoveredConnectionData ? (
+                <>
+                  <div className="viz-tooltip-title arabic-text">
+                    {(nodeById.get(hoveredConnectionData.sourceId)?.label ?? hoveredConnectionData.sourceId)}
+                    {" ↔ "}
+                    {(nodeById.get(hoveredConnectionData.targetId)?.label ?? hoveredConnectionData.targetId)}
+                  </div>
+                  <div className="viz-tooltip-subtitle">
+                    {t("sharedVerses", { count: hoveredConnectionData.weight })}
                   </div>
                 </>
-              )}
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1133,6 +1274,16 @@ export default function ArcFlowDiagram({
           width: 0;
           height: 0;
           display: none;
+        }
+
+        /* Keyboard focus on an arc already gets a strong visible signal from
+           its own highlight state (thicker stroke, higher opacity, glow —
+           see isHoverHit above, true on focus same as hover), which reads
+           far better on a thin curved path than the browser's default
+           bounding-box outline. Suppress that default and let the highlight
+           carry it, same pattern as .dialog-close-btn's focus-visible rule. */
+        .connection:focus-visible {
+          outline: none;
         }
       `}</style>
     </section>

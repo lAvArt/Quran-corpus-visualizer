@@ -649,7 +649,7 @@
             "contextLinks": "Context-linked links",
             "activeNode": "Hovered or selected node",
             "contextMatch": "Matches current selection",
-            "linksRoot": "Links connect roots that share lemmas",
+            "linksRoot": "Links connect roots that share a verse",
             "linksPOS": "Links connect adjacent POS pairs",
             "linksAyah": "Links connect ayahs through selected-context transitions",
             "tokens": "tokens",
@@ -662,7 +662,7 @@
                 "title": "Arc Flow Diagram",
                 "description": "A ranked overview of frequent roots, POS tags, or ayahs in the current scope.",
                 "rootLabel": "By Root",
-                "rootText": "Each bar is a root. Longer bars mean higher frequency. Curves connect roots that share lemmas.",
+                "rootText": "Each bar is a root. Longer bars mean higher frequency. Curves connect roots that share a verse.",
                 "posLabel": "By POS",
                 "posText": "Each bar is a POS category. Curves connect POS tags that appear next to each other inside ayahs.",
                 "ayahLabel": "By Ayah",
@@ -671,7 +671,8 @@
                 "tipsText": "Switch mode in the sidebar, use root search in Root mode, and zoom in to reveal more items."
             },
             "posMeaning": "POS meaning",
-            "contextMatches": "Context matches"
+            "contextMatches": "Context matches",
+            "sharedVerses": "{count, plural, one {# shared verse} other {# shared verses}}"
         },
         "RadialSura": {
             "advanced": "Advanced Visualization",
