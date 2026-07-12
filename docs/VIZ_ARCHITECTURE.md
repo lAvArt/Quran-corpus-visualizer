@@ -193,9 +193,9 @@ Fixed in `feature/viz-declutter`:
 
 Known, deliberately deferred (next iterations):
 
-- **knowledge-graph anonymous state** references a "Start Learning" button that isn't on
-  screen; ghost network + legend explain content that doesn't exist yet. Needs a real
-  empty-state CTA (link to Study/track flow) and legend suppression while empty.
+- **knowledge-graph EMBED mode is broken (pre-existing)**: app/embed/layout.tsx mounts
+  no KnowledgeProvider, so useKnowledge() throws into the error boundary; the mode is
+  listed in VALID_MODES. Mount the provider (guest/IndexedDB path) or delist the mode.
 - **sankey ribbons are pale and near-uniform**; promised proportional widths are not
   legible. Consider stronger width scaling + root-hue tinting.
 - Lemma glosses missing for many forms ("Translation not available") — data gap, see
@@ -222,6 +222,17 @@ Known, deliberately deferred (next iterations):
 - **MorphologyInspector is near-illegible in light theme**: most of its text uses
   hardcoded dark-theme hex/rgba instead of tokens (the dictionary badges added 2026-07
   are the only token-correct part). Tokenize the mi-* styles.
+- The learning loop is real (2026-07): inspector "Track this root" is a state-aware
+  toggle on useKnowledge() (tracked → success outline, click to untrack); "Quiz me on
+  this root" navigates to /quiz?root=… which renders a root-scoped quiz
+  (generateRootQuiz, lockedRoot option, template-type dedupe, bounded distractor
+  loops — a hapax root used to hard-freeze the tab) with a Track CTA on completion.
+  Knowledge-graph empty state has i18n copy + Browse-roots/Open-Study CTAs (CTAs only
+  when onExploreRoots is wired — hidden in embeds), legend suppressed only when
+  !loading && empty. NOTE: knowledge-graph was missing from BEGINNER_PRIMARY_MODES
+  (useVizModeState.ts) — the mode silently snapped back to radial-sura for beginner
+  users; fixed. Quiz Finish buttons are in-flight-guarded (double-fire recorded
+  sessions twice).
 - Dictionary links (Almaany/Doha, restored into the inspector) pass the raw corpus
   root form (plain alif) — both sites land on their search page for non-citation
   forms; if lookups miss for hamza-family roots (امن vs أمن), consider mapping to

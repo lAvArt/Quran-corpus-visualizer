@@ -54,6 +54,8 @@ interface VisualizationViewportProps {
   setSelectedSurahId: (surahId: number) => void;
   handleRootSelect: (root: string | null) => void;
   handleSurahSelect: (surahId: number, nextMode?: "radial-sura" | "root-network") => void;
+  /** Knowledge graph empty state: "Browse roots" CTA switches to root-network. */
+  onExploreRoots?: () => void;
 }
 
 export default function VisualizationViewport({
@@ -75,6 +77,7 @@ export default function VisualizationViewport({
   setSelectedSurahId,
   handleRootSelect,
   handleSurahSelect,
+  onExploreRoots,
 }: VisualizationViewportProps) {
   const vizContent = (() => {
     switch (vizMode) {
@@ -170,6 +173,7 @@ export default function VisualizationViewport({
             onRootSelect={handleRootSelect}
             highlightRoot={selectedRoot}
             theme={theme}
+            onExploreRoots={onExploreRoots}
           />
         );
       case "sankey-flow":

@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/routing";
+import { useKnowledge } from "@/lib/context/KnowledgeContext";
 import type { CorpusToken } from "@/lib/schema/types";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { CATEGORY_COLORS } from "@/lib/schema/visualizationTypes";
@@ -13,19 +15,20 @@ interface MorphologyInspectorProps {
     allTokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
     onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
-    /** Optional: called with the root string when user clicks "Track this root" */
-    onTrackRoot?: (root: string) => void;
-    /** Optional: called with the root string when user clicks "Quiz me on this root" */
-    onQuizRoot?: (root: string) => void;
 }
 
-const POS_LEGEND_ENTRIES: Array<{ key: keyof typeof CATEGORY_COLORS; label: string }> = [
-    { key: "noun", label: "Noun" },
-    { key: "verb", label: "Verb" },
-    { key: "adjective", label: "Adjective" },
-    { key: "pronoun", label: "Pronoun" },
-    { key: "preposition", label: "Preposition" },
-    { key: "particle", label: "Particle" },
+// `colorKey` indexes CATEGORY_COLORS (the data-encoding palette); `posKey`
+// is the corpus's short POS code, translated below via the existing
+// `featuresMap.pos.*` keys (translateFeature already falls back to the
+// raw code if a translation is ever missing) — reusing that map instead of
+// adding a parallel "noun"/"verb"/... key set that would drift from it.
+const POS_LEGEND_ENTRIES: Array<{ colorKey: keyof typeof CATEGORY_COLORS; posKey: string }> = [
+    { colorKey: "noun", posKey: "N" },
+    { colorKey: "verb", posKey: "V" },
+    { colorKey: "adjective", posKey: "ADJ" },
+    { colorKey: "pronoun", posKey: "PRON" },
+    { colorKey: "preposition", posKey: "P" },
+    { colorKey: "particle", posKey: "PART" },
 ];
 
 export default function MorphologyInspector({
@@ -35,10 +38,10 @@ export default function MorphologyInspector({
     allTokens,
     onRootSelect,
     onSelectSurah,
-    onTrackRoot,
-    onQuizRoot,
 }: MorphologyInspectorProps) {
     const t = useTranslations("MorphologyInspector");
+    const router = useRouter();
+    const { trackRoot, removeRoot, isTracked } = useKnowledge();
     const [sortBy, setSortBy] = useState<"occurrence" | "order">("occurrence");
 
     const translateFeature = (type: "keys" | "values" | "pos", term: string) => {
@@ -131,22 +134,47 @@ export default function MorphologyInspector({
         };
     }, [token?.root, allTokens, sortBy]);
 
-    const handleTrackRoot = () => {
+    const tracked = rootDistribution ? isTracked(rootDistribution.root) : false;
+
+    // One-shot scale pulse when THIS root's tracked state actually flips
+    // (not merely when the user hovers/selects a different root that
+    // happens to have a different tracked status).
+    const [trackPulse, setTrackPulse] = useState(false);
+    const prevTrackedRef = useRef<{ root: string; tracked: boolean } | null>(null);
+    useEffect(() => {
+        const root = rootDistribution?.root ?? null;
+        if (!root) {
+            prevTrackedRef.current = null;
+            return;
+        }
+        const prev = prevTrackedRef.current;
+        prevTrackedRef.current = { root, tracked };
+        if (prev && prev.root === root && prev.tracked !== tracked) {
+            setTrackPulse(true);
+            const timer = setTimeout(() => setTrackPulse(false), 260);
+            return () => clearTimeout(timer);
+        }
+    }, [rootDistribution?.root, tracked]);
+
+    const handleTrackToggle = () => {
         if (!rootDistribution) return;
-        if (onTrackRoot) {
-            onTrackRoot(rootDistribution.root);
+        // Button state derives straight from context (`tracked` above), so
+        // there's nothing to visually roll back on failure — just make sure
+        // a rejected promise doesn't surface as an unhandled rejection.
+        if (tracked) {
+            void removeRoot(rootDistribution.root).catch((error) => {
+                console.warn("[MorphologyInspector] removeRoot failed", error);
+            });
         } else {
-            console.log("[MorphologyInspector] Track root (no handler):", rootDistribution.root);
+            void trackRoot(rootDistribution.root).catch((error) => {
+                console.warn("[MorphologyInspector] trackRoot failed", error);
+            });
         }
     };
 
     const handleQuizRoot = () => {
         if (!rootDistribution) return;
-        if (onQuizRoot) {
-            onQuizRoot(rootDistribution.root);
-        } else {
-            console.log("[MorphologyInspector] Quiz root (no handler):", rootDistribution.root);
-        }
+        router.push(`/quiz?root=${encodeURIComponent(rootDistribution.root)}`);
     };
 
     type SurahDistEntry = {
@@ -337,7 +365,7 @@ export default function MorphologyInspector({
 
             {/* ── 2. MORPHOLOGY DATA GRID ── */}
             <div className="mi-data-grid">
-                <span className="mi-grid-label">ROOT</span>
+                <span className="mi-grid-label">{t("labels.root")}</span>
                 <span className="mi-grid-value">
                     {token.root ? (
                         <>
@@ -351,7 +379,7 @@ export default function MorphologyInspector({
                     )}
                 </span>
 
-                <span className="mi-grid-label">LEMMA</span>
+                <span className="mi-grid-label">{t("labels.lemma")}</span>
                 <span className="mi-grid-value">
                     {token.lemma ? (
                         <>
@@ -363,19 +391,19 @@ export default function MorphologyInspector({
                     )}
                 </span>
 
-                <span className="mi-grid-label">POS</span>
+                <span className="mi-grid-label">{t("labels.pos")}</span>
                 <span className="mi-grid-value">
                     <span className="mi-pos-pill">{posLabel}</span>
                 </span>
 
                 {gloss ? (
                     <>
-                        <span className="mi-grid-label">GLOSS</span>
+                        <span className="mi-grid-label">{t("labels.gloss")}</span>
                         <span className="mi-grid-value mi-gloss-value">{gloss}</span>
                     </>
                 ) : (
                     <>
-                        <span className="mi-grid-label">GLOSS</span>
+                        <span className="mi-grid-label">{t("labels.gloss")}</span>
                         <span className="mi-grid-value mi-gloss-value mi-gloss-missing">{t("noGloss")}</span>
                     </>
                 )}
@@ -388,11 +416,11 @@ export default function MorphologyInspector({
                         <span className="mi-big-count">{rootDistribution.totalOccurrences.toLocaleString()}</span>
                         <div className="mi-occurrence-labels">
                             <span className="mi-occ-line">
-                                {"× occurrences of root "}
+                                {t("rootDistribution.occurrencesOfRoot")}{" "}
                                 <span className="mi-occ-root" lang="ar" dir="rtl">{rootDistribution.root}</span>
                             </span>
                             <span className="mi-occ-sub">
-                                {"across "}{rootDistribution.surahCount}{" surahs"}
+                                {t("rootDistribution.acrossSurahs", { count: rootDistribution.surahCount })}
                             </span>
                         </div>
                     </div>
@@ -402,23 +430,30 @@ export default function MorphologyInspector({
                 </div>
             ) : null}
 
-            {/* ── 4. ACTION BUTTONS ── */}
+            {/* ── 4. ACTION BUTTONS ──
+                 Track toggles between the primary (untracked) and a calmer
+                 success-tinted outline (tracked) look; a one-shot CSS pulse
+                 marks the moment the state actually flips (see trackPulse
+                 above). Quiz always routes to a root-focused quiz session. */}
             {rootDistribution ? (
                 <div className="mi-actions">
                     <button
                         type="button"
-                        className="mi-btn-track"
-                        onClick={handleTrackRoot}
+                        className={`mi-btn-track ${tracked ? "mi-btn-track-tracked" : ""} ${trackPulse ? "mi-btn-track-pulse" : ""}`}
+                        onClick={handleTrackToggle}
+                        title={tracked ? t("actions.stopTracking") : undefined}
+                        aria-label={tracked ? t("actions.stopTracking") : undefined}
                     >
-                        <span className="mi-btn-icon" aria-hidden="true">+</span>
-                        Track this root
+                        <span className="mi-btn-icon" aria-hidden="true">{tracked ? "✓" : "+"}</span>
+                        {tracked ? t("actions.tracking") : t("actions.trackRoot")}
                     </button>
                     <button
                         type="button"
                         className="mi-btn-quiz"
                         onClick={handleQuizRoot}
+                        aria-label={t("actions.quizRootAria", { root: rootDistribution.root })}
                     >
-                        Quiz me on this root
+                        {t("actions.quizRoot")}
                     </button>
                 </div>
             ) : null}
@@ -490,16 +525,16 @@ export default function MorphologyInspector({
 
             {/* ── 5. POS LEGEND ── */}
             <div className="mi-pos-legend">
-                <span className="mi-section-overline mi-legend-heading">Color = part of speech</span>
+                <span className="mi-section-overline mi-legend-heading">{t("posLegendHeading")}</span>
                 <div className="mi-legend-grid">
-                    {POS_LEGEND_ENTRIES.map(({ key, label }) => (
-                        <div key={key} className="mi-legend-item">
+                    {POS_LEGEND_ENTRIES.map(({ colorKey, posKey }) => (
+                        <div key={colorKey} className="mi-legend-item">
                             <span
                                 className="mi-legend-swatch"
-                                style={{ background: CATEGORY_COLORS[key] }}
+                                style={{ background: CATEGORY_COLORS[colorKey] }}
                                 aria-hidden="true"
                             />
-                            <span className="mi-legend-label">{label}</span>
+                            <span className="mi-legend-label">{translateFeature("pos", posKey)}</span>
                         </div>
                     ))}
                 </div>
@@ -774,6 +809,23 @@ export default function MorphologyInspector({
                     font-size: 18px;
                     line-height: 1;
                     font-weight: 400;
+                }
+                /* Tracked state — calmer success-tinted outline, replacing
+                   the primary orange fill. Uses the app's theme tokens
+                   (not the hardcoded dark palette above) so it stays
+                   correct if this panel is ever made theme-aware. */
+                .mi-btn-track-tracked {
+                    background: var(--ui-success-bg);
+                    color: var(--ui-success-fg);
+                    border: 1px solid color-mix(in srgb, var(--ui-success-fg) 35%, transparent);
+                }
+                @keyframes mi-track-pulse {
+                    0% { transform: scale(1); }
+                    45% { transform: scale(1.05); }
+                    100% { transform: scale(1); }
+                }
+                .mi-btn-track-pulse {
+                    animation: mi-track-pulse 0.24s ease-out;
                 }
                 .mi-btn-quiz {
                     display: flex;

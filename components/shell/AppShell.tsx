@@ -274,6 +274,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
           setSelectedSurahId={c.setSelectedSurahId}
           handleRootSelect={c.handleRootSelect}
           handleSurahSelect={c.handleSurahSelect}
+          onExploreRoots={() => c.handleVizModeChange("root-network")}
         />
       </main>
 

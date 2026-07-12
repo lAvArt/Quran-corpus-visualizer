@@ -420,6 +420,13 @@
         "clearSelection": "Clear selection",
         "almaanyAria": "Look up {word} in Almaany dictionary",
         "dohaAria": "Look up {word} in the Doha Historical Dictionary",
+        "actions": {
+            "trackRoot": "Track this root",
+            "tracking": "Tracking",
+            "stopTracking": "Stop tracking this root",
+            "quizRoot": "Quiz me on this root",
+            "quizRootAria": "Quiz me on the root {root}"
+        },
         "sections": {
             "morphology": "Morphology",
             "translation": "Translation",
@@ -429,10 +436,12 @@
             "root": "Root",
             "lemma": "Lemma",
             "stem": "Stem",
-            "pos": "POS"
+            "pos": "POS",
+            "gloss": "Gloss"
         },
         "noGloss": "Translation not available for this form",
         "noGlossWithRoot": "Translation not available (root: {root})",
+        "posLegendHeading": "Color = part of speech",
         "rootDistribution": {
             "title": "Root Analysis",
             "meaning": "Meaning",
@@ -448,7 +457,9 @@
             "clickToFocus": "Click to focus",
             "sortAria": "Sort distribution",
             "sortByOccurrence": "Sort by occurrences",
-            "sortByOrder": "Sort by surah order"
+            "sortByOrder": "Sort by surah order",
+            "occurrencesOfRoot": "× occurrences of root",
+            "acrossSurahs": "across {count, plural, one {# surah} other {# surahs}}"
         },
         "featuresMap": {
             "keys": {
@@ -824,6 +835,20 @@
                 "distanceText": "Shorter links usually indicate stronger or more frequent root-lemma association.",
                 "sizeLabel": "Node Size",
                 "sizeText": "Node size reflects occurrence frequency in the selected scope."
+            }
+        },
+        "KnowledgeGraph": {
+            "empty": {
+                "title": "Your knowledge garden is empty",
+                "body": "Track any root — from the inspector on any graph, or after a quiz — to plant your first seed here.",
+                "exploreRoots": "Browse roots",
+                "openStudy": "Open Study"
+            },
+            "viewToggle": {
+                "neural": "Neural",
+                "neuralTitle": "Neural map",
+                "flow": "Flow",
+                "flowTitle": "Flow chart"
             }
         },
         "CollocationNetwork": {
@@ -1399,6 +1424,13 @@
         "preparingTitle": "Preparing quiz",
         "preparingDesc": "Loading the full corpus so the quiz can generate real question sets.",
         "noQuestions": "This quiz isn't ready right now. Try again in a moment.",
+        "allQuizzes": "All quizzes",
+        "rootQuiz": {
+            "title": "Quiz: root {root}",
+            "description": "Five questions built entirely from this root's occurrences across the corpus.",
+            "badge": "Root focus"
+        },
+        "rootQuizTooFew": "This root doesn't have enough corpus data yet for a full quiz. Try a more frequent root.",
         "previous": "Previous",
         "submit": "Submit",
         "next": "Next",

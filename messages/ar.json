@@ -422,6 +422,13 @@
         "clearSelection": "إلغاء التحديد",
         "almaanyAria": "ابحث عن {word} في معجم المعاني",
         "dohaAria": "ابحث عن {word} في معجم الدوحة التاريخي",
+        "actions": {
+            "trackRoot": "تتبّع هذا الجذر",
+            "tracking": "قيد التتبّع",
+            "stopTracking": "إيقاف تتبّع هذا الجذر",
+            "quizRoot": "اختبرني في هذا الجذر",
+            "quizRootAria": "اختبرني في الجذر {root}"
+        },
         "sections": {
             "morphology": "الصرف",
             "translation": "الترجمة",
@@ -431,10 +438,12 @@
             "root": "الجذر",
             "lemma": "الجذع",
             "stem": "الجذع",
-            "pos": "القسم"
+            "pos": "القسم",
+            "gloss": "الترجمة"
         },
         "noGloss": "الترجمة غير متاحة لهذه الصيغة",
         "noGlossWithRoot": "الترجمة غير متاحة (جذر: {root})",
+        "posLegendHeading": "اللون = نوع الكلمة",
         "rootDistribution": {
             "title": "تحليل الجذر",
             "meaning": "المعنى",
@@ -450,7 +459,9 @@
             "clickToFocus": "اضغط للتركيز",
             "sortAria": "فرز التوزيع",
             "sortByOccurrence": "فرز حسب التكرار",
-            "sortByOrder": "فرز حسب ترتيب السور"
+            "sortByOrder": "فرز حسب ترتيب السور",
+            "occurrencesOfRoot": "× من تكرارات الجذر",
+            "acrossSurahs": "عبر {count, plural, one {سورة واحدة} other {# سور}}"
         },
         "featuresMap": {
             "keys": {
@@ -826,6 +837,20 @@
                 "distanceText": "تشير الروابط الأقصر إلى علاقة أقوى وأكثر تكراراً بين الجذر والكلمة.",
                 "sizeLabel": "حجم العقدة",
                 "sizeText": "يتناسب طردياً مع إجمالي تكرار الحدوث في النطاق المختار (سورة أو القرآن كاملاً)."
+            }
+        },
+        "KnowledgeGraph": {
+            "empty": {
+                "title": "حديقة معرفتك فارغة",
+                "body": "تتبّع أي جذر — من لوحة التفاصيل في أي رسم بياني، أو بعد اختبار — لتزرع أول بذرة هنا.",
+                "exploreRoots": "تصفح الجذور",
+                "openStudy": "فتح الدراسة"
+            },
+            "viewToggle": {
+                "neural": "شبكي",
+                "neuralTitle": "خريطة شبكية",
+                "flow": "تدفق",
+                "flowTitle": "مخطط تدفق"
             }
         },
         "CollocationNetwork": {
@@ -1401,6 +1426,13 @@
         "preparingTitle": "يجري تجهيز الاختبار",
         "preparingDesc": "يتم تحميل المتن الكامل حتى يتمكن الاختبار من توليد مجموعة أسئلة فعلية.",
         "noQuestions": "هذا الاختبار غير جاهز الآن. حاول مرة أخرى بعد قليل.",
+        "allQuizzes": "كل الاختبارات",
+        "rootQuiz": {
+            "title": "اختبار: جذر {root}",
+            "description": "خمسة أسئلة مبنية بالكامل على تكرارات هذا الجذر في المتن.",
+            "badge": "تركيز على الجذر"
+        },
+        "rootQuizTooFew": "لا تتوفر بيانات كافية لهذا الجذر لبناء اختبار كامل بعد. جرّب جذرًا أكثر تكرارًا.",
         "previous": "السابق",
         "submit": "إرسال",
         "next": "التالي",
