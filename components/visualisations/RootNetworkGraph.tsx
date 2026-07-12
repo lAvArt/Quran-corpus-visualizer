@@ -837,7 +837,7 @@ export default function RootNetworkGraph({
                 animate={{ opacity: isSettlingAsync ? 0 : 1 }}
                 transition={{ duration: motionSafeDuration(250) / 1000 }}
               >
-                {links.map((link, idx) => {
+                {links.map((link) => {
                   const source = link.source as NetworkNode;
                   const target = link.target as NetworkNode;
 
@@ -862,16 +862,32 @@ export default function RootNetworkGraph({
                   // The settling-hidden state now lives entirely on the
                   // layer wrapper above (isSettlingAsync) — this is just the
                   // highlighted/default split, a plain per-render value, not
-                  // an animated one. `.edge`'s own CSS `transition: all 0.3s
-                  // ease` (styles/dark-theme.css, unscoped so it applies in
-                  // both themes) is what makes this opacity change — and the
+                  // an animated one. `.edge`'s own CSS transition
+                  // (styles/dark-theme.css, unscoped so it applies in both
+                  // themes) is what makes this opacity change — and the
                   // stroke/width change below — animate smoothly on hover,
-                  // for free, off the main thread.
+                  // for free, off the main thread. That transition is an
+                  // EXPLICIT stroke/stroke-width/opacity/filter list, not
+                  // `all` — `all` used to also catch `d` (CSS-animatable in
+                  // Chromium), which eased the RENDERED path toward every
+                  // new tick's geometry over 300ms even though React wrote
+                  // the attribute instantly, so the wire visibly trailed a
+                  // dragged node no matter how tight the position data was.
                   const edgeOpacity = isHighlighted ? 0.9 : 0.38;
 
                   return (
                     <path
-                      key={idx}
+                      // Stable identity (which root->lemma pair this IS),
+                      // not the array index: with an index key, a topology
+                      // change (surah/root-limit/theme swap) can hand THIS
+                      // <path> element to a different pair mid-transition —
+                      // combined with the `d` transition above, that reads
+                      // as a wire morphing into the wrong shape instead of
+                      // the old pair's wire simply disappearing and the new
+                      // pair's appearing. Every link is root->lemma and a
+                      // lemma belongs to exactly one root, so this pair is
+                      // always unique.
+                      key={`${source.id}-${target.id}`}
                       d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
                       className={`edge ${isHighlighted ? "highlighted" : ""}`}
                       style={{

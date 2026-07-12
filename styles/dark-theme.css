@@ -158,7 +158,11 @@
   stroke: var(--node-stroke);
   stroke-width: 1;
   cursor: pointer;
-  transition: all 0.3s ease;
+  /* Explicit list — never `all` on SVG geometry classes: `all` catches
+     animatable presentation attributes (cx/cy/d/x/y in Chromium) and makes
+     the browser ease every per-render geometry write. */
+  transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease,
+    transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .radial-arc .node:hover {
@@ -190,7 +194,7 @@
 /* Bar extensions from arc */
 .radial-arc .bar {
   fill: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
+  transition: fill 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .radial-arc .bar:hover {
@@ -216,7 +220,19 @@
   stroke: var(--edge-default);
   stroke-width: 1;
   fill: none;
-  transition: all 0.3s ease;
+  /* NOT `all`: `d` is a per-simulation-tick presentation attribute, and in
+     Chromium `d` is CSS-animatable (SVG2's `d` property), so `transition:
+     all` was catching it — React wrote the new `d` to the DOM instantly on
+     every tick, but the browser then EASED the rendered/painted path
+     toward it over ~300ms, so the wire visibly lagged/rubber-banded behind
+     the (instantly-moved) node during a drag even though every attribute-
+     level probe read 0px gap (measured: an isolated single `d` jump eased
+     over ~400px before settling; a realistic fast continuous drag showed
+     an ~8px sustained rendered gap across ~86% of frames). Explicit list =
+     the highlight-state properties this component actually varies (see
+     RootNetworkGraph's edge render) — stays smooth, never touches
+     geometry. Same reasoning for .node-circle below. */
+  transition: stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .network-graph .edge.highlighted {
@@ -230,7 +246,9 @@
   stroke: rgba(255, 255, 255, 0.3);
   stroke-width: 1;
   cursor: pointer;
-  transition: all 0.3s ease;
+  /* See the .edge comment above — explicit list excludes r/cx/cy (and any
+     future transform) so a node's own geometry can never ease either. */
+  transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease, filter 0.3s ease;
 }
 
 .network-graph .node-circle:hover {

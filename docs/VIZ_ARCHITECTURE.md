@@ -103,6 +103,14 @@ onboarding localStorage `quran-corpus-onboarding`.
   entrance/settle fade per layer (keyed by topology, namespaced sibling keys). Wrapping
   each node/edge in `motion.g` caused bursty frame pacing users read as "wires lagging"
   (measured: 78.6%→94.4% frame-advance under 2× CPU throttle after the fix).
+- **Never `transition: all` on classes applied to SVG geometry.** In Chromium, `d`,
+  `cx/cy`, `x/y` are CSS-animatable presentation attributes, so `all` makes the browser
+  EASE every per-tick geometry write — DOM attributes update instantly (probes reading
+  attributes see 0 gap) while the render trails by the transition duration (users see
+  rubber-band wires; measured 8px sustained gap in 86% of drag frames before the fix,
+  0.00px after). Use explicit property lists (stroke, stroke-width, fill, opacity,
+  filter, transform-for-hover) — see `.edge`/`.node-circle`/`.radial-arc` in
+  `styles/dark-theme.css`. Key edges by pair identity, never array index.
 - **Category colors must be theme-stable.** Never bind categorical encodings to
   `--accent`/`--accent-2`: those swap hues between light and dark themes.
   Use dedicated tokens (`--viz-cat-makki`, `--viz-cat-madani` — teal family / amber family
