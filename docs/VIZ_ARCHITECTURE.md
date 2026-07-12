@@ -25,8 +25,8 @@ the sidebar portal (see Shell anatomy).
 | Mode id | Component | What it draws |
 | --- | --- | --- |
 | `radial-sura` | `RadialSuraMap.tsx` | Every word of one surah on a ring; per-ayah bars, root-connection curves, center annotation. Has zoom LOD (below). |
-| `root-network` | `RootNetworkGraph.tsx` | Force-directed roots/lemmas for the scoped surah; root-limit slider (advanced). |
-| `arc-flow` | `ArcFlowDiagram.tsx` | Grouped arc diagram (group by root/POS/ayah) with frequency bars + shared-lemma links. |
+| `root-network` | `RootNetworkGraph.tsx` | Orbital system: root "planets" on canvas-scaled orbits (1 ring ≤24 roots, 2 frequency bands above) with lemma "moons" hugging their root; stellar-core center; sim pre-ticks before paint (no settle tangle); root-limit slider (advanced). |
+| `arc-flow` | `ArcFlowDiagram.tsx` | Grouped arc fan (group by root/POS/ayah) with frequency bars; root-mode arcs = ayah co-occurrence (weight = shared verses, scope-normalized widths, hover tooltip). |
 | `dependency-tree` | `AyahDependencyGraph.tsx` | Per-ayah syntax tree with labeled dependency arcs; surah/ayah stepper controls in sidebar. |
 | `sankey-flow` | `RootFlowSankey.tsx` | Root → word-form ribbons for the scoped surah; on-canvas chips carry scope/coverage. |
 | `surah-distribution` | `SurahDistributionGraph.tsx` | All 114 surahs, x = surah index, dot = surah (revelation place color, size = ayahs). |
@@ -90,9 +90,12 @@ onboarding localStorage `quran-corpus-onboarding`.
   then locks itself (entry fits, initial focus, one-shot layout) must gate on complete
   data (see `isSurahDataComplete` in `RadialSuraMap.tsx`) or it will freeze the camera
   on stub geometry — this caused both radial framing bugs found in the 2026-07 audit.
-- **Fit-to-view** (`lib/viz/fitToView.ts`) — shared fit helper; accounts for the floating
-  left panel's occluded band (LTR/RTL aware) so content never lands underneath it.
-  Any new viz should use this rather than raw viewport math.
+- **Fit-to-view** (`lib/viz/fitToView.ts`) — shared fit helper, chrome-aware on all four
+  sides: left dock (`.viz-dock`/`.viz-sidebar-stack`), right ContextDrawer when open
+  (`.context-drawer`, aspect-ratio-guarded so the mobile bottom-sheet variant doesn't
+  count as an inline inset), StatusBar pill top, GraphToolbar bottom. LTR/RTL aware;
+  joint clamps keep ≥40% width / ≥55% height free. Any new viz should use this rather
+  than raw viewport math.
 - **Category colors must be theme-stable.** Never bind categorical encodings to
   `--accent`/`--accent-2`: those swap hues between light and dark themes.
   Use dedicated tokens (`--viz-cat-makki`, `--viz-cat-madani` — teal family / amber family
@@ -128,15 +131,19 @@ Fixed in `feature/viz-declutter`:
   view-switchers (e.g. "Ayah" opened the surah-level radial) and mixed them with page
   links unlabeled → unified left dock with "Views"/"Pages" groups, honest labels
   (Overview/Roots/Surah), tooltips, and a spine-collapse replacing the edge handle.
+- root-network was a clumped ring hairball (radial pin at fixed 80/150px, invisible
+  edges, all-nodes labels) → orbital planets/moons redesign; edges glued to nodes
+  during drag (framer-motion was scheduling path `d` a frame late); sim pre-ticks
+  before paint so no wire tangle; blurry center blob → crisp breathing stellar core.
+- arc-flow drew zero arcs: links were "roots sharing a lemma", impossible in this
+  corpus (a lemma belongs to one root) → ayah co-occurrence links (audited exact:
+  surah 12 top pair اله|قول = 25 shared verses; corpus-wide 514); saturating
+  width cap → scope-normalized sqrt widths; weights exposed via hover tooltip/aria.
+- Fits ignored top/bottom/right chrome → fitToView now measures all four sides
+  (breadcrumb pill, graph toolbar, open drawer).
 
 Known, deliberately deferred (next iterations):
 
-- **arc-flow default state is near-empty** — "50 groups · 0 connections": no context-linked
-  links until interaction, so the mode's signature arcs don't show. Needs a default that
-  always draws arcs (e.g. preselect top-N shared-lemma links) or a guided empty state.
-- **root-network default is a clumped hairball** — nodes overlap in a tight ring, edges
-  nearly invisible, 8px Arabic labels. Needs layout spacing, visible link strokes,
-  label decluttering (show top-N by occurrence, rest on hover/zoom).
 - **knowledge-graph anonymous state** references a "Start Learning" button that isn't on
   screen; ghost network + legend explain content that doesn't exist yet. Needs a real
   empty-state CTA (link to Study/track flow) and legend suppression while empty.
@@ -155,6 +162,16 @@ Known, deliberately deferred (next iterations):
   (both sit top-center; chip auto-fades after 8 s).
 - Light theme: the "Selected / contains selected root" legend swatch is near-identical
   to the Makki teal — selected state relies on the canvas ring/glow to disambiguate.
+- **Unscoped (entire-Quran) arc-flow/root-network views are unreachable**: `selectedSurahId`
+  is a non-nullable number defaulting to 1 everywhere (`useSelectionState`, `useAppState`,
+  embeds), though components support a null scope. Decide whether to expose a corpus scope.
+- Arc weights are never shown numerically beyond the hover tooltip; the thick gray arc
+  baseline "swoosh" in arc-flow reads muddy at default zoom — candidates for a pass.
+- `scripts/seed-corpus.ts` resolves multi-ROOT words last-root-wins while
+  `lib/corpus/morphologyLoader.ts` is first-root-wins — exactly one Quran word differs
+  (20:94:2 يَبْنَؤُمَّ: بني vs امم); align the pipelines.
+- Dependency-tree initial placement is a fixed-scale translate (not fitBoundsToView) —
+  one token box can still kiss the dock edge; migrate it to the shared fit.
 
 ## Review checklist for viz changes
 

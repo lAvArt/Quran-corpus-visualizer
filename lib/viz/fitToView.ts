@@ -32,6 +32,40 @@ const DOCK_SELECTOR = ".viz-dock";
  *  constant so a future rename only needs updating here. */
 const FLOATING_PANEL_SELECTOR = ".viz-sidebar-stack";
 
+/** Class name of the right-edge contextual drawer (see
+ *  components/shell/ContextDrawer.tsx, `.context-drawer`) — an inline
+ *  occluder on the OPPOSITE edge from the dock/floating-panel pair above:
+ *  it docks via `inset-inline-end`, so screen-right in LTR / screen-left in
+ *  RTL. Measured independently rather than folded into the same
+ *  "whichever is present" pair, because a dock AND the drawer can both be
+ *  open at once (e.g. a root deep link opens the drawer while the dock
+ *  stays put), occluding opposite edges simultaneously. */
+const DRAWER_SELECTOR = ".context-drawer";
+
+/** Class name of the floating breadcrumb/status pill (see
+ *  components/shell/StatusBar.tsx, `.status-bar`) — always centred at the
+ *  TOP of the canvas, so unlike the inline pair above it occludes a
+ *  horizontal band measured from the SVG's own top edge rather than either
+ *  inline edge. */
+const STATUS_BAR_SELECTOR = ".status-bar";
+
+/** Class name of the floating graph mode/colour toolbar (see
+ *  components/shell/GraphToolbar.tsx, `.graph-toolbar`) — always centred at
+ *  the BOTTOM of the canvas, the mirror image of the status pill above. */
+const GRAPH_TOOLBAR_SELECTOR = ".graph-toolbar";
+
+/** Horizontal inline occlusion (dock + drawer combined, see
+ *  `getInlineOcclusionInset`) never eats more than this fraction of the
+ *  canvas width — keeps at least 40% free even with both open at once on a
+ *  narrow viewport, instead of an extreme, unusable squeeze. Matches the
+ *  ratio the original single-panel clamp used. */
+const MAX_INLINE_INSET_FRACTION = 0.6;
+
+/** Vertical edge occlusion (status pill + toolbar combined, see
+ *  `getVerticalOcclusionInset`) never eats more than this fraction of the
+ *  canvas height — keeps at least 55% free between them. */
+const MAX_VERTICAL_INSET_FRACTION = 0.45;
+
 /** First element matching `selector` that actually occupies space on
  *  screen. Elements that are absent, `display: none`/zero-size, or
  *  `display: contents` (no box of its own — e.g. the mobile `.viz-dock`)
@@ -44,63 +78,141 @@ function getOccludingElement(selector: string): HTMLElement | null {
   return rect.width > 0 && rect.height > 0 ? el : null;
 }
 
-/**
- * How much of the SVG's own on-screen width is covered by the floating panel,
- * expressed in the SVG's user-space units (the same space `bounds` is in) —
- * split into a `start` (screen-left) and `end` (screen-right) inset so a
- * caller can shrink the "visible" width from whichever side is occluded.
- *
- * Side-agnostic on purpose: the panel docks via `inset-inline-start`, so it
- * sits on the visual left in LTR and the visual right in RTL. Which side is
- * decided here from the panel's on-screen position relative to the viewport
- * centre, not from `dir`/locale, so both cases fall out of the same check.
- *
- * Returns zero on both sides when neither panel is present/on-screen — the
- * dock and the standalone panel are both absent, hidden (zero-size),
- * collapsed off-screen (the standalone panel slides out via a CSS transform
- * — see `.viz-sidebar-stack.collapsed`) — or simply doesn't overlap this
- * particular SVG (e.g. an embed rendered without the app shell).
- */
-function getPanelOcclusionInset(svg: SVGSVGElement, vw: number): { start: number; end: number } {
-  const panel = getOccludingElement(DOCK_SELECTOR) ?? getOccludingElement(FLOATING_PANEL_SELECTOR);
-  if (!panel) return { start: 0, end: 0 };
+interface ElementOverlap {
+  /** The occluding element's own on-screen rect (not clipped to the SVG). */
+  rect: DOMRect;
+  /** Overlap with the SVG's on-screen rect, in CSS pixels, per axis. */
+  overlapX: number;
+  overlapY: number;
+}
 
-  // getOccludingElement already guarantees a non-zero-size box.
-  const panelRect = panel.getBoundingClientRect();
+/** An occluding element's own on-screen rect, plus how much of it overlaps
+ *  the SVG's own on-screen rect (in CSS pixels, per axis) — the shared
+ *  arithmetic behind every occlusion measurement below. `null` when the two
+ *  don't overlap at all: an absent element, or one that's off-screen (e.g.
+ *  collapsed/closed via a CSS transform), contributes no occlusion. */
+function getElementOverlap(el: HTMLElement | null, svgRect: DOMRect): ElementOverlap | null {
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  const overlapX = Math.min(rect.right, svgRect.right) - Math.max(rect.left, svgRect.left);
+  const overlapY = Math.min(rect.bottom, svgRect.bottom) - Math.max(rect.top, svgRect.top);
+  if (overlapX <= 0 || overlapY <= 0) return null;
+  return { rect, overlapX, overlapY };
+}
 
-  const svgRect = svg.getBoundingClientRect();
-  if (svgRect.width <= 0 || svgRect.height <= 0) return { start: 0, end: 0 };
-
-  // Overlap between the panel's rect and the SVG's own on-screen rect, in CSS
-  // pixels. A collapsed (translated fully off-screen) or otherwise
-  // non-overlapping panel contributes no occlusion.
-  const overlapX = Math.min(panelRect.right, svgRect.right) - Math.max(panelRect.left, svgRect.left);
-  const overlapY = Math.min(panelRect.bottom, svgRect.bottom) - Math.max(panelRect.top, svgRect.top);
-  if (overlapX <= 0 || overlapY <= 0) return { start: 0, end: 0 };
-
-  // Convert the CSS-pixel overlap into the SVG's own user-space units, via
-  // the same viewBox-to-rendered-size ratio the vw/vh fallback above relies on.
-  const pxToUser = vw / svgRect.width;
-  const overlapUser = overlapX * pxToUser;
-
+/** Turn one panel's overlap into a `start`/`end` inline inset, deciding
+ *  which side from the panel's on-screen position relative to the viewport
+ *  centre rather than `dir`/locale — side-agnostic on purpose, since a panel
+ *  can dock via `inset-inline-start` OR `inset-inline-end`, either of which
+ *  flips visual side under RTL. Shared by every inline (left/right) occluder
+ *  below. */
+function sideInsetFromOverlap(overlap: ElementOverlap, pxToUser: number): { start: number; end: number } {
+  const overlapUser = overlap.overlapX * pxToUser;
   const viewportCenter = window.innerWidth / 2;
-  const panelCenter = panelRect.left + panelRect.width / 2;
+  const panelCenter = overlap.rect.left + overlap.rect.width / 2;
   return panelCenter < viewportCenter
-    ? { start: overlapUser, end: 0 } // panel docked on the screen-left edge
-    : { start: 0, end: overlapUser }; // panel docked on the screen-right edge (RTL)
+    ? { start: overlapUser, end: 0 } // occluder sits on the screen-left edge
+    : { start: 0, end: overlapUser }; // occluder sits on the screen-right edge (RTL)
 }
 
 /**
- * Raw panel occlusion inset (see `getPanelOcclusionInset`), clamped so the
- * free band can never collapse below 40% of `vw` — on a narrow viewport with
- * the panel pinned open, that keeps whatever consults this landing a legible
- * (if tighter) result instead of an extreme, unusable squeeze.
+ * How much of the SVG's own on-screen width is covered by the two inline
+ * (left/right) occluders — the left dock/legend stack and the right context
+ * drawer — expressed in the SVG's user-space units (the same space `bounds`
+ * is in) and split into a `start` (screen-left) and `end` (screen-right)
+ * inset so a caller can shrink the "visible" width from whichever side(s)
+ * are occluded. Both are measured and summed independently: unlike the
+ * dock/floating-panel pair (only one of which is EVER mounted at once), the
+ * dock and the drawer are two separate panels that can both be open at the
+ * same time, occluding opposite edges simultaneously.
+ *
+ * The drawer only counts while it's actually acting as a side column (its
+ * on-screen box covers more of the SVG's height than its width) — below its
+ * own ~980px breakpoint it becomes a full-width BOTTOM sheet instead (see
+ * ContextDrawer's mobile stylesheet), and treating that shape as an inline
+ * inset would claim most of the canvas width for a panel that's really
+ * occluding the bottom edge, not either side. A closed drawer (translated
+ * fully off-screen on both breakpoints) already reports no overlap with the
+ * SVG via `getElementOverlap`, so "closed" falls out of this for free.
+ *
+ * Returns zero on a given side when nothing occludes it there — every
+ * candidate absent, hidden (zero-size), collapsed/closed off-screen, or
+ * simply not overlapping this particular SVG (e.g. an embed rendered
+ * without the app shell).
+ */
+function getInlineOcclusionInset(svg: SVGSVGElement, vw: number): { start: number; end: number } {
+  const svgRect = svg.getBoundingClientRect();
+  if (svgRect.width <= 0 || svgRect.height <= 0) return { start: 0, end: 0 };
+  const pxToUser = vw / svgRect.width;
+
+  const dockOverlap = getElementOverlap(
+    getOccludingElement(DOCK_SELECTOR) ?? getOccludingElement(FLOATING_PANEL_SELECTOR),
+    svgRect
+  );
+  const dockInset = dockOverlap ? sideInsetFromOverlap(dockOverlap, pxToUser) : { start: 0, end: 0 };
+
+  const drawerOverlap = getElementOverlap(getOccludingElement(DRAWER_SELECTOR), svgRect);
+  const drawerInset =
+    drawerOverlap && drawerOverlap.overlapX / svgRect.width < drawerOverlap.overlapY / svgRect.height
+      ? sideInsetFromOverlap(drawerOverlap, pxToUser) // taller than wide → a side column
+      : { start: 0, end: 0 }; // wider than tall → the mobile bottom sheet, not a side column
+
+  return { start: dockInset.start + drawerInset.start, end: dockInset.end + drawerInset.end };
+}
+
+/**
+ * How much of the SVG's own on-screen height is covered by the two
+ * edge-docked (top/bottom) occluders — the status/breadcrumb pill and the
+ * graph mode/colour toolbar — expressed in the SVG's user-space units and
+ * split into a `top` and `bottom` inset. Unlike the inline pair above,
+ * neither of these ever changes which edge it docks to (both are always
+ * centred horizontally, one pinned top, one pinned bottom), so there's no
+ * side to "decide" — the inset is simply the band from the SVG's own edge
+ * to the occluder's near edge.
+ */
+function getVerticalOcclusionInset(svg: SVGSVGElement, vh: number): { top: number; bottom: number } {
+  const svgRect = svg.getBoundingClientRect();
+  if (svgRect.width <= 0 || svgRect.height <= 0) return { top: 0, bottom: 0 };
+  const pxToUser = vh / svgRect.height;
+
+  const statusBarOverlap = getElementOverlap(getOccludingElement(STATUS_BAR_SELECTOR), svgRect);
+  const top = statusBarOverlap ? Math.max(0, statusBarOverlap.rect.bottom - svgRect.top) * pxToUser : 0;
+
+  const toolbarOverlap = getElementOverlap(getOccludingElement(GRAPH_TOOLBAR_SELECTOR), svgRect);
+  const bottom = toolbarOverlap ? Math.max(0, svgRect.bottom - toolbarOverlap.rect.top) * pxToUser : 0;
+
+  return { top, bottom };
+}
+
+/**
+ * Scale a pair of opposite-edge insets down (preserving their ratio) so
+ * their sum never exceeds `maxTotal` — the two-sided generalisation of a
+ * simple `Math.min(inset, cap)` clamp. Needed now that opposite edges can
+ * each be occluded by a DIFFERENT piece of chrome at once (the left dock and
+ * the right drawer; the top status pill and the bottom toolbar), so a
+ * single-sided clamp alone could no longer guarantee any free space left in
+ * between. Reduces to the original single-sided clamp whenever only one side
+ * of the pair is non-zero.
+ */
+function clampInsetPair(a: number, b: number, maxTotal: number): { a: number; b: number } {
+  const total = a + b;
+  if (total <= maxTotal || total <= 0) return { a, b };
+  const scale = maxTotal / total;
+  return { a: a * scale, b: b * scale };
+}
+
+/**
+ * Raw inline occlusion inset (see `getInlineOcclusionInset`), clamped so the
+ * free band between the dock and the drawer can never collapse below 40% of
+ * `vw` (see `MAX_INLINE_INSET_FRACTION`) — on a narrow viewport with both
+ * pinned open, that keeps whatever consults this landing a legible (if
+ * tighter) result instead of an extreme, unusable squeeze.
  *
  * Exported separately from `fitBoundsToView` so call sites that position
  * content WITHOUT going through a zoom-to-fit — e.g. a fixed-scale initial
  * centering that only translates, never scales, like
  * AyahDependencyGraph's default tree layout — can still steer clear of the
- * floating panel using the exact same measurement + clamp `fitBoundsToView`
+ * floating chrome using the exact same measurement + clamp `fitBoundsToView`
  * itself relies on.
  */
 export function getPanelAdjustedWidth(
@@ -108,10 +220,8 @@ export function getPanelAdjustedWidth(
   vw: number
 ): { insetStart: number; insetEnd: number; availableWidth: number } {
   if (!svg || !vw) return { insetStart: 0, insetEnd: 0, availableWidth: vw };
-  const panelInset = getPanelOcclusionInset(svg, vw);
-  const maxInset = vw * 0.6;
-  const insetStart = Math.min(panelInset.start, maxInset);
-  const insetEnd = Math.min(panelInset.end, maxInset);
+  const rawInset = getInlineOcclusionInset(svg, vw);
+  const { a: insetStart, b: insetEnd } = clampInsetPair(rawInset.start, rawInset.end, vw * MAX_INLINE_INSET_FRACTION);
   return { insetStart, insetEnd, availableWidth: vw - insetStart - insetEnd };
 }
 
@@ -148,20 +258,33 @@ export function fitBoundsToView(
   const vh = vb && vb.height ? vb.height : svg.clientHeight;
   if (!vw || !vh) return;
 
-  // The floating legend/inspector panel sits ON TOP of the canvas (fixed,
-  // docked to one inline edge), not beside it — a fit centred on the FULL
-  // canvas width can seat content half-hidden underneath it. Frame within
-  // whatever band is actually free of it instead; zero on both sides when
-  // the panel is absent, hidden, or collapsed off-screen (mobile, embeds).
+  // Floating chrome sits ON TOP of the canvas (fixed, docked to an edge), not
+  // beside it — a fit centred on the FULL canvas can seat content half-hidden
+  // underneath it. Frame within whatever rectangle is actually free of all of
+  // it instead; zero on a given side when the chrome occluding it is absent,
+  // hidden, or collapsed/closed off-screen (mobile, embeds).
   const { insetStart, availableWidth } = getPanelAdjustedWidth(svg, vw);
+
+  // Same treatment on the vertical axis — the status pill (top) and the
+  // graph toolbar (bottom) — clamped jointly the same way (see
+  // `clampInsetPair`) since both are mounted essentially all the time and
+  // would otherwise be free to eat an unbounded amount of height between them.
+  const rawVerticalInset = getVerticalOcclusionInset(svg, vh);
+  const { a: insetTop, b: insetBottom } = clampInsetPair(
+    rawVerticalInset.top,
+    rawVerticalInset.bottom,
+    vh * MAX_VERTICAL_INSET_FRACTION
+  );
+  const availableHeight = vh - insetTop - insetBottom;
 
   const scale = Math.max(
     minScale,
-    Math.min(maxScale, padding * Math.min(availableWidth / bounds.width, vh / bounds.height))
+    Math.min(maxScale, padding * Math.min(availableWidth / bounds.width, availableHeight / bounds.height))
   );
   const visibleCenterX = insetStart + availableWidth / 2;
+  const visibleCenterY = insetTop + availableHeight / 2;
   const tx = visibleCenterX - scale * (bounds.x + bounds.width / 2);
-  const ty = vh / 2 - scale * (bounds.y + bounds.height / 2);
+  const ty = visibleCenterY - scale * (bounds.y + bounds.height / 2);
   const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
 
   d3.select<SVGSVGElement, unknown>(svg)
