@@ -111,6 +111,16 @@ onboarding localStorage `quran-corpus-onboarding`.
   0.00px after). Use explicit property lists (stroke, stroke-width, fill, opacity,
   filter, transform-for-hover) — see `.edge`/`.node-circle`/`.radial-arc` in
   `styles/dark-theme.css`. Key edges by pair identity, never array index.
+- **Selection is global and bidirectional.** `useSelectionState` (via
+  `useHomePageController`) owns surah/ayah/root/lemma; every mode ADOPTS the shared
+  root/surah when the prop changes (ref-track the previous prop; adoption never calls
+  the write-back) and WRITES BACK explicit user picks (click/blur/Enter/change only —
+  never hover) via `onRootSelect`-style callbacks. Explicit picks re-lock
+  `searchLockedRoot` (they are authoritative). The URL mirrors
+  `{viz, surah, ayah, root, lemma}` via debounced `window.history.replaceState`
+  (never `token`), gated on deep-link hydration completing; the controller's own URL
+  writes are deduped against Next's `useSearchParams` echo via
+  `lastAppliedParamsRef` — keep that guard when touching either side.
 - **Category colors must be theme-stable.** Never bind categorical encodings to
   `--accent`/`--accent-2`: those swap hues between light and dark themes.
   Use dedicated tokens (`--viz-cat-makki`, `--viz-cat-madani` — teal family / amber family
@@ -179,8 +189,8 @@ Known, deliberately deferred (next iterations):
 - Light theme: the "Selected / contains selected root" legend swatch is near-identical
   to the Makki teal — selected state relies on the canvas ring/glow to disambiguate.
 - **Unscoped (entire-Quran) arc-flow/root-network views are unreachable**: `selectedSurahId`
-  is a non-nullable number defaulting to 1 everywhere (`useSelectionState`, `useAppState`,
-  embeds), though components support a null scope. Decide whether to expose a corpus scope.
+  is a non-nullable number defaulting to 1 everywhere (`useSelectionState`, embeds), though
+  components support a null scope. Decide whether to expose a corpus scope.
 - Arc weights are never shown numerically beyond the hover tooltip; the thick gray arc
   baseline "swoosh" in arc-flow reads muddy at default zoom — candidates for a pass.
 - `scripts/seed-corpus.ts` resolves multi-ROOT words last-root-wins while

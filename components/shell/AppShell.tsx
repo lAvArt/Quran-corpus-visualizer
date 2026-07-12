@@ -36,7 +36,29 @@ const LEFT_DOCK_STORAGE_KEY = "quran-corpus-left-dock";
 function AppShellContent({ initialCorpusData, initialThemePreference }: AppShellProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
-  const c = useHomePageController(initialCorpusData, initialThemePreference);
+  // Flips true once the deep-link stage/apply chain below (searchParams ->
+  // pendingDeepLink -> navigateToResult) has settled — either there was
+  // nothing to hydrate, or the hydration it staged has been applied. Passed
+  // into the controller so its URL-sync effect (state -> URL) never fires
+  // before then and clobbers an incoming deep link's params.
+  const [isDeepLinkHydrated, setIsDeepLinkHydrated] = useState(false);
+  // Tracks the last searchParams string this component has already applied
+  // (see the stage/apply effects below) — declared here, ahead of the
+  // controller, so `markUrlSynced` can be handed down to it before it mounts.
+  // Next's App Router patches `history.replaceState` globally and echoes ANY
+  // URL change (even a passive one) back into `useSearchParams()`, so the
+  // controller's own URL-sync effect writing the address bar would otherwise
+  // look exactly like a fresh incoming deep link and re-trigger
+  // `navigateToResult` below — re-running the deep-link selection from
+  // whatever was JUST echoed and clobbering any local edit made in between.
+  // `markUrlSynced` records the string *as it writes it*, so the echo is
+  // recognized as already-applied via the apply effect's own dedupe check
+  // instead of being reprocessed.
+  const lastAppliedParamsRef = useRef<string | null>(null);
+  const markUrlSynced = useCallback((search: string) => {
+    lastAppliedParamsRef.current = search;
+  }, []);
+  const c = useHomePageController(initialCorpusData, initialThemePreference, isDeepLinkHydrated, markUrlSynced);
   // Expanded by default so the zoom controls + legend are always visible in a
   // fixed, predictable dock (top-anchored, grows downward). Collapsible on demand.
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
@@ -99,7 +121,6 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
   // until a hard refresh. useSearchParams is reactive to soft navigations, so
   // changed params re-apply; the ref keeps identical params from re-applying.
   const searchParams = useSearchParams();
-  const lastAppliedParamsRef = useRef<string | null>(null);
   const navigateToResult = c.handleSearchResultNavigate;
 
   // Stage → apply as a two-commit chain: the controller's own localStorage
@@ -117,7 +138,11 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
       searchParams.get("ayah") ||
       searchParams.get("token") ||
       searchParams.get("viz");
-    if (!hasRelevantParam) return;
+    if (!hasRelevantParam) {
+      // Nothing to hydrate — the URL-sync effect is safe to start immediately.
+      setIsDeepLinkHydrated(true);
+      return;
+    }
     // Same string re-sets are no-ops for React, so this can't loop.
     setPendingDeepLink(searchParams.toString());
   }, [searchParams]);
@@ -153,6 +178,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         },
       },
     });
+    setIsDeepLinkHydrated(true);
   }, [pendingDeepLink, navigateToResult]);
 
   const clearFocus = useCallback(() => {

@@ -164,7 +164,14 @@ export default function VisualizationViewport({
           />
         );
       case "knowledge-graph":
-        return <KnowledgeGraphViz tokens={allTokens} onRootSelect={handleRootSelect} theme={theme} />;
+        return (
+          <KnowledgeGraphViz
+            tokens={allTokens}
+            onRootSelect={handleRootSelect}
+            highlightRoot={selectedRoot}
+            theme={theme}
+          />
+        );
       case "sankey-flow":
         return (
           <RootFlowSankey
@@ -177,6 +184,8 @@ export default function VisualizationViewport({
             experienceLevel={experienceLevel}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
+            highlightRoot={selectedRoot}
+            onRootSelect={handleRootSelect}
           />
         );
       case "collocation-network":

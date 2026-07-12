@@ -117,6 +117,21 @@ export default function ArcFlowDiagram({
   const [internalSelectedRoot, setInternalSelectedRoot] = useState<string | null>(null);
   const isBeginner = experienceLevel === "beginner";
 
+  // The local root-search override (`internalSelectedRoot`) lets a user pick
+  // a root from this diagram's own search without touching the app-wide
+  // selection. But once the SHARED `selectedRoot` prop changes elsewhere
+  // (another graph, search, a deep link), that override must not keep
+  // pinning a now-unrelated root here — track the previous prop value in a
+  // ref so a genuine change resets the override and lets the incoming prop
+  // win. The override remains available again until the next prop change.
+  const prevSelectedRootPropRef = useRef(selectedRoot);
+  useEffect(() => {
+    const previous = prevSelectedRootPropRef.current;
+    prevSelectedRootPropRef.current = selectedRoot;
+    if (selectedRoot === previous) return;
+    setInternalSelectedRoot(null);
+  }, [selectedRoot]);
+
   useEffect(() => {
     if (selectedSurahId && selectedAyah) {
       getAyah(selectedSurahId, selectedAyah).then((record) => {
@@ -759,11 +774,11 @@ export default function ArcFlowDiagram({
   }, []);
 
   const selectedSummary = useMemo(() => {
-    const items: Array<{ label: string; value: string }> = [];
-    if (selectedSurahId) items.push({ label: ts("surah"), value: String(selectedSurahId) });
-    if (selectedAyah) items.push({ label: ts("ayah"), value: String(selectedAyah) });
-    if (selectedRoot) items.push({ label: ts("root"), value: selectedRoot });
-    if (selectedLemma) items.push({ label: ts("lemma"), value: selectedLemma });
+    const items: Array<{ kind: "surah" | "ayah" | "root" | "lemma"; label: string; value: string }> = [];
+    if (selectedSurahId) items.push({ kind: "surah", label: ts("surah"), value: String(selectedSurahId) });
+    if (selectedAyah) items.push({ kind: "ayah", label: ts("ayah"), value: String(selectedAyah) });
+    if (selectedRoot) items.push({ kind: "root", label: ts("root"), value: selectedRoot });
+    if (selectedLemma) items.push({ kind: "lemma", label: ts("lemma"), value: selectedLemma });
     return items;
   }, [selectedSurahId, selectedAyah, selectedRoot, selectedLemma, ts]);
 
@@ -899,7 +914,12 @@ export default function ArcFlowDiagram({
             {selectedSummary.map((item) => (
               <div key={item.label} className="viz-tooltip-row" style={{ borderTop: "none", padding: 0 }}>
                 <span className="viz-tooltip-label">{item.label}</span>
-                <span className="viz-tooltip-value arabic-text">{item.value}</span>
+                <span
+                  className="viz-tooltip-value arabic-text"
+                  data-testid={`arc-flow-summary-${item.kind}`}
+                >
+                  {item.value}
+                </span>
               </div>
             ))}
 

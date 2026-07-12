@@ -361,9 +361,21 @@ export default function CollocationNetworkGraph({
         [targetKind, activeTargetValue, groupBy]
     );
 
+    // Adopt an incoming shared-root change (another graph, search, or a deep
+    // link) into the target field. Tracks the previous prop value in a ref so
+    // a genuine prop CHANGE always wins over a stale local edit — the old
+    // `current.trim() ? current : highlightRoot` guard only ever adopted
+    // before the field had any text (i.e. once, near mount); later prop
+    // changes were silently ignored while the field stayed non-empty. This
+    // never calls `onRootSelect` itself (see `commitTargetRoot` below for the
+    // write-back direction), so the two can't loop.
+    const prevHighlightRootRef = useRef(highlightRoot);
     useEffect(() => {
-        if (!highlightRoot || targetKind !== "root") return;
-        setTargetValue((current) => (current.trim() ? current : highlightRoot));
+        const previous = prevHighlightRootRef.current;
+        prevHighlightRootRef.current = highlightRoot;
+        if (targetKind !== "root") return;
+        if (!highlightRoot || highlightRoot === previous) return;
+        setTargetValue(highlightRoot);
     }, [highlightRoot, targetKind]);
 
     useEffect(() => {
@@ -381,6 +393,20 @@ export default function CollocationNetworkGraph({
             setTargetValue(highlightRoot);
         }
     }, [highlightRoot, isBeginner]);
+
+    // Write-back: tell the shared selection about a root the user explicitly
+    // commits to in THIS graph by typing into the target field (wired to the
+    // input's blur/Enter below — not every keystroke, so mid-typing values
+    // never round-trip out). Node clicks (handleNodeClick below) call
+    // `onRootSelect` directly at the click site. Guarded against firing for a
+    // value that already matches the shared root, so adopting an incoming
+    // prop change (the effect above) can never echo back out as a write.
+    const commitTargetRoot = useCallback(() => {
+        if (targetKind !== "root" || !onRootSelect) return;
+        const trimmed = targetValue.trim();
+        if (!trimmed || trimmed === highlightRoot) return;
+        onRootSelect(trimmed);
+    }, [targetKind, targetValue, onRootSelect, highlightRoot]);
 
     const targetCount = useMemo(() => {
         if (!targetTerm) return 0;
@@ -1483,6 +1509,10 @@ export default function CollocationNetworkGraph({
                                         data-testid="collocation-target-input"
                                         value={targetValue}
                                         onChange={(e) => setTargetValue(e.target.value)}
+                                        onBlur={commitTargetRoot}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") e.currentTarget.blur();
+                                        }}
                                         placeholder={targetKind === "root" ? t("targetRootPlaceholder") : t("targetLemmaPlaceholder")}
                                         style={{ ...controlFieldStyle, flex: 1, minWidth: 0 }}
                                     />

@@ -16,6 +16,8 @@ import { useTranslations } from "next-intl";
 interface KnowledgeGraphVizProps {
     tokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
+    /** Shared selected root (survives mode switches, search, deep links). */
+    highlightRoot?: string | null;
     theme?: "light" | "dark";
 }
 
@@ -56,6 +58,7 @@ function pickGhostRoots(
 export default function KnowledgeGraphViz({
     tokens,
     onRootSelect,
+    highlightRoot,
     theme = "dark",
 }: KnowledgeGraphVizProps) {
     const { roots: trackedRoots, stats, trackRoot } = useKnowledge();
@@ -604,6 +607,13 @@ export default function KnowledgeGraphViz({
                                     const isHighlighted = isHovered || isSelected;
                                     const isTrackedRoot = node.type === "tracked-root";
                                     const isGhost = node.type === "ghost-root";
+                                    // The app-wide shared root, when it happens to be one of
+                                    // this learner's own tracked roots — same accent ring
+                                    // convention RootNetworkGraph uses for its search/deep-
+                                    // link highlight. Ghost roots intentionally don't get
+                                    // this (nothing to track yet), so an untracked shared
+                                    // root causes no visual change here.
+                                    const isSharedRootMatch = isTrackedRoot && Boolean(highlightRoot) && node.label === highlightRoot;
 
                                     return (
                                         <g
@@ -635,6 +645,26 @@ export default function KnowledgeGraphViz({
                                                             : node.state === "learning"
                                                                 ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" }
                                                                 : { duration: 0.5 }
+                                                    }
+                                                />
+                                            )}
+
+                                            {/* Accent ring for the app-wide shared root (distinct
+                                                from the per-state ring above: accent color, sits
+                                                just outside it) */}
+                                            {isSharedRootMatch && (
+                                                <motion.circle
+                                                    r={node.radius + 15}
+                                                    fill="none"
+                                                    stroke={themeColors.accent}
+                                                    strokeWidth={2}
+                                                    opacity={0.5}
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1.1, opacity: 0.5 }}
+                                                    transition={
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : { repeat: Infinity, repeatType: "reverse", duration: 1 }
                                                     }
                                                 />
                                             )}

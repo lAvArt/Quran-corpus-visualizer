@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
@@ -22,6 +22,10 @@ interface RootFlowSankeyProps {
   experienceLevel?: ExperienceLevel;
   theme?: "light" | "dark";
   lexicalColorMode?: LexicalColorMode;
+  /** Shared selected root (survives mode switches, search, deep links). */
+  highlightRoot?: string | null;
+  /** Write-back for the root dropdown, so a pick here follows the user elsewhere. */
+  onRootSelect?: (root: string | null) => void;
 }
 
 const INITIAL_VISIBLE = 50;
@@ -94,10 +98,20 @@ export default function RootFlowSankey({
   experienceLevel = "advanced",
   theme = "dark",
   lexicalColorMode = "theme",
+  highlightRoot,
+  onRootSelect,
 }: RootFlowSankeyProps) {
   const t = useTranslations("Visualizations.RootFlow");
   const ts = useTranslations("Visualizations.Shared");
-  const [selectedRoot, setSelectedRoot] = useState<string>("all");
+  // Seed from the shared prop at mount (same pattern as CollocationNetworkGraph's
+  // `targetValue` initializer) — this component remounts fresh on every mode
+  // switch (VisualizationViewport swaps which component renders), so a plain
+  // "all" default would silently drop an already-selected shared root: the
+  // ref-tracked adoption effect below only reacts to a prop CHANGE, and its
+  // own ref starts at the mount-time prop value, so it correctly sees "no
+  // change" on mount and (rightly) does nothing — the initial value has to
+  // be correct on its own.
+  const [selectedRoot, setSelectedRoot] = useState<string>(highlightRoot || "all");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [showHelp, setShowHelp] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -158,6 +172,25 @@ export default function RootFlowSankey({
     const rootsSet = new Set(scopedFlows.map((f) => f.root));
     return Array.from(rootsSet).sort((a, b) => a.localeCompare(b));
   }, [scopedFlows, cleanGlobalRoots, selectedSurahId]);
+
+  // Adopt the shared selected root when it changes elsewhere (another graph,
+  // search, or a deep link) — same ref-tracked "prop change wins" pattern as
+  // ArcFlowDiagram/CollocationNetworkGraph. A cleared shared root (null) maps
+  // back to this component's own "no filter" state ("all"). The dropdown's
+  // own onChange (below) is the only path that writes back out, so the two
+  // can't loop.
+  const prevHighlightRootRef = useRef(highlightRoot);
+  useEffect(() => {
+    const previous = prevHighlightRootRef.current;
+    prevHighlightRootRef.current = highlightRoot;
+    if (highlightRoot === previous) return;
+    setSelectedRoot(highlightRoot || "all");
+    setVisibleCount(INITIAL_VISIBLE);
+    setHoveredFlowKey(null);
+    setHoveredNode(null);
+    setPinnedNode(null);
+    onTokenHover(null);
+  }, [highlightRoot, onTokenHover]);
 
   // Reset selected root if it's no longer available in the new scope
   useEffect(() => {
@@ -417,13 +450,18 @@ export default function RootFlowSankey({
   }, []);
 
   const handleRootChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    setSelectedRoot(event.target.value);
+    const nextRoot = event.target.value;
+    setSelectedRoot(nextRoot);
     setVisibleCount(INITIAL_VISIBLE);
     setHoveredFlowKey(null);
     setHoveredNode(null);
     setPinnedNode(null);
     onTokenHover(null);
-  }, [onTokenHover]);
+    // Write back to the shared selection so this pick follows the user to
+    // other graphs too — "All roots" mirrors the adoption direction above
+    // (null -> "all") by clearing the shared root symmetrically.
+    onRootSelect?.(nextRoot === "all" ? null : nextRoot);
+  }, [onTokenHover, onRootSelect]);
 
   const sidebarCards = (
     <div className={`viz-left-stack sankey-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
@@ -623,7 +661,7 @@ export default function RootFlowSankey({
 
       <div className="sankey-context-bar">
         <span className="sankey-pill">{ts("scope")}: {scopeLabel}</span>
-        <span className="sankey-pill">{ts("activeRoot")}: {selectedRootLabel}</span>
+        <span className="sankey-pill" data-testid="sankey-active-root-pill">{ts("activeRoot")}: {selectedRootLabel}</span>
         <span className="sankey-pill">
           {ts("showing")} {visibleFlows.length} {ts("of")} {totalFlows} {ts("flows")} · {visibleRatio}% {ts("coverage").toLocaleLowerCase()}
         </span>
