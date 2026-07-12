@@ -178,6 +178,12 @@ Fixed in `feature/viz-declutter`:
   roots, sankey/knowledge-graph siloed, explicit clicks swallowed by the search lock,
   URL never reflected in-app picks) → global bidirectional selection + URL mirroring
   (see the "Selection is global" rule above).
+- Structure map zoom stalled (155-204ms frames, p95 up to 2s, focused) → zoom-state
+  commits quantized (0.25 scale buckets + 120ms floor; transform stays imperative
+  per tick) and root labels admitted by screen-space separation (rank-priority
+  greedy, ≥15px along the fan, hovered/selected exempt-as-blockers; more labels
+  admitted as zoom deepens) → 20-30ms avg, overlap-free labels. Pattern to reuse:
+  never re-render per zoom tick; commit LOD state on settle/threshold only.
 - Structure map was one-shot and heavy → static 114-surah skeleton paints in ~1.2s
   (was 35-65s to first structure on cold loads), root branches stream in per batch
   with a staggered reveal; hover sets memoized, labels view-culled, token-reference

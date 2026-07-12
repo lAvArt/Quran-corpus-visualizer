@@ -55,6 +55,33 @@ const PENDING_SURAH_OPACITY = 0.15;
 const REVEAL_STAGGER_MS = 40;
 const REVEAL_STAGGER_CAP_MS = 400;
 
+// How far (in raw zoom-scale units) the transform has to drift from the
+// last-committed value before a MID-GESTURE zoom/drag tick is allowed to
+// push a new zoomLevel/zoomTransform to React — see the zoom-commit comment
+// below. d3 already writes the visual transform straight to `gRef` on every
+// tick regardless of this; this constant only throttles how often the
+// zoom-dependent LOD/label memos (visibleNodes, visibleLinks,
+// admittedRootLabelIds) are allowed to recompute while a gesture is still
+// live, so a continuous 3s wheel/drag settles into a handful of recomputes
+// instead of one per tick.
+const ZOOM_LOD_QUANTUM = 0.25;
+
+// Floor (ms) between mid-gesture LOD commits, even when the scale keeps
+// crossing ZOOM_LOD_QUANTUM boundaries faster than this — a sustained zoom
+// can straddle one 0.25 bucket boundary every single tick (the bucket step
+// and a single wheel tick's scale delta are close in size), so without this
+// floor the quantization above degenerates back to a near-per-tick commit
+// rate under fast/continuous input. Deliberately a bit under the 150ms
+// "end" debounce (see useZoom's wheelDelay) so mid-gesture LOD still feels
+// more responsive than the settle latency.
+const MIN_ZOOM_COMMIT_INTERVAL_MS = 120;
+
+// Minimum on-screen distance (px) two root labels within the same surah's
+// fan must keep from each other — see admittedRootLabelIds below, the fix
+// for a focused surah's root fan drawing every label at once and
+// overlapping into an illegible column.
+const LABEL_MIN_SEPARATION_PX = 15;
+
 export default function CorpusArchitectureMap({
     tokens,
     onNodeSelect,
@@ -71,16 +98,57 @@ export default function CorpusArchitectureMap({
     const [zoomLevel, setZoomLevel] = useState(1.4);
     const [zoomTransform, setZoomTransform] = useState(d3.zoomIdentity);
 
+    // useZoom already applies the visual transform IMPERATIVELY to `gRef` on
+    // every d3 zoom tick (a DOM attribute write — see lib/hooks/useZoom.ts —
+    // no React involved). What used to still cost a full re-render + repaint
+    // of thousands of nodes on every wheel/drag tick was THIS component's own
+    // zoomLevel/zoomTransform state, which visibleNodes/visibleLinks/label
+    // admission all key off. Fix: only commit that state (a) once a gesture
+    // ends (full precision, unchanged 0.05 rounding), or (b) when the scale
+    // has drifted by ~ZOOM_LOD_QUANTUM while the gesture is still live AND at
+    // least MIN_ZOOM_COMMIT_INTERVAL_MS has passed since the last commit —
+    // the time floor matters because a bucket boundary can sit inside a
+    // single wheel tick's step size (a sustained zoom crosses it back and
+    // forth every tick, not just once), so scale-quantizing alone doesn't
+    // reliably throttle frequency on its own; both together cap mid-gesture
+    // commits to a handful per gesture instead of once per tick.
+    // `lastZoomBucketRef`/`lastZoomCommitMsRef` track the last COMMITTED
+    // bucket/time; both are updated on every commit (including "end") so the
+    // next gesture's first crossing is measured from the settled state, not
+    // a stale one.
+    const lastZoomBucketRef = useRef(Math.round(1.4 / ZOOM_LOD_QUANTUM));
+    const lastZoomCommitMsRef = useRef(0);
+    const commitZoomState = useCallback((transform: d3.ZoomTransform) => {
+        setZoomTransform(transform);
+        setZoomLevel((prev) => {
+            const next = Math.round(transform.k * 20) / 20;
+            return prev === next ? prev : next;
+        });
+    }, []);
+
     const { svgRef, gRef, fitToView } = useZoom<SVGSVGElement>({
         minScale: 0.1,
         maxScale: 12,
         initialScale: 1.4,
+        // Fires on every tick (wheel, drag, AND the Focus button's animated
+        // transition — fitToView calls d3 zoom.transform on this same zoom
+        // instance, so this one handler keeps both entry points in sync).
+        // Only actually commits when the scale has crossed into a new
+        // bucket since the last commit AND the commit-interval floor has
+        // elapsed.
+        onZoom: (transform) => {
+            const bucket = Math.round(transform.k / ZOOM_LOD_QUANTUM);
+            if (bucket === lastZoomBucketRef.current) return;
+            const now = performance.now();
+            if (now - lastZoomCommitMsRef.current < MIN_ZOOM_COMMIT_INTERVAL_MS) return;
+            lastZoomBucketRef.current = bucket;
+            lastZoomCommitMsRef.current = now;
+            commitZoomState(transform);
+        },
         onZoomEnd: (transform) => {
-            setZoomTransform(transform);
-            setZoomLevel((prev) => {
-                const next = Math.round(transform.k * 20) / 20;
-                return prev === next ? prev : next;
-            });
+            lastZoomBucketRef.current = Math.round(transform.k / ZOOM_LOD_QUANTUM);
+            lastZoomCommitMsRef.current = performance.now();
+            commitZoomState(transform);
         },
     });
 
@@ -730,7 +798,26 @@ export default function CorpusArchitectureMap({
         return map;
     }, [nodes, getNodeAngle, getNodeRadius]);
 
-    // Use zoomTransform directly (state updates are now batched via onZoomEnd)
+    // Each root's arc-length position (angle in radians × radius, in local/
+    // unscaled SVG units) at its final fan position — precomputed once here
+    // rather than per zoom tick. Comparing two roots' arcPos difference
+    // approximates the on-screen distance between their labels once
+    // multiplied by the current (quantized) zoom scale — see
+    // admittedRootLabelIds below.
+    const rootArcPositionById = useMemo(() => {
+        const map = new Map<string, number>();
+        nodes.forEach((node) => {
+            if (node.data.type !== "word_root") return;
+            map.set(node.data.id, getNodeAngle(node) * getNodeRadius(node));
+        });
+        return map;
+    }, [nodes, getNodeAngle, getNodeRadius]);
+
+    // zoomTransform/zoomLevel now only ever change at gesture end or a
+    // quantized mid-gesture crossing (see the zoom-commit comment above), so
+    // reading them directly here already gives every zoom-dependent memo
+    // below the "recompute a handful of times per gesture, not every tick"
+    // behavior for free.
     const deferredZoom = zoomTransform;
 
     const visibleNodes = useMemo(() => {
@@ -818,6 +905,91 @@ export default function CorpusArchitectureMap({
         },
         [deferredZoom, viewRadius]
     );
+
+    // zoomLevel is the d3 ZOOM transform's own scale factor — it does NOT
+    // include the SVG's OWN viewBox-to-CSS-pixel scale. `viewRadius` (the
+    // viewBox half-extent, in local SVG units) is frequently far larger
+    // than the element's actual rendered width once a large surah's roots
+    // push it out (e.g. Al-Baqarah's ~600 roots roughly double it), so
+    // `arcLength * zoomLevel` alone understates true on-screen density by
+    // that same factor and under-declutters — confirmed visually (labels
+    // still overlapping at a "585/585 roots shown" fan even after the
+    // separation test below was in place). Reading the live client width
+    // here (rather than tracking it in state) matches this file's existing
+    // tolerance for treating the container as effectively constant after
+    // mount (see the `dimensions` comment above); the fallback keeps the
+    // very first render, before the ref is attached, sane.
+    const svgPixelWidth = svgRef.current?.clientWidth || 1100;
+
+    // Screen-space label admission per surah root-fan — the fix for a
+    // focused surah's root fan rendering every label at once and
+    // overlapping into an illegible column. Greedily accepts labels in
+    // FREQUENCY-RANK order (highest `.data.value` first) within each surah's
+    // fan, admitting a candidate only if it lands >= LABEL_MIN_SEPARATION_PX
+    // (true screen px, via labelScreenScale below) from every label already
+    // admitted in that same fan — a cheap 1D separation test along the
+    // fan's arc-length axis (rootArcPositionById above), not a full 2D
+    // collision check. Hovered/selected/highlightRoot-matching roots are
+    // exempt (always admitted) and are placed FIRST so they act as blockers
+    // for the rest, matching this file's existing "explicit picks are
+    // authoritative" convention. The candidate gate itself (which roots are
+    // even in the running) mirrors the original unconditional showLabel
+    // OR-chain it replaces — lodMode "full", the active-highlight/opacity
+    // set, or membership in a focused surah — so the only behavior change
+    // is WHICH of those candidates actually get a label. Depends only on
+    // the quantized zoomLevel (never the raw per-tick transform — see the
+    // zoom-commit comment above), so this recomputes a handful of times per
+    // gesture, not every frame.
+    const admittedRootLabelIds = useMemo(() => {
+        const admitted = new Set<string>();
+        const labelScreenScale = zoomLevel * (svgPixelWidth / (viewRadius * 2));
+
+        const bySurah = new Map<string, d3.HierarchyPointNode<HierarchyNode>[]>();
+        nodes.forEach((node) => {
+            if (node.data.type !== "word_root") return;
+            const isCandidate =
+                lodMode === "full" ||
+                getOpacity(node) === 1 ||
+                (highlightRoot && node.data.originalId === highlightRoot) ||
+                (focusSurahNodeId ? node.parent?.data.id === focusSurahNodeId : false);
+            if (!isCandidate) return;
+            const parentId = node.parent?.data.id;
+            if (!parentId) return;
+            const list = bySurah.get(parentId);
+            if (list) list.push(node);
+            else bySurah.set(parentId, [node]);
+        });
+
+        const isExemptRoot = (node: d3.HierarchyPointNode<HierarchyNode>) =>
+            (!!internalSelectedRoot && node.data.originalId === internalSelectedRoot) ||
+            (!!highlightRoot && node.data.originalId === highlightRoot) ||
+            hoveredNode?.data.id === node.data.id;
+
+        bySurah.forEach((candidates) => {
+            const exempt = candidates.filter(isExemptRoot);
+            const rest = candidates
+                .filter((node) => !isExemptRoot(node))
+                .sort((a, b) => b.data.value - a.data.value);
+
+            const acceptedPositions: number[] = [];
+            exempt.forEach((node) => {
+                admitted.add(node.data.id);
+                acceptedPositions.push((rootArcPositionById.get(node.data.id) ?? 0) * labelScreenScale);
+            });
+            rest.forEach((node) => {
+                const pos = (rootArcPositionById.get(node.data.id) ?? 0) * labelScreenScale;
+                const tooClose = acceptedPositions.some(
+                    (accepted) => Math.abs(accepted - pos) < LABEL_MIN_SEPARATION_PX
+                );
+                if (!tooClose) {
+                    admitted.add(node.data.id);
+                    acceptedPositions.push(pos);
+                }
+            });
+        });
+
+        return admitted;
+    }, [nodes, lodMode, highlightRoot, focusSurahNodeId, internalSelectedRoot, hoveredNode, rootArcPositionById, zoomLevel, getOpacity, svgPixelWidth, viewRadius]);
 
     return (
         <section
@@ -1092,13 +1264,15 @@ export default function CorpusArchitectureMap({
                                 const x = position.x;
                                 const y = position.y;
                                 const isHighlighted = getOpacity(node) === 1;
+                                // Word-root candidacy used to be this same OR-chain shown
+                                // UNCONDITIONALLY (every candidate got a label) — that's the
+                                // "competing/overlapping root text" bug. admittedRootLabelIds
+                                // reruns that exact candidacy test but additionally requires
+                                // the root to have WON the per-fan separation check (see its
+                                // definition above); surah labels are unchanged.
                                 const showLabel =
                                     (node.data.type === "surah" ||
-                                        (node.data.type === "word_root" &&
-                                            (lodMode === "full" ||
-                                                isHighlighted ||
-                                                (highlightRoot && node.data.originalId === highlightRoot) ||
-                                                (focusSurahNodeId && node.parent?.data.id === focusSurahNodeId)))) &&
+                                        (node.data.type === "word_root" && admittedRootLabelIds.has(node.data.id))) &&
                                     isLabelInView(x, y);
 
                                 // Surah nodes exist (as dim "pending" placeholders) from the
