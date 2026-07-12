@@ -79,9 +79,37 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
       setDataStatus("loading");
 
       try {
-        const corpusTokens = await loadFullCorpus((progress) => {
-          if (!cancelled) setLoadingProgress(progress);
-        });
+        const corpusTokens = await loadFullCorpus(
+          (progress) => {
+            if (!cancelled) setLoadingProgress(progress);
+          },
+          (tokensSoFar, meta) => {
+            // Intermediate batches only — the final state (dataStatus
+            // "full"/"fallback" + the definitive token array) is still set
+            // exclusively from the resolved promise below, unchanged from
+            // before batching existed. This also sidesteps a subtlety on the
+            // Supabase path: its post-fetch morphology enrichment can return
+            // a new (enriched) array, so the batch tracker's own done:true
+            // array isn't guaranteed byte-identical to the final result.
+            if (cancelled || meta.done) return;
+            // Monotonic guard: if Supabase streams some batches and then
+            // fails mid-load, `_doLoadFullCorpus` falls back to a fresh
+            // sequential Quran.com load starting at surah 1 again — never
+            // let that visible restart look like data disappearing.
+            setDeepTokens((prev) => (tokensSoFar.length >= prev.length ? tokensSoFar : prev));
+            setLoadingProgress((prev) => {
+              if (prev && prev.currentTokens > tokensSoFar.length) return prev; // same guard, for the progress bar
+              return {
+                currentSura: meta.completedSurahs.length,
+                totalSuras: 114,
+                currentTokens: tokensSoFar.length,
+                totalTokens: Math.max(prev?.totalTokens ?? 0, tokensSoFar.length),
+                status: "loading",
+                message: prev?.message ?? "",
+              };
+            });
+          }
+        );
 
         if (!cancelled && corpusTokens.length >= FULL_CORPUS_TOKEN_FLOOR) {
           setDeepTokens(corpusTokens);
@@ -123,6 +151,27 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
 
   const { shellTokens, visualizationTokens: allTokens, overview, overviewSource, visualizationSource } = useMemo(() => {
     if (deepTokens.length > 0) {
+      // While the corpus streams in batches, the surah the user actually
+      // has open may already be fully loaded via loadSurahContext
+      // (contextTokens, real per-surah QAC data) even though ITS OWN batch
+      // hasn't landed in deepTokens yet — without this overlay, a
+      // deep-linked surah would visibly empty out for however many batches
+      // remain until its turn arrives. deepTokens still wins for any token
+      // id both sets share, since it's the higher-fidelity source (real
+      // corpus/API text, not the morphology-file fallback text). Once the
+      // corpus finishes loading, deepTokens already IS the authoritative
+      // full set, so this merge is skipped — same cost/behavior as before
+      // batching existed.
+      if (dataStatus !== "full" && contextTokens.length > 0) {
+        const byId = new Map<string, CorpusToken>();
+        for (const tk of contextTokens) byId.set(tk.id, tk);
+        for (const tk of deepTokens) byId.set(tk.id, tk);
+        return {
+          ...buildCorpusOverviewData(Array.from(byId.values())),
+          overviewSource: "deep-corpus" as const,
+          visualizationSource: "deep-corpus" as const,
+        };
+      }
       return {
         ...buildCorpusOverviewData(deepTokens),
         overviewSource: "deep-corpus" as const,
@@ -157,7 +206,7 @@ export function useCorpusData(initialOverviewData?: CorpusOverviewData): CorpusD
       overviewSource: "client-shell" as const,
       visualizationSource: "client-shell" as const,
     };
-  }, [deepTokens, contextTokens, initialOverviewData]);
+  }, [deepTokens, contextTokens, initialOverviewData, dataStatus]);
   const readiness = useMemo(
     () => deriveCorpusReadiness(dataStatus, isLoadingCorpus),
     [dataStatus, isLoadingCorpus]

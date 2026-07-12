@@ -85,11 +85,18 @@ onboarding localStorage `quran-corpus-onboarding`.
   (800 words) render hairline per-ayah ticks; zooming past `DETAIL_ZOOM_THRESHOLD` (2.2×)
   swaps ticks → full word bars in place. Small surahs always render full detail.
   Initial fit-to-ring runs for **all** surah sizes (small-surah overflow was a bug, fixed).
-- **Corpus data streams in.** `lib/corpus/sampleCorpus.ts` provides a tiny stub before
-  `loadSurahContext()` lands the real token set. Any effect that measures geometry and
-  then locks itself (entry fits, initial focus, one-shot layout) must gate on complete
-  data (see `isSurahDataComplete` in `RadialSuraMap.tsx`) or it will freeze the camera
-  on stub geometry — this caused both radial framing bugs found in the 2026-07 audit.
+- **Corpus data streams in — for real now.** `lib/corpus/sampleCorpus.ts` provides a
+  tiny stub before real data lands, and `loadFullCorpus({ onBatch })` emits ~12 batches
+  of WHOLE surahs (10/batch, ascending; never a partial surah — both Supabase and
+  Quran.com paths; cache hits stay one-shot). `useCorpusData` streams `deepTokens`
+  per batch and drives real loading progress. Consequences: any effect that measures
+  geometry and then locks itself (entry fits, initial focus, one-shot layout) must
+  gate on complete data (`isSurahDataComplete` in `RadialSuraMap.tsx`,
+  `isScopeDataComplete` in `ArcFlowDiagram.tsx`), and components seeing the growing
+  array re-render per batch — keep per-batch work cheap. The structure map renders a
+  static 114-surah skeleton (angles from `SURAH_NAMES`, fixed from first paint) and
+  reveals root branches per batch with a CSS opacity stagger (once per arrival,
+  tracked in a ref; instant under reduced motion).
 - **Fit-to-view** (`lib/viz/fitToView.ts`) — shared fit helper, chrome-aware on all four
   sides: left dock (`.viz-dock`/`.viz-sidebar-stack`), right ContextDrawer when open
   (`.context-drawer`, aspect-ratio-guarded so the mobile bottom-sheet variant doesn't
@@ -167,6 +174,16 @@ Fixed in `feature/viz-declutter`:
   width cap → scope-normalized sqrt widths; weights exposed via hover tooltip/aria.
 - Fits ignored top/bottom/right chrome → fitToView now measures all four sides
   (breadcrumb pill, graph toolbar, open drawer).
+- Selection was inconsistent across graphs (arc-flow/collocation kept stale local
+  roots, sankey/knowledge-graph siloed, explicit clicks swallowed by the search lock,
+  URL never reflected in-app picks) → global bidirectional selection + URL mirroring
+  (see the "Selection is global" rule above).
+- Structure map was one-shot and heavy → static 114-surah skeleton paints in ~1.2s
+  (was 35-65s to first structure on cold loads), root branches stream in per batch
+  with a staggered reveal; hover sets memoized, labels view-culled, token-reference
+  churn stabilized (−21% frame time at overview pre-streaming). True overview element
+  count is ~8,810 (5,604 is the focused-surah state — earlier probes measured focus
+  due to a phantom unfocus click, since fixed).
 
 Known, deliberately deferred (next iterations):
 
@@ -175,8 +192,6 @@ Known, deliberately deferred (next iterations):
   empty-state CTA (link to Study/track flow) and legend suppression while empty.
 - **sankey ribbons are pale and near-uniform**; promised proportional widths are not
   legible. Consider stronger width scaling + root-hue tinting.
-- **corpus-architecture** default (surah scope) renders an anemic ring of tiny labels;
-  the "blocks" promised by its explainer aren't visible at default zoom.
 - Lemma glosses missing for many forms ("Translation not available") — data gap, see
   hamza normalization note in `docs/DATA_SOURCES.md`; affects inspector hero content.
 - Search-bar placeholder in RTL mixes Latin prefix tokens awkwardly (`root:, lemma:1 …`).

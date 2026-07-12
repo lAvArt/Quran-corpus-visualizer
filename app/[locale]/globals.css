@@ -2679,6 +2679,36 @@ button.site-footer-link {
   overflow: auto;
 }
 
+/* Corpus Architecture Map: staggered reveal as the corpus streams in
+   batches (see docs/VIZ_ARCHITECTURE.md, "Corpus data streams in").
+   `.corpus-arch-fade` is a plain value-change transition for elements that
+   already exist and simply change opacity (a surah dot brightening once
+   its batch lands, or any node/link dimming on hover). `.corpus-arch-reveal`
+   is a mount-time entrance for elements that don't exist until their
+   surah's root data arrives (root nodes/links) — plain CSS transitions
+   can't animate a freshly-mounted element (no "previous value" to ease
+   from), so this uses an `animation` instead. The keyframe only sets the
+   START state; the omitted 100% falls back to the element's own live
+   opacity attribute, so hover/focus dimming keeps working the instant the
+   entrance finishes (`backwards` fill only holds the 0% state during the
+   staggered delay, never the end state — it does not linger as
+   `forwards` would). Both durations collapse under prefers-reduced-motion
+   via the global rule above; the stagger delay itself is zeroed in JS
+   (motionSafeStagger) before it ever reaches these classes. */
+.corpus-arch-fade {
+  transition: opacity 220ms ease-out;
+}
+
+@keyframes corpus-arch-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+.corpus-arch-reveal {
+  animation: corpus-arch-reveal 220ms ease-out backwards;
+}
+
 @media (max-width: 1000px) {
   .dashboard-container {
     grid-template-columns: 1fr;

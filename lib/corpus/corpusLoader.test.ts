@@ -149,6 +149,89 @@ function makeSupabaseRows(count: number): Record<string, unknown>[] {
   }));
 }
 
+/** Rows spanning multiple whole surahs, globally sura/ayah/position-ordered — matches what a real `.order('sura').order('ayah').order('position')` query returns. */
+function makeSupabaseRowsAcrossSurahs(tokensPerSurah: number, surahCount: number): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  for (let suraId = 1; suraId <= surahCount; suraId++) {
+    for (let position = 1; position <= tokensPerSurah; position++) {
+      rows.push({
+        id: `${suraId}:1:${position}`,
+        sura: suraId,
+        ayah: 1,
+        position,
+        text: `t${suraId}-${position}`,
+        root: "كتب",
+        lemma: "كتاب",
+        pos: "N",
+        morphology: { features: {}, gloss: null, stem: null },
+      });
+    }
+  }
+  return rows;
+}
+
+function makeChapters(count: number): { id: number; name_simple: string }[] {
+  return Array.from({ length: count }, (_, i) => ({ id: i + 1, name_simple: `Chapter${i + 1}` }));
+}
+
+function makeChapterVerse(suraId: number, wordCount: number) {
+  return {
+    verse_key: `${suraId}:1`,
+    verse_number: 1,
+    text_uthmani: "بِسْمِ اللَّهِ",
+    words: Array.from({ length: wordCount }, (_, i) => ({
+      char_type_name: "word",
+      position: i + 1,
+      text: `w${suraId}-${i + 1}`,
+    })),
+  };
+}
+
+/**
+ * Shared invariants for `onBatch` call sequences, regardless of which data
+ * path produced them: batches report WHOLE surahs only (the surah id set
+ * inside a batch's own token array exactly matches its reported
+ * `completedSurahs`, so no partial/trailing surah ever leaks through and no
+ * complete surah goes unreported), `completedSurahs` is strictly ascending
+ * with no duplicates and only ever grows across calls, and the final call
+ * is `done: true`.
+ */
+function assertValidBatchSequence(
+  calls: [CorpusToken[], { completedSurahs: number[]; done: boolean }][],
+  expectedFinalTokenCount: number,
+  expectedFinalSurahCount: number
+) {
+  expect(calls.length).toBeGreaterThan(1); // more than a single all-at-once emission
+
+  let previousCompleted: number[] = [];
+  calls.forEach(([tokensSoFar, meta], callIndex) => {
+    // Ascending, no duplicates.
+    const sorted = [...meta.completedSurahs].sort((a, b) => a - b);
+    expect(meta.completedSurahs).toEqual(sorted);
+    expect(new Set(meta.completedSurahs).size).toBe(meta.completedSurahs.length);
+
+    // Cumulative: strictly grows, previous call's ids are a prefix of this one's.
+    expect(meta.completedSurahs.slice(0, previousCompleted.length)).toEqual(previousCompleted);
+    if (callIndex < calls.length - 1) {
+      expect(meta.completedSurahs.length).toBeGreaterThan(previousCompleted.length);
+    }
+    previousCompleted = meta.completedSurahs;
+
+    // Whole-surah invariant: the surah ids actually present in this batch's
+    // token array are EXACTLY the reported completedSurahs — never more
+    // (a partial trailing surah leaking through) and never fewer (a
+    // complete surah left unreported).
+    const suraIdsInSnapshot = new Set(tokensSoFar.map((t) => t.sura));
+    expect(suraIdsInSnapshot).toEqual(new Set(meta.completedSurahs));
+  });
+
+  const [finalTokens, finalMeta] = calls[calls.length - 1];
+  expect(finalMeta.done).toBe(true);
+  expect(calls.slice(0, -1).every(([, meta]) => meta.done === false)).toBe(true);
+  expect(finalTokens).toHaveLength(expectedFinalTokenCount);
+  expect(finalMeta.completedSurahs).toHaveLength(expectedFinalSurahCount);
+}
+
 function seedCachedTokens(tokens: CorpusToken[]) {
   for (const token of tokens) h.state.tokens.set(token.id, token);
 }
@@ -290,6 +373,52 @@ describe("loadFullCorpus Supabase floor", () => {
       morphologyVersion: CURRENT_MORPHOLOGY_VERSION,
     });
     expect(h.state.metadata.has("corpus:partial")).toBe(false);
+  });
+});
+
+describe("loadFullCorpus batching (onBatch)", () => {
+  it("streams whole-surah batches from the Supabase path, ending with done:true and the full result", async () => {
+    const SURAH_COUNT = 25;
+    const TOKENS_PER_SURAH = FULL_CORPUS_TOKEN_FLOOR / SURAH_COUNT; // exactly at the floor
+    h.state.supabaseCount = FULL_CORPUS_TOKEN_FLOOR;
+    h.state.supabaseRows = makeSupabaseRowsAcrossSurahs(TOKENS_PER_SURAH, SURAH_COUNT);
+
+    const { loadFullCorpus } = await importLoader();
+    const onBatch = vi.fn<(tokens: CorpusToken[], meta: { completedSurahs: number[]; done: boolean }) => void>();
+    const resolved = await loadFullCorpus(undefined, onBatch);
+
+    expect(resolved).toHaveLength(FULL_CORPUS_TOKEN_FLOOR);
+    assertValidBatchSequence(onBatch.mock.calls, FULL_CORPUS_TOKEN_FLOOR, SURAH_COUNT);
+    // The final onBatch snapshot and the promise's own resolved value agree.
+    const [finalTokens] = onBatch.mock.calls[onBatch.mock.calls.length - 1];
+    expect(finalTokens).toEqual(resolved);
+  });
+
+  it("streams whole-surah batches from the Quran.com + morphology fallback path", async () => {
+    const CHAPTER_COUNT = 13; // > the largest tuned batch size (12) so at least 2 batches fire regardless of exact tuning
+    h.quranApi.getChapters.mockResolvedValue(makeChapters(CHAPTER_COUNT));
+    h.quranApi.getAllVersesForChapter.mockImplementation(async (chapterId: number) => [
+      makeChapterVerse(chapterId, 5),
+    ]);
+
+    const { loadFullCorpus } = await importLoader();
+    const onBatch = vi.fn<(tokens: CorpusToken[], meta: { completedSurahs: number[]; done: boolean }) => void>();
+    const resolved = await loadFullCorpus(undefined, onBatch);
+
+    expect(resolved).toHaveLength(CHAPTER_COUNT * 5);
+    assertValidBatchSequence(onBatch.mock.calls, CHAPTER_COUNT * 5, CHAPTER_COUNT);
+    const [finalTokens] = onBatch.mock.calls[onBatch.mock.calls.length - 1];
+    expect(finalTokens).toEqual(resolved);
+  }, 10_000);
+
+  it("never fires onBatch for callers that don't ask for it (no behavior change)", async () => {
+    h.state.supabaseCount = FULL_CORPUS_TOKEN_FLOOR;
+    h.state.supabaseRows = makeSupabaseRowsAcrossSurahs(FULL_CORPUS_TOKEN_FLOOR / 25, 25);
+
+    const { loadFullCorpus } = await importLoader();
+    const tokens = await loadFullCorpus();
+
+    expect(tokens).toHaveLength(FULL_CORPUS_TOKEN_FLOOR);
   });
 });
 

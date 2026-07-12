@@ -13,7 +13,7 @@ import { SURAH_NAMES } from "@/lib/data/surahData";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
-import { prefersReducedMotion } from "@/lib/viz/motionPrefs";
+import { motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 
 interface CorpusArchitectureMapProps {
     tokens: CorpusToken[];
@@ -32,6 +32,28 @@ interface HierarchyNode {
     children?: HierarchyNode[];
     originalId?: number | string; // For syncing with global state
 }
+
+// Text is the expensive element in this graph (glyph shaping/layout + a
+// rotate transform + tspans), unlike a plain circle — `visibleNodes` culls
+// nodes against a generously padded box (800-1400px, see isInView below) so
+// circles get a pre-render head start and don't pop in while panning;
+// labels don't need that same buffer, so isLabelInView culls them against
+// the TRUE view bounds (the viewBox extent, viewRadius, plus this small
+// margin) instead. Nothing currently on-screen loses its label — this only
+// skips <text> for nodes already outside the visible area.
+const LABEL_VIEW_PADDING = 120;
+
+// Opacity for a surah whose corpus batch hasn't landed yet (see
+// `surahSkeleton` below) — dim enough to read as inert/pending against the
+// default 0.8, distinct from the 0.1-0.2 "dimmed by an active filter" range
+// used elsewhere in getOpacity.
+const PENDING_SURAH_OPACITY = 0.15;
+// Per-surah stagger for the batch-arrival reveal (corpus-arch-reveal /
+// corpus-arch-fade in globals.css) — ~40ms between surahs within one
+// batch, capped so even a large batch settles well under a second.
+// Zeroed under prefers-reduced-motion by motionSafeStagger itself.
+const REVEAL_STAGGER_MS = 40;
+const REVEAL_STAGGER_CAP_MS = 400;
 
 export default function CorpusArchitectureMap({
     tokens,
@@ -63,6 +85,15 @@ export default function CorpusArchitectureMap({
     });
 
     const [dimensions] = useState({ width: 1600, height: 1600 });
+    // Shared by the dynamic hierarchy layout below AND surahSkeleton (the
+    // fixed 114-surah ring) so both cluster computations always agree on
+    // the surah ring's radius — see surahSkeleton for why that agreement
+    // matters. `dimensions` never actually changes after mount (no resize
+    // observer wires the setter here), so this is effectively a constant.
+    const layoutRadius = useMemo(
+        () => Math.max(180, Math.min(dimensions.width, dimensions.height) / 2 - 200),
+        [dimensions]
+    );
     const [hoveredNode, setHoveredNode] = useState<d3.HierarchyPointNode<HierarchyNode> | null>(null);
     const [focusedSurahId, setFocusedSurahId] = useState<number | null>(null);
     const [internalSelectedRoot, setInternalSelectedRoot] = useState<string | null>(null);
@@ -95,6 +126,24 @@ export default function CorpusArchitectureMap({
         // cleanup not needed anymore
     }, []);
 
+    // `tokens` gets a new array reference on every parent re-render even when
+    // the corpus content is unchanged — useCorpusData rebuilds `allTokens`
+    // whenever contextTokens churns on surah navigation, even once the real
+    // (deepTokens) source is already stable (see docs/VIZ_ARCHITECTURE.md,
+    // "Corpus data streams in"). Depending on `tokens` directly would redo
+    // the whole layout chain below (cluster layout + every root offset/
+    // angle/color memo) on each such churn. Key on a cheap content signature
+    // (count + first/last token id) instead, so those memos only re-run when
+    // the corpus content actually changed. This follows React's own
+    // "adjust state while rendering" pattern for derived state.
+    const tokensSignature = `${tokens.length}:${tokens[0]?.id ?? ""}:${tokens[tokens.length - 1]?.id ?? ""}`;
+    const [stableTokens, setStableTokens] = useState(tokens);
+    const [tokensSignatureSeen, setTokensSignatureSeen] = useState(tokensSignature);
+    if (tokensSignature !== tokensSignatureSeen) {
+        setTokensSignatureSeen(tokensSignature);
+        setStableTokens(tokens);
+    }
+
     // Pre-compute surah root counts (stable across focus changes)
     const surahRootData = useMemo(() => {
         const surahMap = new Map<number, {
@@ -103,7 +152,7 @@ export default function CorpusArchitectureMap({
             rootCounts: Map<string, number>
         }>();
 
-        tokens.forEach(t => {
+        stableTokens.forEach(t => {
             if (!surahMap.has(t.sura)) {
                 surahMap.set(t.sura, { id: t.sura, tokenCount: 0, rootCounts: new Map() });
             }
@@ -114,7 +163,49 @@ export default function CorpusArchitectureMap({
             }
         });
         return surahMap;
-    }, [tokens]);
+    }, [stableTokens]);
+
+    // Batch-arrival reveal bookkeeping (mirrors SurahDistributionGraph's
+    // hasCommittedInitialNodesRef pattern, per-surah instead of once-
+    // overall): `revealedSurahIdsRef` marks every surah that has ALREADY
+    // had its one-time reveal, so a later re-render (hover, focus click,
+    // zoom — anything that doesn't add new data) never re-triggers it or
+    // saddles an ordinary opacity change (e.g. hover dimming) with a stale
+    // stagger delay. Root nodes/links need no equivalent tracking: they
+    // don't exist in the DOM until their surah is loaded, so their CSS
+    // `animation` (`.corpus-arch-reveal` in globals.css) only ever plays
+    // once, at that one mount, for free.
+    const revealedSurahIdsRef = useRef<Set<number>>(new Set());
+    useEffect(() => {
+        surahRootData.forEach((_data, suraId) => {
+            revealedSurahIdsRef.current.add(suraId);
+        });
+    }, [surahRootData]);
+
+    // Stagger delay (ms) for surahs loaded as of THIS render, keyed by surah
+    // id — 0 once a surah has already been revealed in a past render. Root
+    // nodes/links inherit their parent surah's delay so a surah's dot
+    // brightening and its roots fanning out read as one arrival rather than
+    // root-by-root noise. Deliberately NOT a useMemo: it reads a ref that's
+    // mutated from an effect (so it can't be a dependency), and a memo keyed
+    // only on `surahRootData` would keep returning a past batch's non-zero
+    // delays on a later re-render that changes an already-revealed surah's
+    // opacity for an unrelated reason (e.g. hover) — recomputing this every
+    // render (at most 114 entries) is cheap enough that memoizing isn't
+    // worth that staleness risk.
+    const revealDelayMsBySurah = (() => {
+        const delays = new Map<number, number>();
+        let newlyRevealedIndex = 0;
+        for (const suraId of Array.from(surahRootData.keys()).sort((a, b) => a - b)) {
+            if (revealedSurahIdsRef.current.has(suraId)) {
+                delays.set(suraId, 0);
+            } else {
+                delays.set(suraId, motionSafeStagger(newlyRevealedIndex, REVEAL_STAGGER_MS, REVEAL_STAGGER_CAP_MS));
+                newlyRevealedIndex++;
+            }
+        }
+        return delays;
+    })();
 
     const focusedSurahStats = useMemo(() => {
         if (!focusedSurahId) return null;
@@ -127,7 +218,12 @@ export default function CorpusArchitectureMap({
 
     // Build Hierarchy Data
     // Level 0: Corpus
-    // Level 1: Surahs
+    // Level 1: Surahs — ALL 114, from static SURAH_NAMES, not just the ones
+    //   with token data yet. A surah with no `surahRootData` entry (its
+    //   corpus batch hasn't landed) gets zero root children and renders as
+    //   a dim "pending" node (see getOpacity) — see surahSkeleton below for
+    //   why this is also what keeps every surah's ANGLE fixed from first
+    //   paint regardless of load progress.
     // Level 2: Roots — ALL roots for focused surah, top N for others
     const hierarchyData = useMemo(() => {
         const root: HierarchyNode = {
@@ -141,10 +237,26 @@ export default function CorpusArchitectureMap({
         const UNFOCUSED_LIMIT = 10; // compact summary for unfocused surahs
         const activeHighlight = highlightRoot || internalSelectedRoot;
 
-        Array.from(surahRootData.entries())
-            .sort((a, b) => a[0] - b[0])
-            .forEach(([suraId, data]) => {
+        Object.keys(SURAH_NAMES)
+            .map(Number)
+            .sort((a, b) => a - b)
+            .forEach((suraId) => {
                 const surahName = SURAH_NAMES[suraId]?.name || `Surah ${suraId}`;
+                const data = surahRootData.get(suraId);
+
+                if (!data) {
+                    // Pending: no token data has streamed in for this surah yet.
+                    root.children!.push({
+                        id: `s-${suraId}`,
+                        name: surahName,
+                        type: "surah",
+                        value: 0,
+                        originalId: suraId,
+                        children: []
+                    });
+                    return;
+                }
+
                 const isFocused = suraId === focusedSurahId;
 
                 // Sort roots by frequency (descending)
@@ -186,7 +298,13 @@ export default function CorpusArchitectureMap({
         return root;
     }, [surahRootData, focusedSurahId, highlightRoot, internalSelectedRoot]);
 
-    // Layout Calculation
+    // Layout Calculation. NOTE: as of the static skeleton below, this
+    // dynamic cluster's own per-node `x`/`y` are only used for the CORPUS
+    // node (always r=0) and as a defensive fallback — SURAH and ROOT
+    // render position comes from surahSkeleton/getNodeAngle/getNodeRadius
+    // instead, precisely so it stays fixed while `hierarchyData` grows.
+    // This computation still matters for everything else: which nodes/
+    // links exist, ranks, counts, ancestor/descendant relationships.
     const { nodes, links } = useMemo(() => {
         const hierarchy = d3.hierarchy(hierarchyData);
 
@@ -194,7 +312,6 @@ export default function CorpusArchitectureMap({
         // Tree layout puts them at depth based on parent
         // For radial dendrogram, cluster is usually better for alignment
         // Keep radius smaller to reserve space for root offsets
-        const layoutRadius = Math.max(180, Math.min(dimensions.width, dimensions.height) / 2 - 200);
         const layout = d3.cluster<HierarchyNode>()
             .size([360, layoutRadius])
             .separation((a, b) => (a.parent === b.parent ? 2 : 3) / a.depth);
@@ -205,46 +322,61 @@ export default function CorpusArchitectureMap({
             nodes: root.descendants(),
             links: root.links()
         };
-    }, [hierarchyData, dimensions]);
+    }, [hierarchyData, layoutRadius]);
 
     // Helpers
-    const hoveredDescendants = useMemo(() => {
+    // Hover highlight set: descendants (hover a surah -> light up its roots)
+    // UNION ancestors (hover a root -> light up its surah + the corpus root),
+    // memoized once per hoveredNode change. getOpacity() used to re-walk the
+    // ancestor chain with `===` comparisons for EVERY node/link on EVERY
+    // render (~9-12k calls at focus/overview); this turns that into a single
+    // O(1) Set lookup.
+    const hoveredRelationIds = useMemo(() => {
         if (!hoveredNode) return null;
-        return new Set(hoveredNode.descendants().map((node) => node.data.id));
-    }, [hoveredNode]);
-
-    const getOpacity = (d: d3.HierarchyPointNode<HierarchyNode>) => {
-        if (focusedSurahId) {
-            const focusId = `s-${focusedSurahId}`;
-            if (d.data.id === "corpus") return 0.6;
-            if (d.data.id === focusId) return 1;
-            if (d.parent?.data.id === focusId) return 1;
-            if (d.data.type === "surah") return 0.2;
-            return 0.05;
-        }
-
-        // If we are filtering by root (either from parent or internal selection):
-        const activeRoot = highlightRoot || internalSelectedRoot;
-        if (activeRoot) {
-            const isMatch = d.data.type === 'word_root' && d.data.originalId === activeRoot;
-            const isParentSurah = d.children?.some(child => child.data.originalId === activeRoot);
-
-            if (isMatch || isParentSurah) return 1;
-            return 0.1; // Dim others more
-        }
-
-        if (!hoveredNode) return 0.8; // Default opacity high
-
+        const ids = new Set<string>();
+        hoveredNode.descendants().forEach((node) => ids.add(node.data.id));
         let current: d3.HierarchyPointNode<HierarchyNode> | null = hoveredNode;
         while (current) {
-            if (current === d) return 1;
+            ids.add(current.data.id);
             current = current.parent;
         }
-        if (hoveredNode === d) return 1;
-        if (hoveredDescendants?.has(d.data.id)) return 1;
+        return ids;
+    }, [hoveredNode]);
 
-        return 0.1;
-    };
+    const getOpacity = useCallback(
+        (d: d3.HierarchyPointNode<HierarchyNode>) => {
+            // Pending surah (its corpus batch hasn't landed yet): always
+            // dim, regardless of hover/focus/root-filter — there are no
+            // roots to highlight yet, and this must win over every other
+            // branch below so a still-loading surah never reads as active.
+            if (d.data.type === "surah" && !surahRootData.has(d.data.originalId as number)) {
+                return PENDING_SURAH_OPACITY;
+            }
+
+            if (focusedSurahId) {
+                const focusId = `s-${focusedSurahId}`;
+                if (d.data.id === "corpus") return 0.6;
+                if (d.data.id === focusId) return 1;
+                if (d.parent?.data.id === focusId) return 1;
+                if (d.data.type === "surah") return 0.2;
+                return 0.05;
+            }
+
+            // If we are filtering by root (either from parent or internal selection):
+            const activeRoot = highlightRoot || internalSelectedRoot;
+            if (activeRoot) {
+                const isMatch = d.data.type === 'word_root' && d.data.originalId === activeRoot;
+                const isParentSurah = d.children?.some(child => child.data.originalId === activeRoot);
+
+                if (isMatch || isParentSurah) return 1;
+                return 0.1; // Dim others more
+            }
+
+            if (!hoveredNode) return 0.8; // Default opacity high
+            return hoveredRelationIds?.has(d.data.id) ? 1 : 0.1;
+        },
+        [focusedSurahId, highlightRoot, internalSelectedRoot, hoveredNode, hoveredRelationIds, surahRootData]
+    );
 
     const themeColors = resolveVisualizationTheme(theme);
 
@@ -279,7 +411,7 @@ export default function CorpusArchitectureMap({
 
     const rootGlobalStats = useMemo(() => {
         const stats = new Map<string, { total: number; gloss: string }>();
-        tokens.forEach((t) => {
+        stableTokens.forEach((t) => {
             if (!t.root) return;
             if (!stats.has(t.root)) {
                 stats.set(t.root, { total: 0, gloss: t.morphology?.gloss ?? "" });
@@ -288,7 +420,7 @@ export default function CorpusArchitectureMap({
             entry.total++;
         });
         return stats;
-    }, [tokens]);
+    }, [stableTokens]);
     const maxRootGlobalCount = useMemo(
         () => Math.max(1, ...Array.from(rootGlobalStats.values()).map((entry) => entry.total)),
         [rootGlobalStats]
@@ -344,7 +476,13 @@ export default function CorpusArchitectureMap({
         setRootSearchQuery("");
     }, [rootGlobalStats, onNodeSelect]);
 
-    // Corpus coverage stats: how much of the data is shown in the visualization  
+    // Corpus coverage stats: how much of the data is shown in the visualization.
+    // totalTokens/totalSurahs used to re-walk the raw `tokens` array (an O(n)
+    // scan, and a dependency that fired this memo on every reference-only
+    // `tokens` churn); both are exactly reconstructable from `surahRootData`
+    // (per-surah tokenCount sums to the total; its keys are the unique
+    // surahs), which is itself signature-gated above — so this memo no
+    // longer needs `tokens` at all.
     const corpusCoverage = useMemo(() => {
         const totalUniqueRoots = rootGlobalStats.size;
         const displayedRootIds = new Set<string>();
@@ -354,8 +492,9 @@ export default function CorpusArchitectureMap({
             }
         });
         const displayedUniqueRoots = displayedRootIds.size;
-        const totalTokens = tokens.length;
-        const totalSurahs = new Set(tokens.map(t => t.sura)).size;
+        let totalTokens = 0;
+        surahRootData.forEach((entry) => { totalTokens += entry.tokenCount; });
+        const totalSurahs = surahRootData.size;
 
         // Count roots for focused surah specifically
         const focusedSurahRootCount = focusedSurahId
@@ -363,7 +502,7 @@ export default function CorpusArchitectureMap({
             : 0;
 
         return { totalUniqueRoots, displayedUniqueRoots, totalTokens, totalSurahs, focusedSurahRootCount };
-    }, [rootGlobalStats, nodes, tokens, focusedSurahId, surahRootData]);
+    }, [rootGlobalStats, nodes, focusedSurahId, surahRootData]);
 
     const rootVisibilityLimit = useMemo(() => {
         if (focusSurahNodeId) {
@@ -472,19 +611,88 @@ export default function CorpusArchitectureMap({
                 ? getIdentityColor("root-legend", theme)
                 : themeColors.nodeColors.default;
 
+    // Stable 114-surah ring: a SEPARATE cluster layout over static
+    // SURAH_NAMES metadata only (corpus -> 114 surah leaves, each with one
+    // synthetic, never-rendered placeholder child purely so its computed
+    // HEIGHT — and therefore its normalized radius — matches the real
+    // corpus->surah->root depth of 2 regardless of whether real root data
+    // has arrived). Because this never depends on `tokens`/`hierarchyData`,
+    // every surah's angle AND radius are fixed from first paint and never
+    // reshuffle as batches land — the fix for the dynamic hierarchy above
+    // reflowing the WHOLE ring every time any surah's root count changes
+    // (d3.cluster spaces leaves by cumulative separation across the entire
+    // tree, so one surah gaining roots used to nudge every other surah's
+    // angle too). Root nodes still fan out from their surah via the
+    // existing rootOffsetById/rootAngleOffsetById additive offsets below.
+    const surahSkeleton = useMemo(() => {
+        const skeletonRoot: HierarchyNode = {
+            id: "corpus",
+            name: "corpus",
+            type: "corpus",
+            value: 1,
+            children: Object.keys(SURAH_NAMES)
+                .map(Number)
+                .sort((a, b) => a - b)
+                .map((suraId) => ({
+                    id: `s-${suraId}`,
+                    name: SURAH_NAMES[suraId]?.name ?? `Surah ${suraId}`,
+                    type: "surah" as const,
+                    value: 1,
+                    originalId: suraId,
+                    children: [{
+                        id: `s-${suraId}-placeholder`,
+                        name: "",
+                        type: "word_root" as const,
+                        value: 1,
+                    }],
+                })),
+        };
+
+        const layout = d3.cluster<HierarchyNode>()
+            .size([360, layoutRadius])
+            .separation((a, b) => (a.parent === b.parent ? 2 : 3) / a.depth);
+        const laidOut = layout(d3.hierarchy(skeletonRoot));
+
+        const angleDegById = new Map<number, number>();
+        const radiusById = new Map<number, number>();
+        laidOut.children?.forEach((surahNode) => {
+            const suraId = surahNode.data.originalId as number;
+            angleDegById.set(suraId, surahNode.x);
+            radiusById.set(suraId, surahNode.y);
+        });
+        return { angleDegById, radiusById };
+    }, [layoutRadius]);
+
+    // Both callbacks below resolve SURAH/ROOT position from surahSkeleton
+    // (fixed) rather than the dynamic hierarchy's own per-render x/y — see
+    // surahSkeleton's comment. `null` (corpus, or the unused legacy "root"
+    // type) means "center", where angle is irrelevant at radius 0.
+    const surahIdForNode = useCallback((node: d3.HierarchyPointNode<HierarchyNode>): number | null => {
+        if (node.data.type === "surah") return node.data.originalId as number;
+        if (node.data.type === "word_root") return (node.parent?.data.originalId as number | undefined) ?? null;
+        return null;
+    }, []);
+
     const getNodeRadius = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
-            return node.y + (rootOffsetById.get(node.data.id) ?? 0);
+            const suraId = surahIdForNode(node);
+            if (suraId === null) return 0;
+            const base = surahSkeleton.radiusById.get(suraId) ?? node.y;
+            const offset = node.data.type === "word_root" ? (rootOffsetById.get(node.data.id) ?? 0) : 0;
+            return base + offset;
         },
-        [rootOffsetById]
+        [surahIdForNode, surahSkeleton, rootOffsetById]
     );
 
     const getNodeAngle = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
-            const offset = rootAngleOffsetById.get(node.data.id) ?? 0;
-            return (node.x + offset) * Math.PI / 180;
+            const suraId = surahIdForNode(node);
+            if (suraId === null) return 0;
+            const base = surahSkeleton.angleDegById.get(suraId) ?? node.x;
+            const offset = node.data.type === "word_root" ? (rootAngleOffsetById.get(node.data.id) ?? 0) : 0;
+            return (base + offset) * Math.PI / 180;
         },
-        [rootAngleOffsetById]
+        [surahIdForNode, surahSkeleton, rootAngleOffsetById]
     );
 
     const radialLink = useMemo(
@@ -595,6 +803,22 @@ export default function CorpusArchitectureMap({
         [rootOffsetById]
     );
 
+    // See LABEL_VIEW_PADDING above for why this is a tighter box than
+    // visibleNodes' own isInView.
+    const isLabelInView = useCallback(
+        (x: number, y: number) => {
+            const screenX = x * deferredZoom.k + deferredZoom.x;
+            const screenY = y * deferredZoom.k + deferredZoom.y;
+            return (
+                screenX >= -viewRadius - LABEL_VIEW_PADDING &&
+                screenX <= viewRadius + LABEL_VIEW_PADDING &&
+                screenY >= -viewRadius - LABEL_VIEW_PADDING &&
+                screenY <= viewRadius + LABEL_VIEW_PADDING
+            );
+        },
+        [deferredZoom, viewRadius]
+    );
+
     return (
         <section
             className="immersive-viz viz-fullwidth"
@@ -664,9 +888,11 @@ export default function CorpusArchitectureMap({
                                         </div>
                                         <div className="viz-tooltip-row">
                                             <span className="viz-tooltip-label">{ts("totalInQuran")}</span>
-                                            {/* We can calculate total from tokens if available in scope, or just show what we have */}
+                                            {/* Same figure as tokens.filter(t => t.root === root).length,
+                                                read from the already-aggregated map instead of re-scanning
+                                                every token on each render. */}
                                             <span className="viz-tooltip-value">
-                                                {tokens.filter(t => t.root === selectedRootInfo.root).length}
+                                                {rootGlobalStats.get(selectedRootInfo.root)?.total ?? 0}
                                             </span>
                                         </div>
                                     </motion.div>
@@ -782,7 +1008,7 @@ export default function CorpusArchitectureMap({
                     <g ref={gRef}>
                         {/* Links */}
                         <g className="links" fill="none" strokeWidth={1}>
-                            {visibleLinks.map((link, i) => {
+                            {visibleLinks.map((link) => {
                                 const isSourceRoot = link.source.data.id === 'corpus';
                                 const stroke = isSourceRoot
                                     ? "var(--line)"
@@ -794,8 +1020,25 @@ export default function CorpusArchitectureMap({
                                     link.target.parent?.data.id === focusSurahNodeId
                                     : false;
                                 const pathD = radialLink(link) || "";
+                                // Surah->root links don't exist in the DOM until their surah's
+                                // batch lands (see hierarchyData) — corpus->surah links exist
+                                // for all 114 surahs from first paint, so only surah->root
+                                // links get the mount-time entrance; both get the plain
+                                // value-change fade (e.g. a spoke brightening once its surah
+                                // loads). Delay is inherited from the parent surah so a
+                                // surah's dot and its roots read as one arrival.
+                                const isSurahToRootLink = !isSourceRoot;
+                                const revealDelayMs = isSurahToRootLink
+                                    ? revealDelayMsBySurah.get(link.source.data.originalId as number) ?? 0
+                                    : 0;
                                 return (
-                                    <g key={i}>
+                                    // Keyed by pair identity, not array index: `visibleLinks`
+                                    // grows/reorders as batches stream in, and an index key
+                                    // would let React silently reuse an unrelated link's DOM
+                                    // node (and its still-pending reveal-animation mount) for
+                                    // a completely different pair (see docs/VIZ_ARCHITECTURE.md,
+                                    // "Key edges by pair identity, never array index").
+                                    <g key={`${link.source.data.id}->${link.target.data.id}`}>
                                         <path
                                             d={pathD}
                                             stroke={stroke}
@@ -805,7 +1048,14 @@ export default function CorpusArchitectureMap({
                                                     : Math.min(getOpacity(link.source), getOpacity(link.target)) * 0.5
                                             }
                                             strokeWidth={isFocusLink ? 1.6 : 1}
-                                            className="transition-all duration-500"
+                                            // `d` is recomputed on every zoom/layout change — never `transition-all`
+                                            // here or the browser eases the rendered path toward each new `d` while
+                                            // React writes the attribute instantly (the wire-lag defect fixed on
+                                            // RootNetworkGraph's .edge/.node-circle; see docs/VIZ_ARCHITECTURE.md,
+                                            // "Never transition: all on SVG geometry"). Opacity-only — see
+                                            // .corpus-arch-fade / .corpus-arch-reveal in globals.css.
+                                            className={`corpus-arch-fade${isSurahToRootLink ? " corpus-arch-reveal" : ""}`}
+                                            style={isSurahToRootLink ? { animationDelay: `${revealDelayMs}ms` } : undefined}
                                             pointerEvents="none"
                                         />
                                         <path
@@ -843,12 +1093,31 @@ export default function CorpusArchitectureMap({
                                 const y = position.y;
                                 const isHighlighted = getOpacity(node) === 1;
                                 const showLabel =
-                                    node.data.type === "surah" ||
-                                    (node.data.type === "word_root" &&
-                                        (lodMode === "full" ||
-                                            isHighlighted ||
-                                            (highlightRoot && node.data.originalId === highlightRoot) ||
-                                            (focusSurahNodeId && node.parent?.data.id === focusSurahNodeId)));
+                                    (node.data.type === "surah" ||
+                                        (node.data.type === "word_root" &&
+                                            (lodMode === "full" ||
+                                                isHighlighted ||
+                                                (highlightRoot && node.data.originalId === highlightRoot) ||
+                                                (focusSurahNodeId && node.parent?.data.id === focusSurahNodeId)))) &&
+                                    isLabelInView(x, y);
+
+                                // Surah nodes exist (as dim "pending" placeholders) from the
+                                // very first paint and only ever CHANGE opacity value once
+                                // loaded — that's a plain value-change transition
+                                // (.corpus-arch-fade). Root nodes don't exist until their
+                                // surah's batch lands, so they get the mount-time entrance
+                                // too (.corpus-arch-reveal) — see the links block above for
+                                // why corpus/surah-level geometry never needs that class.
+                                // Either way the delay is the parent surah's reveal slot, so
+                                // a surah's dot and its roots read as one arrival.
+                                const suraIdForReveal =
+                                    node.data.type === "surah"
+                                        ? (node.data.originalId as number)
+                                        : node.data.type === "word_root"
+                                            ? (node.parent?.data.originalId as number | undefined)
+                                            : undefined;
+                                const revealDelayMs = suraIdForReveal !== undefined ? (revealDelayMsBySurah.get(suraIdForReveal) ?? 0) : 0;
+                                const isMountReveal = node.data.type === "word_root";
 
                                 return (
                                     <g
@@ -880,9 +1149,14 @@ export default function CorpusArchitectureMap({
                                                 onNodeSelect?.('root', root);
                                             }
                                         }}
-                                        style={{ cursor: 'pointer' }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            ...(isMountReveal
+                                                ? { animationDelay: `${revealDelayMs}ms` }
+                                                : { transitionDelay: `${revealDelayMs}ms` }),
+                                        }}
                                         opacity={getOpacity(node)}
-                                        className="transition-opacity duration-300"
+                                        className={`corpus-arch-fade${isMountReveal ? " corpus-arch-reveal" : ""}`}
                                     >
                                         {isHighlighted && node.data.type !== "corpus" && (
                                             <circle

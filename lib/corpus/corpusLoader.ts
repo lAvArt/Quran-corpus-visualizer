@@ -30,10 +30,60 @@ export interface LoadingProgress {
 
 export type ProgressCallback = (progress: LoadingProgress) => void;
 
+export interface CorpusBatchMeta {
+    /** Surah IDs fully represented in `tokensSoFar`, ascending, cumulative since this load started. */
+    completedSurahs: number[];
+    /** True on the final call — its token array is the complete, final result (same array `loadFullCorpus` itself resolves with). */
+    done: boolean;
+}
+
+/**
+ * Progressive-reveal hook for `loadFullCorpus`: fires as WHOLE surahs finish
+ * loading (never mid-surah), roughly every `BATCH_SURAH_SIZE` surahs, so a
+ * caller can render a streaming corpus instead of waiting for the entire
+ * load. Purely additive — callers that omit it see identical behavior to
+ * before batching existed.
+ */
+export type BatchCallback = (tokensSoFar: CorpusToken[], meta: CorpusBatchMeta) => void;
+
 const sampleMorphologyMap = buildSampleMorphologyMap(SAMPLE_MORPHOLOGY_DATA);
 const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
 const MORPHOLOGY_CACHE_VERSION = "qac-0.4.3-enrich-all-surahs";
 let cachePolicyInFlight: Promise<void> | null = null;
+
+// ~12 emissions across the 114-surah corpus — enough for a visibly
+// sequential reveal without re-deriving downstream layouts (cluster
+// hierarchies, force sims) so often that it thrashes them.
+const BATCH_SURAH_SIZE = 10;
+
+/**
+ * Tracks whole-surah completion for the `onBatch` progressive-reveal
+ * callback. Callers report each surah exactly once, in ascending order, via
+ * `completeSurah`, passing the running token array (already containing that
+ * surah's tokens) — this only DECIDES when to emit; it copies the array
+ * solely at the moment it actually fires, so tracking a load with no
+ * `onBatch` listener costs nothing extra.
+ */
+class SurahBatchTracker {
+    private completedSurahs: number[] = [];
+    private pendingSinceEmit = 0;
+
+    constructor(private readonly onBatch: BatchCallback | undefined) { }
+
+    completeSurah(suraId: number, tokensSoFar: CorpusToken[]): void {
+        this.completedSurahs.push(suraId);
+        this.pendingSinceEmit++;
+        if (this.onBatch && this.pendingSinceEmit >= BATCH_SURAH_SIZE) {
+            this.onBatch(tokensSoFar.slice(), { completedSurahs: [...this.completedSurahs], done: false });
+            this.pendingSinceEmit = 0;
+        }
+    }
+
+    /** Always fires (even with nothing new since the last batch) so a listener reliably observes `done: true`. */
+    finish(tokensSoFar: CorpusToken[]): void {
+        this.onBatch?.(tokensSoFar, { completedSurahs: [...this.completedSurahs], done: true });
+    }
+}
 
 /** True when this metadata record proves the cached tokens carry current morphology. */
 function metadataHasCurrentMorphology(metadata: CacheMetadata | null): boolean {
@@ -209,7 +259,8 @@ const SUPABASE_PAGE_SIZE = 1000; // rows per query
  * Returns null if the table is empty or the query fails (caller should fall back).
  */
 async function loadCorpusFromSupabase(
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    onBatch?: BatchCallback
 ): Promise<CorpusToken[] | null> {
     try {
         const supabase = createClient();
@@ -236,6 +287,20 @@ async function loadCorpusFromSupabase(
 
         const allTokens: CorpusToken[] = [];
         let from = 0;
+        // Rows arrive globally ordered by (sura, ayah, position) across pages,
+        // so every surah strictly below the highest one seen so far is
+        // guaranteed fully read — the highest one might still have rows in
+        // the next page, unless this was the final page. That's enough to
+        // batch by whole surahs without any extra grouping query. The page
+        // boundary itself rarely lines up with a surah boundary, though, so
+        // `allTokens` can carry a trailing PARTIAL surah's rows past
+        // `highestCompletedSura` — `completeIndex` tracks how far into
+        // `allTokens` is safe to hand out, advancing (never rescanning) as
+        // more surahs are confirmed complete, so every emitted snapshot ends
+        // exactly at a surah boundary.
+        const batchTracker = new SurahBatchTracker(onBatch);
+        let highestCompletedSura = 0;
+        let completeIndex = 0;
 
         while (from < count) {
             const { data, error } = await supabase
@@ -270,7 +335,23 @@ async function loadCorpusFromSupabase(
 
             from += data.length;
             onProgress?.({ currentSura: allTokens[allTokens.length - 1]?.sura ?? 0, totalSuras: 114, currentTokens: allTokens.length, totalTokens: count, status: 'loading', message: `Loaded ${allTokens.length.toLocaleString()} / ${count.toLocaleString()} tokens from Supabase…` });
+
+            const isFinalPage = from >= count;
+            const highestSuraSeen = allTokens[allTokens.length - 1]?.sura ?? highestCompletedSura;
+            const completeThrough = isFinalPage ? highestSuraSeen : highestSuraSeen - 1;
+            if (completeThrough > highestCompletedSura) {
+                while (completeIndex < allTokens.length && allTokens[completeIndex].sura <= completeThrough) {
+                    completeIndex++;
+                }
+                const completeSnapshot = allTokens.slice(0, completeIndex);
+                for (let suraId = highestCompletedSura + 1; suraId <= completeThrough; suraId++) {
+                    batchTracker.completeSurah(suraId, completeSnapshot);
+                }
+                highestCompletedSura = completeThrough;
+            }
         }
+
+        batchTracker.finish(allTokens);
 
         console.log(`[CorpusLoader] Supabase: loaded ${allTokens.length.toLocaleString()} tokens`);
         return allTokens;
@@ -292,8 +373,16 @@ async function loadCorpusFromSupabase(
  *
  * Concurrent calls within the same session return the same in-flight promise,
  * so the corpus is never fetched more than once per page lifetime.
+ *
+ * `onBatch` (optional) fires as whole surahs finish loading — see
+ * `BatchCallback`. The in-memory singleton and IndexedDB-cache hits below
+ * resolve the full result near-instantly (sub-second, local-only I/O), so
+ * there's nothing meaningful to progressively reveal there; `onBatch` only
+ * fires more than once on the genuinely sequential Supabase/Quran.com paths
+ * inside `_doLoadFullCorpus`. Either way, the promise always resolves with
+ * the same final array a batch-unaware caller would have gotten before.
  */
-export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusToken[]> {
+export function loadFullCorpus(onProgress?: ProgressCallback, onBatch?: BatchCallback): Promise<CorpusToken[]> {
     // 1. In-memory hit — no I/O at all
     if (_memoryTokens) {
         onProgress?.({ currentSura: 114, totalSuras: 114, currentTokens: _memoryTokens.length, totalTokens: _memoryTokens.length, status: 'complete', message: `Loaded ${_memoryTokens.length.toLocaleString()} tokens (in-memory)` });
@@ -302,7 +391,7 @@ export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusTok
     // 2. Deduplicate concurrent calls
     if (_activeLoad) return _activeLoad;
 
-    _activeLoad = _doLoadFullCorpus(onProgress).then(tokens => {
+    _activeLoad = _doLoadFullCorpus(onProgress, onBatch).then(tokens => {
         _memoryTokens = tokens;
         _activeLoad = null;
         return tokens;
@@ -348,7 +437,8 @@ export async function loadSurahContext(suraId: number): Promise<CorpusToken[]> {
 }
 
 async function _doLoadFullCorpus(
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    onBatch?: BatchCallback
 ): Promise<CorpusToken[]> {
     const progress: LoadingProgress = {
         currentSura: 0,
@@ -407,7 +497,7 @@ async function _doLoadFullCorpus(
         progress.message = 'Checking Supabase corpus…';
         notify();
 
-        const supabaseTokens = await loadCorpusFromSupabase(onProgress);
+        const supabaseTokens = await loadCorpusFromSupabase(onProgress, onBatch);
         if (supabaseTokens && supabaseTokens.length > 0) {
             // Fill any missing roots/morphology from the authoritative QAC file so
             // EVERY surah (not just Al-Fatihah) renders POS-coloured bars + arcs.
@@ -449,6 +539,10 @@ async function _doLoadFullCorpus(
 
         const allTokens: CorpusToken[] = [];
         const allVerses: AyahRecord[] = [];
+        // This loop already processes chapters strictly in ascending order
+        // (Quran.com's `getChapters()` returns 1..N), one whole surah per
+        // iteration — the natural place to report whole-surah batches.
+        const batchTracker = new SurahBatchTracker(onBatch);
 
         for (let i = 0; i < chapters.length; i++) {
             const chapter = chapters[i];
@@ -500,11 +594,17 @@ async function _doLoadFullCorpus(
                 }
             }
 
+            // Whole surah is settled (fetched or fell back) either way —
+            // this is the atomic unit `onBatch` reports on.
+            batchTracker.completeSurah(chapter.id, allTokens);
+
             // Small delay to avoid rate limiting
             if (i < chapters.length - 1) {
                 await new Promise(r => setTimeout(r, 100));
             }
         }
+
+        batchTracker.finish(allTokens);
 
         // Cache the loaded tokens AND verses
         progress.status = 'caching';
