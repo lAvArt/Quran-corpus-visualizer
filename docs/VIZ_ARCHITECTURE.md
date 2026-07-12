@@ -219,6 +219,13 @@ Known, deliberately deferred (next iterations):
   (20:94:2 يَبْنَؤُمَّ: بني vs امم); align the pipelines.
 - Dependency-tree initial placement is a fixed-scale translate (not fitBoundsToView) —
   one token box can still kiss the dock edge; migrate it to the shared fit.
+- **MorphologyInspector is near-illegible in light theme**: most of its text uses
+  hardcoded dark-theme hex/rgba instead of tokens (the dictionary badges added 2026-07
+  are the only token-correct part). Tokenize the mi-* styles.
+- Dictionary links (Almaany/Doha, restored into the inspector) pass the raw corpus
+  root form (plain alif) — both sites land on their search page for non-citation
+  forms; if lookups miss for hamza-family roots (امن vs أمن), consider mapping to
+  citation orthography before linking.
 
 ## Review checklist for viz changes
 

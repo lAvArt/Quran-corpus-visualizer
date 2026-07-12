@@ -418,6 +418,8 @@
             "preview": "PREVIEW"
         },
         "clearSelection": "Clear selection",
+        "almaanyAria": "Look up {word} in Almaany dictionary",
+        "dohaAria": "Look up {word} in the Doha Historical Dictionary",
         "sections": {
             "morphology": "Morphology",
             "translation": "Translation",

@@ -207,6 +207,47 @@ export default function MorphologyInspector({
         return Array.from(root).join(" · ");
     };
 
+    /**
+     * Calm external-dictionary lookup badges for a root/lemma value.
+     * `word` must be the raw (undotted) corpus string — Almaany takes it
+     * as-is in the path, Doha needs it percent-encoded (parity with the
+     * legacy CurrentSelectionPanel implementation this restores).
+     */
+    const renderDictBadges = (word: string) => (
+        <span className="mi-dict-badges">
+            <a
+                href={`https://www.almaany.com/ar/dict/ar-ar/${word}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mi-dict-badge"
+                aria-label={t("almaanyAria", { word })}
+                title={t("almaanyAria", { word })}
+            >
+                <span lang="ar" dir="rtl">{"المعاني"}</span>
+                <svg className="mi-dict-badge-icon" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+            </a>
+            <a
+                href={`https://www.dohadictionary.org/dictionary/${encodeURIComponent(word)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mi-dict-badge"
+                aria-label={t("dohaAria", { word })}
+                title={t("dohaAria", { word })}
+            >
+                <span lang="ar" dir="rtl">{"معجم الدوحة"}</span>
+                <svg className="mi-dict-badge-icon" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+            </a>
+        </span>
+    );
+
     if (!token) {
         return (
             <div className="mi-empty">
@@ -297,9 +338,12 @@ export default function MorphologyInspector({
                 <span className="mi-grid-label">ROOT</span>
                 <span className="mi-grid-value">
                     {token.root ? (
-                        <span className="mi-root-text" lang="ar" dir="rtl">
-                            {formatRootDotted(token.root)}
-                        </span>
+                        <>
+                            <span className="mi-root-text" lang="ar" dir="rtl">
+                                {formatRootDotted(token.root)}
+                            </span>
+                            {renderDictBadges(token.root)}
+                        </>
                     ) : (
                         <span className="mi-faint">{"—"}</span>
                     )}
@@ -308,7 +352,10 @@ export default function MorphologyInspector({
                 <span className="mi-grid-label">LEMMA</span>
                 <span className="mi-grid-value">
                     {token.lemma ? (
-                        <span className="mi-lemma-text" lang="ar" dir="rtl">{token.lemma}</span>
+                        <>
+                            <span className="mi-lemma-text" lang="ar" dir="rtl">{token.lemma}</span>
+                            {renderDictBadges(token.lemma)}
+                        </>
                     ) : (
                         <span className="mi-faint">{"—"}</span>
                     )}
@@ -547,6 +594,8 @@ export default function MorphologyInspector({
                 .mi-grid-value {
                     display: flex;
                     align-items: center;
+                    flex-wrap: wrap;
+                    gap: 6px 8px;
                 }
                 .mi-root-text {
                     font-family: 'Amiri', 'Traditional Arabic', serif;
@@ -561,6 +610,56 @@ export default function MorphologyInspector({
                     color: #ECE4D8;
                     direction: rtl;
                 }
+
+                /* ── Dictionary lookup badges (root/lemma rows) ──
+                     Quiet by default so they don't compete with the
+                     Arabic value; brighten to accent only on hover/focus.
+                     :global() is required here — these elements are built
+                     by the renderDictBadges() helper above rather than
+                     written inline in this component's JSX return, and
+                     styled-jsx only auto-scopes JSX literally inside the
+                     return tree; unscoped rules would otherwise silently
+                     no-op and fall back to the browser's default link style. */
+                :global(.mi-dict-badges) {
+                    display: inline-flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 4px;
+                }
+                :global(.mi-dict-badge) {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 3px;
+                    padding: 2px 7px;
+                    border-radius: 999px;
+                    border: 1px solid var(--line);
+                    color: var(--ink-muted);
+                    font-family: 'Amiri', 'Traditional Arabic', serif;
+                    font-size: 10.5px;
+                    line-height: 1.4;
+                    text-decoration: none;
+                    white-space: nowrap;
+                    transition: color 0.2s ease, border-color 0.2s ease;
+                }
+                :global(.mi-dict-badge:hover),
+                :global(.mi-dict-badge:focus-visible) {
+                    color: var(--accent);
+                    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+                }
+                :global(.mi-dict-badge:focus-visible) {
+                    outline: 2px solid var(--accent);
+                    outline-offset: 1px;
+                }
+                :global(.mi-dict-badge-icon) {
+                    opacity: 0.55;
+                    flex-shrink: 0;
+                    transition: opacity 0.2s ease;
+                }
+                :global(.mi-dict-badge:hover .mi-dict-badge-icon),
+                :global(.mi-dict-badge:focus-visible .mi-dict-badge-icon) {
+                    opacity: 0.9;
+                }
+
                 .mi-pos-pill {
                     display: inline-flex;
                     align-items: center;

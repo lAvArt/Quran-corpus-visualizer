@@ -420,6 +420,8 @@
             "preview": "معاينة"
         },
         "clearSelection": "إلغاء التحديد",
+        "almaanyAria": "ابحث عن {word} في معجم المعاني",
+        "dohaAria": "ابحث عن {word} في معجم الدوحة التاريخي",
         "sections": {
             "morphology": "الصرف",
             "translation": "الترجمة",
