@@ -9,7 +9,7 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { fitGraphToView } from "@/lib/viz/fitToView";
-import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
+import { motionSafeDuration, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 import { useTranslations } from "next-intl";
 
 interface RootNetworkGraphProps {
@@ -45,6 +45,75 @@ interface NetworkLink {
   weight: number;
 }
 
+// ---------------------------------------------------------------------------
+// Root constellation tuning — a mandala/solar-system, not a free scatter:
+// ROOT hubs sit on a gravitational orbit (or two, banded by frequency) around
+// the center glow; each hub's (<=3) lemma satellites are its close moons,
+// pulled in by a short, strong root->lemma link rather than joining any
+// shared ring themselves. The previous layout pinned every root to one FIXED
+// radius and every lemma to another with no regard for canvas size, which
+// produced a cramped two-ring hairball once a surah had 50+ nodes (see
+// docs/VIZ_ARCHITECTURE.md UX-debt ledger) — the fix scales the orbit to the
+// canvas and gives roots room to space out along it (via mutual repulsion),
+// not dropping the radial organization itself. Tuned against
+// `scripts/ux-shots.ts` renders of the corpus-wide default (30 roots) and a
+// small surah.
+// ---------------------------------------------------------------------------
+const LINK_HUG_DISTANCE = 16; // gap beyond radius+radius between a hub and its satellite
+const LINK_STRENGTH = 0.85;
+const ROOT_CHARGE = -320; // hub-hub repulsion — spaces hubs out along their orbit
+const LEMMA_CHARGE = -40; // satellite-satellite repulsion — stays local to its hub
+const CHARGE_DISTANCE_MAX_RATIO = 0.6; // x the canvas's longer side
+const ROOT_COLLIDE_PAD = 10; // extra radius so root labels have breathing room
+const LEMMA_COLLIDE_PAD = 3;
+// Root orbit: a single ring when there's room, or two frequency-banded rings
+// (the most frequent roots inner, the rest outer) once a single ring would be
+// crowded — reuses ROOT_LABEL_ALWAYS_THRESHOLD/ROOT_LABEL_TOP_N below so
+// "dense enough to need decluttering" and "which roots are most prominent"
+// stay one consistent judgment instead of two separately-tuned thresholds.
+const ROOT_ORBIT_SINGLE_RATIO = 0.32; // x min(canvasW, canvasH) — single-ring case
+const ROOT_ORBIT_INNER_RATIO = 0.2; // x min(canvasW, canvasH) — top roots, two-ring case
+const ROOT_ORBIT_OUTER_RATIO = 0.36; // x min(canvasW, canvasH) — the rest, two-ring case
+const ROOT_ORBIT_STRENGTH = 0.32;
+// "Layout is settled": the pre-tick loop's stop condition, the async
+// fallback's edge-reveal gate, and the auto-fit trigger all share this one
+// threshold (see the force-simulation effect below) rather than three
+// separately-tuned numbers.
+const SETTLE_ALPHA_THRESHOLD = 0.03;
+const PRE_TICK_MAX_ITERATIONS = 300;
+// Settle synchronously (headless, before first paint) up to this many nodes;
+// above it, fall back to the old async/animated settle instead, with edges
+// hidden until it's nearly done (see the effect below). Measured with
+// `scripts/ux-shots.ts`'s target surahs: ~96 nodes (the default 30-root-limit
+// view) pre-ticks in ~30ms; ~220 nodes already costs ~68ms — over a 50ms
+// jank budget — so this stays comfortably under that crossover. Only
+// power users cranking the (advanced-only) root-limit slider on a
+// root-dense surah reach it; the default/beginner experience never does.
+const SYNC_PRETICK_MAX_NODES = 150;
+const AUTO_FIT_DURATION_MS = 600;
+
+// Label hierarchy — with 30+ rendered roots (the corpus-wide default),
+// labeling every root/lemma is collision soup. Thin the default set and let
+// hover/selection/deep-link-highlight or zooming in reveal the rest.
+const ROOT_LABEL_ALWAYS_THRESHOLD = 24; // <= this many rendered roots: label them all, single orbit ring
+const ROOT_LABEL_TOP_N = 12; // above the threshold: only the N most frequent label by default + inner ring
+const ROOT_LABEL_ZOOM_THRESHOLD = 1.4; // zoomed in this far reveals the rest of the roots
+const LEMMA_LABEL_ZOOM_THRESHOLD = 1.8; // lemma labels need either focus or this much zoom
+
+// Center "stellar core" — a small, crisp sun anchoring the orbit, not the
+// old 100px diffuse blur. Fixed pixel sizes on purpose (not canvas-scaled):
+// the point is for it to stay small next to the orbit rings regardless of
+// canvas size.
+const SUN_CORE_RADIUS = 10; // near-white-warm hot core
+const SUN_GLOW_RADIUS = 80; // gradient reaches full transparency here
+const SUN_CORONA_RADIUS = SUN_CORE_RADIUS * 2; // thin accent ring echoing the orbit decoration
+
+function zoomTierFor(scale: number): 0 | 1 | 2 {
+  if (scale >= LEMMA_LABEL_ZOOM_THRESHOLD) return 2;
+  if (scale >= ROOT_LABEL_ZOOM_THRESHOLD) return 1;
+  return 0;
+}
+
 export default function RootNetworkGraph({
   tokens,
   onTokenHover,
@@ -72,7 +141,32 @@ export default function RootNetworkGraph({
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  // Current zoom tier (see zoomTierFor) — drives the label LOD reveal as the
+  // user zooms in. A tier (not the raw scale) so re-renders only happen on
+  // threshold crossings, not on every zoom-event delta.
+  const [zoomTier, setZoomTier] = useState<0 | 1 | 2>(0);
+  // True only on the large-N async fallback path (see the force-simulation
+  // effect / SYNC_PRETICK_MAX_NODES), from the moment the simulation starts
+  // until its alpha drops under SETTLE_ALPHA_THRESHOLD — hides edges while
+  // true so the "wire tangle" of a live settle never actually paints; nodes
+  // are still allowed to visibly move into place. Always false on the
+  // (default) synchronous pre-tick path, where positions are already final
+  // before the very first render.
+  const [isSettlingAsync, setIsSettlingAsync] = useState(false);
   const liveNodesRef = useRef<NetworkNode[]>([]);
+  // True once the user has panned/zoomed by hand (a real wheel/drag/touch
+  // gesture — see the zoom effect below) — permanently opts this session out
+  // of further auto-fit-on-settle passes so the app never yanks the camera
+  // away from a view the user framed themselves.
+  const userInteractedRef = useRef(false);
+  // Latest simulation alpha, refreshed every tick (and once after the
+  // synchronous pre-tick loop) — read by the auto-fit effect below so it
+  // waits for SETTLE_ALPHA_THRESHOLD on the async fallback path instead of
+  // fitting to a still-unsettled bounding box.
+  const simulationAlphaRef = useRef(1);
+  // Has THIS layout (current topology from the force-sim effect) already
+  // received its one auto-fit? Reset alongside the simulation itself.
+  const autoFitDoneRef = useRef(false);
   const effectiveRootLimit = experienceLevel === "beginner" ? 30 : rootLimit;
 
   const themeColors = resolveVisualizationTheme(theme);
@@ -110,7 +204,7 @@ export default function RootNetworkGraph({
   }, [experienceLevel]);
 
   // Build network data from tokens
-  const { initialNodes, initialLinks } = useMemo(() => {
+  const { initialNodes, initialLinks, topRootLabelIds, lemmaHubId, maxLinkWeight, renderedRootCount } = useMemo(() => {
     const rootMap = new Map<string, { count: number; tokens: CorpusToken[]; lemmas: Set<string> }>();
     const lemmaMap = new Map<string, { count: number; tokens: CorpusToken[]; root: string }>();
 
@@ -139,10 +233,22 @@ export default function RootNetworkGraph({
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, effectiveRootLimit);
 
+    // Root label hierarchy: sortedRoots is already frequency-descending, so
+    // the first ROOT_LABEL_TOP_N are exactly "the most frequent roots
+    // rendered" — used below to thin default labels once there are more
+    // than ROOT_LABEL_ALWAYS_THRESHOLD roots on screen.
+    const topRootLabelIds = new Set(
+      sortedRoots.slice(0, ROOT_LABEL_TOP_N).map(([root]) => `root-${root}`)
+    );
+
     const maxFreq = Math.max(...sortedRoots.map(([, d]) => d.count), 1);
     const nodesResult: NetworkNode[] = [];
     const linksResult: NetworkLink[] = [];
     const includedLemmas = new Set<string>();
+    // Maps a lemma satellite's node id to its hub root's node id, so the
+    // label-hierarchy/hover logic can reveal a hub's satellites together
+    // with it (hovering a root reveals its lemmas' labels too).
+    const lemmaHubId = new Map<string, string>();
 
     // Add root nodes — scale radius based on how many roots are shown
     const scaleFactor = effectiveRootLimit <= 20 ? 1 : effectiveRootLimit <= 50 ? 0.7 : 0.45;
@@ -155,8 +261,9 @@ export default function RootNetworkGraph({
           : lexicalColorMode === "identity"
             ? getIdentityColor(root, theme)
             : themeColors.nodeColors.default;
+      const rootNodeId = `root-${root}`;
       nodesResult.push({
-        id: `root-${root}`,
+        id: rootNodeId,
         label: root,
         type: "root",
         frequency: data.count,
@@ -172,6 +279,7 @@ export default function RootNetworkGraph({
         .slice(0, 3);
 
       for (const { lemma, data: lemmaData } of rootLemmas) {
+        const lemmaNodeId = `lemma-${lemma}`;
         if (!includedLemmas.has(lemma)) {
           includedLemmas.add(lemma);
           const lemmaRadius = (4 + (lemmaData.count / maxFreq) * 10) * scaleFactor;
@@ -183,7 +291,7 @@ export default function RootNetworkGraph({
                 ? getIdentityColor(lemma, theme)
                 : getNodeColor(lemmaData.tokens[0]?.pos ?? "N");
           nodesResult.push({
-            id: `lemma-${lemma}`,
+            id: lemmaNodeId,
             label: lemma,
             type: "lemma",
             frequency: lemmaData.count,
@@ -192,18 +300,47 @@ export default function RootNetworkGraph({
             tokens: lemmaData.tokens,
           });
         }
+        lemmaHubId.set(lemmaNodeId, rootNodeId);
 
         // Create link from root to lemma
         linksResult.push({
-          source: `root-${root}`,
-          target: `lemma-${lemma}`,
+          source: rootNodeId,
+          target: lemmaNodeId,
           weight: lemmaData.count,
         });
       }
     }
 
-    return { initialNodes: nodesResult, initialLinks: linksResult };
+    const maxLinkWeight = Math.max(...linksResult.map((l) => l.weight), 1);
+
+    return {
+      initialNodes: nodesResult,
+      initialLinks: linksResult,
+      topRootLabelIds,
+      lemmaHubId,
+      maxLinkWeight,
+      // Roots actually rendered (post root-limit slider), distinct from the
+      // totalRoots memo above (corpus-wide count, used for the slider's max)
+      // — this is what "how many root labels are on screen" cares about.
+      renderedRootCount: sortedRoots.length,
+    };
   }, [scopedTokens, themeColors.nodeColors.default, effectiveRootLimit, lexicalColorMode, theme]);
+
+  // Root orbit radius/radii, scaled to the canvas — shared by the force
+  // simulation (below) and the decorative orbital-ring circles (in the
+  // render) so the decoration always matches the actual structure. Single
+  // ring below the same "dense" threshold the label hierarchy uses; two
+  // frequency-banded rings above it so 30+ roots aren't crammed onto one
+  // ring shoulder-to-shoulder (`inner === outer` in the single-ring case, so
+  // downstream code doesn't need to branch on which mode is active).
+  const rootOrbitRadii = useMemo(() => {
+    const minCanvasDim = Math.min(dimensions.width, dimensions.height);
+    if (renderedRootCount > ROOT_LABEL_ALWAYS_THRESHOLD) {
+      return { inner: minCanvasDim * ROOT_ORBIT_INNER_RATIO, outer: minCanvasDim * ROOT_ORBIT_OUTER_RATIO };
+    }
+    const single = minCanvasDim * ROOT_ORBIT_SINGLE_RATIO;
+    return { inner: single, outer: single };
+  }, [dimensions, renderedRootCount]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -234,22 +371,26 @@ export default function RootNetworkGraph({
     return () => observer.disconnect();
   }, []);
 
-  // Initialize D3 force simulation
+  // Initialize D3 force simulation — a mandala/solar-system: ROOT hubs are
+  // pulled onto a canvas-scaled orbit (one ring, or two frequency bands —
+  // see rootOrbitRadii above) around the center glow, then repel each other
+  // (charge) to spread out along it instead of clumping; each hub's lemma
+  // satellites are its close moons, pulled in by a short, strong link
+  // instead of joining any ring themselves (see the tuning block above).
   useEffect(() => {
     if (!svgRef.current || initialNodes.length === 0) return;
 
     const centerX = dimensions.width / 2;
     const centerY = dimensions.height / 2;
-
-    // Scale forces based on node count for better layout
-    const nodeCount = initialNodes.length;
-    const spread = Math.sqrt(nodeCount) * 18;  // grows with node count
-    const rootRadius = Math.max(80, spread * 0.5);
-    const lemmaRadius = Math.max(150, spread * 0.9);
+    const chargeDistanceMax = Math.max(dimensions.width, dimensions.height) * CHARGE_DISTANCE_MAX_RATIO;
 
     // Clone nodes to avoid mutating original
     const nodesCopy = initialNodes.map((n) => ({ ...n }));
     const linksCopy = initialLinks.map((l) => ({ ...l }));
+
+    // New layout key (topology or canvas size changed) — arm one fresh
+    // auto-fit opportunity.
+    autoFitDoneRef.current = false;
 
     // Create force simulation
     const simulation = d3
@@ -259,36 +400,135 @@ export default function RootNetworkGraph({
         d3
           .forceLink<NetworkNode, NetworkLink>(linksCopy)
           .id((d) => d.id)
-          .distance((d) => 20 + Math.min((d.weight ?? 1) * 1.5, 20))
-          .strength(0.6)
+          .distance((d) => {
+            // Resolved to NetworkNode objects by the time this runs — forceLink
+            // resolves source/target ids against the simulation's own nodes
+            // synchronously on initialize, before distance/strength accessors
+            // are evaluated. Same cast the render code below already relies on.
+            const source = d.source as NetworkNode;
+            const target = d.target as NetworkNode;
+            return source.radius + target.radius + LINK_HUG_DISTANCE;
+          })
+          .strength(LINK_STRENGTH)
       )
-      .force("charge", d3.forceManyBody().strength(-50 - nodeCount * 0.3).distanceMax(spread * 1.5))
+      .force(
+        "charge",
+        d3
+          .forceManyBody<NetworkNode>()
+          .strength((d) => (d.type === "root" ? ROOT_CHARGE : LEMMA_CHARGE))
+          .distanceMax(chargeDistanceMax)
+      )
       .force("center", d3.forceCenter(centerX, centerY))
       .force(
         "collision",
-        d3.forceCollide<NetworkNode>().radius((d) => d.radius + 2)
+        d3.forceCollide<NetworkNode>().radius((d) => d.radius + (d.type === "root" ? ROOT_COLLIDE_PAD : LEMMA_COLLIDE_PAD))
       )
-      .force("radial", d3.forceRadial<NetworkNode>(
-        (d) => d.type === "root" ? rootRadius : lemmaRadius,
-        centerX,
-        centerY
-      ).strength(0.4));
+      // The gravitational structure: pulls ROOT hubs onto their orbit ring(s)
+      // — the most frequent (also the always-labeled top-N) on the inner
+      // ring, the rest on the outer one once there are enough to need the
+      // split (rootOrbitRadii — inner === outer when a single ring suffices).
+      // Lemmas get zero radial pull; they already track their own hub tightly
+      // via the link force above and must NOT join a ring of their own.
+      .force(
+        "radial",
+        d3
+          .forceRadial<NetworkNode>(
+            (d) => (topRootLabelIds.has(d.id) ? rootOrbitRadii.inner : rootOrbitRadii.outer),
+            centerX,
+            centerY
+          )
+          .strength((d) => (d.type === "root" ? ROOT_ORBIT_STRENGTH : 0))
+      );
 
     simulationRef.current = simulation;
     liveNodesRef.current = nodesCopy;
 
-    simulation.on("tick", () => {
+    if (nodesCopy.length <= SYNC_PRETICK_MAX_NODES) {
+      // Fast path (the default/beginner experience always takes this):
+      // settle synchronously, headless, BEFORE anything is ever painted,
+      // instead of animating the settle asynchronously across ~150 real
+      // frames. Rendering those mid-flight positions (the old behavior) is
+      // what produced a "wire tangle": edges stretched between nodes that
+      // were still being flung outward by the charge/radial forces. A
+      // brand-new forceSimulation auto-starts its own async (rAF-driven)
+      // ticking on construction — stop that immediately so it can't race
+      // this loop, then step the simulation manually. simulation.tick()
+      // (unlike the internal timer's step()) does not dispatch "tick"/"end"
+      // events, so this doesn't touch the render-triggering handler below.
+      // Measured single-digit-to-tens-of-ms at this node-count ceiling —
+      // see SYNC_PRETICK_MAX_NODES.
+      simulation.stop();
+      let preTickIterations = 0;
+      while (simulation.alpha() > SETTLE_ALPHA_THRESHOLD && preTickIterations < PRE_TICK_MAX_ITERATIONS) {
+        simulation.tick();
+        preTickIterations++;
+      }
+      simulationAlphaRef.current = simulation.alpha();
+      setIsSettlingAsync(false);
+
+      // Only FUTURE ticks reach here — i.e. a drag reheating the simulation
+      // (see the drag effect below), never the manual pre-tick loop above.
+      simulation.on("tick", () => {
+        simulationAlphaRef.current = simulation.alpha();
+        setNodes([...nodesCopy]);
+        setLinks([...linksCopy]);
+      });
+
+      // Render the now-settled layout immediately. Deliberately no
+      // `alpha(1).restart()` here — that would resume continuous async
+      // ticking and reintroduce the mid-flight motion this pre-tick exists
+      // to avoid. The simulation stays frozen (already `.stop()`ped above)
+      // until a drag interaction reheats it locally.
       setNodes([...nodesCopy]);
       setLinks([...linksCopy]);
-    });
-
-    // Run simulation
-    simulation.alpha(1).restart();
+    } else {
+      // Large-N fallback (only reachable by manually pushing the
+      // advanced-only root-limit slider well past its default on a
+      // root-dense surah): pre-ticking this many nodes synchronously
+      // measured well past a 50ms jank budget (SYNC_PRETICK_MAX_NODES), so
+      // let it settle the old animated way instead — but keep edges hidden
+      // (isSettlingAsync, consumed by the edge render below) until it's
+      // nearly done, so the "wire tangle" itself never actually paints.
+      // Nodes still animate into place live; that's cheap and reads as
+      // intentional motion rather than chaos.
+      setIsSettlingAsync(true);
+      simulation.on("tick", () => {
+        const alpha = simulation.alpha();
+        simulationAlphaRef.current = alpha;
+        if (alpha < SETTLE_ALPHA_THRESHOLD) setIsSettlingAsync(false);
+        setNodes([...nodesCopy]);
+        setLinks([...linksCopy]);
+      });
+      simulation.alpha(1).restart();
+    }
 
     return () => {
       simulation.stop();
     };
-  }, [initialNodes, initialLinks, dimensions]);
+  }, [initialNodes, initialLinks, dimensions, topRootLabelIds, rootOrbitRadii]);
+
+  // Auto-fit once the layout above settles, mirroring the "Focus" button but
+  // automatic. On the (default) synchronous pre-tick path, positions are
+  // already final the moment `nodes` first updates; on the large-N async
+  // fallback, `nodes` updates every tick, so the alpha check below waits for
+  // it to actually be settled instead of fitting to a still-moving bounding
+  // box. Runs as a separate effect (rather than being called inline from the
+  // force-simulation effect) so it only ever reads the DOM AFTER React has
+  // committed the corresponding positions — fitGraphToView's getBBox() needs
+  // the rendered circles. Fires at most once per layout (autoFitDoneRef,
+  // reset alongside the simulation above) and never once the user has taken
+  // manual control of the camera (userInteractedRef, set by the zoom effect
+  // below).
+  useEffect(() => {
+    if (autoFitDoneRef.current || userInteractedRef.current) return;
+    if (nodes.length === 0 || simulationAlphaRef.current >= SETTLE_ALPHA_THRESHOLD) return;
+
+    autoFitDoneRef.current = true;
+    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+      padding: 0.9,
+      duration: motionSafeDuration(AUTO_FIT_DURATION_MS),
+    });
+  }, [nodes]);
 
   // Set up zoom/pan behavior
   useEffect(() => {
@@ -301,6 +541,15 @@ export default function RootNetworkGraph({
       .scaleExtent([0.2, 5])
       .on("zoom", (event) => {
         g.attr("transform", event.transform.toString());
+        const tier = zoomTierFor(event.transform.k);
+        setZoomTier((prev) => (prev === tier ? prev : tier));
+        // A real user gesture (wheel/drag/touch) carries a sourceEvent; our
+        // own programmatic fits (auto-fit-on-settle above, the Focus button)
+        // call `.transform` directly and don't — only an actual user pan/zoom
+        // should permanently opt this session out of further auto-fits.
+        if (event.sourceEvent) {
+          userInteractedRef.current = true;
+        }
       });
 
     zoomBehaviorRef.current = zoomBehavior;
@@ -374,10 +623,14 @@ export default function RootNetworkGraph({
   // Derive the highlight node id from the highlightRoot prop
   const highlightRootNodeId = highlightRoot ? `root-${highlightRoot}` : null;
 
+  // The single "focused" node id, however it got that way (hover beats a
+  // sticky selection beats a deep-link highlight) — shared by link
+  // highlighting below and by the label-hierarchy hub-reveal in the node loop.
+  const highlightId = hoveredNode ?? selectedNode ?? highlightRootNodeId;
+
   // Check if a link is connected to hovered/selected/highlighted node
   const isLinkHighlighted = useCallback(
     (link: NetworkLink) => {
-      const highlightId = hoveredNode ?? selectedNode ?? highlightRootNodeId;
       if (!highlightId) return false;
 
       const sourceId = typeof link.source === "string" ? link.source : link.source.id;
@@ -385,13 +638,32 @@ export default function RootNetworkGraph({
 
       return sourceId === highlightId || targetId === highlightId;
     },
-    [hoveredNode, selectedNode, highlightRootNodeId]
+    [highlightId]
   );
 
   const sidebarNode = useMemo(
     () => nodes.find((n) => n.id === (hoveredNode ?? selectedNode)) ?? null,
     [nodes, hoveredNode, selectedNode]
   );
+
+  // Center "stellar core" colors — see SUN_* constants above. Which CSS
+  // custom property actually resolves to amber flips with theme (dark
+  // theme's --accent IS amber; light theme's amber lives on --accent-2
+  // instead, since --accent there is teal — app/[locale]/globals.css vs.
+  // styles/dark-theme.css), so pick whichever token is amber for the active
+  // theme rather than hardcoding a hex. Light theme also wants a deeper,
+  // lower-opacity core so it stays tasteful on a cream canvas instead of
+  // reading as a heavy blob; derived via color-mix (same pattern already
+  // used elsewhere in this codebase, e.g. RadialSuraMap) rather than a
+  // second hardcoded literal.
+  const sunAmberToken = theme === "dark" ? "var(--accent)" : "var(--accent-2)";
+  const sunAmberColor =
+    theme === "dark" ? sunAmberToken : `color-mix(in srgb, ${sunAmberToken} 78%, black 22%)`;
+  const sunCoreColor = `color-mix(in srgb, ${sunAmberColor} 45%, white 55%)`;
+  const sunOpacity =
+    theme === "dark"
+      ? { core: 0.9, mid: 0.55, corona: 0.22 }
+      : { core: 0.55, mid: 0.32, corona: 0.16 };
 
   return (
     <section className="immersive-viz" data-theme={theme}>
@@ -411,10 +683,18 @@ export default function RootNetworkGraph({
           >
             <g ref={gRef}>
               <defs>
-                {/* Radial gradient for background glow */}
-                <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="var(--accent-glow)" />
-                  <stop offset="100%" stopColor="transparent" />
+                {/* Stellar core anchoring the orbit — small and crisp, not a
+                    diffuse blur: near-white-warm hot core fading through
+                    amber to fully transparent well inside the innermost
+                    orbit ring (SUN_* constants above). */}
+                <radialGradient id="sunCoreGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor={sunCoreColor} stopOpacity={sunOpacity.core} />
+                  <stop
+                    offset={`${(SUN_CORE_RADIUS / SUN_GLOW_RADIUS) * 100}%`}
+                    stopColor={sunAmberColor}
+                    stopOpacity={sunOpacity.mid}
+                  />
+                  <stop offset="100%" stopColor={sunAmberColor} stopOpacity={0} />
                 </radialGradient>
 
                 {/* Glow filter for nodes */}
@@ -436,11 +716,16 @@ export default function RootNetworkGraph({
                 </filter>
               </defs>
 
-              {/* Background orbital rings */}
+              {/* Background orbital ring(s) — decoration aligned to the actual
+                  root orbit(s) driving the force simulation (rootOrbitRadii
+                  above), so the ring the eye sees matches the ring the hubs
+                  actually sit on. One ring, or two when roots are banded by
+                  frequency (inner === outer in the single-ring case, so this
+                  naturally collapses to one visible circle). */}
               <g className="orbital-rings">
-                {[150, 220, 290].map((r, i) => (
+                {Array.from(new Set([rootOrbitRadii.inner, rootOrbitRadii.outer])).map((r) => (
                   <circle
-                    key={i}
+                    key={r}
                     cx={dimensions.width / 2}
                     cy={dimensions.height / 2}
                     r={r}
@@ -449,13 +734,26 @@ export default function RootNetworkGraph({
                 ))}
               </g>
 
-              {/* Center glow */}
-              <circle
-                cx={dimensions.width / 2}
-                cy={dimensions.height / 2}
-                r={100}
-                fill="url(#bgGlow)"
-              />
+              {/* Center glow — the gravitational "sun" the root orbit(s)
+                  circle. Wrapped in its own translated <g> (rather than
+                  setting cx/cy on the circle itself) so the breathing scale
+                  below animates from the sun's own center, not the SVG's
+                  origin — same pattern the per-node highlight pulse uses. */}
+              <g transform={`translate(${dimensions.width / 2}, ${dimensions.height / 2})`}>
+                {/* Thin corona ring echoing the orbit decoration */}
+                <circle r={SUN_CORONA_RADIUS} fill="none" stroke={sunAmberColor} strokeWidth={1} opacity={sunOpacity.corona} />
+                <motion.circle
+                  r={SUN_GLOW_RADIUS}
+                  fill="url(#sunCoreGlow)"
+                  initial={{ scale: 1, opacity: 1 }}
+                  animate={reduceMotion ? { scale: 1, opacity: 1 } : { scale: [1, 1.04, 1], opacity: [1, 0.95, 1] }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { repeat: Infinity, duration: 6, ease: "easeInOut" }
+                  }
+                />
+              </g>
 
               {/* Links */}
               <g className="links">
@@ -475,27 +773,53 @@ export default function RootNetworkGraph({
                   const normalX = -dy * 0.15;
                   const normalY = dx * 0.15;
 
+                  // Default stroke takes the hub (root) node's own fill color
+                  // — every link is always root->lemma, so `source` is always
+                  // the hub — instead of a single near-invisible neutral wash:
+                  // spokes now read as belonging to their hub, and heavier
+                  // root-lemma links stay visibly thicker via the weight ratio.
+                  const defaultStrokeWidth = 1 + (link.weight / maxLinkWeight) * 1.4;
+                  // Positions are already final by the time this renders on
+                  // the (default) synchronous pre-tick path, so entrance is
+                  // just a plain fade at the settled geometry. On the large-N
+                  // async fallback (isSettlingAsync — see the force-simulation
+                  // effect), the layout is still actively moving: hold edges
+                  // at zero opacity so the "wire tangle" of a live settle
+                  // never actually paints, then fade them in once it reports
+                  // settled — reusing this same target/transition, so that
+                  // reveal reads identically to the normal mount fade.
+                  const edgeTargetOpacity = isSettlingAsync ? 0 : isHighlighted ? 0.9 : 0.38;
+
                   return (
-                    <motion.path
+                    // `d` is one of framer-motion's recognized animatable SVG
+                    // attributes (like cx/cy/r) — even with an explicit
+                    // zero-duration transition, a motion.path carrying both
+                    // `d` and an animated `opacity` can still write the two to
+                    // the DOM on different scheduling passes, which reads as
+                    // the wire trailing a dragged node by a frame or more.
+                    // Structurally separating them removes the ambiguity: the
+                    // fade lives on this wrapper <motion.g> (which has no
+                    // geometry of its own for framer-motion to touch), and the
+                    // actual line is a plain, framer-motion-free <path> whose
+                    // `d` React patches straight onto the DOM every render, in
+                    // lockstep with the node's own plain `transform` string.
+                    <motion.g
                       key={idx}
-                      d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
-                      className={`edge ${isHighlighted ? "highlighted" : ""}`}
-                      style={{
-                        stroke: isHighlighted ? themeColors.accent : themeColors.edgeColors.default,
-                        strokeWidth: isHighlighted ? 2 : 1,
-                        fill: "none",
-                      }}
-                      initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{
-                        pathLength: 1,
-                        opacity: isHighlighted ? 0.9 : 0.3,
-                      }}
-                      transition={{
-                        duration: motionSafeDuration(1000) / 1000,
-                        delay: motionSafeStagger(idx, 10, 600) / 1000,
-                      }}
-                      filter={isHighlighted ? "url(#subtleGlow)" : undefined}
-                    />
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: edgeTargetOpacity }}
+                      transition={{ duration: motionSafeDuration(250) / 1000 }}
+                    >
+                      <path
+                        d={`M ${source.x} ${source.y} Q ${midX + normalX} ${midY + normalY} ${target.x} ${target.y}`}
+                        className={`edge ${isHighlighted ? "highlighted" : ""}`}
+                        style={{
+                          stroke: isHighlighted ? themeColors.accent : source.color,
+                          strokeWidth: isHighlighted ? 2 : defaultStrokeWidth,
+                          fill: "none",
+                        }}
+                        filter={isHighlighted ? "url(#subtleGlow)" : undefined}
+                      />
+                    </motion.g>
                   );
                 })}
               </g>
@@ -511,12 +835,33 @@ export default function RootNetworkGraph({
                   const isHighlighted = isHovered || isSelected || isSearchHighlighted;
                   const isRoot = node.type === "root";
 
+                  // Label hierarchy: with 24+ rendered roots, labeling every
+                  // root/lemma is collision soup — thin the default set and
+                  // let hover/selection/deep-link or zooming in reveal the
+                  // rest. A lemma's hub root counts as "highlighted" too, so
+                  // hovering a hub reveals its satellites' labels together.
+                  const hubId = isRoot ? node.id : lemmaHubId.get(node.id);
+                  const isHubHighlighted = !isRoot && highlightId !== null && hubId === highlightId;
+                  const hierarchyAllowsLabel = isRoot
+                    ? renderedRootCount <= ROOT_LABEL_ALWAYS_THRESHOLD ||
+                      topRootLabelIds.has(node.id) ||
+                      zoomTier >= 1
+                    : zoomTier >= 2;
+                  const labelVisible = isHighlighted || isHubHighlighted || (showLabels && hierarchyAllowsLabel);
+
                   return (
-                    <g
+                    <motion.g
                       key={node.id}
                       className="node-group rn-node"
                       data-node-id={node.id}
                       transform={`translate(${node.x},${node.y})`}
+                      // Matching fade for the settled-on-mount entrance (see
+                      // the edges' comment above) — mount-only, framer-motion
+                      // does not replay this on later re-renders (drag ticks,
+                      // hover, etc.) as long as the element stays mounted.
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: motionSafeDuration(250) / 1000 }}
                       style={{ cursor: "grab" }}
                       onMouseEnter={() => handleNodeHover(node)}
                       onMouseLeave={() => handleNodeHover(null)}
@@ -567,7 +912,7 @@ export default function RootNetworkGraph({
                       )}
 
                       {/* Label */}
-                      {(showLabels || isHighlighted) && (
+                      {labelVisible && (
                         <text
                           className="node-label arabic-text"
                           y={node.radius + 16}
@@ -586,7 +931,7 @@ export default function RootNetworkGraph({
                           {node.label}
                         </text>
                       )}
-                    </g>
+                    </motion.g>
                   );
                 })}
               </g>
