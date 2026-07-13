@@ -93,7 +93,10 @@ onboarding localStorage `quran-corpus-onboarding`.
   geometry and then locks itself (entry fits, initial focus, one-shot layout) must
   gate on complete data (`isSurahDataComplete` in `RadialSuraMap.tsx`,
   `isScopeDataComplete` in `ArcFlowDiagram.tsx`), and components seeing the growing
-  array re-render per batch — keep per-batch work cheap. The structure map renders a
+  array re-render per batch — keep per-batch work cheap. Corollary: NEVER mutate
+  user-chosen state from data-derived values (root-network's limit clamp ratcheted the
+  slider to 5 because the surah-2 stub has 3 roots — clamp at use time via
+  `Math.min(userValue, derivedMax)` instead). The structure map renders a
   static 114-surah skeleton (angles from `SURAH_NAMES`, fixed from first paint) and
   reveals root branches per batch with a CSS opacity stagger (once per arrival,
   tracked in a ref; instant under reduced motion).

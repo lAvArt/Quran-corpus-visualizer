@@ -171,7 +171,6 @@ export default function RootNetworkGraph({
   // Has THIS layout (current topology from the force-sim effect) already
   // received its one auto-fit? Reset alongside the simulation itself.
   const autoFitDoneRef = useRef(false);
-  const effectiveRootLimit = experienceLevel === "beginner" ? 30 : rootLimit;
 
   const themeColors = resolveVisualizationTheme(theme);
   // Framer-motion entrance/pulse animations below are JS-driven and bypass
@@ -194,12 +193,23 @@ export default function RootNetworkGraph({
     return roots.size;
   }, [scopedTokens]);
 
-  // Clamp rootLimit when surah changes and total roots is fewer
-  useEffect(() => {
-    if (totalRoots > 0 && rootLimit > totalRoots) {
-      setRootLimit(Math.max(5, Math.min(totalRoots, rootLimit)));
-    }
-  }, [totalRoots, rootLimit]); // rootLimit intentionally only triggers when totalRoots changes
+  // The limit actually used to build nodes below — clamped at USE time
+  // against totalRoots, never written back into `rootLimit` state itself.
+  // A previous version instead clamped by mutating rootLimit in an effect
+  // keyed on totalRoots; since the corpus streams in per-surah batches
+  // (docs/VIZ_ARCHITECTURE.md), totalRoots for the scoped surah passes
+  // through small transient values (the sample-corpus stub, then whichever
+  // batch has landed) before settling on the real count, and that effect
+  // permanently ratcheted the user's chosen limit down to whatever tiny
+  // number happened to be current the moment it fired — it never recovered
+  // once the full corpus arrived, because by then rootLimit was no longer
+  // greater than totalRoots. Deriving the effective limit here instead means
+  // rootLimit is only ever what the user picked (or the beginner default),
+  // and more roots simply appear as batches land, up to that choice.
+  const effectiveRootLimit = Math.min(
+    experienceLevel === "beginner" ? 30 : rootLimit,
+    totalRoots || rootLimit
+  );
 
   useEffect(() => {
     if (experienceLevel === "beginner") {
