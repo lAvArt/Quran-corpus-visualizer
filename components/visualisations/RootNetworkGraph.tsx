@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import { motion } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
-import type { ExperienceLevel } from "@/lib/schema/experience";
 import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { fitGraphToView } from "@/lib/viz/fitToView";
@@ -17,7 +16,6 @@ interface RootNetworkGraphProps {
   onTokenHover: (tokenId: string | null) => void;
   onTokenFocus: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
-  experienceLevel?: ExperienceLevel;
   highlightRoot?: string | null;
   selectedSurahId?: number;
   theme?: "light" | "dark";
@@ -123,7 +121,6 @@ export default function RootNetworkGraph({
   onTokenHover,
   onTokenFocus,
   onRootSelect,
-  experienceLevel = "advanced",
   highlightRoot,
   selectedSurahId,
   theme = "dark",
@@ -204,18 +201,11 @@ export default function RootNetworkGraph({
   // number happened to be current the moment it fired — it never recovered
   // once the full corpus arrived, because by then rootLimit was no longer
   // greater than totalRoots. Deriving the effective limit here instead means
-  // rootLimit is only ever what the user picked (or the beginner default),
-  // and more roots simply appear as batches land, up to that choice.
-  const effectiveRootLimit = Math.min(
-    experienceLevel === "beginner" ? 30 : rootLimit,
-    totalRoots || rootLimit
-  );
-
-  useEffect(() => {
-    if (experienceLevel === "beginner") {
-      setRootLimit(30);
-    }
-  }, [experienceLevel]);
+  // rootLimit is only ever what the user picked (default 30), and more
+  // roots simply appear as batches land, up to that choice. The slider is
+  // available in BOTH experience levels — hiding the graph's most intuitive
+  // control behind the advanced toggle made it undiscoverable.
+  const effectiveRootLimit = Math.min(rootLimit, totalRoots || rootLimit);
 
   // Build network data from tokens
   const { initialNodes, initialLinks, topRootLabelIds, lemmaHubId, maxLinkWeight, renderedRootCount } = useMemo(() => {
@@ -1062,26 +1052,25 @@ export default function RootNetworkGraph({
             </div>
           </div>
 
-          {experienceLevel === "advanced" ? (
-            <div
-              className="viz-left-panel root-limit-control"
-              data-testid="root-network-root-limit-control"
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>Visible roots</label>
-                <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
-              </div>
-              <input
-                type="range"
-                min={5}
-                max={Math.max(5, totalRoots)}
-                step={5}
-                value={Math.min(rootLimit, totalRoots || 100)}
-                onChange={(e) => setRootLimit(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-              />
+          <div
+            className="viz-left-panel root-limit-control"
+            data-testid="root-network-root-limit-control"
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>{t("rootLimit")}</label>
+              <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
             </div>
-          ) : null}
+            <input
+              type="range"
+              min={5}
+              max={Math.max(5, totalRoots)}
+              step={5}
+              value={Math.min(rootLimit, totalRoots || 100)}
+              onChange={(e) => setRootLimit(Number(e.target.value))}
+              aria-label={t("rootLimit")}
+              style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+          </div>
 
           {sidebarNode && (
             <div className="viz-left-panel">

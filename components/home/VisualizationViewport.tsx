@@ -103,7 +103,6 @@ export default function VisualizationViewport({
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
-            experienceLevel={experienceLevel}
             highlightRoot={selectedRoot}
             selectedSurahId={selectedSurahId}
             theme={theme}
