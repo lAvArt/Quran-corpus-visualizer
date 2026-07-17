@@ -46,31 +46,39 @@ interface RailItem {
 
 /* Minimal SVG icons — 22×22, stroke-based, no fill */
 const icons = {
+  /* Overview → surah-distribution: a tiny scatter plot (axis + dots),
+     mirroring what the view actually draws. */
   discover: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" />
-      <line x1="12" y1="2" x2="12" y2="6" />
-      <line x1="12" y1="18" x2="12" y2="22" />
-      <line x1="2" y1="12" x2="6" y2="12" />
-      <line x1="18" y1="12" x2="22" y2="12" />
+      <path d="M4 4v16h16" />
+      <circle cx="8.5" cy="8" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="14.5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9.5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="13" r="1.6" fill="currentColor" stroke="none" />
     </svg>
   ),
+  /* Roots → root-network: the orbital system — core, orbit ring, planets. */
   root: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="18" r="3" />
-      <line x1="12" y1="9" x2="6" y2="15" />
-      <line x1="12" y1="9" x2="18" y2="15" />
+      <circle cx="12" cy="12" r="8.5" opacity="0.55" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="3.5" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="6.4" cy="18.4" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   ),
+  /* Surah → radial-sura: a ring of word-dots around a center, matching the
+     radial map's shape. */
   ayah: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 7h16" />
-      <path d="M4 12h16" />
-      <path d="M4 17h10" />
-      <circle cx="19" cy="17" r="2" />
+      <circle cx="12" cy="4" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="17.7" cy="6.3" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="17.7" cy="17.7" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="20" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="6.3" cy="17.7" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="6.3" cy="6.3" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="2" opacity="0.7" />
     </svg>
   ),
   search: (
@@ -385,7 +393,10 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
            stays short and never blankets the page content below it. */
         @media (max-width: 980px) {
           .journey-rail {
-            top: calc(var(--header-clearance) + 8px);
+            /* Clear the fixed StatusBar pill (same top anchor, higher
+               z-index) — without this offset the icon strip renders half
+               underneath it. Pill is ~34px tall incl. its 6px margin. */
+            top: calc(var(--header-clearance) + 48px);
             inset-inline-start: 50%;
             transform: translateX(-50%);
             flex-direction: row;
