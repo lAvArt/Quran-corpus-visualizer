@@ -115,8 +115,13 @@ export default function TopBar({
           align-items: center;
           gap: 0.8rem;
           width: 100%;
-          min-height: var(--header-dock-height);
-          padding: 0.36rem 1rem;
+          /* Banner and the centered search slot share ONE explicit height —
+             previously the banner grew to ~56px from its content while the
+             search slot grew to ~64px from ITS content, so the search pill
+             overhung the banner's bottom border by a couple of px. */
+          height: var(--topbar-height, 58px);
+          min-height: 0;
+          padding: 0 1rem;
           background: var(--toolbar-bg);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
@@ -169,11 +174,12 @@ export default function TopBar({
           left: 50%;
           transform: translateX(-50%);
           width: var(--centered-shell-dock-width);
-          min-height: var(--header-dock-height);
+          height: var(--topbar-height, 58px);
+          min-height: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.36rem 0;
+          padding: 0 2px;
           pointer-events: auto;
           z-index: 52;
         }
@@ -181,6 +187,13 @@ export default function TopBar({
         .shell-topbar-search :global(.global-search) {
           width: 100%;
           max-width: none;
+        }
+
+        /* Keep the pill comfortably INSIDE the banner: cap its height below
+           the shared bar height so there's visible breathing room above and
+           below instead of the pill kissing the banner's border. */
+        .shell-topbar-search :global(.search-input-wrapper) {
+          max-height: 46px;
         }
 
         .shell-topbar-center {
