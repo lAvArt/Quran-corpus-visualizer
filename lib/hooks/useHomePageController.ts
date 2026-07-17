@@ -723,7 +723,12 @@ export function useHomePageController(
       // to (e.g. `?viz=radial-sura&surah=1`), not something to inspect, so
       // a bare-surah navigation must leave the drawer exactly as it was.
       const hasSelection = Boolean(sel.root || sel.lemma || sel.tokenId || sel.ayah);
-      if (!isMobileViewport && hasSelection) setIsSidebarOpen(true);
+      // Calm entry (home → graph first contact) keeps the drawer closed so
+      // the focused canvas is the whole first impression; it opens on the
+      // user's own first selection as usual.
+      if (!isMobileViewport && hasSelection && !result.actionTarget.calmEntry) {
+        setIsSidebarOpen(true);
+      }
       if (firstRunState === "mission-active") handleMissionTaskComplete("search");
     },
     [

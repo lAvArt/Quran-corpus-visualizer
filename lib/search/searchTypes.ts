@@ -38,5 +38,9 @@ export interface SearchResultItem {
       lemma?: string;
       tokenId?: string;
     };
+    /** Calm first contact (home → graph): land with the left dock collapsed
+     *  and the inspector drawer closed so the focused canvas is the only
+     *  thing on screen; chrome reveals as the user reaches for it. */
+    calmEntry?: boolean;
   };
 }

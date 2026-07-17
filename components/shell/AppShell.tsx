@@ -79,7 +79,15 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     }
   }, []);
 
+  // Calm entry collapses the dock for THIS landing only — skip persisting
+  // that programmatic collapse so future organic visits aren't affected.
+  // Re-set to true before each such setIsLeftPanelCollapsed call.
+  const skipNextDockPersistRef = useRef(false);
   useEffect(() => {
+    if (skipNextDockPersistRef.current) {
+      skipNextDockPersistRef.current = false;
+      return;
+    }
     try {
       window.localStorage.setItem(LEFT_DOCK_STORAGE_KEY, String(isLeftPanelCollapsed));
     } catch {
@@ -157,6 +165,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     const ayah = sp.get("ayah");
     const token = sp.get("token");
     const vizParam = sp.get("viz");
+    const calmEntry = sp.get("entry") === "calm";
     // Only honour ?viz= when it names a real, renderable mode — an unknown
     // value must not steer navigation (or unlock the advanced mode set).
     const viz = ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
@@ -176,8 +185,16 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
           lemma: lemma || undefined,
           tokenId: token || undefined,
         },
+        calmEntry,
       },
     });
+    if (calmEntry) {
+      // Chrome-light first contact: spine-only dock (not persisted — see
+      // skipNextDockPersistRef). The drawer stays closed via the same flag
+      // inside handleSearchResultNavigate.
+      skipNextDockPersistRef.current = true;
+      setIsLeftPanelCollapsed(true);
+    }
     setIsDeepLinkHydrated(true);
   }, [pendingDeepLink, navigateToResult]);
 
