@@ -99,6 +99,15 @@ export default function TopBar({
           --centered-shell-dock-width: min(calc(100vw - 24px), 520px, 40vw);
         }
 
+        /* Wide monitors (2K+): a 520px bar centered in 2560px of viewport
+           reads as unanchored/misplaced. Let the centered dock grow with the
+           screen so it stays proportionate. */
+        @media (min-width: 1800px) {
+          .shell-topbar {
+            --centered-shell-dock-width: min(680px, 32vw);
+          }
+        }
+
         .shell-topbar-inner {
           pointer-events: auto;
           position: relative;

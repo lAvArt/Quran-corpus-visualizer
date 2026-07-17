@@ -182,6 +182,17 @@ export default function StatusBar({
       <style jsx>{`
         .status-bar {
           --centered-shell-dock-width: min(calc(100vw - 24px), 520px, 40vw);
+        }
+
+        /* Keep in lockstep with .shell-topbar's wide-monitor override so the
+           pill and the search bar stay the same width and stay aligned. */
+        @media (min-width: 1800px) {
+          .status-bar {
+            --centered-shell-dock-width: min(680px, 32vw);
+          }
+        }
+
+        .status-bar {
           position: fixed;
           top: var(--header-clearance);
           left: 50%;
