@@ -210,10 +210,10 @@ export default function MorphologyInspector({
                     const barH = Math.max(2, Math.round(v * svgH));
                     const barColor =
                         v > 0.6
-                            ? "#E8924A"
+                            ? "var(--accent)"
                             : v > 0.3
-                              ? "rgba(232,146,74,0.55)"
-                              : "rgba(236,228,216,0.22)";
+                              ? "color-mix(in srgb, var(--accent) 55%, transparent)"
+                              : "color-mix(in srgb, var(--ink) 22%, transparent)";
                     return (
                         <rect
                             key={s.suraId}
@@ -234,6 +234,16 @@ export default function MorphologyInspector({
     const formatRootDotted = (root: string): string => {
         return Array.from(root).join(" · ");
     };
+
+    /**
+     * Corpus roots write the hamza consonant as plain alif (امن), but external
+     * dictionaries index citation orthography (أمن) — plain-alif forms land on
+     * empty search pages for hamza-family roots. Inside a corpus root every
+     * alif / hamza carrier stands for the hamza consonant (see
+     * lib/corpus/rootStatsClient.ts normRootKey), so fold them all to
+     * hamza-on-alif for external lookups. Lemmas keep their real orthography.
+     */
+    const toCitationRoot = (root: string): string => root.replace(/[اأإآٱئؤء]/g, "أ");
 
     /**
      * Calm external-dictionary lookup badges for a root/lemma value.
@@ -297,19 +307,19 @@ export default function MorphologyInspector({
                     .mi-empty-icon {
                         font-size: 28px;
                         opacity: 0.3;
-                        color: #ECE4D8;
+                        color: var(--ink);
                         margin-bottom: 8px;
                     }
                     .mi-empty-primary {
                         font-family: 'Space Grotesk', sans-serif;
                         font-size: 13px;
-                        color: rgba(236,228,216,0.55);
+                        color: var(--ink-muted);
                         margin: 0;
                     }
                     .mi-empty-secondary {
                         font-family: 'Space Grotesk', sans-serif;
                         font-size: 12px;
-                        color: rgba(236,228,216,0.45);
+                        color: color-mix(in srgb, var(--ink) 45%, transparent);
                         margin: 0;
                     }
                 `}</style>
@@ -372,7 +382,7 @@ export default function MorphologyInspector({
                             <span className="mi-root-text" lang="ar" dir="rtl">
                                 {formatRootDotted(token.root)}
                             </span>
-                            {renderDictBadges(token.root)}
+                            {renderDictBadges(toCitationRoot(token.root))}
                         </>
                     ) : (
                         <span className="mi-faint">{"—"}</span>
@@ -541,13 +551,30 @@ export default function MorphologyInspector({
             </div>
 
             <style jsx>{`
-                /* ── Root container ── */
+                /* ── Root container ──
+                     Component-scoped custom properties for the couple of
+                     accent hues with no direct token equivalent (lavender
+                     root/lemma tint, the reddish POS pill) — dark-theme
+                     values match the original hardcoded palette; light
+                     overrides live in the :global([data-theme="light"])
+                     block below. */
                 .mi-root {
+                    --mi-lemma: #c4bce8;
+                    --mi-pos-bg: rgba(221,106,71,0.1);
+                    --mi-pos-border: rgba(221,106,71,0.3);
+                    --mi-pos-fg: #ec9a80;
                     display: flex;
                     flex-direction: column;
                     gap: 0;
-                    color: #ECE4D8;
+                    color: var(--ink);
                     font-family: 'Space Grotesk', sans-serif;
+                }
+
+                :global([data-theme="light"]) .mi-root {
+                    --mi-lemma: #6d5fa8;
+                    --mi-pos-bg: rgba(180, 60, 30, 0.12);
+                    --mi-pos-border: rgba(180, 60, 30, 0.4);
+                    --mi-pos-fg: #a8391c;
                 }
 
                 /* ── Status row ── */
@@ -565,18 +592,18 @@ export default function MorphologyInspector({
                     text-transform: uppercase;
                     padding: 3px 8px;
                     border-radius: 999px;
-                    border: 1px solid rgba(198,222,230,0.16);
-                    color: rgba(236,228,216,0.55);
+                    border: 1px solid var(--panel-border);
+                    color: var(--ink-muted);
                 }
                 .mi-badge-focus {
-                    border-color: rgba(232,146,74,0.4);
-                    color: #E8924A;
+                    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+                    color: var(--accent);
                 }
                 .mi-close {
                     background: none;
                     border: none;
                     cursor: pointer;
-                    color: rgba(236,228,216,0.45);
+                    color: color-mix(in srgb, var(--ink) 45%, transparent);
                     font-size: 18px;
                     line-height: 1;
                     padding: 0 4px;
@@ -584,7 +611,7 @@ export default function MorphologyInspector({
                     transition: color 0.15s;
                 }
                 .mi-close:hover {
-                    color: #ECE4D8;
+                    color: var(--ink);
                 }
 
                 /* ── 1. Selected-word card ── */
@@ -600,13 +627,13 @@ export default function MorphologyInspector({
                     font-family: 'Amiri', 'Traditional Arabic', serif;
                     font-size: 44px;
                     line-height: 1.15;
-                    color: #ECE4D8;
+                    color: var(--ink);
                     direction: rtl;
                 }
                 .mi-word-sub {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 13px;
-                    color: rgba(236,228,216,0.55);
+                    color: var(--ink-muted);
                     letter-spacing: 0.01em;
                 }
 
@@ -616,7 +643,7 @@ export default function MorphologyInspector({
                     grid-template-columns: auto 1fr;
                     gap: 10px 16px;
                     padding: 14px 16px;
-                    border-top: 1px solid rgba(198,222,230,0.08);
+                    border-top: 1px solid var(--panel-border);
                     align-items: center;
                 }
                 .mi-grid-label {
@@ -625,7 +652,7 @@ export default function MorphologyInspector({
                     font-weight: 600;
                     letter-spacing: 0.12em;
                     text-transform: uppercase;
-                    color: rgba(236,228,216,0.45);
+                    color: color-mix(in srgb, var(--ink) 45%, transparent);
                     white-space: nowrap;
                 }
                 .mi-grid-value {
@@ -637,14 +664,14 @@ export default function MorphologyInspector({
                 .mi-root-text {
                     font-family: 'Amiri', 'Traditional Arabic', serif;
                     font-size: 20px;
-                    color: #c4bce8;
+                    color: var(--mi-lemma);
                     letter-spacing: 0.05em;
                     direction: rtl;
                 }
                 .mi-lemma-text {
                     font-family: 'Amiri', 'Traditional Arabic', serif;
                     font-size: 18px;
-                    color: #ECE4D8;
+                    color: var(--ink);
                     direction: rtl;
                 }
 
@@ -702,9 +729,9 @@ export default function MorphologyInspector({
                     align-items: center;
                     border-radius: 999px;
                     padding: 4px 11px;
-                    background: rgba(221,106,71,0.1);
-                    border: 1px solid rgba(221,106,71,0.3);
-                    color: #ec9a80;
+                    background: var(--mi-pos-bg);
+                    border: 1px solid var(--mi-pos-border);
+                    color: var(--mi-pos-fg);
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 12px;
                     font-weight: 500;
@@ -713,22 +740,22 @@ export default function MorphologyInspector({
                 .mi-gloss-value {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 14px;
-                    color: rgba(236,228,216,0.72);
+                    color: var(--ink-secondary);
                 }
                 .mi-gloss-missing {
-                    color: rgba(236,228,216,0.4);
+                    color: color-mix(in srgb, var(--ink) 40%, transparent);
                     font-size: 12px;
                     font-style: italic;
                 }
                 .mi-faint {
-                    color: rgba(236,228,216,0.35);
+                    color: color-mix(in srgb, var(--ink) 35%, transparent);
                 }
 
                 /* ── 3. Occurrence card ── */
                 .mi-occurrence-card {
                     margin: 0 12px 4px;
-                    background: #1C2A31;
-                    border: 1px solid rgba(198,222,230,0.08);
+                    background: var(--panel);
+                    border: 1px solid var(--panel-border);
                     border-radius: 14px;
                     padding: 16px;
                     display: flex;
@@ -745,7 +772,7 @@ export default function MorphologyInspector({
                     font-weight: 300;
                     font-size: 38px;
                     line-height: 1;
-                    color: #FBEAD2;
+                    color: var(--ink);
                     flex-shrink: 0;
                 }
                 .mi-occurrence-labels {
@@ -757,19 +784,19 @@ export default function MorphologyInspector({
                 .mi-occ-line {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 13px;
-                    color: rgba(236,228,216,0.55);
+                    color: var(--ink-muted);
                 }
                 .mi-occ-root {
                     font-family: 'Amiri', 'Traditional Arabic', serif;
                     font-size: 15px;
-                    color: #c4bce8;
+                    color: var(--mi-lemma);
                     direction: rtl;
                     margin-right: 2px;
                 }
                 .mi-occ-sub {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 12px;
-                    color: rgba(236,228,216,0.5);
+                    color: var(--ink-muted);
                 }
                 .mi-histogram {
                     width: 100%;
@@ -789,8 +816,8 @@ export default function MorphologyInspector({
                     gap: 8px;
                     height: 46px;
                     border-radius: 12px;
-                    background: #E8924A;
-                    color: #2A1606;
+                    background: var(--accent);
+                    color: var(--accent-ink);
                     border: none;
                     cursor: pointer;
                     font-family: 'Space Grotesk', sans-serif;
@@ -834,8 +861,8 @@ export default function MorphologyInspector({
                     height: 46px;
                     border-radius: 12px;
                     background: transparent;
-                    border: 1px solid rgba(237,225,209,0.16);
-                    color: #ECE4D8;
+                    border: 1px solid var(--line);
+                    color: var(--ink);
                     cursor: pointer;
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 14px;
@@ -843,8 +870,8 @@ export default function MorphologyInspector({
                     transition: border-color 0.15s, background 0.15s;
                 }
                 .mi-btn-quiz:hover {
-                    border-color: rgba(237,225,209,0.32);
-                    background: rgba(236,228,216,0.04);
+                    border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+                    background: color-mix(in srgb, var(--ink) 4%, transparent);
                 }
 
                 /* ── Surah distribution ── */
@@ -863,12 +890,12 @@ export default function MorphologyInspector({
                     font-weight: 600;
                     letter-spacing: 0.12em;
                     text-transform: uppercase;
-                    color: rgba(236,228,216,0.45);
+                    color: color-mix(in srgb, var(--ink) 45%, transparent);
                 }
                 .mi-sort-select {
-                    background: rgba(28,42,49,0.9);
-                    border: 1px solid rgba(198,222,230,0.12);
-                    color: rgba(236,228,216,0.72);
+                    background: var(--panel);
+                    border: 1px solid var(--panel-border);
+                    color: var(--ink-secondary);
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 11px;
                     border-radius: 6px;
@@ -877,7 +904,7 @@ export default function MorphologyInspector({
                     outline: none;
                 }
                 .mi-sort-select:focus {
-                    border-color: rgba(232,146,74,0.5);
+                    border-color: var(--accent-glow);
                 }
                 .mi-surah-list {
                     display: flex;
@@ -895,8 +922,8 @@ export default function MorphologyInspector({
                     align-items: center;
                     gap: 8px;
                     width: 100%;
-                    background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(198,222,230,0.07);
+                    background: color-mix(in srgb, var(--ink) 3%, transparent);
+                    border: 1px solid var(--line);
                     border-radius: 8px;
                     padding: 7px 10px;
                     cursor: pointer;
@@ -904,13 +931,13 @@ export default function MorphologyInspector({
                     transition: background 0.15s, border-color 0.15s;
                 }
                 .mi-surah-btn:hover {
-                    background: rgba(232,146,74,0.08);
-                    border-color: rgba(232,146,74,0.2);
+                    background: color-mix(in srgb, var(--accent) 8%, transparent);
+                    border-color: color-mix(in srgb, var(--accent) 20%, transparent);
                 }
                 .mi-surah-name {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 12px;
-                    color: rgba(236,228,216,0.72);
+                    color: var(--ink-secondary);
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
@@ -918,21 +945,21 @@ export default function MorphologyInspector({
                 .mi-surah-arabic {
                     font-family: 'Amiri', 'Traditional Arabic', serif;
                     font-size: 14px;
-                    color: rgba(196,188,232,0.8);
+                    color: color-mix(in srgb, var(--mi-lemma) 80%, transparent);
                     direction: rtl;
                     flex-shrink: 0;
                 }
                 .mi-bar-track {
                     width: 48px;
                     height: 4px;
-                    background: rgba(198,222,230,0.08);
+                    background: var(--line);
                     border-radius: 2px;
                     overflow: hidden;
                     flex-shrink: 0;
                 }
                 .mi-bar-fill {
                     height: 100%;
-                    background: #E8924A;
+                    background: var(--accent);
                     border-radius: 2px;
                     transition: width 0.3s ease;
                 }
@@ -940,7 +967,7 @@ export default function MorphologyInspector({
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 11px;
                     font-weight: 600;
-                    color: rgba(232,146,74,0.9);
+                    color: color-mix(in srgb, var(--accent) 90%, transparent);
                     min-width: 20px;
                     text-align: right;
                     flex-shrink: 0;
@@ -954,25 +981,25 @@ export default function MorphologyInspector({
                 .mi-ayah-chip {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 10px;
-                    color: rgba(236,228,216,0.5);
-                    background: rgba(198,222,230,0.06);
+                    color: var(--ink-muted);
+                    background: color-mix(in srgb, var(--line) 60%, transparent);
                     border-radius: 4px;
                     padding: 2px 5px;
                     white-space: nowrap;
                 }
                 .mi-ayah-x {
-                    color: rgba(232,146,74,0.7);
+                    color: color-mix(in srgb, var(--accent) 70%, transparent);
                     margin-left: 2px;
                 }
                 .mi-ayah-more {
-                    color: rgba(236,228,216,0.35);
+                    color: color-mix(in srgb, var(--ink) 35%, transparent);
                     font-style: italic;
                 }
 
                 /* ── 5. POS Legend ── */
                 .mi-pos-legend {
                     padding: 14px 12px 16px;
-                    border-top: 1px solid rgba(198,222,230,0.08);
+                    border-top: 1px solid var(--panel-border);
                     margin-top: 8px;
                     display: flex;
                     flex-direction: column;
@@ -1000,7 +1027,7 @@ export default function MorphologyInspector({
                 .mi-legend-label {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 11px;
-                    color: rgba(236,228,216,0.6);
+                    color: var(--ink-muted);
                 }
             `}</style>
         </div>
