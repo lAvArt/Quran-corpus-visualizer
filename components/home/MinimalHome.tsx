@@ -239,15 +239,26 @@ export default function MinimalHome() {
     <div className={`mhome ${result ? "has-result" : ""}`}>
       <div className="mhome-atmos" aria-hidden="true" />
 
-      {/* corner mark + lang/skip */}
-      <div className="mhome-mark">
+      {/* corner mark + lang/skip — standard logo affordance: click returns to
+          the resting home state (clears any live search) */}
+      <button
+        type="button"
+        className="mhome-mark"
+        onClick={() => {
+          setQ("");
+          setDq("");
+          setRaised(false);
+        }}
+        aria-label={t("headline")}
+        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "inherit", font: "inherit" }}
+      >
         <span className="mhome-glyph">ق</span>
         <span className="mhome-wordmark">
           Quranic Linguistics
           <br />
           Observatory
         </span>
-      </div>
+      </button>
       <div className="mhome-topright">
         <div className="mhome-lang">
           <LanguageSwitcher />

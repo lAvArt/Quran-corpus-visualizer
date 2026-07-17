@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/routing";
 import CommandBar from "@/components/search/CommandBar";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { AuthButton } from "@/components/ui/AuthButton";
@@ -44,12 +45,18 @@ export default function TopBar({
   return (
     <header className="shell-topbar">
       <div className="shell-topbar-inner">
-        <div className="brand-block" data-tour-id="header-brand">
+        <Link
+          href="/"
+          className="brand-block"
+          data-tour-id="header-brand"
+          aria-label={t("eyebrow")}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           <span className="brand-mark">
             <Image src="/favicon.svg" alt="" width={22} height={22} />
           </span>
           <span className="brand-name">{t("eyebrow")}</span>
-        </div>
+        </Link>
 
         {/* ── Center: status/breadcrumb bar ── */}
         {centerSlot && <div className="shell-topbar-center desktop-only">{centerSlot}</div>}
