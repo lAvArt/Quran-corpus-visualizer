@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useMemo, useCallback, useDeferredValue, ty
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";

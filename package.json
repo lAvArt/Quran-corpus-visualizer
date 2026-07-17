@@ -57,15 +57,13 @@
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
     "@types/d3": "^7.4.3",
-    "@use-gesture/react": "^10.3.1",
     "@vercel/analytics": "^1.6.1",
     "d3": "^7.9.0",
     "framer-motion": "^12.33.0",
     "next": "^16.1.7",
     "next-intl": "^4.8.2",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "tesseract.js": "^7.0.0"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

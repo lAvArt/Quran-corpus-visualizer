@@ -1,4 +1,4 @@
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 
 export interface ViewBounds {

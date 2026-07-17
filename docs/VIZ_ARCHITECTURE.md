@@ -4,7 +4,7 @@ Reference map of the graph/visualization surface: routes, components, shell anat
 state, and the UX-debt ledger. Written so nobody has to re-derive this from the code.
 Line numbers drift — anchor by symbol/class names when navigating.
 
-_Last full audit: 2026-07-11 (branch `feature/viz-declutter`)._
+_Last full audit: 2026-07-18 (branch `feature/viz-declutter`)._
 
 ## Routes & deep links
 
@@ -194,20 +194,49 @@ Fixed in `feature/viz-declutter`:
   count is ~8,810 (5,604 is the focused-surah state — earlier probes measured focus
   due to a phantom unfocus click, since fixed).
 
+Fixed 2026-07-18 (same branch; verify suite green, data-audit agent re-confirmed all
+displayed counts against fresh recomputation from the raw morphology file):
+
+- knowledge-graph embed crash → `components/embed/EmbedProviders.tsx` ("use client",
+  AuthProvider→KnowledgeProvider, same nesting as app/[locale]/providers.tsx) mounted in
+  app/embed/layout.tsx; guest/IndexedDB path, verified live (ghost network + empty state).
+- MorphologyInspector light theme → all ~57 hardcoded dark colors tokenized
+  (var(--ink/--accent/--panel/--line) + color-mix tiers; component-scoped --mi-* props
+  with [data-theme="light"] overrides for lavender/error tones). Verified legible.
+- seed-corpus.ts aligned to first-root-wins (matches morphologyLoader; the one
+  divergent word 20:94:2 now resolves identically in both pipelines).
+- VizExplainer legend chips localized: `LegendItem.label` → `labelKey`
+  (`VizExplainer.<mode>.legend.*` in en+ar). Same pass: the Makki/Madani drawer
+  swatches were bound to --accent/--accent-2 (theme-unstable) → now --viz-cat-*.
+  Also removed a DUPLICATE top-level "VizExplainer" JSON block in both message files
+  (first block was dead — later key wins on parse).
+- ar.json hygiene: 9 mojibake strings ("???") restored, 15 untranslated-English
+  strings translated (collocation controls, GlobalSearch aria), CommandBar +
+  SemanticSearchPanel placeholders wrap Latin prefix operators in LRI/PDI isolates
+  (⁦…⁩) so RTL ordering stays sane.
+- Stale "Structural Map" heading bleed → RadialSuraMap's legacy `panel-head` +
+  `viz-controls` blocks removed (RootNetworkGraph had already dropped its own);
+  breadcrumb/center annotation/Explain drawer carry that content. Verified mobile+RTL.
+- sankey ribbons → sqrt width scale [1.5,16]px + deterministic per-root hue tint
+  (base opacity 0.4, emphasis 0.85/dim 0.15) in the default color mode; node chips
+  strengthened. Verified.
+- arc-flow baseline "swoosh" (64px decorative var(--line) stroke, zero encoding)
+  removed. Verified.
+- dependency-tree initial placement migrated to shared fitGraphToView (chrome-aware),
+  gated on surah-data completeness, refits on ayah/surah nav only; user pan/zoom no
+  longer reset by resize. Long-ayah caveat below.
+- Dictionary links: root badges now fold every alif/hamza carrier to أ
+  (`toCitationRoot` in MorphologyInspector) before linking — hamza-family roots
+  (امن→أمن) land on real Almaany/Doha pages; lemmas keep true orthography.
+- d3 imports: all viz files + fitToView/useZoom now import from the curated barrel
+  `lib/viz/d3.ts` (12 submodules re-exported; d3-transition side-effect included).
+  RULE: never `import * as d3 from "d3"` again — add missing submodules to the barrel.
+- Dead deps removed: tesseract.js, @use-gesture/react (zero imports).
+
 Known, deliberately deferred (next iterations):
 
-- **knowledge-graph EMBED mode is broken (pre-existing)**: app/embed/layout.tsx mounts
-  no KnowledgeProvider, so useKnowledge() throws into the error boundary; the mode is
-  listed in VALID_MODES. Mount the provider (guest/IndexedDB path) or delist the mode.
-- **sankey ribbons are pale and near-uniform**; promised proportional widths are not
-  legible. Consider stronger width scaling + root-hue tinting.
 - Lemma glosses missing for many forms ("Translation not available") — data gap, see
   hamza normalization note in `docs/DATA_SOURCES.md`; affects inspector hero content.
-- Search-bar placeholder in RTL mixes Latin prefix tokens awkwardly (`root:, lemma:1 …`).
-- VizExplainer legend chips (Noun/Verb/…) render in English inside the `/ar` UI — the
-  drawer Explain legend items aren't localized (the left-panel legend is).
-- A stale MinimalHome heading ("Structural Map" / Arabic equivalent) bleeds behind the
-  shell top bars on mobile and RTL entry.
 - The "How to read this view" chip can transiently overlap sankey's canvas scope pills
   (both sit top-center; chip auto-fades after 8 s).
 - Light theme: the "Selected / contains selected root" legend swatch is near-identical
@@ -215,16 +244,17 @@ Known, deliberately deferred (next iterations):
 - **Unscoped (entire-Quran) arc-flow/root-network views are unreachable**: `selectedSurahId`
   is a non-nullable number defaulting to 1 everywhere (`useSelectionState`, embeds), though
   components support a null scope. Decide whether to expose a corpus scope.
-- Arc weights are never shown numerically beyond the hover tooltip; the thick gray arc
-  baseline "swoosh" in arc-flow reads muddy at default zoom — candidates for a pass.
-- `scripts/seed-corpus.ts` resolves multi-ROOT words last-root-wins while
-  `lib/corpus/morphologyLoader.ts` is first-root-wins — exactly one Quran word differs
-  (20:94:2 يَبْنَؤُمَّ: بني vs امم); align the pipelines.
-- Dependency-tree initial placement is a fixed-scale translate (not fitBoundsToView) —
-  one token box can still kiss the dock edge; migrate it to the shared fit.
-- **MorphologyInspector is near-illegible in light theme**: most of its text uses
-  hardcoded dark-theme hex/rgba instead of tokens (the dictionary badges added 2026-07
-  are the only token-correct part). Tokenize the mi-* styles.
+  (Corollary: the corpus-wide 514 اله|قول arc weight is computed correctly but never
+  reachable through the UI.)
+- Arc weights are never shown numerically beyond the hover tooltip.
+- Dependency-tree on very long ayahs (2:255, 50 tokens): the shared fit is bounded by
+  the zoom scaleExtent floor (0.4), so the token row still overflows horizontally and
+  needs panning — full fix is a wrapped/multi-row layout, not a smaller scale (text
+  would be illegible). Deep links with `ayah=` intentionally focus the ayah's first
+  token (resolveFocusedTokenIdForSelection) so the Inspect drawer has content — that
+  root chip in the breadcrumb is by design, not a stray write-back.
+- Embed knowledge-graph empty-state card uses a light panel on the dark embed theme —
+  legible but washed; tokenize if embeds get a theme pass.
 - The learning loop is real (2026-07): inspector "Track this root" is a state-aware
   toggle on useKnowledge() (tracked → success outline, click to untrack); "Quiz me on
   this root" navigates to /quiz?root=… which renders a root-scoped quiz
