@@ -144,6 +144,44 @@ onboarding localStorage `quran-corpus-onboarding`.
   `VizExplainer.{mode}.*` in `messages/en.json` / `ar.json`; how-to-read step keys listed
   in `lib/vizExplainers.ts`. Interaction hints must say "hover **or tap**" (touch).
 
+## Cognitive-load ladder (2026-07-18)
+
+Search-to-graph escalation is deliberately staged; keep new features on a rung:
+
+1. **Home root profile** (`MinimalHome` ResultPanel) — count, gloss, 114-bar
+   strip, top-5 surahs. Primary CTA "See it in context" → radial-sura scoped
+   to the root's top surah; network is the explicit secondary CTA.
+2. **Calm entry** — home root CTAs append `entry=calm`; AppShell's deep-link
+   hydration collapses the left dock to its spine (one-shot, NOT persisted —
+   `skipNextDockPersistRef`) and skips the drawer auto-open
+   (`actionTarget.calmEntry` through `handleSearchResultNavigate`). The flag
+   is consumed on arrival; the controller's URL mirror drops it.
+3. **Focused root-network** — arriving with a `highlightRoot` renders only
+   that root + its 8 strongest verse-mates (`isFocusEntry` in
+   `RootNetworkGraph`; ayah co-occurrence within scope). Escalation is the
+   always-visible "Show full network N/M" pill (fixed bottom-center — the
+   sidebar focus card is hidden while the dock is collapsed) with a one-shot
+   `qcv-attention-pulse` (globals.css). Re-arms per new highlighted root.
+4. **Full field** — the root-limit slider (default 30). A highlighted root
+   outside the top-N slice is force-included so search never points at nothing.
+
+Related mechanics added the same day:
+
+- **Staged overview LOD (radial)**: overview stages keyed to the ENTRY-FIT
+  scale (`overviewBaseScaleRef`), not absolute zoom — stage 1 (1.6×base) top-8
+  roots' arcs, stage 2 (2.6×base) full faint mesh (capped 400 paths);
+  highlighted-root arcs + count-scaled match ticks + ayah milestones at every
+  stage. Pattern: never reveal on one cliff; each zoom step earns structure.
+- **Sticky node drag (root-network)**: d3-drag subject carries node x/y (grab
+  offset), drop keeps fx/fy (no orbit snap-back), dblclick unpins. Never null
+  fx/fy on drag end while a strong radial force exists.
+- **Streaming honesty**: inspector occurrence card shows a pulsing "still
+  counting" cue while `isLoadingCorpus` (prop chain AppShell → ContextDrawer →
+  MorphologyInspector); StatusBar shows N/114 · % with a sheen.
+- **TopBar geometry**: banner + centered search slot share one explicit height
+  (58px, pill capped 46px). Never let the two grow independently from content.
+  The centered dock widens to min(680px, 32vw) at ≥1800px viewports.
+
 ## UX-debt ledger
 
 Findings from the 2026-07-11 all-modes audit (screenshots in `.ux-shots/`, gitignored).
