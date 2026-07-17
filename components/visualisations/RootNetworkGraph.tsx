@@ -653,10 +653,16 @@ export default function RootNetworkGraph({
     const g = d3.select(gRef.current);
 
     const dragBehavior = d3.drag<SVGGElement, unknown>()
+      // Subject must carry the node's CURRENT x/y: d3-drag anchors the
+      // pointer offset to subject.x/y, so without them the node's center
+      // snapped under the pointer on the first move and the whole drag felt
+      // "magnetic"/heavy. Returning null when the hit isn't a node skips the
+      // gesture entirely.
       .subject((event) => {
         const el = (event.sourceEvent?.target as Element)?.closest?.(".rn-node");
         const id = el?.getAttribute("data-node-id");
-        return { id };
+        const node = id ? liveNodesRef.current.find((n) => n.id === id) : null;
+        return node ? { id, x: node.x ?? 0, y: node.y ?? 0 } : null;
       })
       .on("start", (event) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -671,15 +677,30 @@ export default function RootNetworkGraph({
       })
       .on("end", (event) => {
         if (!event.active) simulation.alphaTarget(0);
-        const nodeId = event.subject?.id;
-        const node = liveNodesRef.current.find((n) => n.id === nodeId);
-        if (node) { node.fx = null; node.fy = null; }
+        // Sticky drop: keep fx/fy so the node STAYS where the user put it
+        // instead of being yanked back onto its orbit ring by the radial
+        // force (the reported "stuck magnetically" feel). Double-click a
+        // node to release it back to the orbit (below).
       });
 
     g.selectAll<SVGGElement, unknown>(".rn-node").call(dragBehavior);
 
+    // Double-click releases a pinned node back to the simulation's orbit.
+    g.selectAll<SVGGElement, unknown>(".rn-node").on("dblclick.unpin", (event) => {
+      const el = (event.target as Element)?.closest?.(".rn-node");
+      const id = el?.getAttribute("data-node-id");
+      const node = id ? liveNodesRef.current.find((n) => n.id === id) : null;
+      if (node && (node.fx != null || node.fy != null)) {
+        node.fx = null;
+        node.fy = null;
+        simulation.alpha(0.3).restart();
+        event.stopPropagation(); // keep the svg dblclick-zoom from firing
+      }
+    });
+
     return () => {
       g.selectAll<SVGGElement, unknown>(".rn-node").on(".drag", null);
+      g.selectAll<SVGGElement, unknown>(".rn-node").on("dblclick.unpin", null);
     };
   }, [nodeIdsKey]);
 
@@ -1086,6 +1107,45 @@ export default function RootNetworkGraph({
           </svg>
         )}
       </div>
+
+      {/* Focused-entry escalation: always-visible affordance to the next
+          cognitive level (the full field), independent of whether the left
+          dock is expanded — calm entry collapses the dock, which would
+          otherwise hide the sidebar focus card's expand button entirely. */}
+      {isFocusEntry && highlightRoot && (
+        <button
+          type="button"
+          data-testid="root-network-focus-expand-pill"
+          onClick={() => setFocusExpanded(true)}
+          style={{
+            position: "fixed",
+            bottom: 150,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 30,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "9px 18px",
+            borderRadius: 999,
+            border: "1px solid color-mix(in srgb, var(--accent) 45%, transparent)",
+            background: "color-mix(in srgb, var(--accent) 12%, var(--panel))",
+            color: "var(--ink)",
+            font: "inherit",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            boxShadow: "0 4px 18px rgba(0, 0, 0, 0.25)",
+          }}
+        >
+          {t("focusEntryExpand")}
+          <span style={{ color: "var(--ink-muted)", fontWeight: 500 }}>
+            {renderedRootCount}/{totalRoots}
+          </span>
+        </button>
+      )}
 
       {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
         <div className="viz-left-stack">
