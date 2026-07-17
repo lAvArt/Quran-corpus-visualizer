@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { SURAH_NAMES } from "@/lib/data/surahData";
@@ -213,7 +214,13 @@ export default function MinimalHome() {
   const enterApp = useCallback(
     (root?: string, viz = "root-network", surah?: number) => {
       const sp = new URLSearchParams({ viz });
-      if (root) sp.set("root", root);
+      if (root) {
+        sp.set("root", root);
+        // First contact from home lands calm: dock collapsed, drawer closed,
+        // focused constellation only — chrome reveals as the user reaches
+        // for it (see AppShell's deep-link hydration).
+        sp.set("entry", "calm");
+      }
       // Surah-scoped views should land where the root actually occurs.
       if (surah) sp.set("surah", String(surah));
       router.push(`/${locale}?${sp.toString()}`);
@@ -252,7 +259,11 @@ export default function MinimalHome() {
         aria-label={t("headline")}
         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "inherit", font: "inherit" }}
       >
-        <span className="mhome-glyph">ق</span>
+        <span className="mhome-glyph">
+          {/* Same mark as the observatory TopBar so the brand reads as one
+              site across surfaces. */}
+          <Image src="/favicon.svg" alt="" width={22} height={22} />
+        </span>
         <span className="mhome-wordmark">
           Quranic Linguistics
           <br />
