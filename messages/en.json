@@ -811,6 +811,9 @@
         },
         "RootNetwork": {
             "rootLimit": "Visible roots",
+            "focusEntryTitle": "Focused view",
+            "focusEntryDescription": "Showing this root with its {count} closest companions — roots that share verses with it.",
+            "focusEntryExpand": "Show full network",
             "availableRoots": "Total available roots:",
             "dragPan": "Drag to pan - wheel to zoom",
             "noTokens": "No token data loaded for this surah yet. Keep corpus loading, then retry this surah.",

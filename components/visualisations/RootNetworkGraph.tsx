@@ -96,6 +96,7 @@ const AUTO_FIT_DURATION_MS = 600;
 const ROOT_LABEL_ALWAYS_THRESHOLD = 24; // <= this many rendered roots: label them all, single orbit ring
 const ROOT_LABEL_TOP_N = 12; // above the threshold: only the N most frequent label by default + inner ring
 const ROOT_LABEL_ZOOM_THRESHOLD = 1.4; // zoomed in this far reveals the rest of the roots
+const FOCUS_COMPANION_COUNT = 8; // focused entry: searched root + this many strongest verse-mates
 const LEMMA_LABEL_ZOOM_THRESHOLD = 1.8; // lemma labels need either focus or this much zoom
 
 // Center "stellar core" — a small, crisp sun anchoring the orbit, not a
@@ -139,6 +140,19 @@ export default function RootNetworkGraph({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [rootLimit, setRootLimit] = useState(30);
+  // Cognitive-load mediator: arriving with a searched/selected root starts in
+  // a focused neighborhood (that root + its strongest verse-mates) instead of
+  // the full root field; "Show full network" expands. Re-arms whenever the
+  // highlighted root changes so each new search focuses again.
+  const [focusExpanded, setFocusExpanded] = useState(false);
+  const prevHighlightRootRef = useRef<string | null | undefined>(highlightRoot);
+  useEffect(() => {
+    if (prevHighlightRootRef.current !== highlightRoot) {
+      prevHighlightRootRef.current = highlightRoot;
+      setFocusExpanded(false);
+    }
+  }, [highlightRoot]);
+  const isFocusEntry = Boolean(highlightRoot) && !focusExpanded;
   const [nodes, setNodes] = useState<NetworkNode[]>([]);
   const [links, setLinks] = useState<NetworkLink[]>([]);
   const [isMounted, setIsMounted] = useState(false);
@@ -233,9 +247,51 @@ export default function RootNetworkGraph({
     }
 
     // Create nodes - limit controlled by slider
-    const sortedRoots = [...rootMap.entries()]
+    let sortedRoots = [...rootMap.entries()]
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, effectiveRootLimit);
+
+    if (isFocusEntry && highlightRoot && rootMap.has(highlightRoot)) {
+      // Focused entry: only the searched root + the roots that share the
+      // most verses with it, so a search lands on a readable neighborhood
+      // instead of the full field.
+      const rootsByVerse = new Map<string, Set<string>>();
+      for (const tk of scopedTokens) {
+        if (!tk.root) continue;
+        const key = `${tk.sura}:${tk.ayah}`;
+        let set = rootsByVerse.get(key);
+        if (!set) rootsByVerse.set(key, (set = new Set()));
+        set.add(tk.root);
+      }
+      const sharedVerses = new Map<string, number>();
+      for (const set of rootsByVerse.values()) {
+        if (!set.has(highlightRoot)) continue;
+        for (const r of set) {
+          if (r !== highlightRoot) sharedVerses.set(r, (sharedVerses.get(r) ?? 0) + 1);
+        }
+      }
+      const companions = [...sharedVerses.entries()]
+        .sort(
+          (a, b) =>
+            b[1] - a[1] ||
+            (rootMap.get(b[0])?.count ?? 0) - (rootMap.get(a[0])?.count ?? 0)
+        )
+        .slice(0, FOCUS_COMPANION_COUNT)
+        .map(([r]) => r);
+      const focusSet = new Set([highlightRoot, ...companions]);
+      sortedRoots = [...rootMap.entries()]
+        .filter(([r]) => focusSet.has(r))
+        .sort((a, b) => b[1].count - a[1].count);
+    } else if (
+      highlightRoot &&
+      rootMap.has(highlightRoot) &&
+      !sortedRoots.some(([r]) => r === highlightRoot)
+    ) {
+      // Expanded view: a searched root outside the top-N slice must still be
+      // rendered, or the search highlight points at nothing.
+      sortedRoots[sortedRoots.length - 1] = [highlightRoot, rootMap.get(highlightRoot)!];
+      sortedRoots.sort((a, b) => b[1].count - a[1].count);
+    }
 
     // Root label hierarchy: sortedRoots is already frequency-descending, so
     // the first ROOT_LABEL_TOP_N are exactly "the most frequent roots
@@ -328,7 +384,7 @@ export default function RootNetworkGraph({
       // — this is what "how many root labels are on screen" cares about.
       renderedRootCount: sortedRoots.length,
     };
-  }, [scopedTokens, themeColors.nodeColors.default, effectiveRootLimit, lexicalColorMode, theme]);
+  }, [scopedTokens, themeColors.nodeColors.default, effectiveRootLimit, lexicalColorMode, theme, isFocusEntry, highlightRoot]);
 
   // Root orbit radius/radii, scaled to the canvas — shared by the force
   // simulation (below) and the decorative orbital-ring circles (in the
@@ -1052,25 +1108,43 @@ export default function RootNetworkGraph({
             </div>
           </div>
 
-          <div
-            className="viz-left-panel root-limit-control"
-            data-testid="root-network-root-limit-control"
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>{t("rootLimit")}</label>
-              <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
+          {isFocusEntry && highlightRoot ? (
+            <div className="viz-left-panel" data-testid="root-network-focus-card">
+              <div className="viz-tooltip-title">{t("focusEntryTitle")}</div>
+              <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+              <p style={{ margin: '6px 0 10px', fontSize: '0.72rem', color: 'var(--ink-muted)', lineHeight: 1.45 }}>
+                {t("focusEntryDescription", { count: Math.max(renderedRootCount - 1, 0) })}
+              </p>
+              <button
+                type="button"
+                className="viz-zoom-reset-btn"
+                data-testid="root-network-focus-expand"
+                onClick={() => setFocusExpanded(true)}
+              >
+                {t("focusEntryExpand")}
+              </button>
             </div>
-            <input
-              type="range"
-              min={5}
-              max={Math.max(5, totalRoots)}
-              step={5}
-              value={Math.min(rootLimit, totalRoots || 100)}
-              onChange={(e) => setRootLimit(Number(e.target.value))}
-              aria-label={t("rootLimit")}
-              style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-            />
-          </div>
+          ) : (
+            <div
+              className="viz-left-panel root-limit-control"
+              data-testid="root-network-root-limit-control"
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', whiteSpace: 'nowrap' }}>{t("rootLimit")}</label>
+                <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', minWidth: 44, textAlign: 'right' }}>{Math.min(rootLimit, totalRoots)}/{totalRoots}</span>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={Math.max(5, totalRoots)}
+                step={5}
+                value={Math.min(rootLimit, totalRoots || 100)}
+                onChange={(e) => setRootLimit(Number(e.target.value))}
+                aria-label={t("rootLimit")}
+                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+            </div>
+          )}
 
           {sidebarNode && (
             <div className="viz-left-panel">
