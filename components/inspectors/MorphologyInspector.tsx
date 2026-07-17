@@ -15,6 +15,9 @@ interface MorphologyInspectorProps {
     allTokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
     onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
+    /** True while the corpus is still streaming — occurrence numbers are
+     *  partial, so the card shows a live "still counting" cue. */
+    isCorpusLoading?: boolean;
 }
 
 // `colorKey` indexes CATEGORY_COLORS (the data-encoding palette); `posKey`
@@ -38,6 +41,7 @@ export default function MorphologyInspector({
     allTokens,
     onRootSelect,
     onSelectSurah,
+    isCorpusLoading,
 }: MorphologyInspectorProps) {
     const t = useTranslations("MorphologyInspector");
     const router = useRouter();
@@ -432,6 +436,12 @@ export default function MorphologyInspector({
                             <span className="mi-occ-sub">
                                 {t("rootDistribution.acrossSurahs", { count: rootDistribution.surahCount })}
                             </span>
+                            {isCorpusLoading && (
+                                <span className="mi-occ-counting" role="status">
+                                    <span className="mi-occ-counting-dot" aria-hidden="true" />
+                                    {t("rootDistribution.stillCounting")}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="mi-histogram">
@@ -797,6 +807,29 @@ export default function MorphologyInspector({
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 12px;
                     color: var(--ink-muted);
+                }
+                .mi-occ-counting {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-top: 2px;
+                    font-family: 'Space Grotesk', sans-serif;
+                    font-size: 11px;
+                    color: var(--accent);
+                }
+                .mi-occ-counting-dot {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    background: var(--accent);
+                    animation: miCountPulse 1.2s ease-in-out infinite;
+                }
+                @keyframes miCountPulse {
+                    0%, 100% { opacity: 0.35; }
+                    50% { opacity: 1; }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .mi-occ-counting-dot { animation: none; }
                 }
                 .mi-histogram {
                     width: 100%;

@@ -36,6 +36,10 @@ interface ContextDrawerProps {
   onSearchQuerySubmitted: (query: string) => void;
   onSearchResultSelected: (matchType: SearchMatchType) => void;
   onResultNavigate?: (result: SearchResultItem) => void;
+  /** True while the full corpus is still streaming in — lets the inspector
+   *  mark click-computed counts as "still counting" instead of silently
+   *  showing partial numbers. */
+  isCorpusLoading?: boolean;
 }
 
 /**
@@ -62,6 +66,7 @@ export default function ContextDrawer({
   onSearchQuerySubmitted,
   onSearchResultSelected,
   onResultNavigate,
+  isCorpusLoading,
 }: ContextDrawerProps) {
   const t = useTranslations("ContextDrawer");
   const [activeTab, setActiveTab] = useState<DrawerTab>("explain");
@@ -202,6 +207,7 @@ export default function ContextDrawer({
           allTokens={allTokens}
           onRootSelect={onRootSelect}
           onSelectSurah={onSelectSurah}
+          isCorpusLoading={isCorpusLoading}
         />
       </div>
 

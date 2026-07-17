@@ -2847,6 +2847,25 @@ button.site-footer-link {
   gap: 10px;
 }
 
+/* One-shot attention pulse for escalation affordances (e.g. the focused
+   root-network's "Show full network" pill): three gentle rings, then still.
+   Guides the eye without nagging; disabled under reduced motion. */
+@keyframes qcv-attention-pulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.qcv-attention-pulse {
+  animation: qcv-attention-pulse 1.8s ease-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qcv-attention-pulse {
+    animation: none;
+  }
+}
+
 .brand-logo {
   flex-shrink: 0;
   width: 34px;

@@ -1115,6 +1115,7 @@ export default function RootNetworkGraph({
       {isFocusEntry && highlightRoot && (
         <button
           type="button"
+          className="qcv-attention-pulse"
           data-testid="root-network-focus-expand-pill"
           onClick={() => setFocusExpanded(true)}
           style={{

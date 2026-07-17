@@ -337,6 +337,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "sidebar")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "sidebar")}
         onResultNavigate={c.handleSearchResultNavigate}
+        isCorpusLoading={c.isLoadingCorpus}
       />
 
       {/* ── Consolidated status / notification bar ── */}

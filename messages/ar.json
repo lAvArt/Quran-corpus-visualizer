@@ -459,7 +459,8 @@
             "sortByOccurrence": "فرز حسب التكرار",
             "sortByOrder": "فرز حسب ترتيب السور",
             "occurrencesOfRoot": "× من تكرارات الجذر",
-            "acrossSurahs": "عبر {count, plural, one {سورة واحدة} other {# سور}}"
+            "acrossSurahs": "عبر {count, plural, one {سورة واحدة} other {# سور}}",
+            "stillCounting": "العدّ مستمر — المدونة قيد التحميل"
         },
         "featuresMap": {
             "keys": {

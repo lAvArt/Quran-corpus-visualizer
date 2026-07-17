@@ -457,7 +457,8 @@
             "sortByOccurrence": "Sort by occurrences",
             "sortByOrder": "Sort by surah order",
             "occurrencesOfRoot": "× occurrences of root",
-            "acrossSurahs": "across {count, plural, one {# surah} other {# surahs}}"
+            "acrossSurahs": "across {count, plural, one {# surah} other {# surahs}}",
+            "stillCounting": "still counting — corpus loading"
         },
         "featuresMap": {
             "keys": {
