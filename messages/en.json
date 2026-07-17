@@ -405,9 +405,6 @@
             "clickToFocusSurah": "Click to focus surah and highlight"
         }
     },
-    "VizExplainer": {
-        "helpLabel": "How to read this graph"
-    },
     "MorphologyInspector": {
         "emptyState": {
             "hover": "Hover over a node to see quick details.",
@@ -1172,6 +1169,11 @@
         "helpLabel": "What am I seeing?",
         "surah-distribution": {
             "summary": "A radial chart showing surah lengths and root frequency distribution across the Quran.",
+            "legend": {
+                "makki": "Makki surah",
+                "madani": "Madani surah",
+                "rootFrequency": "Root frequency"
+            },
             "hint": {
                 "hover": "Hover or tap a segment to see surah name and ayah count.",
                 "click": "Click a surah to dive into its token-level view.",
@@ -1182,6 +1184,11 @@
         },
         "corpus-architecture": {
             "summary": "A hierarchical treemap of the Quran's physical structure: juz → surah → ayah groups.",
+            "legend": {
+                "juz": "Juz",
+                "surah": "Surah",
+                "ayahGroup": "Ayah group"
+            },
             "hint": {
                 "expand": "Click a block to expand and see its contents.",
                 "click": "Click a surah cell to focus on it.",
@@ -1192,6 +1199,13 @@
         },
         "radial-sura": {
             "summary": "A circular layout of every token in one surah, colored by linguistic role.",
+            "legend": {
+                "noun": "Noun",
+                "verb": "Verb",
+                "adjective": "Adjective",
+                "preposition": "Preposition",
+                "ayahBoundary": "Ayah boundary"
+            },
             "hint": {
                 "hover": "Hover or tap a token to preview its gloss and POS.",
                 "click": "Click a token to open full details in the inspector.",
@@ -1203,6 +1217,10 @@
         },
         "dependency-tree": {
             "summary": "A tree diagram showing syntactic dependencies between words in a verse.",
+            "legend": {
+                "token": "Token (by part of speech)",
+                "edge": "Dependency edge"
+            },
             "hint": {
                 "hover": "Hover or tap a node to highlight its dependents.",
                 "click": "Click a node to see full morphology.",
@@ -1213,6 +1231,10 @@
         },
         "arc-flow": {
             "summary": "Arcs connect co-occurring roots and lemmas within each ayah.",
+            "legend": {
+                "token": "Token (by part of speech)",
+                "arc": "Syntactic arc"
+            },
             "hint": {
                 "hover": "Hover or tap an arc to see which pair it connects.",
                 "click": "Click a token to lock focus on its connections.",
@@ -1223,6 +1245,11 @@
         },
         "root-network": {
             "summary": "A force-directed graph where nodes are roots and edges show co-occurrence.",
+            "legend": {
+                "root": "Root node",
+                "lemma": "Lemma node",
+                "link": "Derivation link"
+            },
             "hint": {
                 "hover": "Hover or tap a root node to see its frequency and connections.",
                 "click": "Click to lock focus and filter the network.",
@@ -1233,6 +1260,11 @@
         },
         "sankey-flow": {
             "summary": "A flow diagram tracing how one root branches into lemmas and tokens.",
+            "legend": {
+                "root": "Root",
+                "lemma": "Lemma",
+                "flow": "Derivation flow"
+            },
             "hint": {
                 "hover": "Hover or tap a flow band to see the count and path.",
                 "click": "Click a lemma or token to focus the inspector.",
@@ -1243,6 +1275,11 @@
         },
         "collocation-network": {
             "summary": "A network of root pairs that frequently appear near each other.",
+            "legend": {
+                "root": "Root",
+                "collocate": "Collocate",
+                "pmi": "PMI strength"
+            },
             "hint": {
                 "hover": "Hover or tap an edge to see collocation strength.",
                 "click": "Click a node to filter to that root's collocations.",
@@ -1253,6 +1290,11 @@
         },
         "knowledge-graph": {
             "summary": "An interactive map of tracked roots and studied topics.",
+            "legend": {
+                "tracked": "Tracked root",
+                "untracked": "Untracked root",
+                "link": "Semantic link"
+            },
             "hint": {
                 "hover": "Hover or tap a node to see your study progress.",
                 "click": "Click to review or drill into a topic.",
@@ -1263,6 +1305,11 @@
         },
         "heatmap": {
             "summary": "A grid where color intensity shows word frequency across surahs.",
+            "legend": {
+                "low": "Low frequency",
+                "medium": "Medium frequency",
+                "high": "High frequency"
+            },
             "hint": {
                 "hover": "Hover or tap a cell to see the exact count.",
                 "click": "Click a cell to jump to the corresponding surah view.",

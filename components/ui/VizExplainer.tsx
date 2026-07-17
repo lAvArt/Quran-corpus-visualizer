@@ -59,7 +59,7 @@ export default function VizExplainer({ vizMode }: VizExplainerProps) {
                   className={`viz-explainer-swatch viz-explainer-swatch--${item.shape}`}
                   aria-hidden="true"
                 />
-                <span className="viz-explainer-legend-label">{item.label}</span>
+                <span className="viz-explainer-legend-label">{t(item.labelKey)}</span>
               </div>
             ))}
           </div>

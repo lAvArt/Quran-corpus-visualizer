@@ -4,13 +4,14 @@ import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 export interface LegendItem {
   color: string;
   shape: "circle" | "line" | "rect" | "arc";
-  label: string;
+  /** i18n key under `VizExplainer.<mode>.legend` */
+  labelKey: string;
 }
 
 export interface VizExplainer {
   /** One-sentence summary of what the user is seeing */
   summaryKey: string;
-  /** Color/shape legend items (static, no i18n — colors speak) */
+  /** Color/shape legend items (labels are i18n keys) */
   legend: LegendItem[];
   /** Interaction hints (i18n keys) */
   hintKeys: string[];
@@ -28,7 +29,7 @@ export interface VizExplainer {
 
 /**
  * Static explainer content for each visualization mode.
- * All text fields (except legend labels) are i18n keys under `VizExplainer.<mode>`.
+ * All text fields are i18n keys under `VizExplainer.<mode>`.
  *
  * Legend colors are sourced to match what each canvas ACTUALLY renders so the
  * legend can never disagree with the graph:
@@ -36,6 +37,8 @@ export interface VizExplainer {
  *   - Theme-driven elements (edges, arcs, structural nodes) use the live CSS
  *     accent variables (`var(--accent)` / `var(--accent-2)`) the canvases read,
  *     so the swatch follows the user's chosen accent.
+ *   - Categorical encodings (Makki/Madani) use the theme-stable `--viz-cat-*`
+ *     tokens, never `--accent`/`--accent-2` (those swap hues between themes).
  *   - Neutral structure stays slate (`CATEGORY_COLORS.other`).
  */
 const NEUTRAL = CATEGORY_COLORS.other; // slate #94a3b8
@@ -44,9 +47,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "surah-distribution": {
     summaryKey: "surah-distribution.summary",
     legend: [
-      { color: "var(--accent-2)", shape: "arc", label: "Makki surah" },
-      { color: "var(--accent)", shape: "arc", label: "Madani surah" },
-      { color: CATEGORY_COLORS.pronoun, shape: "circle", label: "Root frequency" },
+      { color: "var(--viz-cat-makki)", shape: "arc", labelKey: "surah-distribution.legend.makki" },
+      { color: "var(--viz-cat-madani)", shape: "arc", labelKey: "surah-distribution.legend.madani" },
+      { color: CATEGORY_COLORS.pronoun, shape: "circle", labelKey: "surah-distribution.legend.rootFrequency" },
     ],
     hintKeys: [
       "surah-distribution.hint.hover",
@@ -65,9 +68,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "corpus-architecture": {
     summaryKey: "corpus-architecture.summary",
     legend: [
-      { color: "var(--accent-2)", shape: "rect", label: "Juz" },
-      { color: "var(--accent)", shape: "rect", label: "Surah" },
-      { color: CATEGORY_COLORS.preposition, shape: "circle", label: "Ayah group" },
+      { color: "var(--accent-2)", shape: "rect", labelKey: "corpus-architecture.legend.juz" },
+      { color: "var(--accent)", shape: "rect", labelKey: "corpus-architecture.legend.surah" },
+      { color: CATEGORY_COLORS.preposition, shape: "circle", labelKey: "corpus-architecture.legend.ayahGroup" },
     ],
     hintKeys: [
       "corpus-architecture.hint.expand",
@@ -86,11 +89,11 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "radial-sura": {
     summaryKey: "radial-sura.summary",
     legend: [
-      { color: CATEGORY_COLORS.noun, shape: "circle", label: "Noun" },
-      { color: CATEGORY_COLORS.verb, shape: "circle", label: "Verb" },
-      { color: CATEGORY_COLORS.adjective, shape: "circle", label: "Adjective" },
-      { color: CATEGORY_COLORS.preposition, shape: "circle", label: "Preposition" },
-      { color: NEUTRAL, shape: "line", label: "Ayah boundary" },
+      { color: CATEGORY_COLORS.noun, shape: "circle", labelKey: "radial-sura.legend.noun" },
+      { color: CATEGORY_COLORS.verb, shape: "circle", labelKey: "radial-sura.legend.verb" },
+      { color: CATEGORY_COLORS.adjective, shape: "circle", labelKey: "radial-sura.legend.adjective" },
+      { color: CATEGORY_COLORS.preposition, shape: "circle", labelKey: "radial-sura.legend.preposition" },
+      { color: NEUTRAL, shape: "line", labelKey: "radial-sura.legend.ayahBoundary" },
     ],
     hintKeys: [
       "radial-sura.hint.hover",
@@ -111,8 +114,8 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "dependency-tree": {
     summaryKey: "dependency-tree.summary",
     legend: [
-      { color: CATEGORY_COLORS.noun, shape: "circle", label: "Token (by part of speech)" },
-      { color: "var(--accent)", shape: "line", label: "Dependency edge" },
+      { color: CATEGORY_COLORS.noun, shape: "circle", labelKey: "dependency-tree.legend.token" },
+      { color: "var(--accent)", shape: "line", labelKey: "dependency-tree.legend.edge" },
     ],
     hintKeys: [
       "dependency-tree.hint.hover",
@@ -131,8 +134,8 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "arc-flow": {
     summaryKey: "arc-flow.summary",
     legend: [
-      { color: CATEGORY_COLORS.noun, shape: "circle", label: "Token (by part of speech)" },
-      { color: "var(--accent)", shape: "arc", label: "Syntactic arc" },
+      { color: CATEGORY_COLORS.noun, shape: "circle", labelKey: "arc-flow.legend.token" },
+      { color: "var(--accent)", shape: "arc", labelKey: "arc-flow.legend.arc" },
     ],
     hintKeys: [
       "arc-flow.hint.hover",
@@ -151,9 +154,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "root-network": {
     summaryKey: "root-network.summary",
     legend: [
-      { color: "var(--accent)", shape: "circle", label: "Root node" },
-      { color: CATEGORY_COLORS.noun, shape: "circle", label: "Lemma node" },
-      { color: NEUTRAL, shape: "line", label: "Derivation link" },
+      { color: "var(--accent)", shape: "circle", labelKey: "root-network.legend.root" },
+      { color: CATEGORY_COLORS.noun, shape: "circle", labelKey: "root-network.legend.lemma" },
+      { color: NEUTRAL, shape: "line", labelKey: "root-network.legend.link" },
     ],
     hintKeys: [
       "root-network.hint.hover",
@@ -172,9 +175,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "sankey-flow": {
     summaryKey: "sankey-flow.summary",
     legend: [
-      { color: "var(--accent)", shape: "rect", label: "Root" },
-      { color: "var(--accent-2)", shape: "rect", label: "Lemma" },
-      { color: NEUTRAL, shape: "line", label: "Derivation flow" },
+      { color: "var(--accent)", shape: "rect", labelKey: "sankey-flow.legend.root" },
+      { color: "var(--accent-2)", shape: "rect", labelKey: "sankey-flow.legend.lemma" },
+      { color: NEUTRAL, shape: "line", labelKey: "sankey-flow.legend.flow" },
     ],
     hintKeys: [
       "sankey-flow.hint.hover",
@@ -192,9 +195,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "collocation-network": {
     summaryKey: "collocation-network.summary",
     legend: [
-      { color: "var(--accent)", shape: "circle", label: "Root" },
-      { color: "var(--accent-2)", shape: "circle", label: "Collocate" },
-      { color: CATEGORY_COLORS.preposition, shape: "line", label: "PMI strength" },
+      { color: "var(--accent)", shape: "circle", labelKey: "collocation-network.legend.root" },
+      { color: "var(--accent-2)", shape: "circle", labelKey: "collocation-network.legend.collocate" },
+      { color: CATEGORY_COLORS.preposition, shape: "line", labelKey: "collocation-network.legend.pmi" },
     ],
     hintKeys: [
       "collocation-network.hint.hover",
@@ -214,9 +217,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   "knowledge-graph": {
     summaryKey: "knowledge-graph.summary",
     legend: [
-      { color: "var(--accent-2)", shape: "circle", label: "Tracked root" },
-      { color: NEUTRAL, shape: "circle", label: "Untracked root" },
-      { color: "var(--accent)", shape: "line", label: "Semantic link" },
+      { color: "var(--accent-2)", shape: "circle", labelKey: "knowledge-graph.legend.tracked" },
+      { color: NEUTRAL, shape: "circle", labelKey: "knowledge-graph.legend.untracked" },
+      { color: "var(--accent)", shape: "line", labelKey: "knowledge-graph.legend.link" },
     ],
     hintKeys: [
       "knowledge-graph.hint.hover",
@@ -235,9 +238,9 @@ export const VIZ_EXPLAINERS: Record<VisualizationMode, VizExplainer> = {
   heatmap: {
     summaryKey: "heatmap.summary",
     legend: [
-      { color: CATEGORY_COLORS.preposition, shape: "rect", label: "Low frequency" },
-      { color: CATEGORY_COLORS.noun, shape: "rect", label: "Medium frequency" },
-      { color: CATEGORY_COLORS.particle, shape: "rect", label: "High frequency" },
+      { color: CATEGORY_COLORS.preposition, shape: "rect", labelKey: "heatmap.legend.low" },
+      { color: CATEGORY_COLORS.noun, shape: "rect", labelKey: "heatmap.legend.medium" },
+      { color: CATEGORY_COLORS.particle, shape: "rect", labelKey: "heatmap.legend.high" },
     ],
     hintKeys: [
       "heatmap.hint.hover",

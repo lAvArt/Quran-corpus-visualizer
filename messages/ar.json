@@ -146,10 +146,10 @@
             "rootValue": "جذر {root}"
         },
         "feedbackPrompt": {
-            "question": "?? ???? ??? ?????? ?????? ??????",
-            "helpful": "???",
-            "notHelpful": "??? ???",
-            "dismiss": "?????"
+            "question": "هل كانت هذه المهمة الأولى مفيدة؟",
+            "helpful": "نعم",
+            "notHelpful": "ليس بعد",
+            "dismiss": "إغلاق"
         },
         "overlay": {
             "loadingText": "جارٍ تجهيز المدونة الكاملة لاستكشاف أعمق...",
@@ -231,8 +231,8 @@
         "search": "بحث"
     },
     "GlobalSearch": {
-        "ariaLabel": "Search roots, words, meanings",
-        "placeholder": "بحث عن سور، جذور، كلمات، معاني — root:, lemma:, pos:, ayah:, gloss:",
+        "ariaLabel": "ابحث في الجذور والكلمات والمعاني",
+        "placeholder": "بحث عن سور، جذور، كلمات، معانٍ — ⁦root: lemma: pos: ayah: gloss:⁩",
         "noResults": "لم توجد نتائج",
         "matchRoot": "جذر: {root} ({count} مرة)",
         "matchLemma": "الجذع: {lemma}",
@@ -378,7 +378,7 @@
             "root": "الجذر (مثال: هدي)",
             "lemma": "الجذع",
             "ayah": "الآية (مثال: 1:5)",
-            "query": "??????? ????? (????: root:??? pos:n ayah:20:17)"
+            "query": "استعلام متقدم (مثال: ⁦root:عصو pos:n ayah:20:17⁩)"
         },
         "pos": {
             "all": "كل الأقسام",
@@ -406,9 +406,6 @@
             "surahDistribution": "توزيع السور",
             "clickToFocusSurah": "اضغط للتركيز على السورة وإبرازها"
         }
-    },
-    "VizExplainer": {
-        "helpLabel": "طريقة قراءة الرسم البياني"
     },
     "MorphologyInspector": {
         "emptyState": {
@@ -863,20 +860,20 @@
             "windowTypeHintDistance": "يستخدم الكلمات القريبة فقط حول كل موضع، لذلك تعكس التلازمات صياغة محلية.",
             "distanceRange": "المدى: +/- {distance} كلمات",
             "minFrequency": "الحد الأدنى للتكرار المشترك",
-            "targetTerm": "Target term",
-            "targetRootPlaceholder": "Target root",
-            "targetLemmaPlaceholder": "Target lemma",
-            "pairTerm": "Pair term (optional)",
-            "pairRootPlaceholder": "Pair root",
-            "pairLemmaPlaceholder": "Pair lemma",
-            "groupBy": "Group branches by",
-            "groupByRoot": "Roots",
-            "groupByLemma": "Words",
-            "posFilter": "POS filter",
-            "posAll": "All",
-            "pairWindowsA": "A windows: {count}",
-            "pairWindowsB": "B windows: {count}",
-            "pairSharedWindows": "Shared windows: {count}",
+            "targetTerm": "المصطلح المستهدف",
+            "targetRootPlaceholder": "الجذر المستهدف",
+            "targetLemmaPlaceholder": "البناء المستهدف",
+            "pairTerm": "مصطلح الاقتران (اختياري)",
+            "pairRootPlaceholder": "جذر الاقتران",
+            "pairLemmaPlaceholder": "بناء الاقتران",
+            "groupBy": "تجميع الفروع حسب",
+            "groupByRoot": "الجذور",
+            "groupByLemma": "الكلمات",
+            "posFilter": "تصفية حسب قسم الكلام",
+            "posAll": "الكل",
+            "pairWindowsA": "نوافذ أ: {count}",
+            "pairWindowsB": "نوافذ ب: {count}",
+            "pairSharedWindows": "النوافذ المشتركة: {count}",
             "pmi": "درجة PMI (المعلومات المتبادلة النقطية)",
             "rawCount": "تكرارات مشتركة",
             "noData": "اختر جذراً من البحث أو الرسم البياني لرؤية التلازم.",
@@ -916,10 +913,10 @@
                 "windowLabel": "نافذة السياق",
                 "windowText": "استخدم نفس الآية لرؤية التلازم الموضوعي، أو مسافة الكلمات لرؤية القرب التركيبي حول الجذر المستهدف."
             },
-            "surahWindow": "??? ?????? (???? ??????)",
-            "windowTypeHintSurah": "?????? ???? ????? ?????? ????? ?????? ?????????? ????????? ??? ????? ??????.",
-            "contextWindowRefFormatSurah": "????",
-            "contextWindowRefHelpSurah": "???? ??? ??? ?????? ???? ???? ???? ???? ??????? ?????? ?? ??????? ??????."
+            "surahWindow": "نفس السورة (سياق السورة)",
+            "windowTypeHintSurah": "يستخدم كل كلمات السورة نفسها، مبرزاً الترابط الموضوعي على مستوى السورة.",
+            "contextWindowRefFormatSurah": "سورة",
+            "contextWindowRefHelpSurah": "هذا المرجع يشير إلى السورة التي يظهر فيها سياق المستوى الثالث مع الجذر المحدد."
         }
     },
     "DisplaySettings": {
@@ -1174,6 +1171,11 @@
         "helpLabel": "ماذا أرى؟",
         "surah-distribution": {
             "summary": "رسم دائري يُظهر أطوال السور وتوزيع تكرار الجذور عبر القرآن.",
+            "legend": {
+                "makki": "سورة مكية",
+                "madani": "سورة مدنية",
+                "rootFrequency": "تكرار الجذر"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق جزء لرؤية اسم السورة وعدد الآيات.",
                 "click": "انقر على سورة للغوص في عرض الكلمات.",
@@ -1184,6 +1186,11 @@
         },
         "corpus-architecture": {
             "summary": "خريطة هرمية لبنية القرآن: جزء ← سورة ← مجموعات آيات.",
+            "legend": {
+                "juz": "جزء",
+                "surah": "سورة",
+                "ayahGroup": "مجموعة آيات"
+            },
             "hint": {
                 "expand": "انقر على مربع لتوسيعه ورؤية محتواه.",
                 "click": "انقر على خانة سورة للتركيز عليها.",
@@ -1194,6 +1201,13 @@
         },
         "radial-sura": {
             "summary": "تخطيط دائري لكل كلمة في سورة واحدة، ملوّنة حسب الدور اللغوي.",
+            "legend": {
+                "noun": "اسم",
+                "verb": "فعل",
+                "adjective": "صفة",
+                "preposition": "حرف جر",
+                "ayahBoundary": "حدّ الآية"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق كلمة لعرض ترجمتها ونوعها النحوي.",
                 "click": "انقر على كلمة لفتح تفاصيلها الكاملة.",
@@ -1205,6 +1219,10 @@
         },
         "dependency-tree": {
             "summary": "شجرة ترسم التبعيات النحوية بين كلمات الآية.",
+            "legend": {
+                "token": "كلمة (حسب نوعها النحوي)",
+                "edge": "رابط تبعية"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق عقدة لتمييز تابعاتها.",
                 "click": "انقر على عقدة لرؤية الصرف الكامل.",
@@ -1215,6 +1233,10 @@
         },
         "arc-flow": {
             "summary": "أقواس تربط الجذور والأبنية المتزامنة في كل آية.",
+            "legend": {
+                "token": "كلمة (حسب نوعها النحوي)",
+                "arc": "قوس نحوي"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق قوس لرؤية الزوج المرتبط.",
                 "click": "انقر على كلمة لتثبيت التركيز على ارتباطاتها.",
@@ -1225,6 +1247,11 @@
         },
         "root-network": {
             "summary": "رسم شبكي قوتي حيث العقد جذور والحواف تُظهر التزامن.",
+            "legend": {
+                "root": "عقدة جذر",
+                "lemma": "عقدة بناء",
+                "link": "رابط اشتقاقي"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق عقدة جذر لرؤية تكرارها وارتباطاتها.",
                 "click": "انقر لتثبيت التركيز وتصفية الشبكة.",
@@ -1235,6 +1262,11 @@
         },
         "sankey-flow": {
             "summary": "رسم انسيابي يتتبّع كيف يتفرّع جذر واحد إلى أبنية وكلمات.",
+            "legend": {
+                "root": "الجذر",
+                "lemma": "البناء",
+                "flow": "تدفق اشتقاقي"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق شريط لرؤية العدد والمسار.",
                 "click": "انقر على بناء أو كلمة لتركيز المفتش.",
@@ -1245,6 +1277,11 @@
         },
         "collocation-network": {
             "summary": "شبكة أزواج الجذور التي تظهر بشكل متكرر بالقرب من بعضها.",
+            "legend": {
+                "root": "الجذر",
+                "collocate": "المتلازِم",
+                "pmi": "قوة التلازم"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق حافة لرؤية قوة التلازم.",
                 "click": "انقر على عقدة لتصفية تلازمات ذلك الجذر.",
@@ -1255,6 +1292,11 @@
         },
         "knowledge-graph": {
             "summary": "خريطة تفاعلية للجذور المتتبَّعة والمواضيع المدروسة.",
+            "legend": {
+                "tracked": "جذر متتبَّع",
+                "untracked": "جذر غير متتبَّع",
+                "link": "رابط دلالي"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق عقدة لرؤية تقدّمك الدراسي.",
                 "click": "انقر للمراجعة أو التعمّق في موضوع.",
@@ -1265,6 +1307,11 @@
         },
         "heatmap": {
             "summary": "شبكة تُظهر كثافة لون حسب تكرار الكلمات عبر السور.",
+            "legend": {
+                "low": "تكرار منخفض",
+                "medium": "تكرار متوسط",
+                "high": "تكرار مرتفع"
+            },
             "hint": {
                 "hover": "مرّر أو انقر فوق خانة لرؤية العدد الدقيق.",
                 "click": "انقر على خانة للانتقال إلى عرض السورة المقابلة.",
