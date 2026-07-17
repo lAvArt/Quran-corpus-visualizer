@@ -90,6 +90,16 @@ function dimTone(color: string, opacity: number = DIM_OPACITY): string {
 // zooming in on a big surah still reaches the exact same word-level view.
 const OVERVIEW_WORD_THRESHOLD = 800;
 const DETAIL_ZOOM_THRESHOLD = 2.2;
+// Staged overview reveal — instead of one cliff at DETAIL_ZOOM_THRESHOLD,
+// each zoom step earns more structure: stage 1 adds the surah's dominant
+// roots' arcs, stage 2 adds the full (faint) mesh before the detail swap.
+// Highlighted-root arcs show at every stage. Thresholds are RELATIVE to the
+// entry-fit scale (a 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so
+// "one or two zoom steps in" means the same thing in every surah.
+const OVERVIEW_STAGE1_RATIO = 1.6;
+const OVERVIEW_STAGE2_RATIO = 2.6;
+const OVERVIEW_STAGE1_TOP_ROOTS = 8;
+const OVERVIEW_STAGE_ARC_CAP = 400;
 
 // Overview shares detail mode's ring geometry (same innerRadius, same per-
 // ayah angles) so crossing the zoom threshold swaps tick <-> bar IN PLACE —
@@ -581,15 +591,55 @@ export default function RadialSuraMap({
     [centerX, centerY, innerRadius, ayahCount]
   );
 
+  // Entry-fit baseline for the staged reveal: the first non-default scale
+  // the zoom lands on (the fit-to-ring result). Reset per surah.
+  const overviewBaseScaleRef = useRef<number | null>(null);
+  useEffect(() => {
+    overviewBaseScaleRef.current = null;
+  }, [suraId]);
+  useEffect(() => {
+    if (overviewBaseScaleRef.current === null && zoomScale !== 1) {
+      overviewBaseScaleRef.current = zoomScale;
+    }
+  }, [zoomScale]);
+
+  // Which overview stage the current zoom has earned (0 until the first
+  // threshold; only ever re-evaluates to a different NUMBER on a crossing,
+  // so downstream memos don't churn per zoom tick).
+  const overviewBaseScale = overviewBaseScaleRef.current ?? 1;
+  const overviewStage = isOverviewMode
+    ? zoomScale >= overviewBaseScale * OVERVIEW_STAGE2_RATIO
+      ? 2
+      : zoomScale >= overviewBaseScale * OVERVIEW_STAGE1_RATIO
+        ? 1
+        : 0
+    : 0;
+
+  const overviewTopRoots = useMemo(() => {
+    if (!isOverviewMode) return new Set<string>();
+    return new Set(
+      [...rootTokenTotals.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, OVERVIEW_STAGE1_TOP_ROOTS)
+        .map(([root]) => root)
+    );
+  }, [isOverviewMode, rootTokenTotals]);
+
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
-    // Overview mode skips the FULL curve mesh (that's exactly what turns a
-    // large surah into an illegible hairball) — but when a root is
-    // highlighted, its own few dozen arcs ARE the signal the user searched
-    // for, so those still get paths. No highlight → no overview curves.
-    if (isOverviewMode && !highlightRoot) return map;
+    // Overview mode skips the FULL curve mesh at rest (that's exactly what
+    // turns a large surah into an illegible hairball) — but structure is
+    // earned back progressively: the highlighted root's arcs always, the
+    // dominant roots' arcs at stage 1, everything (faint) at stage 2.
+    if (isOverviewMode && !highlightRoot && overviewStage === 0) return map;
     const conns = isOverviewMode
-      ? rootConnections.filter((conn) => conn.root === highlightRoot)
+      ? overviewStage === 2
+        ? rootConnections
+        : rootConnections.filter(
+            (conn) =>
+              conn.root === highlightRoot ||
+              (overviewStage === 1 && overviewTopRoots.has(conn.root))
+          )
       : rootConnections;
     conns.forEach((conn) => {
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
@@ -598,7 +648,7 @@ export default function RadialSuraMap({
       }
     });
     return map;
-  }, [rootConnections, generateConnectionPath, isOverviewMode, highlightRoot]);
+  }, [rootConnections, generateConnectionPath, isOverviewMode, highlightRoot, overviewStage, overviewTopRoots]);
 
   // Overview highlight arcs — the highlighted root's ayah-to-ayah web, drawn
   // even at the zoomed-out level (deduped by ayah pair; plain paths, no
@@ -617,6 +667,27 @@ export default function RadialSuraMap({
     });
     return out;
   }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
+
+  // Stage 1/2 arcs (non-highlight roots), deduped by ayah pair and capped so
+  // the densest surahs can't flood the overview with thousands of paths.
+  const overviewStageConnections = useMemo(() => {
+    if (!isOverviewMode || overviewStage === 0) return [];
+    const seen = new Set<string>();
+    const out: { key: string; d: string }[] = [];
+    for (const conn of rootConnections) {
+      if (conn.root === highlightRoot) continue;
+      if (overviewStage === 1 && !overviewTopRoots.has(conn.root)) continue;
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = connectionPaths.get(key);
+      if (d) {
+        out.push({ key, d });
+        if (out.length >= OVERVIEW_STAGE_ARC_CAP) break;
+      }
+    }
+    return out;
+  }, [isOverviewMode, overviewStage, rootConnections, highlightRoot, overviewTopRoots, connectionPaths]);
 
   const barsWithGeometry = useMemo(() => {
     return ayahBars.map((bar) => {
@@ -1678,6 +1749,26 @@ export default function RadialSuraMap({
 
               {/* Ayah bars radiating outward (detail mode), or one hairline
                   tick per ayah (overview mode) — see isOverviewMode above. */}
+              {/* Staged overview mesh: dominant roots' arcs at stage 1, the
+                  full faint mesh at stage 2 — every zoom step earns more
+                  structure instead of one all-or-nothing cliff at the
+                  detail threshold. */}
+              {isOverviewMode && overviewStageConnections.length > 0 && (
+                <g className="overview-connections overview-stage" pointerEvents="none">
+                  {overviewStageConnections.map(({ key, d }) => (
+                    <path
+                      key={key}
+                      d={d}
+                      className="connection"
+                      stroke="url(#connectionGrad)"
+                      strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
+                      fill="none"
+                      style={{ opacity: overviewStage === 2 ? 0.16 : 0.24 }}
+                    />
+                  ))}
+                </g>
+              )}
+
               {/* Overview highlight web: the searched root's arcs stay
                   visible at the zoomed-out level — this is the one signal
                   the overview was hiding entirely. */}
