@@ -532,14 +532,17 @@ function ResultPanel({
       </div>
 
       <div className="mhome-ctas">
-        <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "root-network")}>
+        {/* Primary lands on the radial surah view — one surah, the root's
+            words in context — the gentlest first graph; the network is the
+            explicit next step up in density. */}
+        <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "radial-sura", stat.top[0]?.[0])}>
           {t("exploreRoot")} <span aria-hidden="true">→</span>
         </button>
         <div className="mhome-ctas-sub">
-          <button type="button" className="mhome-cta-s" onClick={() => onExplore(stat.bare, "radial-sura", stat.top[0]?.[0])}>
-            {t("readVerses", { n: stat.verses })}
+          <button type="button" className="mhome-cta-s" onClick={() => onExplore(stat.bare, "root-network")}>
+            {t("seeNetwork")}
           </button>
-          <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "root-flow")}>
+          <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "sankey-flow", stat.top[0]?.[0])}>
             {t("compareForms", { n: stat.forms })}
           </button>
         </div>
