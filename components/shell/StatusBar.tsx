@@ -105,6 +105,13 @@ export default function StatusBar({
               the detail) so the breadcrumb stays visible the whole time. */}
           <span className="status-bar-label" data-status={dataStatus} data-testid={isLoading ? "explore-loading-indicator" : undefined}>
             <strong>{t(`dataStatus.${dataStatus}.title`)}</strong>
+            {isLoading && loadingProgress && (
+              <span className="status-bar-loading-text" aria-live="polite">
+                {loadingProgress.currentSura}/{loadingProgress.totalSuras}
+                {" · "}
+                {Math.round((loadingProgress.currentSura / loadingProgress.totalSuras) * 100)}%
+              </span>
+            )}
           </span>
 
           {/* Breadcrumbs — always visible, even while the full corpus loads */}
@@ -206,10 +213,38 @@ export default function StatusBar({
         }
 
         .status-bar-progress-fill {
+          position: relative;
+          overflow: hidden;
           height: 100%;
           background: var(--accent);
           transition: width 0.3s ease;
           border-radius: 0 2px 2px 0;
+        }
+
+        /* Moving sheen so the bar reads as live work, not a stalled fill —
+           the count/percent text alongside carries the exact state. */
+        .status-bar-progress-fill::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent
+          );
+          animation: statusShimmer 1.4s ease-in-out infinite;
+        }
+
+        @keyframes statusShimmer {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(100%); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .status-bar-progress-fill::after {
+            animation: none;
+          }
         }
 
         .status-bar-content {
