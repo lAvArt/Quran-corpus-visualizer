@@ -583,20 +583,40 @@ export default function RadialSuraMap({
 
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
-    // Overview mode never draws connections (that curve mesh is exactly what
-    // turns a large surah into an illegible hairball) — skip generating path
-    // strings for them entirely so entering a big surah doesn't pay for
-    // trig work on curves nobody sees. Recomputes the instant the user zooms
-    // into detail and connections are needed.
-    if (isOverviewMode) return map;
-    rootConnections.forEach((conn) => {
+    // Overview mode skips the FULL curve mesh (that's exactly what turns a
+    // large surah into an illegible hairball) — but when a root is
+    // highlighted, its own few dozen arcs ARE the signal the user searched
+    // for, so those still get paths. No highlight → no overview curves.
+    if (isOverviewMode && !highlightRoot) return map;
+    const conns = isOverviewMode
+      ? rootConnections.filter((conn) => conn.root === highlightRoot)
+      : rootConnections;
+    conns.forEach((conn) => {
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (!map.has(key)) {
         map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
       }
     });
     return map;
-  }, [rootConnections, generateConnectionPath, isOverviewMode]);
+  }, [rootConnections, generateConnectionPath, isOverviewMode, highlightRoot]);
+
+  // Overview highlight arcs — the highlighted root's ayah-to-ayah web, drawn
+  // even at the zoomed-out level (deduped by ayah pair; plain paths, no
+  // hover/animation, so a 200-arc worst case stays cheap).
+  const overviewHighlightConnections = useMemo(() => {
+    if (!isOverviewMode || !highlightRoot) return [];
+    const seen = new Set<string>();
+    const out: { key: string; d: string }[] = [];
+    rootConnections.forEach((conn) => {
+      if (conn.root !== highlightRoot) return;
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const d = connectionPaths.get(key);
+      if (d) out.push({ key, d });
+    });
+    return out;
+  }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
 
   const barsWithGeometry = useMemo(() => {
     return ayahBars.map((bar) => {
@@ -666,10 +686,23 @@ export default function RadialSuraMap({
     const tickMin = innerRadius * OVERVIEW_TICK_MIN_RATIO;
     const tickMax = innerRadius * OVERVIEW_TICK_MAX_RATIO;
     const matchBonus = innerRadius * OVERVIEW_TICK_MATCH_BONUS_RATIO;
+    // Match ticks scale with how OFTEN the highlighted root occurs in that
+    // ayah (not a flat bonus) so overview already answers "where is it
+    // dense?" without zooming.
+    let maxMatchCount = 1;
+    if (highlightRoot) {
+      for (const ayah of highlightAyahSet) {
+        maxMatchCount = Math.max(maxMatchCount, ayahRootCounts.get(ayah)?.get(highlightRoot) ?? 0);
+      }
+    }
     return barsWithGeometry.map(({ bar, angleRad, startX, startY }) => {
       const ratio = bar.tokenCount / maxTokensInSurah;
       const isMatch = highlightAyahSet.has(bar.ayah);
-      const length = tickMin + ratio * (tickMax - tickMin) + (isMatch ? matchBonus : 0);
+      const matchCount = isMatch && highlightRoot
+        ? ayahRootCounts.get(bar.ayah)?.get(highlightRoot) ?? 1
+        : 0;
+      const matchScale = isMatch ? 0.45 + 0.55 * (matchCount / maxMatchCount) : 0;
+      const length = tickMin + ratio * (tickMax - tickMin) + matchBonus * matchScale;
       return {
         ayah: bar.ayah,
         tokenCount: bar.tokenCount,
@@ -682,7 +715,7 @@ export default function RadialSuraMap({
         isMatch,
       };
     });
-  }, [barsWithGeometry, ayahBars, highlightAyahSet, innerRadius]);
+  }, [barsWithGeometry, ayahBars, highlightAyahSet, innerRadius, highlightRoot, ayahRootCounts]);
 
   const overviewTicksByAyah = useMemo(() => {
     const map = new Map<number, (typeof overviewTicks)[number]>();
@@ -1645,6 +1678,25 @@ export default function RadialSuraMap({
 
               {/* Ayah bars radiating outward (detail mode), or one hairline
                   tick per ayah (overview mode) — see isOverviewMode above. */}
+              {/* Overview highlight web: the searched root's arcs stay
+                  visible at the zoomed-out level — this is the one signal
+                  the overview was hiding entirely. */}
+              {isOverviewMode && overviewHighlightConnections.length > 0 && (
+                <g className="overview-connections" pointerEvents="none">
+                  {overviewHighlightConnections.map(({ key, d }) => (
+                    <path
+                      key={key}
+                      d={d}
+                      className="connection"
+                      stroke={themeColors.accent}
+                      strokeWidth={Math.max(1, innerRadius * 0.002)}
+                      fill="none"
+                      style={{ opacity: 0.45 }}
+                    />
+                  ))}
+                </g>
+              )}
+
               {isOverviewMode ? (
                 <g className="ayah-ticks">
                   {(() => {
@@ -1680,6 +1732,35 @@ export default function RadialSuraMap({
                             />
                           );
                         })}
+                        {/* Ayah-number milestones just inside the ring so the
+                            overview carries scale/orientation (which part of
+                            the surah am I looking at?) without any zoom. */}
+                        {(() => {
+                          const step = ayahCount > 200 ? 25 : ayahCount > 80 ? 20 : 10;
+                          const milestones: number[] = [1];
+                          for (let a = step; a <= ayahCount; a += step) milestones.push(a);
+                          const labelRadius = innerRadius * 0.94;
+                          const fontSize = Math.max(9, innerRadius * 0.02);
+                          return milestones.map((ayah) => {
+                            const tick = overviewTicksByAyah.get(ayah);
+                            if (!tick) return null;
+                            return (
+                              <text
+                                key={`ayah-label-${ayah}`}
+                                x={centerX + Math.cos(tick.angleRad) * labelRadius}
+                                y={centerY + Math.sin(tick.angleRad) * labelRadius}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fill={themeColors.textColors.muted}
+                                fontSize={fontSize}
+                                pointerEvents="none"
+                                style={{ opacity: 0.75, fontVariantNumeric: "tabular-nums" }}
+                              >
+                                {ayah}
+                              </text>
+                            );
+                          });
+                        })()}
                         {/* Single invisible hit band over the whole tick ring
                             (see ayahFromPointerEvent). pointerdown is NOT
                             stopped, so d3-zoom drag-panning still starts here. */}
