@@ -3,7 +3,7 @@
 import { useRef, useMemo, useState, useCallback, useEffect, useDeferredValue, type ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { getNodeColor, GRADIENT_PALETTES, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
@@ -270,11 +270,6 @@ export default function ArcFlowDiagram({
       return ayahMatch || rootMatch || lemmaMatch;
     },
     [hasContextSelection, selectedAyah, selectedRoot, selectedLemma]
-  );
-
-  const contextTokenCount = useMemo(
-    () => scopedTokens.filter((token) => tokenMatchesContext(token)).length,
-    [scopedTokens, tokenMatchesContext]
   );
 
   const { width, height } = dimensions;
@@ -784,13 +779,6 @@ export default function ArcFlowDiagram({
 
   const activeGroupLabel =
     activeGroupBy === "root" ? ts("root") : activeGroupBy === "pos" ? ts("pos") : ts("ayah");
-  const scopeLabel = selectedSurahId ? `${ts("surah")} ${selectedSurahId}` : "global corpus";
-  const modeDescription =
-    activeGroupBy === "root"
-      ? t("linksRoot")
-      : activeGroupBy === "pos"
-        ? t("linksPOS")
-        : t("linksAyah");
 
   const sidebarCards = (
     <div className={`viz-left-stack arcflow-sidebar-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
@@ -1046,14 +1034,6 @@ export default function ArcFlowDiagram({
                   </feMerge>
                 </filter>
               </defs>
-
-              <path
-                d={`M ${arcCenterX + Math.cos(arcStartAngle) * arcRadius} ${arcCenterY + Math.sin(arcStartAngle) * arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${arcCenterX + Math.cos(arcEndAngle) * arcRadius} ${arcCenterY + Math.sin(arcEndAngle) * arcRadius}`}
-                fill="none"
-                stroke="var(--line)"
-                strokeWidth={isCompact ? 52 : 64}
-                strokeLinecap="round"
-              />
 
               <g className="connections">
                 {connections.map((conn, idx) => {

@@ -58,9 +58,39 @@ interface SankeyFlowLayout {
   endY: number;
 }
 
+// Sqrt scale (not linear) so mid-size flows still read as visually distinct
+// from the smallest ones — a linear map compressed everything into a narrow
+// band near the low end and the diagram read as near-uniform hairlines.
+// Range clamps to [1.5, 16]px; per-node stack height is derived FROM these
+// widths (see sankeyLayout below), so a node's ribbons can never exceed its
+// own rect height by construction.
+const MIN_RIBBON_WIDTH = 1.5;
+const MAX_RIBBON_WIDTH = 16;
+
 function pathWidth(weightRatio: number): number {
   const normalized = Math.max(0, Math.min(1, weightRatio));
-  return 4 + normalized * 14;
+  return MIN_RIBBON_WIDTH + Math.sqrt(normalized) * (MAX_RIBBON_WIDTH - MIN_RIBBON_WIDTH);
+}
+
+// Deterministic hue per root string (simple multiply-add hash -> 0-360), so
+// every ribbon leaving the same root reads as the same color family even
+// though roots are added/removed as the user filters. Saturation/lightness
+// fixed per theme rather than per-root, so the hue is the only variable
+// carrying identity (mirrors getIdentityColor's approach but tuned lower-key
+// for the default "theme" mode, which is meant to read as structure first,
+// color second).
+function hashRootHue(root: string): number {
+  let hash = 0;
+  for (let i = 0; i < root.length; i += 1) {
+    hash = (hash * 31 + root.charCodeAt(i)) >>> 0;
+  }
+  return hash % 360;
+}
+
+function rootTintColor(root: string, theme: "light" | "dark"): string {
+  const hue = hashRootHue(root);
+  const lightness = theme === "dark" ? 60 : 40;
+  return `hsl(${hue}, 45%, ${lightness}%)`;
 }
 
 function ribbonPath(startX: number, endX: number, startY: number, endY: number, thickness: number): string {
@@ -264,10 +294,16 @@ export default function RootFlowSankey({
     [lexicalColorMode, maxCount, theme]
   );
 
+  // Base per-root tint used by the default "theme" mode ribbons (see the
+  // isThemeMode branch below) — kept separate from flowColorFor/getIdentityColor
+  // because "theme" mode wants a quieter, structure-first tint rather than the
+  // higher-saturation identity encoding.
+  const rootTintFor = useCallback((root: string) => rootTintColor(root, theme), [theme]);
+
   const sankeyLayout = useMemo(() => {
     const rootStats = new Map<string, { total: number; stackHeight: number; flowCount: number }>();
     const lemmaStats = new Map<string, { total: number; stackHeight: number; flowCount: number }>();
-    const flowWidths = visibleFlows.map((flow) => Math.max(4, pathWidth(flow.count / maxCount)));
+    const flowWidths = visibleFlows.map((flow) => Math.max(MIN_RIBBON_WIDTH, pathWidth(flow.count / maxCount)));
 
     visibleFlows.forEach((flow, index) => {
       const width = flowWidths[index];
@@ -700,15 +736,16 @@ export default function RootFlowSankey({
                 const isThemeMode = lexicalColorMode === "theme";
                 const isEmphasized = isFlowEmphasized(flow);
                 const isFaded = emphasis !== null && !isEmphasized;
-                // Default "theme" mode: monochrome structure, accent for emphasis —
-                // every ribbon is the same muted neutral until its root or lemma
-                // node (or the ribbon itself) is hovered/clicked, then it alone
-                // switches to the accent color. "identity"/"frequency" modes keep
-                // their own per-flow hue (it encodes real data) and only their
+                // Default "theme" mode: each ribbon is tinted by its source root
+                // (rootTintFor) so parallel flows read as distinguishable threads
+                // instead of a uniform gray wash; emphasis (hover/click on a root,
+                // lemma, or the ribbon itself) still switches the matched ribbon(s)
+                // to the accent color, same as before. "identity"/"frequency" modes
+                // keep their own per-flow hue (it encodes real data) and only their
                 // opacity responds to emphasis.
-                const fill = isThemeMode ? (isEmphasized ? "var(--accent)" : "var(--ink)") : flowColorFor(flow);
+                const fill = isThemeMode ? (isEmphasized ? "var(--accent)" : rootTintFor(flow.root)) : flowColorFor(flow);
                 const opacity = isThemeMode
-                  ? (isEmphasized ? 0.75 : isFaded ? 0.1 : 0.2)
+                  ? (isEmphasized ? 0.85 : isFaded ? 0.15 : 0.4)
                   : (isEmphasized ? 0.92 : isFaded ? 0.08 : 0.72);
                 const sampleToken = (flow.tokenIds[0] && tokenById.get(flow.tokenIds[0])?.text) ?? "";
                 return (
@@ -933,7 +970,10 @@ export default function RootFlowSankey({
         }
 
         .node-chip {
-          fill: var(--panel);
+          /* Slightly stronger than --panel alone so the root/lemma columns
+             anchor the now-tinted ribbons instead of blending into the
+             column background behind them. */
+          fill: color-mix(in srgb, var(--panel) 86%, var(--ink) 14%);
           stroke: var(--line);
           stroke-width: 1;
           transition: opacity 0.18s ease;
@@ -1036,7 +1076,7 @@ export default function RootFlowSankey({
         }
 
         :global([data-theme="dark"]) .node-chip {
-          fill: var(--panel);
+          fill: color-mix(in srgb, var(--panel) 86%, var(--ink) 14%);
           stroke: var(--line);
         }
 

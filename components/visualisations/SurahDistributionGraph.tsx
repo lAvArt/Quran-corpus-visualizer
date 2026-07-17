@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
@@ -237,6 +237,18 @@ export default function SurahDistributionGraph({
 
         return () => observer.disconnect();
     }, []);
+
+    // One-shot entry fit so the plot clears the left dock / toolbar chrome
+    // (fitToView is chrome-aware). Grid + axis geometry is static from first
+    // paint (x-domain is always 1-114), so fitting during corpus streaming is
+    // safe — dots landing later appear inside the already-framed plot.
+    const hasEntryFitRef = useRef(false);
+    useEffect(() => {
+        if (hasEntryFitRef.current || !isMounted || surahNodes.length === 0) return;
+        hasEntryFitRef.current = true;
+        const id = requestAnimationFrame(() => fitToView());
+        return () => cancelAnimationFrame(id);
+    }, [isMounted, surahNodes.length, fitToView]);
 
     const handleSurahHover = useCallback((node: SurahNode | null) => {
         setHoveredSurah(node?.id ?? null);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
@@ -148,7 +148,6 @@ export default function RadialSuraMap({
   const [selectedConnection, setSelectedConnection] = useState<RootConnection | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
-  const [showHints, setShowHints] = useState(true);
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
@@ -210,7 +209,6 @@ export default function RadialSuraMap({
     ayahBars,
     rootConnections,
     ayahCount,
-    uniqueRoots,
     rootOccurrences,
     ayahRootCounts,
     ayahRootEntriesByAyah,
@@ -1061,50 +1059,6 @@ export default function RadialSuraMap({
 
   return (
     <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
-      <div className="panel-head">
-        <div>
-          <p className="eyebrow">{ts("advancedViz")}</p>
-          <h2>{t("structuralMap")}</h2>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <p className="arabic-text arabic-large" style={{ margin: 0 }}>
-            {displayArabicName}
-          </p>
-          <p className="ayah-meta">{suraName} · {ayahCount} {ts("ayah")} · {uniqueRoots.length} {ts("uniqueRoots")}</p>
-        </div>
-      </div>
-
-      <div className="viz-controls">
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button
-            className="hint-toggle"
-            onClick={() => setShowHints((prev) => !prev)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              background: "color-mix(in srgb, var(--line), transparent 22%)",
-              border: "1px solid var(--line)",
-              color: "var(--ink-secondary)",
-              fontSize: "0.75rem",
-              cursor: "pointer",
-            }}
-          >
-            {showHints ? ts("hideHelp") : ts("showHelp")}
-          </button>
-          {showHints && (
-            <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
-              {t("hints")}
-              {highlightRoot && ` ${ts("filtering")}: ${highlightRoot}`}
-            </span>
-          )}
-        </div>
-        {highlightRoot && highlightAyahs.length > 0 && (
-          <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: "0.78rem" }}>
-            {ts("occursInAyahs", { count: highlightAyahs.length })}
-          </div>
-        )}
-      </div>
-
       {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
         <>
 
