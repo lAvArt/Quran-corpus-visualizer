@@ -235,15 +235,22 @@ body {
 .ui-shell-backdrop {
   position: fixed;
   inset: 0;
+  /* Observatory atmosphere: near-black slate with FAINT accent breathing —
+     the previous 50%-alpha --accent-glow radials read as giant low-res
+     orange/teal blobs behind the auth card. Fixed-px radii so the glows
+     don't balloon on wide viewports. */
   background:
-    radial-gradient(circle at 14% 18%, var(--accent-glow), transparent 36%),
-    radial-gradient(circle at 82% 14%, var(--accent-2-glow), transparent 32%),
-    radial-gradient(circle at 50% 130%, color-mix(in srgb, var(--accent-3) 18%, transparent), transparent 40%);
+    radial-gradient(1100px circle at 16% 10%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 62%),
+    radial-gradient(900px circle at 86% 16%, color-mix(in srgb, var(--accent-2) 6%, transparent), transparent 58%),
+    radial-gradient(1300px circle at 50% 118%, color-mix(in srgb, var(--accent-3) 5%, transparent), transparent 55%);
   pointer-events: none;
 }
 
+/* Panel geometry aligned with the observatory shell (.viz-dock glass): the
+   28px/24px bubble radii were the last visible remnant of the pre-redesign
+   look on the workspace pages (study/search/quiz/auth). */
 .ui-panel {
-  border-radius: 28px;
+  border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow);
@@ -252,7 +259,7 @@ body {
 
 .ui-card {
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 14px;
   background: var(--ui-surface-soft);
 }
 

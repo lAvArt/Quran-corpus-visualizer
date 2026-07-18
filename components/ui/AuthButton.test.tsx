@@ -66,6 +66,7 @@ function createAuthValue(overrides: Partial<MockAuthValue>): MockAuthValue {
         loading: false,
         signIn: vi.fn(async () => ({ error: null })),
         signUp: vi.fn(async () => ({ error: null })),
+        signInWithGoogle: vi.fn(async () => ({ error: null })),
         signOut: vi.fn(async () => {}),
         resetPassword: vi.fn(async () => ({ error: null })),
         updatePassword: vi.fn(async () => ({ error: null })),
