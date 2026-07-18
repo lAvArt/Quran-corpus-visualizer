@@ -62,8 +62,8 @@ async function pushTemplates() {
     console.log(`\n📧  Pushing email templates to Supabase project: ${projectRef}\n`);
 
     // Fix site_url to production first
-    await patchAuth('site_url → https://quran.pluragate.org', {
-        site_url: 'https://quran.pluragate.org',
+    await patchAuth('site_url → https://quranobservatory.org', {
+        site_url: 'https://quranobservatory.org',
     });
 
     // Push subjects
