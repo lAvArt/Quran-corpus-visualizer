@@ -77,6 +77,10 @@ export const config = {
     // and static public assets. NOTE: data files like the QAC morphology .txt
     // MUST be excluded here — otherwise the locale prefix (/en/data/…) 404s the
     // fetch and the corpus loses all roots/POS (no coloured bars / arcs).
-    "/((?!api|trpc|embed|data|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt|json|csv|woff2?)$).*)",
+    // auth/callback is the locale-LESS Supabase OAuth/email callback (a route
+    // handler, not a page): localizing it 307'd /auth/callback?code=… to a
+    // nonexistent /{locale}/auth/callback and dropped the one-time code —
+    // Google sign-in could never complete.
+    "/((?!api|trpc|embed|data|auth/callback|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt|json|csv|woff2?)$).*)",
   ],
 };
