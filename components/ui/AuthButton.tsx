@@ -40,11 +40,15 @@ export function AuthButton() {
         );
     }
 
-    // Build initials from email
-    const initials = (user.email ?? "?")
-        .split("@")[0]
-        .slice(0, 2)
-        .toUpperCase();
+    // Prefer the profile picture (Google users carry one; email users can
+    // set display_name on the profile page); fall back to initials.
+    const meta = (user.user_metadata ?? {}) as Record<string, string | undefined>;
+    const avatarUrl = meta.avatar_url || meta.picture || null;
+    const displayName = meta.display_name || meta.full_name || meta.name || null;
+    const initials = (displayName
+        ? displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("")
+        : (user.email ?? "?").split("@")[0].slice(0, 2)
+    ).toUpperCase();
 
     return (
         <div ref={menuRef} style={{ position: "relative" }}>
@@ -52,10 +56,17 @@ export function AuthButton() {
                 type="button"
                 aria-expanded={open}
                 aria-haspopup="menu"
+                aria-label={displayName ?? user.email ?? undefined}
                 onClick={() => setOpen((v) => !v)}
-                style={{ display: "flex", height: "2rem", width: "2rem", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "var(--accent)", color: "#fff", fontSize: "0.75rem", fontWeight: 700, border: "none", cursor: "pointer" }}
+                style={{ display: "flex", height: "2rem", width: "2rem", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "var(--accent)", color: "var(--accent-ink, #fff)", fontSize: "0.75rem", fontWeight: 700, border: "none", cursor: "pointer", overflow: "hidden", padding: 0 }}
             >
-                {initials}
+                {avatarUrl ? (
+                    /* remote avatar hosts (Google) aren't in next/image's allowlist */
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="" width={32} height={32} style={{ width: "100%", height: "100%", objectFit: "cover" }} referrerPolicy="no-referrer" />
+                ) : (
+                    initials
+                )}
             </button>
 
             {open && (
