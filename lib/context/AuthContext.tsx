@@ -22,6 +22,7 @@ interface AuthContextValue {
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error: string | null }>;
     signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+    signInWithGoogle: () => Promise<{ error: string | null }>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<{ error: string | null }>;
     updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -104,6 +105,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [supabase]
     );
 
+    const signInWithGoogle = useCallback(async () => {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${location.origin}/auth/callback`,
+                },
+            });
+            return { error: error?.message ?? null };
+        } catch (error) {
+            return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+        }
+    }, [supabase]);
+
     const signOut = useCallback(async () => {
         if (readDevAuthUser()) {
             clearDevAuthUser();
@@ -146,8 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     const value = useMemo<AuthContextValue>(
-        () => ({ user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword }),
-        [user, session, loading, signIn, signUp, signOut, resetPassword, updatePassword]
+        () => ({ user, session, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, updatePassword }),
+        [user, session, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, updatePassword]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
