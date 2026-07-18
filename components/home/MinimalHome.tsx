@@ -265,9 +265,9 @@ export default function MinimalHome() {
           <Image src="/favicon.svg" alt="" width={22} height={22} />
         </span>
         <span className="mhome-wordmark">
-          Quranic Linguistics
+          {t("wordmark1")}
           <br />
-          Observatory
+          {t("wordmark2")}
         </span>
       </button>
       <div className="mhome-topright">
@@ -280,7 +280,12 @@ export default function MinimalHome() {
       </div>
 
       <div className={`mhome-stack ${raised ? "is-active" : ""}`}>
-        <h1 className={`mhome-headline ${hasQuery ? "is-hidden" : ""}`}>{t("headline")}</h1>
+        {/* The headline is an ayah (Fussilat 41:3) — Arabic in BOTH locales,
+            so the element pins its own lang/dir instead of inheriting the
+            page locale's. */}
+        <h1 className={`mhome-headline ${hasQuery ? "is-hidden" : ""}`} lang="ar" dir="rtl">
+          {t("headline")}
+        </h1>
 
         {/* search box */}
         <div className="mhome-search">
@@ -876,8 +881,12 @@ const styles = `
   .mhome-stack.is-active .mhome-reveal { margin-top: 21px; }
 
   .mhome-headline {
-    font-family: 'Fraunces', serif; font-weight: 300; font-size: clamp(30px, 5vw, 46px);
-    line-height: 1.08; letter-spacing: -0.015em; text-align: center; color: var(--mh-ink);
+    /* Amiri: the headline is Quranic text (41:3) with Uthmani marks —
+       needs an Arabic typeface with full diacritic support, generous
+       line-height so stacked marks never clip. */
+    font-family: 'Amiri', var(--font-arabic, serif);
+    font-weight: 400; font-size: clamp(28px, 4.6vw, 44px);
+    line-height: 1.9; letter-spacing: 0; text-align: center; color: var(--mh-ink);
     margin: 0 0 2px; transition: opacity 0.3s ease;
   }
   /* Hidden while searching, but keeps its box so the search bar never jumps. */
