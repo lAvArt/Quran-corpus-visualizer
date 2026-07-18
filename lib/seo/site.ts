@@ -1,11 +1,11 @@
 /**
  * Single source of truth for the public site origin, used by metadata,
  * sitemap, robots, and JSON-LD. Reads NEXT_PUBLIC_SITE_URL so the domain
- * cutover (quran.pluragate.org → quranobservatory.org) is one env change,
+ * cutover (quranobservatory.org → quranobservatory.org) is one env change,
  * not a repo-wide sweep.
  */
 export const SITE_URL = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://quran.pluragate.org"
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://quranobservatory.org"
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "Quran Corpus Visualizer";

@@ -270,7 +270,7 @@ export default function EmbedClient({ vizMode, initialRoot, initialSurah, initia
 
         <a
           className="embed-watermark"
-          href="https://quran.pluragate.org"
+          href="https://quranobservatory.org"
           target="_blank"
           rel="noopener noreferrer"
         >
