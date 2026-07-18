@@ -228,6 +228,8 @@
             "topLemmas": "Frequent lemmas",
             "posMix": "POS mix"
         },
+        "surahListExpand": "Show all {count} surahs",
+        "surahListCollapse": "Show fewer",
         "surahInsight": {
             "title": "Surah dossier",
             "verses": "verses",

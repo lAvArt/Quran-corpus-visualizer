@@ -279,16 +279,20 @@ export default function CorpusIndex({
                    worst case (long labels wrapping) from crawling under the
                    fixed footer. */
                 .index-list {
-                    max-height: 520px;
+                    max-height: 560px;
                     overflow-y: auto;
                 }
 
+                /* Pager pinned to the card's bottom edge with breathing room —
+                   arrows always in the same place regardless of page length. */
                 .index-pager {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 14px;
-                    padding-top: 10px;
+                    gap: 18px;
+                    margin-top: auto;
+                    padding: 14px 0 4px;
+                    border-top: 1px solid var(--line);
                 }
 
                 .index-pager-btn {

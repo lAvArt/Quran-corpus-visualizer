@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -52,6 +52,11 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     : (user?.email ?? "?").split("@")[0].slice(0, 2)
   ).toUpperCase();
   const [displayNameDraft, setDisplayNameDraft] = useState(currentDisplayName);
+  // Auth hydrates after mount — adopt the stored name once it arrives (and
+  // after saves, when the canonical value catches up to the draft).
+  useEffect(() => {
+    setDisplayNameDraft(currentDisplayName);
+  }, [currentDisplayName]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSavedFlash, setProfileSavedFlash] = useState(false);
 
@@ -143,7 +148,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     <AppWorkspaceShell
       kicker={t("studyKicker")}
       title={title ?? t("title")}
-      description={user ? user.email ?? "" : t("guestMode")}
+      description={user ? "" : t("guestMode")}
       panelWidth="wide"
       backgroundVariant="study"
       status={
@@ -164,6 +169,50 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
             {tAuth("signIn")}
           </button>
         </div>
+      ) : null}
+
+      {user ? (
+        <section className="ui-card ui-section-card study-identity-card study-identity-hero" data-testid="profile-identity-card">
+          <div className="study-identity-row">
+            <span className="study-identity-avatar" aria-hidden="true">
+              {avatarUrl ? (
+                /* remote avatar hosts (Google) aren't in next/image's allowlist */
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                identityInitials
+              )}
+            </span>
+            <div className="study-identity-fields">
+              <label className="ui-field">
+                <span>{t("displayNameLabel")}</span>
+                <div className="study-identity-name-row">
+                  <input
+                    type="text"
+                    className="ui-input"
+                    value={displayNameDraft}
+                    placeholder={t("displayNamePlaceholder")}
+                    maxLength={60}
+                    onChange={(event) => setDisplayNameDraft(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-primary"
+                    disabled={savingProfile || displayNameDraft.trim() === currentDisplayName}
+                    onClick={() => void handleSaveDisplayName()}
+                  >
+                    {savingProfile ? t("savingProfile") : t("saveProfile")}
+                  </button>
+                </div>
+              </label>
+              <p className="study-identity-meta">
+                {user.email}
+                {profileSavedFlash ? <span className="study-identity-saved"> · {t("profileSaved")}</span> : null}
+              </p>
+              <p className="study-identity-hint">{t("avatarHint")}</p>
+            </div>
+          </div>
+        </section>
       ) : null}
 
       {pendingMigration ? (
@@ -462,49 +511,6 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
       {activePanel === "account" ? (
         <section className="study-panel-page section-spacer">
-          {user ? (
-            <section className="ui-card ui-section-card study-identity-card" data-testid="profile-identity-card">
-              <div className="study-identity-row">
-                <span className="study-identity-avatar" aria-hidden="true">
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote avatar hosts (Google) aren't allowlisted for next/image
-                    <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
-                  ) : (
-                    identityInitials
-                  )}
-                </span>
-                <div className="study-identity-fields">
-                  <label className="ui-field">
-                    <span>{t("displayNameLabel")}</span>
-                    <div className="study-identity-name-row">
-                      <input
-                        type="text"
-                        className="ui-input"
-                        value={displayNameDraft}
-                        placeholder={t("displayNamePlaceholder")}
-                        maxLength={60}
-                        onChange={(event) => setDisplayNameDraft(event.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="ui-btn ui-btn-primary"
-                        disabled={savingProfile || displayNameDraft.trim() === currentDisplayName}
-                        onClick={() => void handleSaveDisplayName()}
-                      >
-                        {savingProfile ? t("savingProfile") : t("saveProfile")}
-                      </button>
-                    </div>
-                  </label>
-                  <p className="study-identity-meta">
-                    {user.email}
-                    {profileSavedFlash ? <span className="study-identity-saved"> · {t("profileSaved")}</span> : null}
-                  </p>
-                  <p className="study-identity-hint">{t("avatarHint")}</p>
-                </div>
-              </div>
-            </section>
-          ) : null}
-
           <section className="ui-grid-two-wide">
             <section className="ui-card ui-section-card study-tools-card">
               <div className="ui-card-head">
@@ -567,6 +573,18 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
       <style jsx>{`
         .study-identity-card {
           margin-bottom: 1rem;
+        }
+
+        /* Hero placement: identity leads the page, study panels follow. */
+        .study-identity-hero .study-identity-avatar {
+          width: 84px;
+          height: 84px;
+          font-size: 1.7rem;
+        }
+
+        .study-identity-hero {
+          background: color-mix(in srgb, var(--accent) 5%, var(--ui-surface));
+          border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
         }
 
         .study-identity-row {

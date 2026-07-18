@@ -41,6 +41,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   // Surah picked in the Corpus index — drives the surah dossier card and
   // scopes the index's Root/Lemma tabs to that surah.
   const [indexSurahId, setIndexSurahId] = useState<number | null>(null);
+  // Root dossier surah list: collapsed to the top 6 by default, expandable
+  // to the full distribution; re-collapses when the spotlighted root changes.
+  const [showAllSurahs, setShowAllSurahs] = useState(false);
   const [hasTrackedShellRender, setHasTrackedShellRender] = useState(false);
   const search = useSearch({
     tokens: allTokens,
@@ -83,6 +86,10 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
     if (search.queryIntent === "arabic-root" && search.query.trim()) return search.query.trim();
     return search.results.find((result) => result.matchedRoot?.trim())?.matchedRoot?.trim() ?? "";
   }, [parsedQuery.root, search.filterRoot, search.query, search.queryIntent, search.results, selectedRoot]);
+
+  useEffect(() => {
+    setShowAllSurahs(false);
+  }, [spotlightRoot]);
 
   const rootInsight = useMemo(() => {
     if (!spotlightRoot) return null;
@@ -140,8 +147,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           occurrences: value.occurrences,
           ayahCount: value.ayahs.size,
         }))
-        .sort((a, b) => b.occurrences - a.occurrences || a.surahId - b.surahId)
-        .slice(0, 6),
+        .sort((a, b) => b.occurrences - a.occurrences || a.surahId - b.surahId),
     };
   }, [allTokens, spotlightRoot]);
 
@@ -546,7 +552,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                 <div className="workspace-root-section">
                   <span className="workspace-root-section-label">{tSemantic("rootInfo.surahDistribution")}</span>
                   <div className="workspace-surah-list">
-                    {rootInsight.topSurahs.map((surah) => {
+                    {(showAllSurahs ? rootInsight.topSurahs : rootInsight.topSurahs.slice(0, 6)).map((surah) => {
                       const maxOccurrences = rootInsight.topSurahs[0]?.occurrences ?? 1;
                       const width = Math.max(10, (surah.occurrences / maxOccurrences) * 100);
                       return (
@@ -567,6 +573,18 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                       );
                     })}
                   </div>
+                  {rootInsight.topSurahs.length > 6 ? (
+                    <button
+                      type="button"
+                      className="workspace-surah-toggle"
+                      data-testid="root-dossier-surah-toggle"
+                      onClick={() => setShowAllSurahs((v) => !v)}
+                    >
+                      {showAllSurahs
+                        ? t("surahListCollapse")
+                        : t("surahListExpand", { count: rootInsight.topSurahs.length })}
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ) : null}
@@ -731,6 +749,25 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           border: 1px solid var(--line);
           border-radius: 14px;
           background: var(--ui-surface-soft);
+        }
+
+        .workspace-surah-toggle {
+          margin-top: 0.6rem;
+          border: 1px solid var(--line);
+          background: transparent;
+          color: var(--ink-secondary);
+          font-family: inherit;
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 6px 14px;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .workspace-surah-toggle:hover {
+          border-color: var(--accent);
+          color: var(--ink);
         }
 
         .workspace-tag-button {
