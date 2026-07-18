@@ -13,7 +13,9 @@
     },
     "Home": {
         "eyebrow": "Search the Qur'an by meaning",
-        "headline": "Every word has a root.",
+        "headline": "كِتَـٰبٌ فُصِّلَتْ ءَايَـٰتُهُۥ قُرْءَانًا عَرَبِيًّا لِّقَوْمٍ يَعْلَمُونَ",
+        "wordmark1": "Quranic Linguistics",
+        "wordmark2": "Observatory",
         "placeholder": "Search a root or word — ر-ح-م, mercy, knowledge…",
         "enterHint": "Enter",
         "matched": "matched root {root}",

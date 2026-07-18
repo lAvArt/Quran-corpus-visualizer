@@ -116,13 +116,17 @@ const OVERVIEW_TICK_MATCH_BONUS_RATIO = 0.03;
 
 // How many neighboring ayahs to frame (in detail geometry) when a single
 // overview tick is clicked, so the zoomed-in result reads as "a sector of
-// the surah" rather than one isolated bar adrift with no context.
-const OVERVIEW_CLICK_NEIGHBORS = 5;
+// the surah" rather than one isolated bar adrift with no context. Wider =
+// gentler landing zoom (the framed box is bigger, so fitBounds picks a
+// smaller scale) — tuned per user feedback that the click zoomed too deep.
+const OVERVIEW_CLICK_NEIGHBORS = 9;
 
 // Clicking a tick must actually LAND in detail mode: fitBounds derives its
 // scale from the framed box, so the box is clamped small enough that the
-// resulting scale comfortably clears DETAIL_ZOOM_THRESHOLD.
-const OVERVIEW_CLICK_MIN_LANDING_SCALE = 2.45;
+// resulting scale still clears DETAIL_ZOOM_THRESHOLD (2.2) — but only just.
+// This is a FLOOR, not a target: keep it barely past the threshold so the
+// landing focuses the sector without diving all the way in.
+const OVERVIEW_CLICK_MIN_LANDING_SCALE = 2.25;
 
 export default function RadialSuraMap({
   tokens,
