@@ -73,6 +73,17 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
       description={t("description")}
       backgroundVariant="study"
       panelWidth="wide"
+      status={
+        rootParam ? undefined : (
+          <span
+            className="quiz-experimental-badge"
+            title={t("experimentalDesc")}
+            aria-label={`${t("experimentalTitle")} — ${t("experimentalDesc")}`}
+          >
+            {t("experimentalBadge")}
+          </span>
+        )
+      }
     >
       {rootParam ? (
         <>
@@ -107,14 +118,6 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
         </>
       ) : (
         <>
-          <div className="quiz-caveat" role="note" aria-label={t("experimentalTitle")}>
-            <div className="quiz-caveat-badge">{t("experimentalBadge")}</div>
-            <div>
-              <h2 className="quiz-caveat-title">{t("experimentalTitle")}</h2>
-              <p className="quiz-caveat-copy">{t("experimentalDesc")}</p>
-            </div>
-          </div>
-
           <section className="quiz-section ui-card ui-section-card">
             <div className="quiz-section-head">
               <div>
@@ -174,18 +177,7 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
         :global([dir="rtl"] .quiz-back-link svg) {
           transform: scaleX(-1);
         }
-        .quiz-caveat {
-          display: grid;
-          grid-template-columns: auto 1fr;
-          gap: 1rem;
-          align-items: start;
-          margin-bottom: 1rem;
-          padding: 1rem 1.1rem;
-          border: 1px solid rgba(245, 158, 11, 0.28);
-          border-radius: 20px;
-          background: color-mix(in srgb, var(--accent-2), transparent 90%);
-        }
-        .quiz-caveat-badge {
+        .quiz-experimental-badge {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -199,18 +191,7 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
           letter-spacing: 0.1em;
           text-transform: uppercase;
           white-space: nowrap;
-        }
-        .quiz-caveat-title {
-          margin: 0;
-          font-size: 1rem;
-          font-weight: 700;
-        }
-        .quiz-caveat-copy {
-          margin: 0.35rem 0 0;
-          font-size: 0.94rem;
-          line-height: 1.55;
-          color: var(--ink-secondary);
-          max-width: 70ch;
+          cursor: help;
         }
         .quiz-section {
           padding: 1.25rem;
@@ -278,11 +259,7 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
           color: var(--ink-secondary);
           line-height: 1.5;
         }
-        :global([data-theme="dark"] .quiz-caveat) {
-          background: rgba(245, 158, 11, 0.08);
-          border-color: rgba(245, 158, 11, 0.24);
-        }
-        :global([data-theme="dark"] .quiz-caveat-badge) {
+        :global([data-theme="dark"] .quiz-experimental-badge) {
           color: rgba(248, 250, 252, 0.94);
           background: rgba(245, 158, 11, 0.14);
           border-color: rgba(245, 158, 11, 0.32);
@@ -298,9 +275,6 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
           border-color: rgba(255, 255, 255, 0.08);
         }
         @media (max-width: 720px) {
-          .quiz-caveat {
-            grid-template-columns: 1fr;
-          }
           .quiz-section {
             padding: 1rem;
           }

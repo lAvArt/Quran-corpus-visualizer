@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/routing";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -47,10 +47,6 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
   const [activeFilter, setActiveFilter] = useState<RootFilter>("all");
   const [activePanel, setActivePanel] = useState<StudyPanel>("overview");
 
-  useEffect(() => {
-    if (!authLoading && !user) router.replace("/auth/login");
-  }, [authLoading, router, user]);
-
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -81,7 +77,10 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
   const nextRoot = learningRoots[0] ?? trackedRoots[0] ?? null;
   const recentRoots = trackedRoots.slice(0, 3).map((root) => root.root);
 
-  if (authLoading || knowledgeLoading || !user) {
+  // Guests get the full study surface backed by the local (IndexedDB)
+  // knowledge store — the same one the graphs' "Track this root" writes to.
+  // Signing in is a SYNC upsell (banner below), never a gate.
+  if (authLoading || knowledgeLoading) {
     return (
       <main className="ui-page-shell ui-page-shell-centered ui-theme-scope">
         <div className="ui-panel ui-page-panel ui-page-panel-wide">
@@ -120,7 +119,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
     <AppWorkspaceShell
       kicker={t("studyKicker")}
       title={title ?? t("title")}
-      description={user.email ?? ""}
+      description={user ? user.email ?? "" : t("guestMode")}
       panelWidth="wide"
       backgroundVariant="study"
       status={
@@ -131,6 +130,18 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
         ) : undefined
       }
     >
+      {!user ? (
+        <div className="migration-banner ui-card-muted" data-testid="study-guest-banner">
+          <div>
+            <strong>{t("guestBannerTitle")}</strong>
+            <p>{t("guestBannerBody")}</p>
+          </div>
+          <button type="button" className="ui-btn ui-btn-primary" onClick={() => router.push("/auth/login")}>
+            {tAuth("signIn")}
+          </button>
+        </div>
+      ) : null}
+
       {pendingMigration ? (
         <div className="migration-banner ui-card-muted">
           <div>
@@ -470,9 +481,15 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
                 <button type="button" className="ui-btn ui-btn-ghost" onClick={() => importRef.current?.click()}>
                   {t("importData")}
                 </button>
-                <button type="button" className="ui-btn ui-btn-danger" onClick={() => void signOut().then(() => router.push("/"))}>
-                  {tAuth("signOut")}
-                </button>
+                {user ? (
+                  <button type="button" className="ui-btn ui-btn-danger" onClick={() => void signOut().then(() => router.push("/"))}>
+                    {tAuth("signOut")}
+                  </button>
+                ) : (
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => router.push("/auth/login")}>
+                    {tAuth("signIn")}
+                  </button>
+                )}
                 <input ref={importRef} type="file" accept=".json" hidden onChange={handleImport} />
               </div>
             </section>

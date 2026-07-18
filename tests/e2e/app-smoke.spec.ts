@@ -720,7 +720,9 @@ test.describe("degraded states", () => {
     await page.goto("/en/search");
 
     await expect(page.locator(".ui-pill")).toContainText(/shell ready/i);
-    await expect(page.getByTestId("search-workspace-ready-message")).toContainText(/shell-ready exploration is active now/i);
+    // Loading takes priority over the shell-ready note in the single collapsed
+    // status pill — only one status line renders at a time (see SearchWorkspace's
+    // primaryStatusMessage).
     await expect(page.getByTestId("search-workspace-status-message")).toContainText(/loading the full corpus/i);
   });
 

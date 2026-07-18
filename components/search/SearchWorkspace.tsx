@@ -185,14 +185,19 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
     return surah ? `${selectedToken.sura}. ${surah.name}` : String(selectedToken.sura);
   }, [selectedToken]);
 
+  // Empty-state cards (no lens picked yet, no root spotlighted yet) are filler
+  // before the user has typed anything — render the lens/spotlight cards only
+  // once they actually carry a value. The tokens-ready card always shows: it's
+  // the one place the corpus size/match count is surfaced (see quickSearch head).
   const snapshotCards = useMemo(() => {
     const resultSummary = resultBuckets
       .slice(0, 3)
       .map((bucket) => `${bucket.count} ${getResultKindLabel(bucket.kind, tGlobal, tShared)}`)
       .join(" • ");
 
-    return [
+    const cards = [
       {
+        key: "tokens",
         label: hasSearchInput ? t("snapshot.matches") : t("snapshot.ready"),
         value: (hasSearchInput ? search.results.length : allTokens.length).toLocaleString(),
         // Note: the "try a query" example (searchPrimerHint) is surfaced once,
@@ -200,17 +205,27 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
         // distinct so the example text isn't shown twice on screen.
         detail: hasSearchInput ? resultSummary || t("snapshot.noMatches") : t("snapshot.readyHint"),
       },
-      {
-        label: t("snapshot.lens"),
-        value: activeLens?.label ?? t("snapshot.noLens"),
-        detail: activeLens?.value || t("searchPrimerDescription"),
-      },
-      {
-        label: t("snapshot.spotlight"),
-        value: rootInsight?.displayRoot ?? t("snapshot.noSpotlight"),
-        detail: rootInsight?.gloss || t("snapshot.spotlightHint"),
-      },
     ];
+
+    if (activeLens) {
+      cards.push({
+        key: "lens",
+        label: t("snapshot.lens"),
+        value: activeLens.label,
+        detail: activeLens.value,
+      });
+    }
+
+    if (rootInsight) {
+      cards.push({
+        key: "spotlight",
+        label: t("snapshot.spotlight"),
+        value: rootInsight.displayRoot,
+        detail: rootInsight.gloss || t("snapshot.spotlightHint"),
+      });
+    }
+
+    return cards;
   }, [activeLens, allTokens.length, hasSearchInput, resultBuckets, rootInsight, search.results.length, t, tGlobal, tShared]);
 
   useEffect(() => {
@@ -251,33 +266,36 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
 
   const statusLabel = t(`status.${statusPresentation.statusLabel}`);
 
+  // Only one status line is ever shown at a time — loading takes priority
+  // (it's the most actionable: results may still be partial), then fallback,
+  // then the shell-ready note. Previously these three rendered as independent
+  // paragraphs and could double up (shell-ready + loading simultaneously).
+  const primaryStatusMessage = statusPresentation.showLoadingMessage
+    ? t("loadingMessage")
+    : statusPresentation.showFallbackMessage
+      ? t("fallbackMessage")
+      : statusPresentation.showShellReadyMessage
+        ? t("shellReadyMessage", {
+            surahCount: overview.surahCount,
+            rootCount: overview.rootCount.toLocaleString(),
+          })
+        : null;
+
   return (
     <AppWorkspaceShell
       kicker={t("kicker")}
       title={t("title")}
-      description={t("description")}
+      description=""
       status={<div className="ui-pill">{statusLabel}</div>}
       backgroundVariant="search"
       compact
     >
-      {statusPresentation.showShellReadyMessage ? (
-        <div className="ui-message workspace-status-message workspace-ready-note" data-testid="search-workspace-ready-message">
-          {t("shellReadyMessage", {
-            surahCount: overview.surahCount,
-            rootCount: overview.rootCount.toLocaleString(),
-          })}
-        </div>
-      ) : null}
-
-      {statusPresentation.showFallbackMessage ? (
-        <div className="ui-message ui-message-error workspace-status-message" data-testid="search-workspace-status-message">
-          {t("fallbackMessage")}
-        </div>
-      ) : null}
-
-      {statusPresentation.showLoadingMessage ? (
-        <div className="ui-message workspace-status-message" data-testid="search-workspace-status-message">
-          {t("loadingMessage")}
+      {primaryStatusMessage ? (
+        <div
+          className={`workspace-status-pill${statusPresentation.showFallbackMessage ? " workspace-status-pill-fallback" : ""}`}
+          data-testid="search-workspace-status-message"
+        >
+          {primaryStatusMessage}
         </div>
       ) : null}
 
@@ -294,7 +312,6 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
               <h2>{t("quickSearch")}</h2>
               <p>{t("searchPrimerDescription")}</p>
             </div>
-            <span>{allTokens.length.toLocaleString()}</span>
           </div>
 
           <div className="workspace-search-stack">
@@ -318,7 +335,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
 
             <div className="workspace-snapshot-grid">
               {snapshotCards.map((card) => (
-                <article key={card.label} className="workspace-snapshot-card">
+                <article key={card.key} className="workspace-snapshot-card">
                   <span className="workspace-snapshot-label">{card.label}</span>
                   <strong className="workspace-snapshot-value">{card.value}</strong>
                   <span className="workspace-snapshot-detail">{card.detail}</span>
@@ -517,6 +534,29 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           margin-bottom: 1rem;
         }
 
+        /* Single compact status line (loading/fallback/shell-ready are
+           mutually exclusive at render time — see primaryStatusMessage).
+           Reads as a status chip, not body copy. */
+        .workspace-status-pill {
+          display: inline-flex;
+          align-items: center;
+          max-width: 100%;
+          margin-bottom: 1rem;
+          padding: 0.45rem 0.85rem;
+          border: 1px solid var(--line);
+          border-radius: var(--radius-pill);
+          background: var(--ui-surface-muted);
+          color: var(--ink-secondary);
+          font-size: 0.82rem;
+          line-height: 1.35;
+        }
+
+        .workspace-status-pill-fallback {
+          border-color: color-mix(in srgb, var(--ui-danger-fg) 18%, var(--line));
+          background: var(--ui-danger-bg);
+          color: var(--ui-danger-fg);
+        }
+
         .workspace-head-copy {
           display: grid;
           gap: 0.3rem;
@@ -570,7 +610,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
 
         .workspace-snapshot-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          /* auto-fit, not a fixed 3-up: the lens/spotlight cards only render
+             once active, so the row can legitimately hold 1-3 cards. */
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 0.75rem;
         }
 
@@ -758,12 +800,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           margin-bottom: 0;
         }
 
-        .workspace-ready-note {
-          margin-bottom: 0.75rem;
-        }
-
         @media (max-width: 960px) {
-          .workspace-snapshot-grid,
           .workspace-root-metrics,
           .workspace-selection-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -771,7 +808,6 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
         }
 
         @media (max-width: 640px) {
-          .workspace-snapshot-grid,
           .workspace-root-metrics,
           .workspace-selection-grid {
             grid-template-columns: 1fr;

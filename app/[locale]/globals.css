@@ -6663,3 +6663,154 @@ button.site-footer-link {
     top: calc(var(--header-clearance) + 40px);
   }
 }
+
+/* ============================================================================
+   Themed native form controls
+   Browser-default checkboxes / range sliders / selects break the observatory
+   look (the onboarding "show on startup" tick was a bare OS checkbox). Skin
+   them ONCE, globally, with theme tokens — every current and future native
+   control inherits the treatment. Rule: never ship a bare native control.
+   ========================================================================= */
+
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-2);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform 0.12s ease-in-out;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: var(--accent-ink);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="checkbox"]:hover:not(:checked) {
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px; /* centers the thumb on the 4px track */
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: box-shadow 0.15s ease;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: box-shadow 0.15s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+input[type="range"]:hover::-moz-range-thumb,
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+input[type="range"]:focus-visible {
+  outline: none;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 8px);
+  background-color: var(--bg-2);
+  color: var(--ink);
+  padding: 6px 28px 6px 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  /* chevron drawn with the ink-muted tone; currentColor isn't usable in a
+     data URI, so a neutral gray that reads in both themes */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23909aa5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.15s ease;
+}
+
+select:hover {
+  border-color: var(--accent);
+}
+
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+[dir="rtl"] select {
+  padding: 6px 10px 6px 28px;
+  background-position: left 10px center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  input[type="checkbox"],
+  input[type="checkbox"]::before,
+  input[type="range"]::-webkit-slider-thumb,
+  input[type="range"]::-moz-range-thumb,
+  select {
+    transition: none;
+  }
+}

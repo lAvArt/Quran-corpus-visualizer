@@ -98,6 +98,8 @@
     "Footer": {
         "github": "GitHub",
         "source": "Source",
+        "credit": "Data: Quranic Arabic Corpus — Kais Dukes",
+        "creditTitle": "Morphology and corpus structure from the Quranic Arabic Corpus, created by Kais Dukes (University of Leeds)",
         "quranApi": "Quran API",
         "about": "About",
         "feedback": "Feedback",
@@ -1403,6 +1405,9 @@
         "importSuccess": "Imported {count} root(s) successfully.",
         "importError": "Failed to import. Make sure the file is a valid export.",
         "studyKicker": "Study",
+        "guestMode": "Guest mode — your data lives on this device",
+        "guestBannerTitle": "You're studying as a guest",
+        "guestBannerBody": "Tracked roots, notes, and progress are saved on this device. Sign in to sync them across devices and keep a backup.",
         "migrationTitle": "Sync local study data",
         "migrationDescription": "We found locally tracked roots that have not been synced to your account yet.",
         "mergeLocalData": "Merge local data",
