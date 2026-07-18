@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import { AuthButton } from "@/components/ui/AuthButton";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { ROOT_GLOSSES_AR } from "@/lib/data/rootGlossesAr";
 import {
@@ -288,6 +289,9 @@ export default function MinimalHome() {
         <div className="mhome-lang">
           <LanguageSwitcher />
         </div>
+        {/* Signed-in state must be visible on the landing too — same badge
+            as the observatory header (avatar/initials + profile menu). */}
+        <AuthButton />
         <button type="button" className="mhome-skip" onClick={() => enterApp(undefined, "radial-sura")}>
           {t("skipToApp")}
         </button>

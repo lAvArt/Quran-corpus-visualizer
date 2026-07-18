@@ -26,7 +26,7 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
   const t = useTranslations("Profile");
   const tAuth = useTranslations("Auth");
   const router = useRouter();
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, updateProfile, loading: authLoading } = useAuth();
   const {
     roots,
     stats,
@@ -42,6 +42,30 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
   const importRef = useRef<HTMLInputElement>(null);
   const recentExploration = useRecentExplorationState();
   const quizProgress = useQuizProgressSummary();
+  // Profile identity (account panel): avatar from OAuth metadata (Google
+  // users carry one) + an editable display name persisted to user_metadata.
+  const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>;
+  const avatarUrl = meta.avatar_url || meta.picture || null;
+  const currentDisplayName = (meta.display_name || meta.full_name || meta.name || "").trim();
+  const identityInitials = (currentDisplayName
+    ? currentDisplayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("")
+    : (user?.email ?? "?").split("@")[0].slice(0, 2)
+  ).toUpperCase();
+  const [displayNameDraft, setDisplayNameDraft] = useState(currentDisplayName);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSavedFlash, setProfileSavedFlash] = useState(false);
+
+  const handleSaveDisplayName = async () => {
+    setSavingProfile(true);
+    setProfileSavedFlash(false);
+    const { error } = await updateProfile({ display_name: displayNameDraft.trim() });
+    setSavingProfile(false);
+    if (!error) {
+      setProfileSavedFlash(true);
+      setTimeout(() => setProfileSavedFlash(false), 2500);
+    }
+  };
+
   const [editingRoot, setEditingRoot] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [activeFilter, setActiveFilter] = useState<RootFilter>("all");
@@ -438,6 +462,49 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
 
       {activePanel === "account" ? (
         <section className="study-panel-page section-spacer">
+          {user ? (
+            <section className="ui-card ui-section-card study-identity-card" data-testid="profile-identity-card">
+              <div className="study-identity-row">
+                <span className="study-identity-avatar" aria-hidden="true">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote avatar hosts (Google) aren't allowlisted for next/image
+                    <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    identityInitials
+                  )}
+                </span>
+                <div className="study-identity-fields">
+                  <label className="ui-field">
+                    <span>{t("displayNameLabel")}</span>
+                    <div className="study-identity-name-row">
+                      <input
+                        type="text"
+                        className="ui-input"
+                        value={displayNameDraft}
+                        placeholder={t("displayNamePlaceholder")}
+                        maxLength={60}
+                        onChange={(event) => setDisplayNameDraft(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="ui-btn ui-btn-primary"
+                        disabled={savingProfile || displayNameDraft.trim() === currentDisplayName}
+                        onClick={() => void handleSaveDisplayName()}
+                      >
+                        {savingProfile ? t("savingProfile") : t("saveProfile")}
+                      </button>
+                    </div>
+                  </label>
+                  <p className="study-identity-meta">
+                    {user.email}
+                    {profileSavedFlash ? <span className="study-identity-saved"> · {t("profileSaved")}</span> : null}
+                  </p>
+                  <p className="study-identity-hint">{t("avatarHint")}</p>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <section className="ui-grid-two-wide">
             <section className="ui-card ui-section-card study-tools-card">
               <div className="ui-card-head">
@@ -498,6 +565,87 @@ export default function StudyHub({ showBackLink = false, title }: StudyHubProps)
       ) : null}
 
       <style jsx>{`
+        .study-identity-card {
+          margin-bottom: 1rem;
+        }
+
+        .study-identity-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 18px;
+        }
+
+        .study-identity-avatar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: var(--accent);
+          color: var(--accent-ink, #fff);
+          font-size: 1.3rem;
+          font-weight: 700;
+          overflow: hidden;
+          flex-shrink: 0;
+          border: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+        }
+
+        .study-identity-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .study-identity-fields {
+          flex: 1;
+          min-width: 0;
+          display: grid;
+          gap: 6px;
+        }
+
+        .study-identity-name-row {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+        }
+
+        .study-identity-name-row .ui-input {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .study-identity-meta {
+          margin: 0;
+          font-size: 0.8rem;
+          color: var(--ink-muted);
+        }
+
+        .study-identity-saved {
+          color: var(--accent-2, #56a697);
+          font-weight: 600;
+        }
+
+        .study-identity-hint {
+          margin: 0;
+          font-size: 0.72rem;
+          color: var(--ink-muted);
+          opacity: 0.8;
+        }
+
+        @media (max-width: 640px) {
+          .study-identity-row {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+
+          .study-identity-name-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
+
         .study-panel-page {
           display: grid;
           gap: 1rem;

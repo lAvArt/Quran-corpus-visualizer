@@ -13,6 +13,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { clearDevAuthUser, readDevAuthUser, readDevSession } from "@/lib/dev/testOverrides";
 import { formatSupabaseError } from "@/lib/supabase/errors";
+import { APP_EMAIL_IDENTITY } from "@/lib/config/appIdentity";
 
 // ── Context shape ──────────────────────────────────────────────────
 
@@ -23,6 +24,8 @@ interface AuthContextValue {
     signIn: (email: string, password: string) => Promise<{ error: string | null }>;
     signUp: (email: string, password: string) => Promise<{ error: string | null }>;
     signInWithGoogle: () => Promise<{ error: string | null }>;
+    /** Update user_metadata (display_name, avatar_url, …). */
+    updateProfile: (data: Record<string, string>) => Promise<{ error: string | null }>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<{ error: string | null }>;
     updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -95,6 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     options: {
                         // Supabase will send a confirmation email automatically
                         emailRedirectTo: `${location.origin}/auth/callback`,
+                        // App marker for the SHARED Supabase project's email
+                        // templates: they branch on {{ .Data.app }} so this
+                        // app's users get Quran-Observatory-branded emails
+                        // while sibling Pluragate apps keep their own.
+                        data: { app: APP_EMAIL_IDENTITY },
                     },
                 });
                 return { error: error?.message ?? null };
@@ -118,6 +126,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
         }
     }, [supabase]);
+
+    const updateProfile = useCallback(
+        async (data: Record<string, string>) => {
+            try {
+                const { data: result, error } = await supabase.auth.updateUser({ data });
+                if (!error && result.user) setUser(result.user);
+                return { error: error?.message ?? null };
+            } catch (error) {
+                return { error: formatSupabaseError(error, "Unable to reach Supabase right now. Check your connection and try again.") };
+            }
+        },
+        [supabase]
+    );
 
     const signOut = useCallback(async () => {
         if (readDevAuthUser()) {
@@ -161,8 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     const value = useMemo<AuthContextValue>(
-        () => ({ user, session, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, updatePassword }),
-        [user, session, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, updatePassword]
+        () => ({ user, session, loading, signIn, signUp, signInWithGoogle, updateProfile, signOut, resetPassword, updatePassword }),
+        [user, session, loading, signIn, signUp, signInWithGoogle, updateProfile, signOut, resetPassword, updatePassword]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
