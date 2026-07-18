@@ -23,7 +23,7 @@
   --viz-cat-makki: #0f766e;
   --viz-cat-madani: #b45309;
   --toolbar-bg: rgba(255, 255, 255, 0.85);
-  --footer-glass-bg: rgba(255, 255, 255, 0.56);
+  --footer-glass-bg: rgba(255, 255, 255, 0.92);
   --header-dock-height: 42px;
   --header-gap: 28px;
   --header-clearance: calc(var(--header-dock-height) + var(--header-gap));
@@ -3696,7 +3696,7 @@ button.site-footer-link {
   --accent-ink: #2a1606;
   --selection: #fbead2;
   --toolbar-bg: rgba(18, 28, 33, 0.85);
-  --footer-glass-bg: rgba(12, 20, 24, 0.56);
+  --footer-glass-bg: rgba(12, 20, 24, 0.94);
   color: var(--ink);
 }
 

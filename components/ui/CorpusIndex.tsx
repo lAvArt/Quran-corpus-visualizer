@@ -11,9 +11,13 @@ interface CorpusIndexProps {
     onSelectSurah: (id: number) => void;
     onSelectRoot: (root: string) => void;
     onSelectLemma: (lemma: string) => void;
+    /** Un-scope the Root/Lemma tabs back to the whole corpus. */
+    onClearSurah?: () => void;
     className?: string;
     selectedSurahId?: number;
 }
+
+const PAGE_SIZE = 25;
 
 type TabMode = "surah" | "root" | "lemma";
 
@@ -24,12 +28,14 @@ export default function CorpusIndex({
     onSelectSurah,
     onSelectRoot,
     onSelectLemma,
+    onClearSurah,
     className = "",
     selectedSurahId,
 }: CorpusIndexProps) {
     const t = useTranslations('CorpusIndex');
     const [activeTab, setActiveTab] = useState<TabMode>("surah");
     const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(0);
 
     // Compute aggregates
     const data = useMemo(() => {
@@ -113,6 +119,19 @@ export default function CorpusIndex({
         }
     }, [activeTab, searchQuery, data, t]);
 
+    // Pagination is derived, never stored: reset to the first page whenever
+    // the underlying list changes shape (tab, filter, or scope switch).
+    const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const pagedItems = filteredItems.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+    const switchTab = (mode: TabMode) => {
+        setActiveTab(mode);
+        setPage(0);
+    };
+
+    const scopedSurahName = selectedSurahId ? SURAH_NAMES[selectedSurahId]?.name ?? `#${selectedSurahId}` : null;
+
     return (
         <div className={`corpus-index ${className}`}>
             <div className="index-tabs" role="tablist" aria-label={t('tabsAriaLabel')}>
@@ -121,7 +140,7 @@ export default function CorpusIndex({
                         key={mode}
                         className={`index-tab-btn ${activeTab === mode ? "active" : ""}`}
                         data-testid={`index-tab-${mode}`}
-                        onClick={() => setActiveTab(mode)}
+                        onClick={() => switchTab(mode)}
                         role="tab"
                         aria-selected={activeTab === mode}
                         id={`index-tab-${mode}`}
@@ -131,6 +150,19 @@ export default function CorpusIndex({
                     </button>
                 ))}
             </div>
+
+            {activeTab !== "surah" && scopedSurahName ? (
+                <div className="index-scope-row">
+                    <span className="index-scope-chip" data-testid="index-scope-chip">
+                        {t('scopedTo', { name: scopedSurahName })}
+                    </span>
+                    {onClearSurah ? (
+                        <button type="button" className="index-scope-clear" onClick={() => { onClearSurah(); setPage(0); }}>
+                            {t('clearScope')}
+                        </button>
+                    ) : null}
+                </div>
+            ) : null}
 
             <div className="search-container">
                 <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -142,12 +174,12 @@ export default function CorpusIndex({
                     data-testid="index-search-input"
                     placeholder={t('searchPlaceholder')}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
                     aria-label={t('searchPlaceholder')}
                 />
             </div>
             <div className="index-list custom-scrollbar" role="tabpanel" id="index-tabpanel" aria-labelledby={`index-tab-${activeTab}`}>
-                {filteredItems.map((item) => (
+                {pagedItems.map((item) => (
                     <button
                         key={item.id}
                         data-testid={`index-item-${String(item.id)}`}
@@ -182,6 +214,111 @@ export default function CorpusIndex({
                 }
             </div >
 
+            {pageCount > 1 ? (
+                <div className="index-pager" data-testid="index-pager">
+                    <button
+                        type="button"
+                        className="index-pager-btn"
+                        onClick={() => setPage(Math.max(0, safePage - 1))}
+                        disabled={safePage === 0}
+                        aria-label={t('prevPage')}
+                    >
+                        ‹
+                    </button>
+                    <span className="index-pager-status">
+                        {t('pageStatus', {
+                            from: safePage * PAGE_SIZE + 1,
+                            to: Math.min(filteredItems.length, (safePage + 1) * PAGE_SIZE),
+                            total: filteredItems.length,
+                        })}
+                    </span>
+                    <button
+                        type="button"
+                        className="index-pager-btn"
+                        onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
+                        disabled={safePage >= pageCount - 1}
+                        aria-label={t('nextPage')}
+                    >
+                        ›
+                    </button>
+                </div>
+            ) : null}
+
+            <style jsx>{`
+                .index-scope-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 8px;
+                }
+
+                .index-scope-chip {
+                    font-size: 0.72rem;
+                    color: var(--ink-secondary);
+                    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+                    background: color-mix(in srgb, var(--accent) 10%, transparent);
+                    border-radius: 999px;
+                    padding: 3px 10px;
+                }
+
+                .index-scope-clear {
+                    font-size: 0.72rem;
+                    color: var(--ink-muted);
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    text-decoration: underline;
+                    font-family: inherit;
+                }
+
+                .index-scope-clear:hover {
+                    color: var(--ink);
+                }
+
+                /* Bounded list: pagination keeps pages short, the cap keeps the
+                   worst case (long labels wrapping) from crawling under the
+                   fixed footer. */
+                .index-list {
+                    max-height: 520px;
+                    overflow-y: auto;
+                }
+
+                .index-pager {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 14px;
+                    padding-top: 10px;
+                }
+
+                .index-pager-btn {
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 8px;
+                    border: 1px solid var(--line);
+                    background: transparent;
+                    color: var(--ink-secondary);
+                    font-size: 1rem;
+                    line-height: 1;
+                    cursor: pointer;
+                }
+
+                .index-pager-btn:hover:not(:disabled) {
+                    border-color: var(--accent);
+                    color: var(--ink);
+                }
+
+                .index-pager-btn:disabled {
+                    opacity: 0.35;
+                    cursor: default;
+                }
+
+                .index-pager-status {
+                    font-size: 0.72rem;
+                    color: var(--ink-muted);
+                    font-variant-numeric: tabular-nums;
+                }
+            `}</style>
         </div >
     );
 }

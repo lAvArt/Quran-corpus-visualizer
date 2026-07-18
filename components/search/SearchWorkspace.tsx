@@ -38,6 +38,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   const searchStatus = readDevSearchStatus() ?? "available";
   const [selectedToken, setSelectedToken] = useState<CorpusToken | null>(null);
   const [selectedRoot, setSelectedRoot] = useState<string | null>(null);
+  // Surah picked in the Corpus index — drives the surah dossier card and
+  // scopes the index's Root/Lemma tabs to that surah.
+  const [indexSurahId, setIndexSurahId] = useState<number | null>(null);
   const [hasTrackedShellRender, setHasTrackedShellRender] = useState(false);
   const search = useSearch({
     tokens: allTokens,
@@ -141,6 +144,57 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
         .slice(0, 6),
     };
   }, [allTokens, spotlightRoot]);
+
+  // Surah dossier: what a surah is MADE OF (its roots and lemmas) — shown
+  // when a surah is picked in the index and no root spotlight overrides it.
+  const surahInsight = useMemo(() => {
+    if (!indexSurahId) return null;
+    const meta = SURAH_NAMES[indexSurahId];
+    // No early return on empty tokens: while the corpus is still streaming,
+    // the dossier shows the surah's static metadata immediately and the
+    // counts/chips fill in as batches land (streaming-honesty rule).
+    const surahTokens = allTokens.filter((token) => token.sura === indexSurahId);
+
+    const rootCounts = new Map<string, number>();
+    const lemmaCounts = new Map<string, number>();
+    const ayahs = new Set<number>();
+    for (const token of surahTokens) {
+      if (token.root) rootCounts.set(token.root, (rootCounts.get(token.root) ?? 0) + 1);
+      if (token.lemma) lemmaCounts.set(token.lemma, (lemmaCounts.get(token.lemma) ?? 0) + 1);
+      ayahs.add(token.ayah);
+    }
+
+    return {
+      surahId: indexSurahId,
+      name: meta?.name ?? `Surah ${indexSurahId}`,
+      arabic: meta?.arabic ?? "",
+      verses: meta?.verses ?? ayahs.size,
+      tokenCount: surahTokens.length,
+      rootCount: rootCounts.size,
+      lemmaCount: lemmaCounts.size,
+      topRoots: [...rootCounts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 12),
+      topLemmas: [...lemmaCounts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 12),
+    };
+  }, [allTokens, indexSurahId]);
+
+  // Shared by the index's Root tab AND the surah dossier's root chips:
+  // filter to the root and spotlight its corpus-wide dossier.
+  const handleIndexRootSelect = (root: string) => {
+    const token =
+      allTokens.find((entry) => normalizeRootFamily(entry.root) === normalizeRootFamily(root)) ?? null;
+    search.setQuery("");
+    search.setFilterLemma("");
+    search.setFilterPos("");
+    search.setFilterAyah("");
+    search.setFilterRoot(root);
+    search.setFiltersExpanded(true);
+    setSelectedToken(token);
+    setSelectedRoot(root);
+  };
 
   const resultBuckets = useMemo(
     () =>
@@ -355,6 +409,69 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
               <p className="workspace-search-hint">{t("searchPrimerHint")}</p>
             )}
 
+            {!rootInsight && surahInsight ? (
+              <article className="workspace-root-card" data-testid="search-surah-dossier">
+                <div className="workspace-root-head">
+                  <div>
+                    <p className="ui-kicker">{t("surahInsight.title")}</p>
+                    <h3 className="workspace-root-title">
+                      {surahInsight.surahId}. {surahInsight.name}
+                    </h3>
+                    <p className="workspace-root-gloss" lang="ar" dir="rtl">{surahInsight.arabic}</p>
+                  </div>
+                </div>
+
+                <div className="workspace-root-metrics">
+                  <div className="workspace-root-metric">
+                    <span>{t("surahInsight.verses")}</span>
+                    <strong>{surahInsight.verses.toLocaleString()}</strong>
+                  </div>
+                  <div className="workspace-root-metric">
+                    <span>{t("surahInsight.words")}</span>
+                    <strong>{surahInsight.tokenCount.toLocaleString()}</strong>
+                  </div>
+                  <div className="workspace-root-metric">
+                    <span>{t("surahInsight.roots")}</span>
+                    <strong>{surahInsight.rootCount.toLocaleString()}</strong>
+                  </div>
+                  <div className="workspace-root-metric">
+                    <span>{t("surahInsight.lemmas")}</span>
+                    <strong>{surahInsight.lemmaCount.toLocaleString()}</strong>
+                  </div>
+                </div>
+
+                <div className="workspace-root-section">
+                  <span className="workspace-root-section-label">{t("surahInsight.topRoots")}</span>
+                  <div className="workspace-tag-row">
+                    {surahInsight.topRoots.map(([root, count]) => (
+                      <button
+                        key={root}
+                        type="button"
+                        className="workspace-tag workspace-tag-button"
+                        onClick={() => handleIndexRootSelect(root)}
+                        title={t("surahInsight.rootChipHint")}
+                      >
+                        <span lang="ar" dir="rtl">{root}</span>
+                        <em>{count}</em>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="workspace-root-section">
+                  <span className="workspace-root-section-label">{t("surahInsight.topLemmas")}</span>
+                  <div className="workspace-tag-row">
+                    {surahInsight.topLemmas.map(([lemma, count]) => (
+                      <span key={lemma} className="workspace-tag">
+                        <span lang="ar" dir="rtl">{lemma}</span>
+                        <em>{count}</em>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </article>
+            ) : null}
+
             {rootInsight ? (
               <article className="workspace-root-card">
                 <div className="workspace-root-head">
@@ -497,23 +614,16 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           </div>
           <CorpusIndex
             tokens={allTokens}
+            selectedSurahId={indexSurahId ?? undefined}
+            onClearSurah={() => setIndexSurahId(null)}
             onSelectSurah={(surahId) => {
-              const token = allTokens.find((entry) => entry.sura === surahId) ?? null;
-              setSelectedToken(token);
-              setSelectedRoot(token?.root ?? null);
+              // A surah pick opens the SURAH dossier (what the surah is made
+              // of) — it must never spotlight some arbitrary token's root.
+              setIndexSurahId(surahId);
+              setSelectedToken(null);
+              setSelectedRoot(null);
             }}
-            onSelectRoot={(root) => {
-              const token =
-                allTokens.find((entry) => normalizeRootFamily(entry.root) === normalizeRootFamily(root)) ?? null;
-              search.setQuery("");
-              search.setFilterLemma("");
-              search.setFilterPos("");
-              search.setFilterAyah("");
-              search.setFilterRoot(root);
-              search.setFiltersExpanded(true);
-              setSelectedToken(token);
-              setSelectedRoot(root);
-            }}
+            onSelectRoot={handleIndexRootSelect}
             onSelectLemma={(lemma) => {
               const token = allTokens.find((entry) => entry.lemma === lemma) ?? null;
               search.setQuery("");
@@ -580,10 +690,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
 
         .workspace-command-bar :global(.search-input-wrapper) {
           padding: 0.75rem 0.85rem;
-          border-radius: 18px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 244, 238, 0.9));
-          border-color: color-mix(in srgb, var(--accent), white 36%);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+          border-radius: 14px;
+          background: var(--ui-surface);
+          border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
         }
 
         .workspace-command-bar :global(.search-input) {
@@ -619,9 +728,26 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
         .workspace-snapshot-card,
         .workspace-root-card {
           padding: 1rem;
-          border: 1px solid rgba(17, 24, 39, 0.08);
-          border-radius: 20px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 245, 239, 0.82));
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: var(--ui-surface-soft);
+        }
+
+        .workspace-tag-button {
+          cursor: pointer;
+          font-family: inherit;
+          transition: border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .workspace-tag-button:hover {
+          border-color: var(--accent);
+          color: var(--ink);
+        }
+
+        .workspace-tag em {
+          font-style: normal;
+          color: var(--ink-muted);
+          font-variant-numeric: tabular-nums;
         }
 
         .workspace-snapshot-card {
@@ -691,10 +817,8 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
         .workspace-root-card {
           display: grid;
           gap: 1rem;
-          border-color: color-mix(in srgb, var(--accent), white 68%);
-          background:
-            radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 32%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 244, 238, 0.82));
+          border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+          background: var(--ui-surface-soft);
         }
 
         .workspace-root-head {
@@ -821,21 +945,21 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           }
         }
 
+        /* Flat token surfaces — the old navy linear-gradients + gold radial
+           tints were the last visible remnant of the pre-observatory theme. */
         :global([data-theme="dark"] .workspace-command-bar .search-input-wrapper) {
-          background: linear-gradient(180deg, rgba(22, 28, 35, 0.94), rgba(16, 20, 27, 0.92));
+          background: var(--panel);
         }
 
         :global([data-theme="dark"] .workspace-command-bar .search-advanced-filters),
         :global([data-theme="dark"] .workspace-command-bar .search-results-dropdown) {
-          background: rgba(16, 20, 27, 0.94);
+          background: var(--panel);
         }
 
         :global([data-theme="dark"] .workspace-snapshot-card),
         :global([data-theme="dark"] .workspace-root-card) {
-          background:
-            radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 32%),
-            linear-gradient(180deg, rgba(22, 28, 35, 0.9), rgba(16, 20, 27, 0.9));
-          border-color: rgba(255, 255, 255, 0.08);
+          background: color-mix(in srgb, var(--panel) 94%, transparent);
+          border-color: var(--line);
         }
 
         :global([data-theme="dark"] .workspace-root-metric),
