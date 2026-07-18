@@ -289,12 +289,13 @@ export default function MinimalHome() {
         <div className="mhome-lang">
           <LanguageSwitcher />
         </div>
-        {/* Signed-in state must be visible on the landing too — same badge
-            as the observatory header (avatar/initials + profile menu). */}
-        <AuthButton />
         <button type="button" className="mhome-skip" onClick={() => enterApp(undefined, "radial-sura")}>
           {t("skipToApp")}
         </button>
+        {/* Signed-in state must be visible on the landing too — same badge
+            as the observatory header. Outermost slot, like every app's
+            header: actions first, identity at the edge. */}
+        <AuthButton />
       </div>
 
       <div className={`mhome-stack ${raised ? "is-active" : ""}`}>
