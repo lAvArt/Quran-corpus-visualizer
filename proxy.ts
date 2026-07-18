@@ -81,6 +81,8 @@ export const config = {
     // handler, not a page): localizing it 307'd /auth/callback?code=… to a
     // nonexistent /{locale}/auth/callback and dropped the one-time code —
     // Google sign-in could never complete.
-    "/((?!api|trpc|embed|data|auth/callback|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt|json|csv|woff2?)$).*)",
+    // sw.js: service workers hard-reject scripts served via redirect, so the
+    // locale 307 (/sw.js → /{locale}/sw.js) broke PWA registration outright.
+    "/((?!api|trpc|embed|data|auth/callback|sw\\.js|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt|json|csv|woff2?)$).*)",
   ],
 };
