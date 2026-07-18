@@ -228,8 +228,9 @@
             "topLemmas": "أكثر الجذوع",
             "posMix": "مزيج الأنواع"
         },
-        "surahListExpand": "عرض كل السور ({count})",
-        "surahListCollapse": "عرض أقل",
+        "surahPageStatus": "{from}–{to} من {total}",
+        "surahPagePrev": "السور السابقة",
+        "surahPageNext": "السور التالية",
         "surahInsight": {
             "title": "بطاقة السورة",
             "verses": "آيات",

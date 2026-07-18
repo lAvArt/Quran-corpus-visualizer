@@ -228,8 +228,9 @@
             "topLemmas": "Frequent lemmas",
             "posMix": "POS mix"
         },
-        "surahListExpand": "Show all {count} surahs",
-        "surahListCollapse": "Show fewer",
+        "surahPageStatus": "{from}–{to} of {total}",
+        "surahPagePrev": "Previous surahs",
+        "surahPageNext": "Next surahs",
         "surahInsight": {
             "title": "Surah dossier",
             "verses": "verses",

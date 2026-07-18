@@ -26,6 +26,10 @@ interface SearchWorkspaceProps {
 
 type SearchTranslate = (key: string, values?: Record<string, string | number>) => string;
 
+// Dossier surah-distribution page size — 8 bar-rows visually matches the
+// Corpus index's 25 compact rows, keeping the two columns height-balanced.
+const SURAH_PAGE_SIZE = 8;
+
 export default function SearchWorkspace({ initialCorpusData }: SearchWorkspaceProps) {
   const t = useTranslations("SearchWorkspace");
   const tGlobal = useTranslations("GlobalSearch");
@@ -41,9 +45,9 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   // Surah picked in the Corpus index — drives the surah dossier card and
   // scopes the index's Root/Lemma tabs to that surah.
   const [indexSurahId, setIndexSurahId] = useState<number | null>(null);
-  // Root dossier surah list: collapsed to the top 6 by default, expandable
-  // to the full distribution; re-collapses when the spotlighted root changes.
-  const [showAllSurahs, setShowAllSurahs] = useState(false);
+  // Root dossier surah distribution: paginated (mirrors the Corpus index
+  // pager on the right) so both columns keep balanced, bounded heights.
+  const [surahPage, setSurahPage] = useState(0);
   const [hasTrackedShellRender, setHasTrackedShellRender] = useState(false);
   const search = useSearch({
     tokens: allTokens,
@@ -88,7 +92,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
   }, [parsedQuery.root, search.filterRoot, search.query, search.queryIntent, search.results, selectedRoot]);
 
   useEffect(() => {
-    setShowAllSurahs(false);
+    setSurahPage(0);
   }, [spotlightRoot]);
 
   const rootInsight = useMemo(() => {
@@ -552,7 +556,7 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                 <div className="workspace-root-section">
                   <span className="workspace-root-section-label">{tSemantic("rootInfo.surahDistribution")}</span>
                   <div className="workspace-surah-list">
-                    {(showAllSurahs ? rootInsight.topSurahs : rootInsight.topSurahs.slice(0, 6)).map((surah) => {
+                    {rootInsight.topSurahs.slice(surahPage * SURAH_PAGE_SIZE, (surahPage + 1) * SURAH_PAGE_SIZE).map((surah) => {
                       const maxOccurrences = rootInsight.topSurahs[0]?.occurrences ?? 1;
                       const width = Math.max(10, (surah.occurrences / maxOccurrences) * 100);
                       return (
@@ -573,17 +577,34 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                       );
                     })}
                   </div>
-                  {rootInsight.topSurahs.length > 6 ? (
-                    <button
-                      type="button"
-                      className="workspace-surah-toggle"
-                      data-testid="root-dossier-surah-toggle"
-                      onClick={() => setShowAllSurahs((v) => !v)}
-                    >
-                      {showAllSurahs
-                        ? t("surahListCollapse")
-                        : t("surahListExpand", { count: rootInsight.topSurahs.length })}
-                    </button>
+                  {rootInsight.topSurahs.length > SURAH_PAGE_SIZE ? (
+                    <div className="workspace-surah-pager" data-testid="root-dossier-surah-pager">
+                      <button
+                        type="button"
+                        className="workspace-surah-pager-btn"
+                        onClick={() => setSurahPage(Math.max(0, surahPage - 1))}
+                        disabled={surahPage === 0}
+                        aria-label={t("surahPagePrev")}
+                      >
+                        ‹
+                      </button>
+                      <span className="workspace-surah-pager-status">
+                        {t("surahPageStatus", {
+                          from: surahPage * SURAH_PAGE_SIZE + 1,
+                          to: Math.min(rootInsight.topSurahs.length, (surahPage + 1) * SURAH_PAGE_SIZE),
+                          total: rootInsight.topSurahs.length,
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        className="workspace-surah-pager-btn"
+                        onClick={() => setSurahPage(Math.min(Math.ceil(rootInsight.topSurahs.length / SURAH_PAGE_SIZE) - 1, surahPage + 1))}
+                        disabled={(surahPage + 1) * SURAH_PAGE_SIZE >= rootInsight.topSurahs.length}
+                        aria-label={t("surahPageNext")}
+                      >
+                        ›
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               </article>
@@ -751,23 +772,43 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
           background: var(--ui-surface-soft);
         }
 
-        .workspace-surah-toggle {
-          margin-top: 0.6rem;
+        /* Mirrors the Corpus index pager so both columns read as one system. */
+        .workspace-surah-pager {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          margin-top: 0.8rem;
+          padding-top: 12px;
+          border-top: 1px solid var(--line);
+        }
+
+        .workspace-surah-pager-btn {
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
           border: 1px solid var(--line);
           background: transparent;
           color: var(--ink-secondary);
-          font-family: inherit;
-          font-size: 0.75rem;
-          font-weight: 600;
-          padding: 6px 14px;
-          border-radius: 999px;
+          font-size: 1rem;
+          line-height: 1;
           cursor: pointer;
-          transition: border-color 0.15s ease, color 0.15s ease;
         }
 
-        .workspace-surah-toggle:hover {
+        .workspace-surah-pager-btn:hover:not(:disabled) {
           border-color: var(--accent);
           color: var(--ink);
+        }
+
+        .workspace-surah-pager-btn:disabled {
+          opacity: 0.35;
+          cursor: default;
+        }
+
+        .workspace-surah-pager-status {
+          font-size: 0.72rem;
+          color: var(--ink-muted);
+          font-variant-numeric: tabular-nums;
         }
 
         .workspace-tag-button {
