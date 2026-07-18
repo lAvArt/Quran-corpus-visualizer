@@ -276,7 +276,6 @@ export default function RootFlowSankey({
   const visibleRatio = totalFlows > 0 ? Math.round((visibleFlows.length / totalFlows) * 100) : 0;
   const hasVisibleFlows = visibleFlows.length > 0;
   const scopeLabel = selectedSurahId ? ts("surah") + " " + selectedSurahId : ts("global");
-  const selectedRootLabel = selectedRoot === "all" ? t("allRoots") + " (" + availableRoots.length + ")" : selectedRoot;
   const maxCount = Math.max(...visibleFlows.map((flow) => flow.count), 1);
 
   // Ribbon fill for the "identity"/"frequency" color modes only — these
@@ -695,12 +694,19 @@ export default function RootFlowSankey({
         ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
         : sidebarCards}
 
+      {/* Scope + active root live in the StatusBar breadcrumb already — the
+          only unique, actionable fact here is coverage, so this bar carries
+          just that plus the reveal-more control (folded in from the old
+          bottom-left button, which sat underneath the left dock). */}
       <div className="sankey-context-bar">
-        <span className="sankey-pill">{ts("scope")}: {scopeLabel}</span>
-        <span className="sankey-pill" data-testid="sankey-active-root-pill">{ts("activeRoot")}: {selectedRootLabel}</span>
-        <span className="sankey-pill">
+        <span className="sankey-pill" data-testid="sankey-active-root-pill">
           {ts("showing")} {visibleFlows.length} {ts("of")} {totalFlows} {ts("flows")} · {visibleRatio}% {ts("coverage").toLocaleLowerCase()}
         </span>
+        {hasMore && (
+          <button type="button" onClick={handleLoadMore} className="sankey-more-inline">
+            {t("showMore")} (+{Math.min(LOAD_MORE_COUNT, totalFlows - visibleCount)})
+          </button>
+        )}
       </div>
 
       <div className="sankey-scroll-area">
@@ -855,14 +861,6 @@ export default function RootFlowSankey({
           </div>
         )}
       </div>
-
-      {hasMore && (
-        <div className="load-more-container">
-          <button type="button" onClick={handleLoadMore} className="load-more-btn">
-            {t("showMore")} ({totalFlows - visibleCount} {ts("remaining")})
-          </button>
-        </div>
-      )}
 
       <style jsx>{`
         .sankey-wrapper {
@@ -1029,34 +1027,24 @@ export default function RootFlowSankey({
           stroke-width: 3;
         }
 
-        .load-more-container {
-          position: absolute;
-          left: 18px;
-          bottom: calc(var(--footer-height, 42px) + env(safe-area-inset-bottom) + 2px);
-          z-index: 6;
-          padding: 0;
-          border: 0;
-          background: transparent;
-          backdrop-filter: none;
-          pointer-events: none;
-        }
-
-        .load-more-btn {
-          padding: 8px 18px;
+        /* Reveal-more, folded into the top-center context bar (was a
+           bottom-left absolute button that sat underneath the left dock). */
+        .sankey-more-inline {
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: var(--accent);
           border: 1px solid var(--accent);
           border-radius: 999px;
-          background: var(--bg-2);
-          color: var(--accent);
-          font-size: 0.82rem;
-          font-weight: 600;
+          background: var(--panel);
+          padding: 4px 12px;
           cursor: pointer;
-          transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
           pointer-events: auto;
+          transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
         }
 
-        .load-more-btn:hover {
+        .sankey-more-inline:hover {
           background: var(--accent);
-          color: #fff;
+          color: var(--accent-ink);
         }
 
         :global([data-theme="dark"]) .sankey-wrapper {
@@ -1085,10 +1073,6 @@ export default function RootFlowSankey({
           fill: var(--ink);
         }
 
-        :global([data-theme="dark"]) .load-more-btn {
-          background: var(--bg-2);
-        }
-
         @media (max-width: 1200px) {
           .sankey-context-bar {
             padding-left: 18px;
@@ -1096,10 +1080,6 @@ export default function RootFlowSankey({
 
           .sankey-scroll-area {
             padding-left: 18px;
-          }
-
-          .load-more-container {
-            left: 12px;
           }
         }
       `}</style>

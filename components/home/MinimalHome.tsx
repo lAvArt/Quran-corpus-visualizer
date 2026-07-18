@@ -534,8 +534,11 @@ function ResultPanel({
       <div className="mhome-ctas">
         {/* Primary lands on the radial surah view — one surah, the root's
             words in context — the gentlest first graph; the network is the
-            explicit next step up in density. */}
-        <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "radial-sura", stat.top[0]?.[0])}>
+            explicit next step up in density. Scope to the SAME surah the
+            home preview showed (the root's first occurrence, which is where
+            the verse carousel starts) rather than its highest-frequency
+            surah, so the view the user opens matches the verse they saw. */}
+        <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0])}>
           {t("exploreRoot")} <span aria-hidden="true">→</span>
         </button>
         <div className="mhome-ctas-sub">

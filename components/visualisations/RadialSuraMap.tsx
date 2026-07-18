@@ -1222,31 +1222,8 @@ export default function RadialSuraMap({
               </div>
             )}
 
-            {highlightRoot && (
-              <div className="viz-left-panel">
-                <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
-                <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
-                {highlightAyahs.length > 0 && (
-                  <div className="viz-tooltip-row viz-tooltip-row--stacked">
-                    <span className="viz-tooltip-label">
-                      {ts("occursInAyahs", { count: highlightAyahs.length })}
-                    </span>
-                    <div className="viz-ayah-chip-row">
-                      {highlightAyahs.map((ayahNum) => (
-                        <span
-                          key={ayahNum}
-                          className="viz-ayah-chip"
-                          aria-label={`${ts("surah")} ${suraId}, ${ts("ayah")} ${ayahNum}`}
-                        >
-                          {suraId}:{ayahNum}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
+            {/* Selected Ayah sits ABOVE Selected Root: the ayah is the more
+                specific thing the user just clicked, so it leads the stack. */}
             <AnimatePresence>
               {selectedAyahData && (
                 <motion.div
@@ -1341,6 +1318,31 @@ export default function RadialSuraMap({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {highlightRoot && (
+              <div className="viz-left-panel">
+                <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
+                <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+                {highlightAyahs.length > 0 && (
+                  <div className="viz-tooltip-row viz-tooltip-row--stacked">
+                    <span className="viz-tooltip-label">
+                      {ts("occursInAyahs", { count: highlightAyahs.length })}
+                    </span>
+                    <div className="viz-ayah-chip-row">
+                      {highlightAyahs.map((ayahNum) => (
+                        <span
+                          key={ayahNum}
+                          className="viz-ayah-chip"
+                          aria-label={`${ts("surah")} ${suraId}, ${ts("ayah")} ${ayahNum}`}
+                        >
+                          {suraId}:{ayahNum}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <AnimatePresence>
               {(selectedConnection || hoveredConnection) && (
