@@ -227,6 +227,16 @@
             "title": "Root dossier",
             "topLemmas": "Frequent lemmas",
             "posMix": "POS mix"
+        },
+        "surahInsight": {
+            "title": "Surah dossier",
+            "verses": "verses",
+            "words": "words",
+            "roots": "distinct roots",
+            "lemmas": "distinct lemmas",
+            "topRoots": "Top roots in this surah",
+            "topLemmas": "Top lemmas in this surah",
+            "rootChipHint": "Open this root's corpus-wide dossier"
         }
     },
     "AppSidebar": {
@@ -364,7 +374,12 @@
         "searchPlaceholder": "Filter...",
         "verses": "verses",
         "noResults": "No results found",
-        "tabsAriaLabel": "Index categories"
+        "tabsAriaLabel": "Index categories",
+        "scopedTo": "in {name}",
+        "clearScope": "All surahs",
+        "pageStatus": "{from}–{to} of {total}",
+        "prevPage": "Previous page",
+        "nextPage": "Next page"
     },
     "CurrentSelectionPanel": {
         "title": "Current Selection",
