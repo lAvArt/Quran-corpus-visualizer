@@ -1402,7 +1402,7 @@
         "updatePasswordButton": "Update password",
         "loading": "Please wait…",
         "passwordMismatch": "Passwords do not match.",
-        "signUpSuccess": "Check your email for a confirmation link.",
+        "signUpSuccess": "Check your email for a confirmation link. It can take a couple of minutes — look in spam too. Already have an account? Use Sign In or “Forgot password?” instead.",
         "resetEmailSent": "Check your email for the password reset link.",
         "sessionRequired": "Your session has expired. Please sign in again."
     },
