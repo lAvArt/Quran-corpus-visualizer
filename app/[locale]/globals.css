@@ -6357,8 +6357,10 @@ button.site-footer-link {
 .corpus-index {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: var(--panel);
+  /* No own height/background: the parent card supplies the surface — the
+     old height:100% + --panel fill painted a dark slab past the card's
+     rounded boundary (visible overflow on the search page). */
+  min-height: 0;
   font-family: var(--font-sans);
 }
 
