@@ -91,14 +91,16 @@ function dimTone(color: string, opacity: number = DIM_OPACITY): string {
 const OVERVIEW_WORD_THRESHOLD = 800;
 const DETAIL_ZOOM_THRESHOLD = 2.2;
 // Staged overview reveal — instead of one cliff at DETAIL_ZOOM_THRESHOLD,
-// each zoom step earns more structure: stage 1 adds the surah's dominant
-// roots' arcs, stage 2 adds the full (faint) mesh before the detail swap.
-// Highlighted-root arcs show at every stage. Thresholds are RELATIVE to the
-// entry-fit scale (a 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so
-// "one or two zoom steps in" means the same thing in every surah.
+// each zoom step earns more structure. The resting overview is never empty:
+// it always draws the dominant roots' arcs; stage 1 widens the set, stage 2
+// adds the full (faint) mesh before the detail swap. Highlighted-root arcs
+// show at every stage. Thresholds are RELATIVE to the entry-fit scale (a
+// 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so "one or two zoom
+// steps in" means the same thing in every surah.
 const OVERVIEW_STAGE1_RATIO = 1.6;
 const OVERVIEW_STAGE2_RATIO = 2.6;
-const OVERVIEW_STAGE1_TOP_ROOTS = 8;
+const OVERVIEW_REST_TOP_ROOTS = 8;
+const OVERVIEW_STAGE1_TOP_ROOTS = 20;
 const OVERVIEW_STAGE_ARC_CAP = 400;
 
 // Overview shares detail mode's ring geometry (same innerRadius, same per-
@@ -617,28 +619,26 @@ export default function RadialSuraMap({
 
   const overviewTopRoots = useMemo(() => {
     if (!isOverviewMode) return new Set<string>();
+    const count = overviewStage >= 1 ? OVERVIEW_STAGE1_TOP_ROOTS : OVERVIEW_REST_TOP_ROOTS;
     return new Set(
       [...rootTokenTotals.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, OVERVIEW_STAGE1_TOP_ROOTS)
+        .slice(0, count)
         .map(([root]) => root)
     );
-  }, [isOverviewMode, rootTokenTotals]);
+  }, [isOverviewMode, rootTokenTotals, overviewStage]);
 
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
-    // Overview mode skips the FULL curve mesh at rest (that's exactly what
-    // turns a large surah into an illegible hairball) — but structure is
-    // earned back progressively: the highlighted root's arcs always, the
-    // dominant roots' arcs at stage 1, everything (faint) at stage 2.
-    if (isOverviewMode && !highlightRoot && overviewStage === 0) return map;
+    // Overview mode never draws the FULL curve mesh at rest (that's exactly
+    // what turns a large surah into an illegible hairball) — but it's never
+    // empty either: the dominant roots' arcs always render, stage 1 widens
+    // the set, stage 2 brings everything in faintly.
     const conns = isOverviewMode
       ? overviewStage === 2
         ? rootConnections
         : rootConnections.filter(
-            (conn) =>
-              conn.root === highlightRoot ||
-              (overviewStage === 1 && overviewTopRoots.has(conn.root))
+            (conn) => conn.root === highlightRoot || overviewTopRoots.has(conn.root)
           )
       : rootConnections;
     conns.forEach((conn) => {
@@ -668,15 +668,16 @@ export default function RadialSuraMap({
     return out;
   }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
 
-  // Stage 1/2 arcs (non-highlight roots), deduped by ayah pair and capped so
-  // the densest surahs can't flood the overview with thousands of paths.
+  // Overview arcs for non-highlight roots (dominant set at rest/stage 1,
+  // everything at stage 2), deduped by ayah pair and capped so the densest
+  // surahs can't flood the overview with thousands of paths.
   const overviewStageConnections = useMemo(() => {
-    if (!isOverviewMode || overviewStage === 0) return [];
+    if (!isOverviewMode) return [];
     const seen = new Set<string>();
     const out: { key: string; d: string }[] = [];
     for (const conn of rootConnections) {
       if (conn.root === highlightRoot) continue;
-      if (overviewStage === 1 && !overviewTopRoots.has(conn.root)) continue;
+      if (overviewStage < 2 && !overviewTopRoots.has(conn.root)) continue;
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -1765,7 +1766,7 @@ export default function RadialSuraMap({
                       stroke="url(#connectionGrad)"
                       strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
                       fill="none"
-                      style={{ opacity: overviewStage === 2 ? 0.16 : 0.24 }}
+                      style={{ opacity: overviewStage === 2 ? 0.16 : overviewStage === 1 ? 0.24 : 0.2 }}
                     />
                   ))}
                 </g>
