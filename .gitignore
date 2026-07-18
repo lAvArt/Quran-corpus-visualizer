@@ -21,3 +21,7 @@ arabic-book-corpus-platform/
 
 # UX screenshot harness output
 .ux-shots/
+
+# Video captures (intro/tutorial recordings) — never commit media
+*.webm
+*.mp4
