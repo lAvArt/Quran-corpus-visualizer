@@ -256,7 +256,7 @@ export default function MinimalHome() {
           setDq("");
           setRaised(false);
         }}
-        aria-label={t("headline")}
+        aria-label="Quranic Linguistics Observatory"
         style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "inherit", font: "inherit" }}
       >
         <span className="mhome-glyph">

@@ -15,7 +15,9 @@ test.describe("accessibility smoke", () => {
   });
 
   test("explore exposes landmarks and keyboard-reachable mode navigation", async ({ page }) => {
-    await page.goto("/en");
+    // Bare /en is the minimal search-first landing (no shell); the
+    // observatory shell mounts when a viz is requested.
+    await page.goto("/en?viz=radial-sura");
 
     const modeNav = page.getByRole("navigation", { name: /app mode navigation/i });
     const exploreLink = page.getByTestId("app-mode-link-explore");
