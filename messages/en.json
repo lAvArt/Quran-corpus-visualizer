@@ -98,6 +98,8 @@
     "Footer": {
         "github": "GitHub",
         "source": "Source",
+        "credit": "Data: Quranic Arabic Corpus — Kais Dukes",
+        "creditTitle": "Morphology and corpus structure from the Quranic Arabic Corpus, created by Kais Dukes (University of Leeds)",
         "quranApi": "Quran API",
         "about": "About",
         "feedback": "Feedback",
