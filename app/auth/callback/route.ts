@@ -14,8 +14,13 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (!error) {
-            // Redirect to `next` (e.g. /update-password or home)
-            const redirectPath = next.startsWith("/") ? next : `/${next}`;
+            // `next=update-password` must land on the auth-scoped page
+            // (/auth/update-password → middleware adds the locale); a bare
+            // /update-password localizes to a nonexistent route.
+            const redirectPath =
+                next === "update-password"
+                    ? "/auth/update-password"
+                    : next.startsWith("/") ? next : `/${next}`;
             return NextResponse.redirect(`${origin}${redirectPath}`);
         }
     }
