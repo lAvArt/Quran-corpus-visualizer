@@ -422,12 +422,14 @@ export function useHomePageController(
         setSelectedLemma(token.lemma || null);
         setSearchLockedRoot(null);
       }
-      setIsSidebarOpen(true);
+      if (!isMobileViewport) {
+        setIsSidebarOpen(true);
+      }
       if (firstRunState === "mission-active") {
         handleMissionTaskComplete("select-token");
       }
     },
-    [tokenById, setIsSidebarOpen, setFocusedTokenId, setSelectedSurahId, setSelectedRoot, setSelectedLemma, setSearchLockedRoot, firstRunState, handleMissionTaskComplete]
+    [tokenById, isMobileViewport, setIsSidebarOpen, setFocusedTokenId, setSelectedSurahId, setSelectedRoot, setSelectedLemma, setSearchLockedRoot, firstRunState, handleMissionTaskComplete]
   );
 
   // Ref-based handleVizModeChange to allow handleAcceptVizSuggestion to call it

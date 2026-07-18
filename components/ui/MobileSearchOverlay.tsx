@@ -90,8 +90,8 @@ export default function MobileSearchOverlay({
                                 variant="overlay"
                                 analyticsSurface="mobile"
                                 onTokenSelect={(tokenId) => {
-                                    onTokenSelect(tokenId);
                                     setMobileSearchOpen(false);
+                                    onTokenSelect(tokenId);
                                 }}
                                 onTokenHover={onTokenHover}
                                 onRootSelect={onRootSelect}
@@ -112,7 +112,10 @@ export default function MobileSearchOverlay({
                         <style jsx global>{`
                             .mobile-search-backdrop {
                                 position: fixed;
-                                inset: 0;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance));
                                 background: rgba(0, 0, 0, 0.4);
                                 z-index: 1100;
                                 backdrop-filter: blur(4px);

@@ -479,6 +479,40 @@ export default function StatusBar({
             font-size: 0.66rem;
           }
         }
+
+        @media (max-width: 980px) {
+          .status-bar {
+            top: calc(var(--header-dock-height) + 10px);
+            width: min(calc(100vw - 16px), 420px);
+            z-index: 44;
+          }
+
+          .status-bar-content {
+            justify-content: flex-start;
+          }
+
+          .status-bar-label {
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+          }
+
+          .status-bar-loading-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .status-bar-label strong {
+            flex: 0 0 auto;
+            white-space: nowrap;
+          }
+
+          .status-bar-breadcrumbs {
+            display: none;
+          }
+        }
       `}</style>
     </div>
   );
