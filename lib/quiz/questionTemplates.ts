@@ -59,6 +59,8 @@ export interface QuestionTemplate {
     rng: SeededRng,
     usedRoots: Set<string>,
     preferredRoots?: string[],
+    /** Root-focused quiz mode — every question must be about this root. */
+    lockedRoot?: string,
   ) => QuizQuestion | null;
 }
 
@@ -107,13 +109,22 @@ function getQuizWorthyRoots(
   return roots;
 }
 
-/** Pick a root not in usedRoots, preferring preferredRoots when possible. */
+/**
+ * Pick a root not in usedRoots, preferring preferredRoots when possible.
+ * When `lockedRoot` is given (root-focused quiz mode), it always wins,
+ * regardless of the quiz-worthy candidate pool or prior usage — every
+ * question in a root quiz is about the one root the user asked about.
+ * Callers still validate that root's own data is sufficient afterward.
+ */
 function pickFreshRoot(
   candidates: string[],
   rng: SeededRng,
   usedRoots: Set<string>,
   preferredRoots: string[] = [],
+  lockedRoot?: string,
 ): string | null {
+  if (lockedRoot) return lockedRoot;
+
   const available = candidates.filter((r) => !usedRoots.has(r));
   if (available.length === 0) return null;
   const preferred = available.filter((root) => preferredRoots.includes(root));
@@ -281,19 +292,35 @@ const rootFrequencyTemplate: QuestionTemplate = {
   type: "root-frequency",
   difficulty: "easy",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!root) return null;
 
-    const freq = data.freqData.rootFrequencies.get(root)!;
-    // Generate plausible but wrong counts: ±30-70% of real value
+    // A locked root may fall outside the generic "quiz worthy" frequency
+    // pool above — guard explicitly instead of trusting it's in the map.
+    const freq = data.freqData.rootFrequencies.get(root);
+    if (!freq) return null;
+    // Generate plausible but wrong counts: ±30-70% of real value. Bounded —
+    // a low-frequency root (freq === 1, reachable via a root-quiz
+    // lockedRoot that bypasses the freq > 10 "quiz-worthy" pool above)
+    // can't always produce 3 distinct jittered values: e.g. freq === 1
+    // only ever yields {2} from the +factor branch, since the -factor
+    // branch always rounds back down to 1 and gets rejected as `=== freq`
+    // — an unbounded `while` here spun forever. Cap the jitter attempts,
+    // then fall back to a deterministic +1/+2/+3-style offset sequence
+    // that's always distinct, positive, and != freq, so the set always
+    // reaches size 3 in a handful of iterations regardless of freq.
     const distractorNums = new Set<number>();
-    while (distractorNums.size < 3) {
+    for (let attempt = 0; attempt < 20 && distractorNums.size < 3; attempt++) {
       const factor = 0.3 + rng() * 0.7;
       const sign = rng() > 0.5 ? 1 : -1;
       const d = Math.max(1, Math.round(freq * (1 + sign * factor)));
       if (d !== freq) distractorNums.add(d);
+    }
+    for (let offset = 1; distractorNums.size < 3; offset++) {
+      const candidate: number = freq + offset;
+      if (candidate !== freq) distractorNums.add(candidate);
     }
 
     const { choices, correctIndex } = buildChoices(
@@ -324,9 +351,9 @@ const surahDistributionTemplate: QuestionTemplate = {
   type: "surah-distribution",
   difficulty: "easy",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!root) return null;
 
     // Find surah with max occurrences of this root
@@ -377,12 +404,15 @@ const glossMatchingTemplate: QuestionTemplate = {
   type: "gloss-matching",
   difficulty: "medium",
   canGenerate: (data) => data.glossLocale === data.locale && getQuizWorthyRoots(data, true).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, true);
-    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!root) return null;
 
-    const gloss = data.glosses.get(root)!;
+    // A locked root may not have a gloss (the generic pool above already
+    // requires one, but a locked pick bypasses that pool entirely).
+    const gloss = data.glosses.get(root);
+    if (!gloss) return null;
     const distractors = pickDistractors(candidates, root, 3, rng);
     if (distractors.length < 3) return null;
 
@@ -410,11 +440,11 @@ const comparativeFrequencyTemplate: QuestionTemplate = {
   type: "comparative-frequency",
   difficulty: "medium",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, false);
     if (candidates.length < 2) return null;
 
-    const rootA = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const rootA = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!rootA) return null;
     // Pick rootB without adding to usedRoots (only subject root matters)
     const others = candidates.filter((r) => r !== rootA && !usedRoots.has(r));
@@ -455,9 +485,9 @@ const morphologyPosTemplate: QuestionTemplate = {
   type: "morphology-pos",
   difficulty: "hard",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!root) return null;
 
     const posCounts = new Map<string, number>();
@@ -498,9 +528,9 @@ const collocationTemplate: QuestionTemplate = {
   type: "collocation",
   difficulty: "hard",
   canGenerate: (data) => getQuizWorthyRoots(data, false).length >= 4,
-  generate(data, rng, usedRoots, preferredRoots) {
+  generate(data, rng, usedRoots, preferredRoots, lockedRoot) {
     const candidates = getQuizWorthyRoots(data, false);
-    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots);
+    const root = pickFreshRoot(candidates, rng, usedRoots, preferredRoots, lockedRoot);
     if (!root) return null;
 
     // Build ayah-level co-occurrence counts for this root

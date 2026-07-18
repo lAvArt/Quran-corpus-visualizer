@@ -159,7 +159,6 @@ export default function EmbedClient({ vizMode, initialRoot, initialSurah, initia
             onTokenHover={noop}
             onTokenFocus={noop}
             onRootSelect={handleRootSelect}
-            experienceLevel="beginner"
             highlightRoot={selectedRoot}
             selectedSurahId={selectedSurahId}
             theme={theme}

@@ -12,7 +12,8 @@ CREATE OR REPLACE FUNCTION search_roots_semantic(
 )
 RETURNS TABLE (root TEXT, similarity FLOAT)
 LANGUAGE SQL STABLE
-SET search_path = public, pg_catalog
+-- 'extensions' must be on the path: pgvector's <=> operator lives there.
+SET search_path = public, extensions, pg_catalog
 AS $$
     SELECT
         re.root,
@@ -82,7 +83,8 @@ RETURNS TABLE (
     similarity  FLOAT
 )
 LANGUAGE SQL STABLE
-SET search_path = public, pg_catalog
+-- 'extensions' must be on the path: pg_trgm's similarity() lives there.
+SET search_path = public, extensions, pg_catalog
 AS $$
     SELECT DISTINCT ON (ct.id)
         ct.id,

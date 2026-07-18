@@ -6,7 +6,14 @@
 import { quranApi, type QuranWord } from '@/lib/api/quranApi';
 import { createClient } from '@/lib/supabase/client';
 
-import { corpusCache, QURAN_COM_CACHE_TTL_MS } from '@/lib/cache/corpusCache';
+import {
+    corpusCache,
+    CORPUS_METADATA_KEY,
+    PARTIAL_CORPUS_METADATA_KEY,
+    QURAN_COM_CACHE_TTL_MS,
+    type CacheMetadata,
+} from '@/lib/cache/corpusCache';
+import { FULL_CORPUS_TOKEN_FLOOR } from '@/lib/corpus/corpusExpectations';
 import { SAMPLE_MORPHOLOGY_DATA } from '@/lib/corpus/morphologyData';
 import { loadMorphologyMap, type MorphologyEntry, buildSampleMorphologyMap } from '@/lib/corpus/morphologyLoader';
 import { ROOT_GLOSSES } from '@/lib/data/rootGlosses';
@@ -23,17 +30,79 @@ export interface LoadingProgress {
 
 export type ProgressCallback = (progress: LoadingProgress) => void;
 
+export interface CorpusBatchMeta {
+    /** Surah IDs fully represented in `tokensSoFar`, ascending, cumulative since this load started. */
+    completedSurahs: number[];
+    /** True on the final call — its token array is the complete, final result (same array `loadFullCorpus` itself resolves with). */
+    done: boolean;
+}
+
+/**
+ * Progressive-reveal hook for `loadFullCorpus`: fires as WHOLE surahs finish
+ * loading (never mid-surah), roughly every `BATCH_SURAH_SIZE` surahs, so a
+ * caller can render a streaming corpus instead of waiting for the entire
+ * load. Purely additive — callers that omit it see identical behavior to
+ * before batching existed.
+ */
+export type BatchCallback = (tokensSoFar: CorpusToken[], meta: CorpusBatchMeta) => void;
+
 const sampleMorphologyMap = buildSampleMorphologyMap(SAMPLE_MORPHOLOGY_DATA);
 const TOKEN_ID_PATTERN = /^(\d+):(\d+):(\d+)$/;
-const MORPHOLOGY_CACHE_VERSION = "qac-0.4.2-root-coverage";
+const MORPHOLOGY_CACHE_VERSION = "qac-0.4.3-enrich-all-surahs";
 let cachePolicyInFlight: Promise<void> | null = null;
+
+// ~12 emissions across the 114-surah corpus — enough for a visibly
+// sequential reveal without re-deriving downstream layouts (cluster
+// hierarchies, force sims) so often that it thrashes them.
+const BATCH_SURAH_SIZE = 10;
+
+/**
+ * Tracks whole-surah completion for the `onBatch` progressive-reveal
+ * callback. Callers report each surah exactly once, in ascending order, via
+ * `completeSurah`, passing the running token array (already containing that
+ * surah's tokens) — this only DECIDES when to emit; it copies the array
+ * solely at the moment it actually fires, so tracking a load with no
+ * `onBatch` listener costs nothing extra.
+ */
+class SurahBatchTracker {
+    private completedSurahs: number[] = [];
+    private pendingSinceEmit = 0;
+
+    constructor(private readonly onBatch: BatchCallback | undefined) { }
+
+    completeSurah(suraId: number, tokensSoFar: CorpusToken[]): void {
+        this.completedSurahs.push(suraId);
+        this.pendingSinceEmit++;
+        if (this.onBatch && this.pendingSinceEmit >= BATCH_SURAH_SIZE) {
+            this.onBatch(tokensSoFar.slice(), { completedSurahs: [...this.completedSurahs], done: false });
+            this.pendingSinceEmit = 0;
+        }
+    }
+
+    /** Always fires (even with nothing new since the last batch) so a listener reliably observes `done: true`. */
+    finish(tokensSoFar: CorpusToken[]): void {
+        this.onBatch?.(tokensSoFar, { completedSurahs: [...this.completedSurahs], done: true });
+    }
+}
+
+/** True when this metadata record proves the cached tokens carry current morphology. */
+function metadataHasCurrentMorphology(metadata: CacheMetadata | null): boolean {
+    return Boolean(metadata?.hasMorphology) && metadata?.morphologyVersion === MORPHOLOGY_CACHE_VERSION;
+}
 
 async function ensureQuranComCachePolicy(): Promise<void> {
     if (!cachePolicyInFlight) {
         cachePolicyInFlight = (async () => {
             await corpusCache.ensureCachePolicyVersion();
-            const metadata = await corpusCache.getMetadata('corpus');
-            if (corpusCache.isMetadataExpired(metadata, QURAN_COM_CACHE_TTL_MS)) {
+            // The token store is described by either the full-corpus metadata or
+            // the partial (per-surah) metadata; expire on the freshest of the two
+            // so a partial-only cache isn't wiped on every policy check.
+            const fullMetadata = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
+            const partialMetadata = await corpusCache.getMetadata(PARTIAL_CORPUS_METADATA_KEY);
+            const freshest = [fullMetadata, partialMetadata]
+                .filter((meta): meta is CacheMetadata => meta !== null)
+                .sort((a, b) => (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0))[0] ?? null;
+            if (corpusCache.isMetadataExpired(freshest, QURAN_COM_CACHE_TTL_MS)) {
                 await corpusCache.clearCorpusData();
             }
         })().catch((error) => {
@@ -127,6 +196,53 @@ function wordToToken(
     };
 }
 
+/**
+ * Enrich tokens with the authoritative QAC morphology file so EVERY surah has
+ * root / lemma / pos — not just the ones whose source happened to carry roots.
+ * Supabase corpora frequently ship roots for only some surahs; without this,
+ * only the bundled sample (Al-Fatihah) renders POS-coloured bars + root
+ * arcs/circles. Tokens that already have a root are left untouched; tokens
+ * missing one are filled by `sura:ayah:position` lookup against the QAC map.
+ */
+async function enrichTokensWithMorphology(
+    tokens: CorpusToken[],
+    onProgress?: ProgressCallback
+): Promise<CorpusToken[]> {
+    const missing = tokens.reduce((n, t) => (t.root?.trim() ? n : n + 1), 0);
+    // Already well-rooted (e.g. a complete corpus) — nothing to do.
+    if (missing <= tokens.length * 0.02) return tokens;
+
+    let map: Map<string, MorphologyEntry>;
+    try {
+        onProgress?.({ currentSura: 114, totalSuras: 114, currentTokens: tokens.length, totalTokens: tokens.length, status: 'loading', message: 'Adding root & morphology data…' });
+        map = await loadMorphologyMap();
+    } catch (err) {
+        console.warn('[CorpusLoader] Morphology enrichment skipped (load failed):', err);
+        return tokens;
+    }
+
+    let filled = 0;
+    const enriched = tokens.map((t) => {
+        if (t.root?.trim()) return t;
+        const m = map.get(`${t.sura}:${t.ayah}:${t.position}`);
+        if (!m?.root) return t;
+        filled++;
+        return {
+            ...t,
+            root: m.root,
+            lemma: t.lemma && t.lemma !== t.text ? t.lemma : (m.lemma || t.lemma || t.text),
+            pos: (m.pos ?? t.pos) as PartOfSpeech,
+            morphology: {
+                features: Object.keys(t.morphology.features ?? {}).length > 0 ? t.morphology.features : (m.features ?? {}),
+                gloss: t.morphology.gloss ?? (ROOT_GLOSSES.get(m.root) ?? null),
+                stem: t.morphology.stem ?? m.stem ?? null,
+            },
+        };
+    });
+    console.log(`[CorpusLoader] Morphology enrichment: filled ${filled.toLocaleString()} roots from QAC`);
+    return enriched;
+}
+
 // ── In-memory singleton — avoids re-reading IDB on SPA navigation ────────────
 // _memoryTokens: populated after first successful load; returned immediately on
 //                subsequent calls within the same browser session.
@@ -143,7 +259,8 @@ const SUPABASE_PAGE_SIZE = 1000; // rows per query
  * Returns null if the table is empty or the query fails (caller should fall back).
  */
 async function loadCorpusFromSupabase(
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    onBatch?: BatchCallback
 ): Promise<CorpusToken[] | null> {
     try {
         const supabase = createClient();
@@ -158,11 +275,32 @@ async function loadCorpusFromSupabase(
             return null;
         }
 
+        // A partially-seeded table is not a full corpus — fall through to the
+        // next source rather than caching a partial set as "the corpus".
+        if (count < FULL_CORPUS_TOKEN_FLOOR) {
+            console.warn(`[CorpusLoader] Supabase corpus_tokens has only ${count.toLocaleString()} rows (< ${FULL_CORPUS_TOKEN_FLOOR.toLocaleString()} floor); not a full corpus, falling back.`);
+            return null;
+        }
+
         console.log(`[CorpusLoader] Loading ${count.toLocaleString()} tokens from Supabase…`);
         onProgress?.({ currentSura: 0, totalSuras: 114, currentTokens: 0, totalTokens: count, status: 'loading', message: `Loading ${count.toLocaleString()} tokens from Supabase…` });
 
         const allTokens: CorpusToken[] = [];
         let from = 0;
+        // Rows arrive globally ordered by (sura, ayah, position) across pages,
+        // so every surah strictly below the highest one seen so far is
+        // guaranteed fully read — the highest one might still have rows in
+        // the next page, unless this was the final page. That's enough to
+        // batch by whole surahs without any extra grouping query. The page
+        // boundary itself rarely lines up with a surah boundary, though, so
+        // `allTokens` can carry a trailing PARTIAL surah's rows past
+        // `highestCompletedSura` — `completeIndex` tracks how far into
+        // `allTokens` is safe to hand out, advancing (never rescanning) as
+        // more surahs are confirmed complete, so every emitted snapshot ends
+        // exactly at a surah boundary.
+        const batchTracker = new SurahBatchTracker(onBatch);
+        let highestCompletedSura = 0;
+        let completeIndex = 0;
 
         while (from < count) {
             const { data, error } = await supabase
@@ -197,7 +335,23 @@ async function loadCorpusFromSupabase(
 
             from += data.length;
             onProgress?.({ currentSura: allTokens[allTokens.length - 1]?.sura ?? 0, totalSuras: 114, currentTokens: allTokens.length, totalTokens: count, status: 'loading', message: `Loaded ${allTokens.length.toLocaleString()} / ${count.toLocaleString()} tokens from Supabase…` });
+
+            const isFinalPage = from >= count;
+            const highestSuraSeen = allTokens[allTokens.length - 1]?.sura ?? highestCompletedSura;
+            const completeThrough = isFinalPage ? highestSuraSeen : highestSuraSeen - 1;
+            if (completeThrough > highestCompletedSura) {
+                while (completeIndex < allTokens.length && allTokens[completeIndex].sura <= completeThrough) {
+                    completeIndex++;
+                }
+                const completeSnapshot = allTokens.slice(0, completeIndex);
+                for (let suraId = highestCompletedSura + 1; suraId <= completeThrough; suraId++) {
+                    batchTracker.completeSurah(suraId, completeSnapshot);
+                }
+                highestCompletedSura = completeThrough;
+            }
         }
+
+        batchTracker.finish(allTokens);
 
         console.log(`[CorpusLoader] Supabase: loaded ${allTokens.length.toLocaleString()} tokens`);
         return allTokens;
@@ -219,8 +373,16 @@ async function loadCorpusFromSupabase(
  *
  * Concurrent calls within the same session return the same in-flight promise,
  * so the corpus is never fetched more than once per page lifetime.
+ *
+ * `onBatch` (optional) fires as whole surahs finish loading — see
+ * `BatchCallback`. The in-memory singleton and IndexedDB-cache hits below
+ * resolve the full result near-instantly (sub-second, local-only I/O), so
+ * there's nothing meaningful to progressively reveal there; `onBatch` only
+ * fires more than once on the genuinely sequential Supabase/Quran.com paths
+ * inside `_doLoadFullCorpus`. Either way, the promise always resolves with
+ * the same final array a batch-unaware caller would have gotten before.
  */
-export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusToken[]> {
+export function loadFullCorpus(onProgress?: ProgressCallback, onBatch?: BatchCallback): Promise<CorpusToken[]> {
     // 1. In-memory hit — no I/O at all
     if (_memoryTokens) {
         onProgress?.({ currentSura: 114, totalSuras: 114, currentTokens: _memoryTokens.length, totalTokens: _memoryTokens.length, status: 'complete', message: `Loaded ${_memoryTokens.length.toLocaleString()} tokens (in-memory)` });
@@ -229,7 +391,7 @@ export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusTok
     // 2. Deduplicate concurrent calls
     if (_activeLoad) return _activeLoad;
 
-    _activeLoad = _doLoadFullCorpus(onProgress).then(tokens => {
+    _activeLoad = _doLoadFullCorpus(onProgress, onBatch).then(tokens => {
         _memoryTokens = tokens;
         _activeLoad = null;
         return tokens;
@@ -240,8 +402,43 @@ export function loadFullCorpus(onProgress?: ProgressCallback): Promise<CorpusTok
     return _activeLoad;
 }
 
+// ── Context-first per-surah loading ──────────────────────────────────────────
+// The QAC morphology file carries every surah's root/lemma/pos, so once parsed
+// we can build any surah instantly. This lets the CURRENTLY-OPEN surah render
+// fully (POS-coloured bars, root arcs, circles) within one morphology fetch,
+// instead of waiting for the whole corpus to stream from Supabase/API.
+let _morphologyBySura: Map<number, CorpusToken[]> | null = null;
+let _morphologyBySuraPromise: Promise<Map<number, CorpusToken[]>> | null = null;
+
+export async function loadSurahContext(suraId: number): Promise<CorpusToken[]> {
+    // If the full corpus is already loaded, slice it (most accurate text/gloss).
+    if (_memoryTokens) return _memoryTokens.filter((t) => t.sura === suraId);
+
+    if (!_morphologyBySura) {
+        if (!_morphologyBySuraPromise) {
+            _morphologyBySuraPromise = loadMorphologyMap()
+                .then((map) => {
+                    _morphologyBySura = buildMorphologyFallbackBySura(map);
+                    return _morphologyBySura;
+                })
+                .catch((err) => {
+                    _morphologyBySuraPromise = null;
+                    throw err;
+                });
+        }
+        try {
+            await _morphologyBySuraPromise;
+        } catch (err) {
+            console.warn(`[CorpusLoader] loadSurahContext(${suraId}) morphology load failed:`, err);
+            return [];
+        }
+    }
+    return _morphologyBySura?.get(suraId) ?? [];
+}
+
 async function _doLoadFullCorpus(
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    onBatch?: BatchCallback
 ): Promise<CorpusToken[]> {
     const progress: LoadingProgress = {
         currentSura: 0,
@@ -263,11 +460,14 @@ async function _doLoadFullCorpus(
         await ensureQuranComCachePolicy();
 
         const cachedCount = await corpusCache.getTokenCount();
-        const cacheMeta = await corpusCache.getMetadata('corpus');
+        // Only the full-corpus metadata key may vouch for the cache here; a
+        // partial (per-surah) load writes PARTIAL_CORPUS_METADATA_KEY instead
+        // and must never masquerade as a full corpus.
+        const cacheMeta = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
         const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
         const cacheMorphologyMatches = cacheMeta?.morphologyVersion === MORPHOLOGY_CACHE_VERSION;
 
-        if (cachedCount > 0 && cacheHasMorphology && cacheMorphologyMatches) {
+        if (cachedCount >= FULL_CORPUS_TOKEN_FLOOR && cacheHasMorphology && cacheMorphologyMatches) {
             console.log(`[CorpusLoader] Found ${cachedCount} cached tokens`);
             progress.message = `Loading ${cachedCount.toLocaleString()} cached tokens...`;
             notify();
@@ -297,21 +497,24 @@ async function _doLoadFullCorpus(
         progress.message = 'Checking Supabase corpus…';
         notify();
 
-        const supabaseTokens = await loadCorpusFromSupabase(onProgress);
+        const supabaseTokens = await loadCorpusFromSupabase(onProgress, onBatch);
         if (supabaseTokens && supabaseTokens.length > 0) {
+            // Fill any missing roots/morphology from the authoritative QAC file so
+            // EVERY surah (not just Al-Fatihah) renders POS-coloured bars + arcs.
+            const enrichedTokens = await enrichTokensWithMorphology(supabaseTokens, onProgress);
             // Cache in IndexedDB so future loads never hit the network
-            await corpusCache.storeTokens(supabaseTokens);
-            await corpusCache.setMetadata('corpus', {
-                tokenCount: supabaseTokens.length,
+            await corpusCache.storeTokens(enrichedTokens);
+            await corpusCache.setMetadata(CORPUS_METADATA_KEY, {
+                tokenCount: enrichedTokens.length,
                 hasMorphology: true,
                 morphologyVersion: MORPHOLOGY_CACHE_VERSION,
             });
             progress.status = 'complete';
-            progress.totalTokens = supabaseTokens.length;
-            progress.currentTokens = supabaseTokens.length;
-            progress.message = `Loaded ${supabaseTokens.length.toLocaleString()} tokens from Supabase`;
+            progress.totalTokens = enrichedTokens.length;
+            progress.currentTokens = enrichedTokens.length;
+            progress.message = `Loaded ${enrichedTokens.length.toLocaleString()} tokens from Supabase`;
             notify();
-            return supabaseTokens;
+            return enrichedTokens;
         }
 
         // ── 3. Load morphology map (required for Quran.com API path) ─────────
@@ -336,6 +539,10 @@ async function _doLoadFullCorpus(
 
         const allTokens: CorpusToken[] = [];
         const allVerses: AyahRecord[] = [];
+        // This loop already processes chapters strictly in ascending order
+        // (Quran.com's `getChapters()` returns 1..N), one whole surah per
+        // iteration — the natural place to report whole-surah batches.
+        const batchTracker = new SurahBatchTracker(onBatch);
 
         for (let i = 0; i < chapters.length; i++) {
             const chapter = chapters[i];
@@ -387,11 +594,17 @@ async function _doLoadFullCorpus(
                 }
             }
 
+            // Whole surah is settled (fetched or fell back) either way —
+            // this is the atomic unit `onBatch` reports on.
+            batchTracker.completeSurah(chapter.id, allTokens);
+
             // Small delay to avoid rate limiting
             if (i < chapters.length - 1) {
                 await new Promise(r => setTimeout(r, 100));
             }
         }
+
+        batchTracker.finish(allTokens);
 
         // Cache the loaded tokens AND verses
         progress.status = 'caching';
@@ -401,7 +614,10 @@ async function _doLoadFullCorpus(
         await corpusCache.storeTokens(allTokens);
         await corpusCache.storeVerses(allVerses);
 
-        await corpusCache.setMetadata('corpus', {
+        // Full-corpus attempt: record under the full key. If the result fell
+        // short (failed chapters), the FULL_CORPUS_TOKEN_FLOOR check above
+        // prevents the next load from trusting it as complete.
+        await corpusCache.setMetadata(CORPUS_METADATA_KEY, {
             tokenCount: allTokens.length,
             hasMorphology: Boolean(morphologyMap),
             morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,
@@ -451,10 +667,13 @@ export async function loadSurahs(
         console.warn('[CorpusLoader] Failed to load morphology map, falling back to sample data.', err);
     }
 
-    const cacheMeta = await corpusCache.getMetadata('corpus');
-    const cacheHasMorphology = Boolean(cacheMeta?.hasMorphology);
-    const cacheMorphologyVersion = cacheMeta?.morphologyVersion;
-    const cacheMorphologyMatches = cacheMorphologyVersion === MORPHOLOGY_CACHE_VERSION;
+    // Cached per-surah tokens may have been written by a full-corpus load OR a
+    // previous partial (per-surah) load — either metadata record can vouch for
+    // their morphology here. Neither implies the cache is a full corpus.
+    const fullCacheMeta = await corpusCache.getMetadata(CORPUS_METADATA_KEY);
+    const partialCacheMeta = await corpusCache.getMetadata(PARTIAL_CORPUS_METADATA_KEY);
+    const cacheMorphologyTrusted =
+        metadataHasCurrentMorphology(fullCacheMeta) || metadataHasCurrentMorphology(partialCacheMeta);
     for (let i = 0; i < suraIds.length; i++) {
         const suraId = suraIds[i];
         progress.currentSura = i + 1;
@@ -465,10 +684,10 @@ export async function loadSurahs(
         const cached = await corpusCache.getTokensBySura(suraId) as CorpusToken[];
 
         const cachedHasRoots = cached.some(t => t.root && t.root.trim().length > 0);
-        if (cached.length > 0 && ((cacheHasMorphology && cachedHasRoots && cacheMorphologyMatches) || !morphologyMap)) {
+        if (cached.length > 0 && ((cacheMorphologyTrusted && cachedHasRoots) || !morphologyMap)) {
             allTokens.push(...cached);
         } else {
-            if (cached.length > 0 && (!cachedHasRoots || !cacheMorphologyMatches)) {
+            if (cached.length > 0 && (!cachedHasRoots || !cacheMorphologyTrusted)) {
                 await corpusCache.clearCorpusData();
             }
 
@@ -514,7 +733,10 @@ export async function loadSurahs(
         notify();
     }
 
-    await corpusCache.setMetadata('corpus', {
+    // Partial load: record under the PARTIAL key only. Writing the full
+    // 'corpus' key here would let a single-surah /embed visit poison the
+    // shared cache into being treated as a complete corpus.
+    await corpusCache.setMetadata(PARTIAL_CORPUS_METADATA_KEY, {
         tokenCount: allTokens.length,
         hasMorphology: Boolean(morphologyMap),
         morphologyVersion: morphologyMap ? MORPHOLOGY_CACHE_VERSION : undefined,

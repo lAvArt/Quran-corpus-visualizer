@@ -2,9 +2,12 @@
 
 import { useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import AppWorkspaceShell from "@/components/ui/AppWorkspaceShell";
 import DailyPuzzle from "@/components/quiz/DailyPuzzle";
 import ReviewQuiz from "@/components/quiz/ReviewQuiz";
+import RootQuiz from "@/components/quiz/RootQuiz";
 import { useCorpusData } from "@/lib/hooks/useCorpusData";
 import { calculateRootFrequencies } from "@/lib/search/collocation";
 import { ROOT_GLOSSES } from "@/lib/data/rootGlosses";
@@ -21,7 +24,13 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
   const locale = useLocale();
   const t = useTranslations("Quiz");
   const tPos = useTranslations("MorphologyInspector.featuresMap.pos");
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { allTokens, isLoadingCorpus, readiness } = useCorpusData(initialCorpusData);
+  // Deep link from the inspector's "Quiz me on this root" CTA — when
+  // present, this page shows ONLY a root-focused quiz instead of the
+  // regular daily puzzle + study session pair.
+  const rootParam = searchParams.get("root");
 
   const quizLocale = locale.startsWith("ar") ? "ar" : "en";
   const corpusData: QuizCorpusData = useMemo(() => ({
@@ -65,51 +74,106 @@ export default function QuizWorkspace({ initialCorpusData }: QuizWorkspaceProps)
       backgroundVariant="study"
       panelWidth="wide"
     >
-      <div className="quiz-caveat" role="note" aria-label={t("experimentalTitle")}>
-        <div className="quiz-caveat-badge">{t("experimentalBadge")}</div>
-        <div>
-          <h2 className="quiz-caveat-title">{t("experimentalTitle")}</h2>
-          <p className="quiz-caveat-copy">{t("experimentalDesc")}</p>
-        </div>
-      </div>
+      {rootParam ? (
+        <>
+          <button
+            type="button"
+            className="quiz-back-link"
+            onClick={() => router.replace("/quiz")}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            {t("allQuizzes")}
+          </button>
 
-      <section className="quiz-section ui-card ui-section-card">
-        <div className="quiz-section-head">
-          <div>
-            <h2 className="quiz-section-heading">{t("dailyPuzzleHeading")}</h2>
-            <p className="quiz-section-desc">{t("dailyPuzzleDesc")}</p>
+          <section className="quiz-section ui-card ui-section-card">
+            <div className="quiz-section-head">
+              <div>
+                <h2 className="quiz-section-heading">{t("rootQuiz.title", { root: rootParam })}</h2>
+                <p className="quiz-section-desc">{t("rootQuiz.description")}</p>
+              </div>
+              <span className="quiz-section-badge">{t("rootQuiz.badge")}</span>
+            </div>
+            {isPreparingQuiz ? (
+              <div className="quiz-pending">
+                <h3 className="quiz-pending-title">{t("preparingTitle")}</h3>
+                <p className="quiz-pending-copy">{t("preparingDesc")}</p>
+              </div>
+            ) : (
+              <RootQuiz corpusData={corpusData} root={rootParam} />
+            )}
+          </section>
+        </>
+      ) : (
+        <>
+          <div className="quiz-caveat" role="note" aria-label={t("experimentalTitle")}>
+            <div className="quiz-caveat-badge">{t("experimentalBadge")}</div>
+            <div>
+              <h2 className="quiz-caveat-title">{t("experimentalTitle")}</h2>
+              <p className="quiz-caveat-copy">{t("experimentalDesc")}</p>
+            </div>
           </div>
-          <span className="quiz-section-badge">{t("dailyBadge")}</span>
-        </div>
-        {isPreparingQuiz ? (
-          <div className="quiz-pending">
-            <h3 className="quiz-pending-title">{t("preparingTitle")}</h3>
-            <p className="quiz-pending-copy">{t("preparingDesc")}</p>
-          </div>
-        ) : (
-          <DailyPuzzle corpusData={corpusData} />
-        )}
-      </section>
 
-      <section className="quiz-section quiz-section-review ui-card ui-section-card">
-        <div className="quiz-section-head">
-          <div>
-            <h2 className="quiz-section-heading">{t("reviewHeading")}</h2>
-            <p className="quiz-section-desc">{t("reviewDesc")}</p>
-          </div>
-          <span className="quiz-section-badge quiz-section-badge-secondary">{t("adaptiveBadge")}</span>
-        </div>
-        {isPreparingQuiz ? (
-          <div className="quiz-pending">
-            <h3 className="quiz-pending-title">{t("preparingTitle")}</h3>
-            <p className="quiz-pending-copy">{t("preparingDesc")}</p>
-          </div>
-        ) : (
-          <ReviewQuiz corpusData={corpusData} />
-        )}
-      </section>
+          <section className="quiz-section ui-card ui-section-card">
+            <div className="quiz-section-head">
+              <div>
+                <h2 className="quiz-section-heading">{t("dailyPuzzleHeading")}</h2>
+                <p className="quiz-section-desc">{t("dailyPuzzleDesc")}</p>
+              </div>
+              <span className="quiz-section-badge">{t("dailyBadge")}</span>
+            </div>
+            {isPreparingQuiz ? (
+              <div className="quiz-pending">
+                <h3 className="quiz-pending-title">{t("preparingTitle")}</h3>
+                <p className="quiz-pending-copy">{t("preparingDesc")}</p>
+              </div>
+            ) : (
+              <DailyPuzzle corpusData={corpusData} />
+            )}
+          </section>
+
+          <section className="quiz-section quiz-section-review ui-card ui-section-card">
+            <div className="quiz-section-head">
+              <div>
+                <h2 className="quiz-section-heading">{t("reviewHeading")}</h2>
+                <p className="quiz-section-desc">{t("reviewDesc")}</p>
+              </div>
+              <span className="quiz-section-badge quiz-section-badge-secondary">{t("adaptiveBadge")}</span>
+            </div>
+            {isPreparingQuiz ? (
+              <div className="quiz-pending">
+                <h3 className="quiz-pending-title">{t("preparingTitle")}</h3>
+                <p className="quiz-pending-copy">{t("preparingDesc")}</p>
+              </div>
+            ) : (
+              <ReviewQuiz corpusData={corpusData} />
+            )}
+          </section>
+        </>
+      )}
 
       <style jsx>{`
+        .quiz-back-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 1rem;
+          padding: 0.4rem 0;
+          border: none;
+          background: none;
+          color: var(--ink-secondary);
+          font-size: 0.88rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: color 0.15s;
+        }
+        .quiz-back-link:hover {
+          color: var(--ink);
+        }
+        :global([dir="rtl"] .quiz-back-link svg) {
+          transform: scaleX(-1);
+        }
         .quiz-caveat {
           display: grid;
           grid-template-columns: auto 1fr;

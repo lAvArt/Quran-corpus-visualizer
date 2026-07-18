@@ -10,17 +10,22 @@ import GlossaryChips from "@/components/ui/GlossaryChips";
 import VizExplainer from "@/components/ui/VizExplainer";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
+import type { SearchResultItem } from "@/lib/search/searchTypes";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 export type DrawerTab = "explain" | "inspect" | "search" | "index";
 
 interface ContextDrawerProps {
   isOpen: boolean;
+  onToggleOpen: () => void;
   allTokens: CorpusToken[];
   vizMode: VisualizationMode;
   inspectorToken: CorpusToken | null;
   inspectorMode: "hover" | "focus" | "idle";
   selectedSurahId: number;
+  /** Bumped by the intro chip to request the Explain tab (mirrors the
+   *  token-focus → Inspect auto-switch below). */
+  explainRequestId?: number;
   clearFocus: () => void;
   onTokenHover: (id: string | null) => void;
   onTokenSelect: (tokenId: string) => void;
@@ -30,6 +35,11 @@ interface ContextDrawerProps {
   onSearchOpened: () => void;
   onSearchQuerySubmitted: (query: string) => void;
   onSearchResultSelected: (matchType: SearchMatchType) => void;
+  onResultNavigate?: (result: SearchResultItem) => void;
+  /** True while the full corpus is still streaming in — lets the inspector
+   *  mark click-computed counts as "still counting" instead of silently
+   *  showing partial numbers. */
+  isCorpusLoading?: boolean;
 }
 
 /**
@@ -39,11 +49,13 @@ interface ContextDrawerProps {
  */
 export default function ContextDrawer({
   isOpen,
+  onToggleOpen,
   allTokens,
   vizMode,
   inspectorToken,
   inspectorMode,
   selectedSurahId,
+  explainRequestId,
   clearFocus,
   onTokenHover,
   onTokenSelect,
@@ -53,36 +65,42 @@ export default function ContextDrawer({
   onSearchOpened,
   onSearchQuerySubmitted,
   onSearchResultSelected,
+  onResultNavigate,
+  isCorpusLoading,
 }: ContextDrawerProps) {
   const t = useTranslations("ContextDrawer");
   const [activeTab, setActiveTab] = useState<DrawerTab>("explain");
-  const [manualOverride, setManualOverride] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const prevTokenRef = useRef<CorpusToken | null>(null);
+  const prevExplainRequestRef = useRef(explainRequestId);
 
-  // Auto-switch logic
+  // Tab behaviour: a deliberate CLICK (focus) on a graph element opens the
+  // Inspect tab. HOVER never switches tabs — it only flags a hint on the Inspect
+  // tab (see showInspectHint). The user's manually-chosen tab otherwise stays put.
   useEffect(() => {
-    if (manualOverride) return;
-
-    if (inspectorToken && inspectorToken !== prevTokenRef.current) {
+    if (inspectorToken && inspectorMode === "focus" && inspectorToken !== prevTokenRef.current) {
       setActiveTab("inspect");
-    } else if (!inspectorToken && activeTab === "inspect") {
-      setActiveTab("explain");
     }
     prevTokenRef.current = inspectorToken;
-  }, [inspectorToken, manualOverride, activeTab]);
+  }, [inspectorToken, inspectorMode]);
+
+  // The intro chip's label requests the Explain tab the same way: the ref
+  // starts equal to the initial id (0), so mounting/re-rendering is a no-op —
+  // only an actual bump (a real click) flips the tab.
+  useEffect(() => {
+    if (explainRequestId !== undefined && explainRequestId !== prevExplainRequestRef.current) {
+      setActiveTab("explain");
+    }
+    prevExplainRequestRef.current = explainRequestId;
+  }, [explainRequestId]);
 
   const handleManualTabChange = useCallback((tab: DrawerTab) => {
     setActiveTab(tab);
-    setManualOverride(true);
   }, []);
 
-  // Clear manual override when a genuinely new token arrives
-  useEffect(() => {
-    if (inspectorToken && inspectorToken !== prevTokenRef.current) {
-      setManualOverride(false);
-    }
-  }, [inspectorToken]);
+  // Hovering a graph element while NOT on the Inspect tab → show a hint there,
+  // rather than yanking the user to a different section.
+  const showInspectHint = Boolean(inspectorToken) && inspectorMode === "hover" && activeTab !== "inspect";
 
   const tabs: { id: DrawerTab; labelKey: string }[] = [
     { id: "explain", labelKey: "explain" },
@@ -92,122 +110,144 @@ export default function ContextDrawer({
   ];
 
   return (
-    <aside
-      className={`context-drawer ${isOpen ? "open" : ""}`}
-      aria-label={t("label")}
-      data-tour-id="tools-sidebar"
-    >
-      <div className="context-drawer-inner" data-tour-id="app-sidebar">
-        <div className="drawer-tabs" role="tablist" aria-label={t("panelLabel")}>
-          {tabs.map((tab) => (
+    <>
+      {/* Right-edge handle — the open/close affordance lives at the screen edge,
+          where users instinctively look for it. Slides to the drawer's edge when open. */}
+      <button
+        type="button"
+        className={`drawer-edge-handle ${isOpen ? "is-open" : ""}`}
+        onClick={onToggleOpen}
+        aria-label={isOpen ? t("collapse") : t("expand")}
+        aria-expanded={isOpen}
+        title={isOpen ? t("collapse") : t("expand")}
+        data-tour-id="tools-toggle"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+      <aside
+        className={`context-drawer ${isOpen ? "open" : ""}`}
+        aria-label={t("label")}
+        data-tour-id="context-drawer"
+      >
+      <div className="drawer-tabs" role="tablist" aria-label={t("panelLabel")}>
+        {tabs.map((tab) => {
+          const hinted = tab.id === "inspect" && showInspectHint;
+          return (
             <button
               key={tab.id}
-              className={`drawer-tab ${activeTab === tab.id ? "active" : ""}`}
+              className={`drawer-tab ${activeTab === tab.id ? "active" : ""} ${hinted ? "has-hint" : ""}`}
               onClick={() => handleManualTabChange(tab.id)}
+              title={hinted ? "Click a graph element to inspect it here" : undefined}
               role="tab"
               aria-selected={activeTab === tab.id}
               aria-controls={`drawer-panel-${tab.id}`}
               id={`drawer-tab-${tab.id}`}
             >
               {t(tab.labelKey)}
+              {hinted ? <span className="drawer-tab-hint" aria-hidden="true" /> : null}
             </button>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        <div className="drawer-glossary">
-          <GlossaryChips />
-        </div>
+      <div className="drawer-glossary">
+        <GlossaryChips />
+      </div>
 
-        {/* Explain tab */}
-        <div
-          className="drawer-content"
-          role="tabpanel"
-          id="drawer-panel-explain"
-          aria-labelledby="drawer-tab-explain"
-          style={{ display: activeTab === "explain" ? undefined : "none" }}
+      {/* Explain tab */}
+      <div
+        className="drawer-content"
+        role="tabpanel"
+        id="drawer-panel-explain"
+        aria-labelledby="drawer-tab-explain"
+        style={{ display: activeTab === "explain" ? undefined : "none" }}
+      >
+        <VizExplainer vizMode={vizMode} />
+      </div>
+
+      {/* Inspect tab */}
+      <div
+        className="drawer-content"
+        role="tabpanel"
+        id="drawer-panel-inspect"
+        aria-labelledby="drawer-tab-inspect"
+        style={{ display: activeTab === "inspect" ? undefined : "none" }}
+      >
+        <CommandBar
+          tokens={allTokens}
+          variant="bar"
+          analyticsSurface="sidebar"
+          onTokenSelect={onTokenSelect}
+          onTokenHover={onTokenHover}
+          onRootSelect={onRootSelect}
+          onSearchOpened={onSearchOpened}
+          onSearchQuerySubmitted={onSearchQuerySubmitted}
+          onSearchResultSelected={onSearchResultSelected}
+          onResultNavigate={onResultNavigate}
+        />
+        <div className="drawer-divider" />
+        <button
+          type="button"
+          className="drawer-scanner-toggle"
+          onClick={() => setScannerOpen(!scannerOpen)}
+          aria-expanded={scannerOpen}
         >
-          <VizExplainer vizMode={vizMode} />
-        </div>
+          {scannerOpen ? t("hideScan") : t("scan")}
+        </button>
+        {scannerOpen && (
+          <LiveScanner allTokens={allTokens} onTokenSelect={onTokenSelect} />
+        )}
+        <div className="drawer-divider" />
+        <MorphologyInspector
+          token={inspectorToken}
+          mode={inspectorMode}
+          onClearFocus={clearFocus}
+          allTokens={allTokens}
+          onRootSelect={onRootSelect}
+          onSelectSurah={onSelectSurah}
+          isCorpusLoading={isCorpusLoading}
+        />
+      </div>
 
-        {/* Inspect tab */}
-        <div
-          className="drawer-content"
-          role="tabpanel"
-          id="drawer-panel-inspect"
-          aria-labelledby="drawer-tab-inspect"
-          style={{ display: activeTab === "inspect" ? undefined : "none" }}
-        >
-          <CommandBar
-            tokens={allTokens}
-            variant="bar"
-            analyticsSurface="sidebar"
-            onTokenSelect={onTokenSelect}
-            onTokenHover={onTokenHover}
-            onRootSelect={onRootSelect}
-            onSearchOpened={onSearchOpened}
-            onSearchQuerySubmitted={onSearchQuerySubmitted}
-            onSearchResultSelected={onSearchResultSelected}
-          />
-          <div className="drawer-divider" />
-          <button
-            type="button"
-            className="drawer-scanner-toggle"
-            onClick={() => setScannerOpen(!scannerOpen)}
-            aria-expanded={scannerOpen}
-          >
-            {scannerOpen ? t("hideScan") : t("scan")}
-          </button>
-          {scannerOpen && (
-            <LiveScanner allTokens={allTokens} onTokenSelect={onTokenSelect} />
-          )}
-          <div className="drawer-divider" />
-          <MorphologyInspector
-            token={inspectorToken}
-            mode={inspectorMode}
-            onClearFocus={clearFocus}
-            allTokens={allTokens}
-            onRootSelect={onRootSelect}
-            onSelectSurah={onSelectSurah}
-          />
-        </div>
+      {/* Search tab */}
+      <div
+        className="drawer-content"
+        role="tabpanel"
+        id="drawer-panel-search"
+        aria-labelledby="drawer-tab-search"
+        style={{ display: activeTab === "search" ? undefined : "none" }}
+      >
+        <CommandBar
+          tokens={allTokens}
+          variant="panel"
+          analyticsSurface="sidebar"
+          onTokenSelect={onTokenSelect}
+          onTokenHover={onTokenHover}
+          onRootSelect={onRootSelect}
+          onSearchOpened={onSearchOpened}
+          onSearchQuerySubmitted={onSearchQuerySubmitted}
+          onSearchResultSelected={onSearchResultSelected}
+          onResultNavigate={onResultNavigate}
+        />
+      </div>
 
-        {/* Search tab */}
-        <div
-          className="drawer-content"
-          role="tabpanel"
-          id="drawer-panel-search"
-          aria-labelledby="drawer-tab-search"
-          style={{ display: activeTab === "search" ? undefined : "none" }}
-        >
-          <CommandBar
-            tokens={allTokens}
-            variant="panel"
-            analyticsSurface="sidebar"
-            onTokenSelect={onTokenSelect}
-            onTokenHover={onTokenHover}
-            onRootSelect={onRootSelect}
-            onSearchOpened={onSearchOpened}
-            onSearchQuerySubmitted={onSearchQuerySubmitted}
-            onSearchResultSelected={onSearchResultSelected}
-          />
-        </div>
-
-        {/* Index tab */}
-        <div
-          className="drawer-content"
-          role="tabpanel"
-          id="drawer-panel-index"
-          aria-labelledby="drawer-tab-index"
-          style={{ display: activeTab === "index" ? undefined : "none" }}
-        >
-          <CorpusIndex
-            tokens={allTokens}
-            onSelectSurah={onSelectSurah}
-            onSelectRoot={(root) => onRootSelect(root)}
-            onSelectLemma={onLemmaSelect}
-            selectedSurahId={selectedSurahId}
-          />
-        </div>
+      {/* Index tab */}
+      <div
+        className="drawer-content"
+        role="tabpanel"
+        id="drawer-panel-index"
+        aria-labelledby="drawer-tab-index"
+        style={{ display: activeTab === "index" ? undefined : "none" }}
+      >
+        <CorpusIndex
+          tokens={allTokens}
+          onSelectSurah={onSelectSurah}
+          onSelectRoot={(root) => onRootSelect(root)}
+          onSelectLemma={onLemmaSelect}
+          selectedSurahId={selectedSurahId}
+        />
       </div>
 
       <style jsx>{`
@@ -232,15 +272,8 @@ export default function ContextDrawer({
           pointer-events: none;
         }
 
-        .context-drawer-inner {
-          display: flex;
-          min-height: 0;
-          height: 100%;
-          flex-direction: column;
-        }
-
         :global([data-theme="dark"]) .context-drawer {
-          background: rgba(22, 22, 30, 0.92);
+          background: rgba(22, 33, 39, 0.92);
           border-color: rgba(255, 255, 255, 0.1);
           box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
         }
@@ -256,32 +289,64 @@ export default function ContextDrawer({
 
         .drawer-tabs {
           display: flex;
-          border-bottom: 1px solid var(--line);
+          gap: 4px;
+          padding: 4px;
+          margin: 8px 8px 0;
+          background: color-mix(in srgb, var(--panel), transparent 22%);
+          border: 1px solid var(--line);
+          border-radius: var(--radius-md);
           flex-shrink: 0;
         }
 
         .drawer-tab {
+          position: relative;
           flex: 1;
-          padding: 10px 6px;
-          background: transparent;
+          padding: 8px 10px;
           border: none;
-          color: var(--ink-secondary);
+          border-radius: var(--radius-sm);
+          background: transparent;
+          color: var(--ink-muted);
           font-family: inherit;
-          font-size: 0.78rem;
+          font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
           cursor: pointer;
-          transition: all 0.2s;
-          border-bottom: 2px solid transparent;
+          transition: background 0.18s, color 0.18s;
+        }
+
+        /* Hover-a-graph-element hint: a quiet pulsing dot on the Inspect tab,
+           instead of force-switching the user's section. */
+        .drawer-tab.has-hint {
+          color: var(--accent);
+        }
+
+        .drawer-tab-hint {
+          position: absolute;
+          top: 4px;
+          inset-inline-end: 6px;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--accent);
+          animation: drawerTabHintPulse 1.4s ease-out infinite;
+        }
+
+        @keyframes drawerTabHintPulse {
+          0% { box-shadow: 0 0 0 0 rgba(232, 146, 74, 0.5); }
+          70% { box-shadow: 0 0 0 6px rgba(232, 146, 74, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(232, 146, 74, 0); }
         }
 
         .drawer-tab:hover {
           color: var(--ink);
-          background: rgba(255, 255, 255, 0.05);
+          background: color-mix(in srgb, var(--selection) 5%, transparent);
         }
 
         .drawer-tab.active {
-          color: var(--accent);
-          border-bottom-color: var(--accent);
-          font-weight: 600;
+          background: var(--bg-2);
+          color: var(--ink);
+          font-weight: 700;
         }
 
         .drawer-tab:focus-visible {
@@ -317,7 +382,7 @@ export default function ContextDrawer({
           color: var(--ink-muted);
           background: none;
           border: 1px dashed var(--line);
-          border-radius: 6px;
+          border-radius: var(--radius-xs);
           cursor: pointer;
           text-align: center;
           margin-bottom: 8px;
@@ -331,33 +396,24 @@ export default function ContextDrawer({
         @media (max-width: 980px) {
           .context-drawer {
             top: auto;
-            bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance) + var(--graph-toolbar-mobile-clearance) + 8px);
-            inset-inline: 8px;
-            width: auto;
-            max-height: min(56vh, calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--mobile-tools-bar-clearance) - var(--graph-toolbar-mobile-clearance) - 16px));
-            z-index: 95;
-            border-radius: 16px;
-            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-            transform: translateY(calc(100% + 16px));
-            opacity: 0;
-            visibility: hidden;
+            bottom: 0;
+            inset-inline: 0;
+            width: 100%;
+            max-height: 65vh;
+            border-radius: 16px 16px 0 0;
+            transform: translateY(100%);
           }
 
           :global([dir="rtl"]) .context-drawer {
-            transform: translateY(calc(100% + 16px));
+            transform: translateY(100%);
           }
 
           .context-drawer.open {
             transform: translateY(0);
-            opacity: 1;
-            visibility: visible;
-          }
-
-          .drawer-content {
-            padding-bottom: 16px;
           }
         }
       `}</style>
-    </aside>
+      </aside>
+    </>
   );
 }

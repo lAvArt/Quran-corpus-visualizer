@@ -22,7 +22,10 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      // PW_CHANNEL lets a dev machine fall back to a system browser
+      // (e.g. msedge) when the Playwright browser download is unavailable;
+      // unset (CI, normal runs) keeps the bundled Chromium.
+      use: { ...devices["Desktop Chrome"], channel: process.env.PW_CHANNEL || undefined },
     },
     {
       name: "mobile-safari",

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import type { ExperienceLevel } from "@/lib/schema/experience";
@@ -15,8 +15,11 @@ import {
     getPairCooccurrence,
     type CollocationOptions,
     type CollocationTermKind,
+    type RootFrequencyData,
 } from "@/lib/search/collocation";
 import { HelpIcon, VizExplainerDialog } from "@/components/ui/VizExplainerDialog";
+import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 
 interface CollocationNetworkGraphProps {
     tokens: CorpusToken[];
@@ -165,6 +168,51 @@ function buildCurvedPath(source: CollocationNode, target: CollocationNode, bendS
     return `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`;
 }
 
+// Rendered collocate slots per neighborhood (~40 nodes) — keeps the force graph
+// legible and performant. Pre-existing cap; now surfaced via nodeCapDisclosure
+// instead of truncating silently.
+const COLLOCATE_NODE_CAP = 34;
+
+// Root used to seed a neighborhood preview when nothing is selected yet
+// (e.g. the bare `?viz=collocation-network` deep link). رحم ("mercy/womb")
+// is chosen for thematic resonance (Ar-Rahman/Ar-Raheem) and is reliably
+// dense in co-occurrences.
+const SEEDED_EXAMPLE_ROOT = "رحم";
+
+/**
+ * Picks the root used for the seeded "no selection yet" example neighborhood.
+ * Prefers SEEDED_EXAMPLE_ROOT when it is actually present in the loaded
+ * corpus; otherwise falls back to the most frequent root present so the
+ * example never renders empty.
+ */
+function pickSeededExampleRoot(freqData: RootFrequencyData): string {
+    const normalizedSeed = normalizeArabicForMatch(SEEDED_EXAMPLE_ROOT);
+    let seedPresent = false;
+    let fallbackKey = "";
+    let fallbackCount = -1;
+
+    for (const [key, count] of freqData.rootFrequencies.entries()) {
+        if (normalizeArabicForMatch(key) === normalizedSeed) {
+            seedPresent = true;
+        }
+        if (count > fallbackCount) {
+            fallbackCount = count;
+            fallbackKey = key;
+        }
+    }
+
+    return seedPresent ? SEEDED_EXAMPLE_ROOT : fallbackKey;
+}
+
+// Fixed semantic amber for the "heuristic estimate" honesty badge — kept
+// independent of the user's selected accent theme (accent/accent-2 shift
+// per color theme, see lib/theme/colorThemes.ts) so the caution signal
+// stays recognizable no matter which palette is active.
+const HEURISTIC_AMBER = {
+    dark: { fg: "#fcd34d", border: "rgba(252, 211, 77, 0.55)", bg: "rgba(217, 119, 6, 0.16)" },
+    light: { fg: "#92400e", border: "rgba(180, 83, 9, 0.5)", bg: "rgba(245, 158, 11, 0.14)" },
+} as const;
+
 export default function CollocationNetworkGraph({
     tokens,
     onTokenHover: _onTokenHover,
@@ -207,6 +255,10 @@ export default function CollocationNetworkGraph({
     const isBeginner = experienceLevel === "beginner";
 
     const themeColors = resolveVisualizationTheme(theme);
+    // Framer-motion pulse/reveal animations below are JS-driven and bypass
+    // the global CSS prefers-reduced-motion rule (globals.css) — gate them
+    // manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
     const neonPalette = useMemo(() => {
         const source = [
             themeColors.accent,
@@ -250,26 +302,26 @@ export default function CollocationNetworkGraph({
         };
     }, [theme, themeColors.background]);
     const panelBg = useMemo(
-        () => (theme === "dark" ? "rgba(5, 10, 21, 0.74)" : "rgba(247, 251, 255, 0.9)"),
+        () => (theme === "dark" ? "var(--panel)" : "rgba(247, 251, 255, 0.9)"),
         [theme]
     );
     const panelBorder = useMemo(
-        () => (theme === "dark" ? "rgba(126, 168, 255, 0.34)" : "rgba(35, 74, 133, 0.24)"),
+        () => (theme === "dark" ? "var(--line)" : "rgba(35, 74, 133, 0.24)"),
         [theme]
     );
-    const labelStroke = theme === "dark" ? "#05080e" : "rgba(255, 255, 255, 0.95)";
-    const targetNodeFill = theme === "dark" ? "#E7F2FF" : tuneForTheme(themeColors.nodeColors.default, theme, 0.04);
+    const labelStroke = theme === "dark" ? "var(--bg-0)" : "rgba(255, 255, 255, 0.95)";
+    const targetNodeFill = theme === "dark" ? "var(--ink)" : tuneForTheme(themeColors.nodeColors.default, theme, 0.04);
     const legendStrong = withAlpha(themeColors.accentSecondary, theme === "dark" ? 0.88 : 0.8);
     const legendSoft = withAlpha(themeColors.edgeColors.default, theme === "dark" ? 0.75 : 0.6);
     const lemmaBloomColor = useMemo(
         () => tuneForTheme(themeColors.accentSecondary, theme, theme === "dark" ? 0.24 : 0.1),
         [theme, themeColors.accentSecondary]
     );
-    const controlRowSurface = theme === "dark" ? "rgba(10, 18, 34, 0.78)" : "rgba(236, 244, 255, 0.9)";
+    const controlRowSurface = theme === "dark" ? "var(--bg-1)" : "rgba(236, 244, 255, 0.9)";
     const controlFieldStyle = {
-        background: theme === "dark" ? "rgba(17, 26, 48, 0.94)" : "rgba(255,255,255,0.98)",
-        color: theme === "dark" ? "#e4f0ff" : "#10284b",
-        border: `1px solid ${theme === "dark" ? "rgba(151, 186, 255, 0.42)" : "rgba(53, 94, 162, 0.35)"}`,
+        background: theme === "dark" ? "var(--bg-2)" : "rgba(255,255,255,0.98)",
+        color: theme === "dark" ? "var(--ink)" : "#10284b",
+        border: `1px solid ${theme === "dark" ? "var(--line)" : "rgba(53, 94, 162, 0.35)"}`,
         borderRadius: 7,
         padding: "4px 8px",
         fontSize: "0.76rem",
@@ -278,14 +330,22 @@ export default function CollocationNetworkGraph({
     } as const;
     const controlLabelStyle = {
         fontSize: "0.72rem",
-        color: theme === "dark" ? "#9cb4df" : "#335785",
+        color: theme === "dark" ? "var(--ink-secondary)" : "#335785",
         letterSpacing: "0.01em",
         minWidth: 82,
     } as const;
 
+    const freqData = useMemo(() => calculateRootFrequencies(tokens), [tokens]);
+    const seededExampleRoot = useMemo(() => pickSeededExampleRoot(freqData), [freqData]);
+
     const normalizedTargetValue = useMemo(() => targetValue.trim(), [targetValue]);
     const normalizedPairValue = useMemo(() => pairValue.trim(), [pairValue]);
-    const activeTargetValue = normalizedTargetValue || (targetKind === "root" ? (highlightRoot ?? "") : "");
+    // No root selected yet (no manual input, no highlighted root): seed the
+    // view with a real neighborhood instead of the empty state, framed as an
+    // "Example" — see isSeededExample usage below.
+    const isSeededExample = targetKind === "root" && !normalizedTargetValue && !highlightRoot && Boolean(seededExampleRoot);
+    const activeTargetValue = normalizedTargetValue
+        || (targetKind === "root" ? (highlightRoot || (isSeededExample ? seededExampleRoot : "")) : "");
     const activePairValue = normalizedPairValue;
     const targetTerm = useMemo(
         () => (activeTargetValue ? { kind: targetKind, value: activeTargetValue } : null),
@@ -301,11 +361,21 @@ export default function CollocationNetworkGraph({
         [targetKind, activeTargetValue, groupBy]
     );
 
-    const freqData = useMemo(() => calculateRootFrequencies(tokens), [tokens]);
-
+    // Adopt an incoming shared-root change (another graph, search, or a deep
+    // link) into the target field. Tracks the previous prop value in a ref so
+    // a genuine prop CHANGE always wins over a stale local edit — the old
+    // `current.trim() ? current : highlightRoot` guard only ever adopted
+    // before the field had any text (i.e. once, near mount); later prop
+    // changes were silently ignored while the field stayed non-empty. This
+    // never calls `onRootSelect` itself (see `commitTargetRoot` below for the
+    // write-back direction), so the two can't loop.
+    const prevHighlightRootRef = useRef(highlightRoot);
     useEffect(() => {
-        if (!highlightRoot || targetKind !== "root") return;
-        setTargetValue((current) => (current.trim() ? current : highlightRoot));
+        const previous = prevHighlightRootRef.current;
+        prevHighlightRootRef.current = highlightRoot;
+        if (targetKind !== "root") return;
+        if (!highlightRoot || highlightRoot === previous) return;
+        setTargetValue(highlightRoot);
     }, [highlightRoot, targetKind]);
 
     useEffect(() => {
@@ -323,6 +393,20 @@ export default function CollocationNetworkGraph({
             setTargetValue(highlightRoot);
         }
     }, [highlightRoot, isBeginner]);
+
+    // Write-back: tell the shared selection about a root the user explicitly
+    // commits to in THIS graph by typing into the target field (wired to the
+    // input's blur/Enter below — not every keystroke, so mid-typing values
+    // never round-trip out). Node clicks (handleNodeClick below) call
+    // `onRootSelect` directly at the click site. Guarded against firing for a
+    // value that already matches the shared root, so adopting an incoming
+    // prop change (the effect above) can never echo back out as a write.
+    const commitTargetRoot = useCallback(() => {
+        if (targetKind !== "root" || !onRootSelect) return;
+        const trimmed = targetValue.trim();
+        if (!trimmed || trimmed === highlightRoot) return;
+        onRootSelect(trimmed);
+    }, [targetKind, targetValue, onRootSelect, highlightRoot]);
 
     const targetCount = useMemo(() => {
         if (!targetTerm) return 0;
@@ -355,8 +439,8 @@ export default function CollocationNetworkGraph({
         return getPairCooccurrence(targetTerm, pairTerm, tokens, { windowType, distance });
     }, [targetTerm, pairTerm, tokens, windowType, distance]);
 
-    const { initialNodes, initialLinks } = useMemo(() => {
-        if (!targetTerm) return { initialNodes: [], initialLinks: [] };
+    const { initialNodes, initialLinks, totalCollocateCount } = useMemo(() => {
+        if (!targetTerm) return { initialNodes: [], initialLinks: [], totalCollocateCount: 0 };
 
         const results = getCollocations(targetTerm, tokens, freqData, {
             windowType,
@@ -368,9 +452,9 @@ export default function CollocationNetworkGraph({
             },
             pairTerm,
         });
-        if (results.length === 0) return { initialNodes: [], initialLinks: [] };
+        if (results.length === 0) return { initialNodes: [], initialLinks: [], totalCollocateCount: 0 };
 
-        const topResults = results.slice(0, 34);
+        const topResults = results.slice(0, COLLOCATE_NODE_CAP);
         const [rawMinPmi = 0, rawMaxPmi = 1] = d3.extent(topResults, (d) => d.pmi);
         const minPmi = Number.isFinite(rawMinPmi) ? rawMinPmi : 0;
         const maxPmi = Number.isFinite(rawMaxPmi) ? rawMaxPmi : 1;
@@ -477,8 +561,13 @@ export default function CollocationNetworkGraph({
             }
         }
 
-        return { initialNodes: nodesResult, initialLinks: linksResult };
+        return { initialNodes: nodesResult, initialLinks: linksResult, totalCollocateCount: results.length };
     }, [targetTerm, tokens, freqData, windowType, distance, minFrequency, themeColors.accent, neonPalette, groupBy, filterPos, pairTerm, targetCount]);
+
+    // Node cap is pre-existing (COLLOCATE_NODE_CAP); this only makes the
+    // truncation visible instead of silent when more collocates exist than
+    // are rendered.
+    const isNodeCapped = totalCollocateCount > COLLOCATE_NODE_CAP;
 
     const stars = useMemo(() => {
         const seed = hashString(`${activeTargetValue || "none"}:${dimensions.width}:${dimensions.height}`);
@@ -1056,7 +1145,11 @@ export default function CollocationNetworkGraph({
                                                     stroke={withAlpha(themeColors.accent, 0.28)}
                                                     strokeWidth={1.1}
                                                     animate={{ opacity: [0.06, 0.2, 0.06], scale: [0.98, 1.06, 0.98] }}
-                                                    transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut" }}
+                                                    transition={
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : { repeat: Infinity, duration: 2.8, ease: "easeInOut" }
+                                                    }
                                                 />
                                             )}
 
@@ -1150,6 +1243,96 @@ export default function CollocationNetworkGraph({
                     </svg>
                 )}
             </div>
+
+            {targetTerm && (
+                <>
+                    {/*
+                      Honesty signal, calmed: a small muted warning-tint tag,
+                      top-center (not a bright, all-caps pill spanning the
+                      top) — present but no longer competing with the graph
+                      for attention. Top-center rather than the canvas's top
+                      inline-end corner: the right drawer floats OVER that
+                      corner whenever it's open, hiding the badge entirely.
+                      Centered the same way the "How to read this view" chip
+                      is (left: 50% + translateX(-50%) — direction-agnostic,
+                      so this is RTL-safe without any dir-specific branching),
+                      and offset far enough below that chip's own row
+                      (top: header-clearance + 58px, 36px tall) that the two
+                      never collide.
+                    */}
+                    <span
+                        title={t("HeuristicBadge.tooltip", { n: minFrequency })}
+                        aria-label={`${t("HeuristicBadge.label")} — ${t("HeuristicBadge.tooltip", { n: minFrequency })}`}
+                        tabIndex={0}
+                        style={{
+                            position: "absolute",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            top: "calc(var(--header-clearance) + 102px)",
+                            zIndex: 25,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "3px 10px",
+                            borderRadius: 999,
+                            fontSize: "0.68rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.02em",
+                            whiteSpace: "nowrap",
+                            color: theme === "dark" ? HEURISTIC_AMBER.dark.fg : HEURISTIC_AMBER.light.fg,
+                            background: theme === "dark" ? HEURISTIC_AMBER.dark.bg : HEURISTIC_AMBER.light.bg,
+                            border: `1px solid ${theme === "dark" ? HEURISTIC_AMBER.dark.border : HEURISTIC_AMBER.light.border}`,
+                            cursor: "help",
+                        }}
+                    >
+                        {t("HeuristicBadge.label")}
+                    </span>
+
+                    {isSeededExample && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                insetInlineStart: 0,
+                                insetInlineEnd: 0,
+                                // Sits below the top-center badge's own row (badge
+                                // top offset + its height + the same stacking gap
+                                // the two used before) so they don't overlap.
+                                top: "calc(var(--header-clearance) + 136px)",
+                                zIndex: 24,
+                                display: "flex",
+                                justifyContent: "center",
+                                paddingInline: 16,
+                                pointerEvents: "none",
+                            }}
+                        >
+                            <div style={{ maxWidth: 460, textAlign: "center" }}>
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: "0.92rem",
+                                        fontWeight: 600,
+                                        color: themeColors.textColors.primary,
+                                        textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                    }}
+                                >
+                                    {t("SeededExample.title", { root: targetTerm.value })}
+                                </p>
+                                <p
+                                    style={{
+                                        margin: "2px 0 0",
+                                        fontSize: "0.74rem",
+                                        color: themeColors.textColors.secondary,
+                                        textShadow: theme === "dark" ? "0 1px 6px rgba(0,0,0,0.55)" : "none",
+                                    }}
+                                >
+                                    {t("SeededExample.subtitle")}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
             {!targetTerm && (
                 <div
                     style={{
@@ -1162,14 +1345,28 @@ export default function CollocationNetworkGraph({
                     }}
                 >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-                        <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "#9bb8ff" }}>0</div>
-                        <p style={{ color: "#b7c3e2", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
+                        <div style={{ fontSize: "2.6rem", opacity: 0.2, color: "var(--ink-secondary)" }}>0</div>
+                        <p style={{ color: "var(--ink-muted)", textAlign: "center", maxWidth: 420 }}>{t("noData")}</p>
                     </div>
                 </div>
             )}
 
             {isMounted && typeof document !== 'undefined' && document.getElementById('viz-sidebar-portal') && createPortal(
                 <div className="viz-left-stack">
+                    <div className="viz-left-panel viz-zoom-panel">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                      </div>
+                      <div className="viz-zoom-row">
+                        <button type="button" className="viz-zoom-reset-btn" onClick={() => {
+                                    fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+                                        duration: motionSafeDuration(750),
+                                    });
+                                }}>
+                          {ts("focus")}
+                        </button>
+                      </div>
+                    </div>
                     <div className="viz-left-panel" style={{ background: panelBg, borderColor: panelBorder }}>
                         {sidebarNode ? (
                             <>
@@ -1230,8 +1427,8 @@ export default function CollocationNetworkGraph({
                                                     fontSize: "1rem",
                                                     lineHeight: 1.65,
                                                     color: themeColors.textColors.primary,
-                                                    background: "rgba(16, 24, 46, 0.86)",
-                                                    border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                    background: "var(--bg-2)",
+                                                    border: "1px solid var(--line)",
                                                     borderRadius: 6,
                                                     padding: "8px 10px",
                                                 }}
@@ -1262,10 +1459,10 @@ export default function CollocationNetworkGraph({
                                                         <span
                                                             key={lemma}
                                                             style={{
-                                                                background: "rgba(16, 24, 46, 0.86)",
+                                                                background: "var(--bg-2)",
                                                                 padding: "2px 6px",
                                                                 borderRadius: 4,
-                                                                border: "1px solid rgba(120, 158, 236, 0.35)",
+                                                                border: "1px solid var(--line)",
                                                                 letterSpacing: "0.06em",
                                                             }}
                                                         >
@@ -1291,21 +1488,6 @@ export default function CollocationNetworkGraph({
                             <div style={{ fontSize: "0.75rem", color: themeColors.textColors.secondary, letterSpacing: "0.03em", textTransform: "uppercase" }}>
                                 {t("proximityControls")}
                             </div>
-                            <button
-                                className="kg-reset-btn"
-                                onClick={() => {
-                                    if (svgRef.current && zoomBehaviorRef.current) {
-                                        d3.select(svgRef.current).transition().duration(650)
-                                            .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-                                    }
-                                }}
-                                title={ts("reset")}
-                                style={{ background: "rgba(26, 36, 66, 0.55)", color: "#d5e6ff" }}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                                </svg>
-                            </button>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <div
@@ -1327,6 +1509,10 @@ export default function CollocationNetworkGraph({
                                         data-testid="collocation-target-input"
                                         value={targetValue}
                                         onChange={(e) => setTargetValue(e.target.value)}
+                                        onBlur={commitTargetRoot}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") e.currentTarget.blur();
+                                        }}
                                         placeholder={targetKind === "root" ? t("targetRootPlaceholder") : t("targetLemmaPlaceholder")}
                                         style={{ ...controlFieldStyle, flex: 1, minWidth: 0 }}
                                     />
@@ -1409,7 +1595,7 @@ export default function CollocationNetworkGraph({
                             {!isBeginner ? (
                             <div
                                 data-testid="collocation-window-hint"
-                                style={{ fontSize: "0.73rem", color: "#a8bfeb", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}
+                                style={{ fontSize: "0.73rem", color: "var(--ink-muted)", lineHeight: 1.35, padding: "0 3px", marginTop: -2 }}
                             >
                                 {windowType === "ayah"
                                     ? t("windowTypeHintAyah")
@@ -1425,6 +1611,7 @@ export default function CollocationNetworkGraph({
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
+                                        transition={reduceMotion ? { duration: 0 } : undefined}
                                         style={{ overflow: "hidden", display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}` }}
                                     >
                                         <span style={{ ...controlLabelStyle, minWidth: "auto" }}>
@@ -1445,10 +1632,10 @@ export default function CollocationNetworkGraph({
                             ) : null}
                             {!isBeginner && pairMetrics && (
                                 <div data-testid="collocation-pair-metrics" style={{ marginTop: 4, display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
-                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "var(--ink-muted)" }}>
                                         {t("pairWindowsA", { count: pairMetrics.countA })}
                                     </div>
-                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "#b5c8ef" }}>
+                                    <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accent, 0.2)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.73rem", color: "var(--ink-muted)" }}>
                                         {t("pairWindowsB", { count: pairMetrics.countB })}
                                     </div>
                                     <div style={{ background: controlRowSurface, border: `1px solid ${withAlpha(themeColors.accentSecondary, 0.35)}`, borderRadius: 8, padding: "6px 8px", fontSize: "0.74rem", fontWeight: 600, color: themeColors.textColors.primary }}>
@@ -1478,10 +1665,21 @@ export default function CollocationNetworkGraph({
                             <div className="viz-legend-line" style={{ background: legendSoft, height: 2 }} />
                             <span>{t("pmiLower")}</span>
                         </div>
-                        <div className="viz-legend-item">
-                            <div className="viz-legend-line" style={{ background: withAlpha(themeColors.edgeColors.default, 0.36), height: 1.5 }} />
-                            <span>{t("lemmaLayerHint")}</span>
-                        </div>
+                        {isNodeCapped && (
+                            <div
+                                data-testid="collocation-node-cap-disclosure"
+                                style={{
+                                    marginTop: 8,
+                                    paddingTop: 8,
+                                    borderTop: `1px solid ${panelBorder}`,
+                                    fontSize: "0.7rem",
+                                    color: "var(--ink-muted)",
+                                    lineHeight: 1.4,
+                                }}
+                            >
+                                {t("nodeCapDisclosure", { n: COLLOCATE_NODE_CAP })}
+                            </div>
+                        )}
                     </div>
                 </div>,
                 document.getElementById('viz-sidebar-portal')!

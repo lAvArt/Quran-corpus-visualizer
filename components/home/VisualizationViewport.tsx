@@ -54,6 +54,8 @@ interface VisualizationViewportProps {
   setSelectedSurahId: (surahId: number) => void;
   handleRootSelect: (root: string | null) => void;
   handleSurahSelect: (surahId: number, nextMode?: "radial-sura" | "root-network") => void;
+  /** Knowledge graph empty state: "Browse roots" CTA switches to root-network. */
+  onExploreRoots?: () => void;
 }
 
 export default function VisualizationViewport({
@@ -75,6 +77,7 @@ export default function VisualizationViewport({
   setSelectedSurahId,
   handleRootSelect,
   handleSurahSelect,
+  onExploreRoots,
 }: VisualizationViewportProps) {
   const vizContent = (() => {
     switch (vizMode) {
@@ -100,7 +103,6 @@ export default function VisualizationViewport({
             onTokenHover={setHoverTokenId}
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
-            experienceLevel={experienceLevel}
             highlightRoot={selectedRoot}
             selectedSurahId={selectedSurahId}
             theme={theme}
@@ -164,7 +166,15 @@ export default function VisualizationViewport({
           />
         );
       case "knowledge-graph":
-        return <KnowledgeGraphViz tokens={allTokens} onRootSelect={handleRootSelect} theme={theme} />;
+        return (
+          <KnowledgeGraphViz
+            tokens={allTokens}
+            onRootSelect={handleRootSelect}
+            highlightRoot={selectedRoot}
+            theme={theme}
+            onExploreRoots={onExploreRoots}
+          />
+        );
       case "sankey-flow":
         return (
           <RootFlowSankey
@@ -177,6 +187,8 @@ export default function VisualizationViewport({
             experienceLevel={experienceLevel}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
+            highlightRoot={selectedRoot}
+            onRootSelect={handleRootSelect}
           />
         );
       case "collocation-network":

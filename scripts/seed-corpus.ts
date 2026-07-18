@@ -146,7 +146,9 @@ function parseMorphologyFile(filePath: string): Map<string, MorphEntry> {
 
         const entry = map.get(key) ?? { root: "", lemma: "", pos, features: {}, stem: null, hasRoot: false };
 
-        if (root) {
+        // First-root-wins for multi-ROOT words (e.g. 20:94:2), matching
+        // lib/corpus/morphologyLoader.ts so both pipelines resolve identically.
+        if (root && !entry.hasRoot) {
             entry.root = bwToArabic(root);
             entry.lemma = lemma ? bwToArabic(lemma) : entry.lemma;
             entry.pos = pos;

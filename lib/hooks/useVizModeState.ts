@@ -8,10 +8,37 @@ import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 import { getVisualizationCategory } from "@/lib/schema/visualizationTypes";
 
-const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
+// Every VISUALIZATION_GROUPS category shows its defaultMode to beginners
+// (VisualizationSwitcher never fully hides a category) — this list must
+// mirror those four defaults exactly, or the "ensure vizMode is in visible
+// set" effect below silently snaps a just-selected mode back to
+// radial-sura the instant it's chosen. "knowledge-graph" is the sole mode
+// in the always-visible "track-progress" category, so it belongs here too
+// (was missing: selecting it from the switcher or a mission used to bounce
+// straight back to radial-sura for any beginner who hadn't separately
+// toggled "show advanced").
+export const BEGINNER_PRIMARY_MODES: VisualizationMode[] = [
   "radial-sura",
   "surah-distribution",
   "root-network",
+  "knowledge-graph",
+];
+
+/**
+ * Every mode the viewport can actually render — the "advanced" visible set.
+ * Canonical list shared with deep-link validation (AppShell) so a `?viz=` param
+ * is only honoured when it names a real, renderable mode.
+ */
+export const ALL_VIZ_MODES: VisualizationMode[] = [
+  "corpus-architecture",
+  "surah-distribution",
+  "radial-sura",
+  "root-network",
+  "arc-flow",
+  "dependency-tree",
+  "sankey-flow",
+  "collocation-network",
+  "knowledge-graph",
 ];
 
 interface ViewContextCapabilities {
@@ -150,17 +177,7 @@ export function useVizModeState(): VizModeState {
   const visibleVizModes = useMemo<VisualizationMode[]>(
     () =>
       experienceLevel === "advanced" || showAdvancedModes
-        ? [
-            "corpus-architecture",
-            "surah-distribution",
-            "radial-sura",
-            "root-network",
-            "arc-flow",
-            "dependency-tree",
-            "sankey-flow",
-            "collocation-network",
-            "knowledge-graph",
-          ]
+        ? ALL_VIZ_MODES
         : BEGINNER_PRIMARY_MODES,
     [experienceLevel, showAdvancedModes]
   );

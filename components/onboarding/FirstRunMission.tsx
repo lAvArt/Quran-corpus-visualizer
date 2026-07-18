@@ -98,7 +98,7 @@ export default function FirstRunMission({
           display: grid;
           place-items: center;
           padding: 18px;
-          background: rgba(8, 10, 16, 0.55);
+          background: color-mix(in srgb, var(--bg-0) 70%, transparent);
           backdrop-filter: blur(8px);
         }
 
@@ -171,18 +171,48 @@ export default function FirstRunMission({
         }
 
         .first-run-card {
+          position: relative;
+          overflow: hidden;
           border: 1px solid var(--line);
-          border-radius: 14px;
+          border-radius: var(--radius-md);
           padding: 16px;
-          background: color-mix(in srgb, var(--bg-1), white 8%);
+          background: var(--bg-2);
           cursor: pointer;
           text-align: start;
-          transition: border-color 0.15s, box-shadow 0.15s;
+          transition: transform 0.15s, border-color 0.15s;
+        }
+
+        /* Accent bar down the left edge, colored per intent */
+        .first-run-card::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 3px;
+          height: 100%;
+          opacity: 0.85;
+          background: var(--line);
+        }
+
+        .first-run-grid :global(.first-run-card:nth-child(1))::before {
+          background: #e8924a;
+        }
+
+        .first-run-grid :global(.first-run-card:nth-child(2))::before {
+          background: #8e84cc;
+        }
+
+        .first-run-grid :global(.first-run-card:nth-child(3))::before {
+          background: #dd6a47;
+        }
+
+        .first-run-grid :global(.first-run-card:nth-child(4))::before {
+          background: #56a697;
         }
 
         .first-run-card:hover {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 1px var(--accent);
+          transform: translateY(-1px);
+          border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
         }
 
         .first-run-card:focus-visible {
@@ -191,16 +221,23 @@ export default function FirstRunMission({
         }
 
         .first-run-card h3 {
-          margin: 0 0 6px;
-          font-size: 0.95rem;
+          margin: 0;
+          font-family: var(--font-sans);
+          font-size: 15px;
+          font-weight: 500;
           color: var(--ink);
         }
 
         .first-run-card p {
-          margin: 0;
-          line-height: 1.55;
-          color: var(--ink-secondary);
-          font-size: 0.84rem;
+          margin: 8px 0 0;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--ink-muted);
+        }
+
+        .first-run-card p::before {
+          content: "→ ";
         }
 
         .first-run-footer {
@@ -239,10 +276,6 @@ export default function FirstRunMission({
         :global([data-theme="dark"]) .first-run-panel {
           background: rgba(12, 14, 22, 0.95);
           box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-        }
-
-        :global([data-theme="dark"]) .first-run-card {
-          background: rgba(255, 255, 255, 0.02);
         }
       `}</style>
     </div>

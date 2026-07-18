@@ -42,12 +42,14 @@ export const DEFAULT_CUSTOM_COLOR_THEME: CustomColorTheme = {
     bg2: "#e6dcc9",
   },
   dark: {
-    accent: "#f97316",
-    accent2: "#22d3ee",
-    accent3: "#38bdf8",
-    bg0: "#0c0b0d",
-    bg1: "#15151b",
-    bg2: "#1e1e28",
+    // Observatory dark — cool slate-teal canvas (derived from the design
+    // reference image) with warm amber + teal + violet accents.
+    accent: "#e8924a",
+    accent2: "#56a697",
+    accent3: "#8e84cc",
+    bg0: "#0e161a",
+    bg1: "#142026",
+    bg2: "#1c2a31",
   },
 };
 
@@ -64,11 +66,12 @@ export const COLOR_THEME_PRESETS: readonly ColorThemePreset[] = [
       accent2Glow: "rgba(245, 158, 11, 0.45)",
     },
     dark: {
-      accent: "#f97316",
-      accent2: "#22d3ee",
-      accent3: "#38bdf8",
-      accentGlow: "rgba(249, 115, 22, 0.5)",
-      accent2Glow: "rgba(34, 211, 238, 0.5)",
+      // Observatory dark — warm amber primary, teal + violet secondaries.
+      accent: "#e8924a",
+      accent2: "#56a697",
+      accent3: "#8e84cc",
+      accentGlow: "rgba(232, 146, 74, 0.5)",
+      accent2Glow: "rgba(86, 166, 151, 0.45)",
     },
   },
   {

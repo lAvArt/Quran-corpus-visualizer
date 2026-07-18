@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { getAyah } from "@/lib/corpus/corpusLoader";
-import { getNodeColor, resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
+import { SURAH_NAMES } from "@/lib/data/surahData";
+import { getNodeColor, resolveVisualizationTheme, SELECTION_RING } from "@/lib/schema/visualizationTypes";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
 import { useZoom } from "@/lib/hooks/useZoom";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
+import { motionSafeDuration, motionSafeStagger } from "@/lib/viz/motionPrefs";
 
 interface RadialSuraMapProps {
   tokens: CorpusToken[];
@@ -61,6 +63,67 @@ interface AyahRootNode extends AyahRootEntry {
   baseColor: string;
 }
 
+// Non-matching elements, while a root is highlighted, must stay legible as
+// *that POS/root's own hue* — just quieter — rather than flattening to grey.
+// Grey would make the legend a lie (on-canvas colors no longer match what the
+// legend documents); a desaturated, lower-opacity version of the true hue
+// keeps every bar/node reading as "still that part of speech / root" while
+// clearly signalling "not the current match".
+const DIM_OPACITY = 0.38;
+const DIM_SATURATION_RETAIN = 0.4; // keep 40% saturation => ~60% reduction
+
+function dimTone(color: string, opacity: number = DIM_OPACITY): string {
+  const hsl = d3.hsl(color);
+  hsl.s *= DIM_SATURATION_RETAIN;
+  hsl.opacity = opacity;
+  return hsl.toString();
+}
+
+// ---------------------------------------------------------------------------
+// Level of detail: large surahs render one hairline tick per ayah at rest
+// instead of the full per-word bars/root-dots/connections. Al-Baqarah's 6,116
+// words otherwise produce 10,000+ SVG nodes — slow first paint, sluggish
+// hover/zoom, and an illegible hairball of root-connection curves. Detail
+// mode (today's full per-word rendering, unchanged) still applies to every
+// small surah always, and to ANY surah once the user has deliberately zoomed
+// in past the threshold — so nothing changes for Al-Fatihah-sized surahs and
+// zooming in on a big surah still reaches the exact same word-level view.
+const OVERVIEW_WORD_THRESHOLD = 800;
+const DETAIL_ZOOM_THRESHOLD = 2.2;
+// Staged overview reveal — instead of one cliff at DETAIL_ZOOM_THRESHOLD,
+// each zoom step earns more structure. The resting overview is never empty:
+// it always draws the dominant roots' arcs; stage 1 widens the set, stage 2
+// adds the full (faint) mesh before the detail swap. Highlighted-root arcs
+// show at every stage. Thresholds are RELATIVE to the entry-fit scale (a
+// 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so "one or two zoom
+// steps in" means the same thing in every surah.
+const OVERVIEW_STAGE1_RATIO = 1.6;
+const OVERVIEW_STAGE2_RATIO = 2.6;
+const OVERVIEW_REST_TOP_ROOTS = 8;
+const OVERVIEW_STAGE1_TOP_ROOTS = 20;
+const OVERVIEW_STAGE_ARC_CAP = 400;
+
+// Overview shares detail mode's ring geometry (same innerRadius, same per-
+// ayah angles) so crossing the zoom threshold swaps tick <-> bar IN PLACE —
+// no radial jump, and the content under the cursor stays put. Because that
+// density-scaled radius can be several times the canvas for a 286-ayah
+// surah, overview is framed by a one-shot fit on entry, and tick geometry is
+// expressed as fractions of the ring radius rather than absolute pixels
+// (absolute lengths would be invisible at the fitted-out zoom).
+const OVERVIEW_TICK_MIN_RATIO = 0.03;
+const OVERVIEW_TICK_MAX_RATIO = 0.11;
+const OVERVIEW_TICK_MATCH_BONUS_RATIO = 0.03;
+
+// How many neighboring ayahs to frame (in detail geometry) when a single
+// overview tick is clicked, so the zoomed-in result reads as "a sector of
+// the surah" rather than one isolated bar adrift with no context.
+const OVERVIEW_CLICK_NEIGHBORS = 5;
+
+// Clicking a tick must actually LAND in detail mode: fitBounds derives its
+// scale from the framed box, so the box is clamped small enough that the
+// resulting scale comfortably clears DETAIL_ZOOM_THRESHOLD.
+const OVERVIEW_CLICK_MIN_LANDING_SCALE = 2.45;
+
 export default function RadialSuraMap({
   tokens,
   suraId,
@@ -75,10 +138,14 @@ export default function RadialSuraMap({
 }: RadialSuraMapProps) {
   const t = useTranslations("Visualizations.RadialSura");
   const ts = useTranslations("Visualizations.Shared");
+  const locale = useLocale();
+  // Tracking (letter-spacing) visually tears Arabic cursive joins apart, so
+  // the eyebrow-style treatment of the center annotation is Latin-only.
+  const centerAnnotationSpacing = locale === "ar" ? undefined : "1.5px";
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [isMounted, setIsMounted] = useState(false);
-  const { svgRef, gRef, resetZoom, zoomBy } = useZoom<SVGSVGElement>({
+  const { svgRef, gRef, fitToView, fitBounds, zoomBy } = useZoom<SVGSVGElement>({
     minScale: 0.3,
     maxScale: 6,
     ready: isMounted,
@@ -86,16 +153,20 @@ export default function RadialSuraMap({
   });
   const [showHelp, setShowHelp] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 700 });
+  const [dimensionsReady, setDimensionsReady] = useState(false);
   const [hoveredRoot, setHoveredRoot] = useState<string | null>(null);
   const [hoveredAyah, setHoveredAyah] = useState<number | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<RootConnection | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
-  const [showHints, setShowHints] = useState(true);
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
+  // Captures whether a root was already selected the moment this map first
+  // mounted (e.g. a deep link) — see the initial-focus effect below.
+  const initialHighlightRootRef = useRef<string | null>(highlightRoot ?? null);
+  const hasAppliedInitialFocusRef = useRef(false);
 
 
 
@@ -150,7 +221,6 @@ export default function RadialSuraMap({
     ayahBars,
     rootConnections,
     ayahCount,
-    uniqueRoots,
     rootOccurrences,
     ayahRootCounts,
     ayahRootEntriesByAyah,
@@ -281,9 +351,7 @@ export default function RadialSuraMap({
       if (highlightRoot) {
         barColor = containsRoot
           ? themeColors.accent
-          : theme === "dark"
-            ? "rgba(255,255,255,0.1)"
-            : "rgba(31, 28, 25, 0.16)";
+          : dimTone(getNodeColor(dominantPOS));
       }
 
       bars.push({
@@ -344,6 +412,34 @@ export default function RadialSuraMap({
       maxRootTokenCount,
     };
   }, [tokens, suraId, highlightRoot, themeColors.accent, theme, lexicalColorMode]);
+
+  // Level-of-detail switch: word count decides whether this surah is even a
+  // candidate for overview mode; zoom scale decides whether the user has
+  // asked to see word-level detail anyway. Re-derived from `ayahBars`
+  // (already computed above) rather than threading another value out of the
+  // token-processing memo, to keep that memo's shape untouched.
+  const totalWordCount = useMemo(
+    () => ayahBars.reduce((sum, bar) => sum + bar.tokenCount, 0),
+    [ayahBars]
+  );
+  const isLargeSurah = totalWordCount > OVERVIEW_WORD_THRESHOLD;
+  const isOverviewMode = isLargeSurah && zoomScale < DETAIL_ZOOM_THRESHOLD;
+
+  // `tokens` can still be the tiny hardcoded shell sample (a handful of
+  // tokens kept around so every surah "looks populated" before its real data
+  // arrives) when this surah first mounts — `loadSurahContext` resolves the
+  // complete per-surah token set in one atomic update, not progressively,
+  // but until that resolves, `ayahBars`/`totalWordCount` reflect only the
+  // stub. A large surah whose stub fragment happens to be a couple of short
+  // ayahs reads as "small" (`isLargeSurah` false) purely because its real
+  // bulk hasn't landed yet. Anything below that commits to `isLargeSurah`'s
+  // branch and then locks itself via a ref (the entry-fit and deep-link-
+  // focus effects) must wait for this to be true first, or it stays
+  // permanently framed for a couple of stray tokens instead of the real,
+  // often much larger ring — see the large-surah entry-fit regression this
+  // guards against.
+  const expectedAyahCount = SURAH_NAMES[suraId]?.verses ?? 0;
+  const isSurahDataComplete = expectedAyahCount === 0 || ayahCount >= expectedAyahCount;
 
   const highlightAyahs = useMemo(() => {
     if (!highlightRoot) return [];
@@ -419,6 +515,7 @@ export default function RadialSuraMap({
           width: Math.max(width, 600),
           height: Math.max(height, 600),
         });
+        setDimensionsReady(true);
       }
     });
 
@@ -431,6 +528,7 @@ export default function RadialSuraMap({
         width: Math.max(rect.width, 600),
         height: Math.max(rect.height, 600),
       });
+      setDimensionsReady(true);
     }
 
     return () => observer.disconnect();
@@ -495,16 +593,102 @@ export default function RadialSuraMap({
     [centerX, centerY, innerRadius, ayahCount]
   );
 
+  // Entry-fit baseline for the staged reveal: the first non-default scale
+  // the zoom lands on (the fit-to-ring result). Reset per surah.
+  const overviewBaseScaleRef = useRef<number | null>(null);
+  useEffect(() => {
+    overviewBaseScaleRef.current = null;
+  }, [suraId]);
+  useEffect(() => {
+    if (overviewBaseScaleRef.current === null && zoomScale !== 1) {
+      overviewBaseScaleRef.current = zoomScale;
+    }
+  }, [zoomScale]);
+
+  // Which overview stage the current zoom has earned (0 until the first
+  // threshold; only ever re-evaluates to a different NUMBER on a crossing,
+  // so downstream memos don't churn per zoom tick).
+  const overviewBaseScale = overviewBaseScaleRef.current ?? 1;
+  const overviewStage = isOverviewMode
+    ? zoomScale >= overviewBaseScale * OVERVIEW_STAGE2_RATIO
+      ? 2
+      : zoomScale >= overviewBaseScale * OVERVIEW_STAGE1_RATIO
+        ? 1
+        : 0
+    : 0;
+
+  const overviewTopRoots = useMemo(() => {
+    if (!isOverviewMode) return new Set<string>();
+    const count = overviewStage >= 1 ? OVERVIEW_STAGE1_TOP_ROOTS : OVERVIEW_REST_TOP_ROOTS;
+    return new Set(
+      [...rootTokenTotals.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, count)
+        .map(([root]) => root)
+    );
+  }, [isOverviewMode, rootTokenTotals, overviewStage]);
+
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
-    rootConnections.forEach((conn) => {
+    // Overview mode never draws the FULL curve mesh at rest (that's exactly
+    // what turns a large surah into an illegible hairball) — but it's never
+    // empty either: the dominant roots' arcs always render, stage 1 widens
+    // the set, stage 2 brings everything in faintly.
+    const conns = isOverviewMode
+      ? overviewStage === 2
+        ? rootConnections
+        : rootConnections.filter(
+            (conn) => conn.root === highlightRoot || overviewTopRoots.has(conn.root)
+          )
+      : rootConnections;
+    conns.forEach((conn) => {
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (!map.has(key)) {
         map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
       }
     });
     return map;
-  }, [rootConnections, generateConnectionPath]);
+  }, [rootConnections, generateConnectionPath, isOverviewMode, highlightRoot, overviewStage, overviewTopRoots]);
+
+  // Overview highlight arcs — the highlighted root's ayah-to-ayah web, drawn
+  // even at the zoomed-out level (deduped by ayah pair; plain paths, no
+  // hover/animation, so a 200-arc worst case stays cheap).
+  const overviewHighlightConnections = useMemo(() => {
+    if (!isOverviewMode || !highlightRoot) return [];
+    const seen = new Set<string>();
+    const out: { key: string; d: string }[] = [];
+    rootConnections.forEach((conn) => {
+      if (conn.root !== highlightRoot) return;
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const d = connectionPaths.get(key);
+      if (d) out.push({ key, d });
+    });
+    return out;
+  }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
+
+  // Overview arcs for non-highlight roots (dominant set at rest/stage 1,
+  // everything at stage 2), deduped by ayah pair and capped so the densest
+  // surahs can't flood the overview with thousands of paths.
+  const overviewStageConnections = useMemo(() => {
+    if (!isOverviewMode) return [];
+    const seen = new Set<string>();
+    const out: { key: string; d: string }[] = [];
+    for (const conn of rootConnections) {
+      if (conn.root === highlightRoot) continue;
+      if (overviewStage < 2 && !overviewTopRoots.has(conn.root)) continue;
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = connectionPaths.get(key);
+      if (d) {
+        out.push({ key, d });
+        if (out.length >= OVERVIEW_STAGE_ARC_CAP) break;
+      }
+    }
+    return out;
+  }, [isOverviewMode, overviewStage, rootConnections, highlightRoot, overviewTopRoots, connectionPaths]);
 
   const barsWithGeometry = useMemo(() => {
     return ayahBars.map((bar) => {
@@ -555,6 +739,233 @@ export default function RadialSuraMap({
     });
   }, [ayahBars, centerX, centerY, innerRadius, ayahRootEntriesByAyah, ayahRootMax, compactLayout, getRootBaseColor]);
 
+  const barsGeometryByAyah = useMemo(() => {
+    const map = new Map<number, (typeof barsWithGeometry)[number]>();
+    barsWithGeometry.forEach((entry) => map.set(entry.bar.ayah, entry));
+    return map;
+  }, [barsWithGeometry]);
+
+  // Overview-mode geometry: one short radial tick per ayah, anchored at the
+  // exact same (startX, startY, angleRad) as that ayah's detail-mode bar so
+  // the ring's size/position never jumps when a mode swap is triggered by
+  // crossing the zoom threshold — only the per-ayah marker changes. Tick
+  // length encodes word count; color reuses `bar.color`, which already
+  // resolves POS / dominant-root / highlighted-root-accent exactly as detail
+  // mode does, so the two modes can never disagree about what a color means.
+  const overviewTicks = useMemo(() => {
+    if (barsWithGeometry.length === 0) return [];
+    const maxTokensInSurah = Math.max(1, ...ayahBars.map((bar) => bar.tokenCount));
+    const tickMin = innerRadius * OVERVIEW_TICK_MIN_RATIO;
+    const tickMax = innerRadius * OVERVIEW_TICK_MAX_RATIO;
+    const matchBonus = innerRadius * OVERVIEW_TICK_MATCH_BONUS_RATIO;
+    // Match ticks scale with how OFTEN the highlighted root occurs in that
+    // ayah (not a flat bonus) so overview already answers "where is it
+    // dense?" without zooming.
+    let maxMatchCount = 1;
+    if (highlightRoot) {
+      for (const ayah of highlightAyahSet) {
+        maxMatchCount = Math.max(maxMatchCount, ayahRootCounts.get(ayah)?.get(highlightRoot) ?? 0);
+      }
+    }
+    return barsWithGeometry.map(({ bar, angleRad, startX, startY }) => {
+      const ratio = bar.tokenCount / maxTokensInSurah;
+      const isMatch = highlightAyahSet.has(bar.ayah);
+      const matchCount = isMatch && highlightRoot
+        ? ayahRootCounts.get(bar.ayah)?.get(highlightRoot) ?? 1
+        : 0;
+      const matchScale = isMatch ? 0.45 + 0.55 * (matchCount / maxMatchCount) : 0;
+      const length = tickMin + ratio * (tickMax - tickMin) + matchBonus * matchScale;
+      return {
+        ayah: bar.ayah,
+        tokenCount: bar.tokenCount,
+        angleRad,
+        startX,
+        startY,
+        endX: startX + Math.cos(angleRad) * length,
+        endY: startY + Math.sin(angleRad) * length,
+        color: bar.color,
+        isMatch,
+      };
+    });
+  }, [barsWithGeometry, ayahBars, highlightAyahSet, innerRadius, highlightRoot, ayahRootCounts]);
+
+  const overviewTicksByAyah = useMemo(() => {
+    const map = new Map<number, (typeof overviewTicks)[number]>();
+    overviewTicks.forEach((tick) => map.set(tick.ayah, tick));
+    return map;
+  }, [overviewTicks]);
+
+  // Deep-linked entry can mount with `highlightRoot` already set — hydrated
+  // from the URL before this surah's tokens (and their root/morphology data,
+  // which streams in *after* the base token structure) have fully landed.
+  // The ring's geometry is correct as soon as real positions exist, but the
+  // camera is left at its default transform; when a highlighted root only
+  // touches one or two ayahs (as in a small surah), that can leave the one
+  // thing worth seeing pinned near — or past — the viewport edge, while
+  // every other ayah is dimmed to near invisibility.
+  //
+  // Once the highlighted root actually resolves to real ayah positions, snap
+  // the camera to frame the full ring plus whichever ayahs contain it — but
+  // only once, so it never fights the Focus button or manual zoom/pan
+  // afterwards, and normal entry (no initial highlight) never moves the
+  // camera at all. Until the root resolves to at least one ayah, keep
+  // retrying on each data update rather than committing early — root data
+  // can still be streaming in even after the ayah bars themselves exist.
+  useEffect(() => {
+    if (hasAppliedInitialFocusRef.current) return;
+    if (!dimensionsReady || !isMounted) return;
+
+    const initialRoot = initialHighlightRootRef.current;
+    if (!initialRoot) {
+      hasAppliedInitialFocusRef.current = true;
+      return;
+    }
+
+    const currentRoot = highlightRoot ?? null;
+    if (currentRoot !== initialRoot) {
+      // Selection already moved on from the deep-linked root — abandon the
+      // one-time correction rather than act on stale intent.
+      hasAppliedInitialFocusRef.current = true;
+      return;
+    }
+
+    if (barsWithGeometry.length === 0) return; // this surah's tokens haven't landed yet
+    if (!isSurahDataComplete) return; // stub/shell data — isLargeSurah below isn't trustworthy yet
+
+    const targetAyahs = highlightAyahSet.size > 0 ? highlightAyahSet : null;
+    if (!targetAyahs) return; // root hasn't resolved to an ayah yet — keep waiting, don't mark handled
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    // Large surahs sit in overview mode at this point (zoomScale is still at
+    // its initial value), so frame the short TICK geometry that's actually
+    // on screen — the full detail-bar extents (up to hundreds of px longer)
+    // would fit a much looser, emptier shot around ticks that aren't drawn.
+    // Small surahs keep the exact original bar+root-node bounds untouched.
+    if (isLargeSurah) {
+      for (const ayah of targetAyahs) {
+        const tick = overviewTicksByAyah.get(ayah);
+        if (!tick) continue;
+        minX = Math.min(minX, tick.startX, tick.endX);
+        maxX = Math.max(maxX, tick.startX, tick.endX);
+        minY = Math.min(minY, tick.startY, tick.endY);
+        maxY = Math.max(maxY, tick.startY, tick.endY);
+      }
+    } else {
+      for (const entry of barsWithGeometry) {
+        if (!targetAyahs.has(entry.bar.ayah)) continue;
+        minX = Math.min(minX, entry.startX, entry.endX);
+        maxX = Math.max(maxX, entry.startX, entry.endX);
+        minY = Math.min(minY, entry.startY, entry.endY);
+        maxY = Math.max(maxY, entry.startY, entry.endY);
+        for (const node of entry.rootNodes) {
+          minX = Math.min(minX, node.x - node.r);
+          maxX = Math.max(maxX, node.x + node.r);
+          minY = Math.min(minY, node.y - node.r);
+          maxY = Math.max(maxY, node.y + node.r);
+        }
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return;
+    }
+
+    // Keep the whole orbit ring in frame too, so this reads as "the ring,
+    // with the match highlighted" rather than an isolated fragment adrift
+    // with no context.
+    minX = Math.min(minX, centerX - innerRadius);
+    minY = Math.min(minY, centerY - innerRadius);
+    maxX = Math.max(maxX, centerX + innerRadius);
+    maxY = Math.max(maxY, centerY + innerRadius);
+
+    hasAppliedInitialFocusRef.current = true;
+    fitBounds(
+      { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) },
+      // More breathing room than the manual Focus button's default (0.88):
+      // this fires automatically, with no user-driven feedback loop to
+      // correct it, and the canvas's own bottom edge sits partly behind the
+      // app's fixed viz toolbar/footer chrome — a tighter fit can still land
+      // the highlighted node right underneath it.
+      { padding: 0.6, duration: 0 }
+    );
+  }, [dimensionsReady, isMounted, barsWithGeometry, highlightAyahSet, highlightRoot, centerX, centerY, innerRadius, fitBounds, isLargeSurah, isSurahDataComplete, overviewTicksByAyah]);
+
+  // Every surah needs a one-shot "frame the ring" on entry, because the
+  // default camera (scale 1, translate 0,0 — see useZoom's initial
+  // transform) has no idea how big this surah's geometry actually is:
+  // - Large surahs' density-scaled innerRadius intentionally overflows the
+  //   canvas (detail mode is a zoom-map), so at the default transform the
+  //   whole tick ring sits off-screen and overview mode would show nothing
+  //   but the center label.
+  // - Every other surah renders full detail geometry (bars + outer
+  //   ayah-number labels) from the start, and that combined extent commonly
+  //   exceeds the canvas too — e.g. even Al-Fatihah's ring, at scale 1,
+  //   overflowed on every edge (cropped on all sides) before this ran for
+  //   small surahs too.
+  // Runs once per surah, as soon as geometry exists — i.e. before the user
+  // could meaningfully interact. Declared AFTER the deep-link focus effect
+  // above so that when a deep-linked root has already resolved and framed
+  // its own (tighter, ring-inclusive) shot in the same commit, this effect
+  // sees that and stands down instead of overriding it.
+  const entryFitSuraRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!dimensionsReady || !isMounted) return;
+    if (entryFitSuraRef.current === suraId) return;
+    if (barsWithGeometry.length === 0) return; // tokens haven't landed yet
+
+    if (initialHighlightRootRef.current && hasAppliedInitialFocusRef.current) {
+      // The deep-link fit already framed ring + matching ticks; keep it.
+      entryFitSuraRef.current = suraId;
+      return;
+    }
+
+    // Stub/shell data (see isSurahDataComplete above) makes `isLargeSurah`
+    // unreliable — wait for this surah's real token set before committing to
+    // (and locking, via entryFitSuraRef) a branch, or a large surah whose
+    // shell fragment reads as tiny gets permanently framed for that tiny
+    // fragment once its real ~thousands-of-words geometry lands.
+    if (!isSurahDataComplete) return;
+
+    entryFitSuraRef.current = suraId;
+
+    if (isLargeSurah) {
+      // Unchanged from before small-surah support: overview mode's short
+      // ticks are the only thing outside the ring at this zoom, so frame
+      // ring + max tick length exactly as before.
+      const tickExtent =
+        innerRadius * (1 + OVERVIEW_TICK_MAX_RATIO + OVERVIEW_TICK_MATCH_BONUS_RATIO);
+      fitBounds(
+        {
+          x: centerX - tickExtent,
+          y: centerY - tickExtent,
+          width: tickExtent * 2,
+          height: tickExtent * 2,
+        },
+        { padding: 0.85, duration: 0 }
+      );
+      return;
+    }
+
+    // Detail-mode geometry (every non-large surah, always): frame ring +
+    // longest bar + the outer ayah-number label band — the same radial
+    // offset the label render uses below (innerRadius + barHeight + 14/18) —
+    // with a tighter ~10% margin, so the whole ring reliably lands inside
+    // the canvas instead of at the previous default scale-1 transform.
+    const labelBand = compactLayout ? 14 : 18;
+    const detailExtent = innerRadius + maxBarHeight + labelBand;
+    fitBounds(
+      {
+        x: centerX - detailExtent,
+        y: centerY - detailExtent,
+        width: detailExtent * 2,
+        height: detailExtent * 2,
+      },
+      { padding: 0.9, duration: 0 }
+    );
+  }, [dimensionsReady, isMounted, isLargeSurah, isSurahDataComplete, suraId, barsWithGeometry, innerRadius, centerX, centerY, fitBounds, maxBarHeight, compactLayout]);
+
   const selectedAyahData = useMemo(
     () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),
     [selectedAyah, ayahBars]
@@ -565,13 +976,15 @@ export default function RadialSuraMap({
   }, [selectedAyah, ayahRootEntriesByAyah]);
 
   const renderedConnections = useMemo(() => {
-    const selectedRoot = selectedConnection?.root ?? highlightRoot ?? null;
+    // Keep every root's connections in view even while a root is highlighted —
+    // dimming (not hiding) the non-matching ones so the surah's overall
+    // connective structure stays legible instead of vanishing behind a single
+    // isolated arc. See the per-connection opacity logic in the render loop.
     return rootConnections.filter((conn) => {
-      if (selectedRoot && conn.root !== selectedRoot) return false;
       if (selectedAyah && conn.sourceAyah !== selectedAyah && conn.targetAyah !== selectedAyah) return false;
       return true;
     });
-  }, [rootConnections, selectedConnection, highlightRoot, selectedAyah]);
+  }, [rootConnections, selectedAyah]);
 
   const barsForRender = useMemo(() => {
     return barsWithGeometry.map((entry) => {
@@ -607,6 +1020,81 @@ export default function RadialSuraMap({
       ayahTokenIdByAyah.get(ayah);
     if (tokenId) onTokenFocus(tokenId);
   }, [ayahTokenIdByAyahRoot, ayahTokenIdByAyah, onTokenFocus]);
+
+  // Clicking an overview tick both selects that ayah (same as clicking a
+  // detail-mode bar) and zooms into its neighborhood in DETAIL geometry —
+  // reusing the same fitBounds plumbing the deep-link one-shot focus uses —
+  // so the resulting scale reliably clears DETAIL_ZOOM_THRESHOLD and the view
+  // lands on a coherent sector (a handful of neighboring ayahs), not one
+  // isolated bar with nothing around it.
+  const handleOverviewTickSelect = useCallback((ayah: number) => {
+    handleAyahSelect(ayah);
+    if (ayahCount <= 0) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let offset = -OVERVIEW_CLICK_NEIGHBORS; offset <= OVERVIEW_CLICK_NEIGHBORS; offset++) {
+      const neighborAyah = (((ayah - 1 + offset) % ayahCount) + ayahCount) % ayahCount + 1;
+      const entry = barsGeometryByAyah.get(neighborAyah);
+      if (!entry) continue;
+      minX = Math.min(minX, entry.startX, entry.endX);
+      maxX = Math.max(maxX, entry.startX, entry.endX);
+      minY = Math.min(minY, entry.startY, entry.endY);
+      maxY = Math.max(maxY, entry.startY, entry.endY);
+      for (const node of entry.rootNodes) {
+        minX = Math.min(minX, node.x - node.r);
+        maxX = Math.max(maxX, node.x + node.r);
+        minY = Math.min(minY, node.y - node.r);
+        maxY = Math.max(maxY, node.y + node.r);
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return;
+
+    // fitBounds picks scale = padding * min(vw/boxW, vh/boxH); clamp the box
+    // (shrinking symmetrically around the clicked sector's center) so the
+    // landing scale can't fall short of the detail threshold and strand the
+    // user in overview after an explicit "zoom into this ayah" gesture. The
+    // longest bars may crop at the landing zoom; one wheel notch reveals them.
+    const clickPadding = 0.7;
+    let boxW = Math.max(1, maxX - minX);
+    let boxH = Math.max(1, maxY - minY);
+    const maxW = (clickPadding * dimensions.width) / OVERVIEW_CLICK_MIN_LANDING_SCALE;
+    const maxH = (clickPadding * dimensions.height) / OVERVIEW_CLICK_MIN_LANDING_SCALE;
+    if (boxW > maxW) {
+      const cx = (minX + maxX) / 2;
+      minX = cx - maxW / 2;
+      boxW = maxW;
+    }
+    if (boxH > maxH) {
+      const cy = (minY + maxY) / 2;
+      minY = cy - maxH / 2;
+      boxH = maxH;
+    }
+
+    fitBounds(
+      { x: minX, y: minY, width: boxW, height: boxH },
+      { padding: clickPadding, duration: motionSafeDuration(750) }
+    );
+  }, [ayahCount, barsGeometryByAyah, fitBounds, handleAyahSelect, dimensions.width, dimensions.height]);
+
+  // Overview hover/click hit-testing happens on ONE invisible annulus over
+  // the tick band (rather than 286 separate fattened hit targets): the
+  // pointer's angle around the ring identifies the ayah directly, and
+  // `d3.pointer` inverts the live zoom transform for us. Cheaper to render,
+  // and a far more forgiving target than 1-2px hairlines.
+  const lastPointerAyahRef = useRef<number | null>(null);
+  const ayahFromPointerEvent = useCallback((event: MouseEvent<SVGCircleElement>): number | null => {
+    const g = gRef.current;
+    if (!g || ayahCount <= 0) return null;
+    const [x, y] = d3.pointer(event.nativeEvent, g);
+    const angle = Math.atan2(y - centerY, x - centerX); // ayah 1 sits at -PI/2
+    const normalized = (angle + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+    const index = Math.round(normalized / ((Math.PI * 2) / ayahCount)) % ayahCount;
+    const ayah = index + 1;
+    return overviewTicksByAyah.has(ayah) ? ayah : null;
+  }, [gRef, ayahCount, centerX, centerY, overviewTicksByAyah]);
 
   const handleBarHover = useCallback((ayah: number | null) => {
     setHoveredAyah((prev) => (prev === ayah ? prev : ayah));
@@ -676,57 +1164,13 @@ export default function RadialSuraMap({
 
   return (
     <section className="panel" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
-      <div className="panel-head">
-        <div>
-          <p className="eyebrow">{ts("advancedViz")}</p>
-          <h2>{t("structuralMap")}</h2>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <p className="arabic-text arabic-large" style={{ margin: 0 }}>
-            {displayArabicName}
-          </p>
-          <p className="ayah-meta">{suraName} · {ayahCount} {ts("ayah")} · {uniqueRoots.length} {ts("uniqueRoots")}</p>
-        </div>
-      </div>
-
-      <div className="viz-controls">
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button
-            className="hint-toggle"
-            onClick={() => setShowHints((prev) => !prev)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              background: "color-mix(in srgb, var(--line), transparent 22%)",
-              border: "1px solid var(--line)",
-              color: "var(--ink-secondary)",
-              fontSize: "0.75rem",
-              cursor: "pointer",
-            }}
-          >
-            {showHints ? ts("hideHelp") : ts("showHelp")}
-          </button>
-          {showHints && (
-            <span style={{ color: "var(--ink-muted)", fontSize: "0.85rem" }}>
-              {t("hints")}
-              {highlightRoot && ` ${ts("filtering")}: ${highlightRoot}`}
-            </span>
-          )}
-        </div>
-        {highlightRoot && highlightAyahs.length > 0 && (
-          <div style={{ marginTop: 8, color: "var(--ink-muted)", fontSize: "0.78rem" }}>
-            {ts("linkedAyahs")}: {highlightAyahs.join(", ")}
-          </div>
-        )}
-      </div>
-
       {isMounted && document.getElementById('viz-sidebar-portal') && createPortal(
         <>
 
 
           <div className={`viz-left-stack ${!isLeftSidebarOpen ? 'collapsed' : ''}`}>
             {/* Zoom controls */}
-            <div className="viz-left-panel">
+            <div className="viz-left-panel viz-zoom-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="eyebrow" style={{ fontSize: '0.7em' }}>{ts('zoom')}</span>
                 <span style={{ fontSize: '0.72em', opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}>{Math.round(zoomScale * 100)}%</span>
@@ -748,8 +1192,8 @@ export default function RadialSuraMap({
                 >
                   &minus;
                 </button>
-                <button type="button" className="viz-zoom-reset-btn" onClick={resetZoom}>
-                  {ts('reset')}
+                <button type="button" className="viz-zoom-reset-btn" onClick={() => fitToView()}>
+                  {ts('focus')}
                 </button>
               </div>
               <span style={{ fontSize: '0.65em', opacity: 0.45, marginTop: 4, display: 'block' }}>
@@ -757,19 +1201,30 @@ export default function RadialSuraMap({
               </span>
             </div>
 
-            {highlightRoot && (
+            {/* Overview-mode ayah hover preview: deliberately lighter than the
+                click-driven selected-ayah panel below (no async full-text
+                fetch) so sweeping the pointer across hundreds of ticks stays
+                cheap instead of reintroducing the hover jank this LOD change
+                is meant to fix. Not animated for the same reason. */}
+            {isOverviewMode && hoveredAyah && (
               <div className="viz-left-panel">
-                <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
-                <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
-                {highlightAyahs.length > 0 && (
+                <div className="viz-tooltip-title">{ts("ayahCaps")} {hoveredAyah}</div>
+                <div className="viz-tooltip-subtitle">{suraName}:{hoveredAyah}</div>
+                <div className="viz-tooltip-row">
+                  <span className="viz-tooltip-label">{ts("occurrences")}</span>
+                  <span className="viz-tooltip-value">{overviewTicksByAyah.get(hoveredAyah)?.tokenCount ?? 0}</span>
+                </div>
+                {highlightRoot && (
                   <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">{ts("linkedAyahs")}</span>
-                    <span className="viz-tooltip-value">{highlightAyahs.join(", ")}</span>
+                    <span className="viz-tooltip-label">{t("matchesLabel")}</span>
+                    <span className="viz-tooltip-value">{ayahRootCounts.get(hoveredAyah)?.get(highlightRoot) ?? 0}</span>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Selected Ayah sits ABOVE Selected Root: the ayah is the more
+                specific thing the user just clicked, so it leads the stack. */}
             <AnimatePresence>
               {selectedAyahData && (
                 <motion.div
@@ -777,6 +1232,7 @@ export default function RadialSuraMap({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: motionSafeDuration(200) / 1000 }}
                 >
                   <div className="viz-tooltip-title">{ts("ayahCaps")} {selectedAyah}</div>
                   <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
@@ -864,6 +1320,31 @@ export default function RadialSuraMap({
               )}
             </AnimatePresence>
 
+            {highlightRoot && (
+              <div className="viz-left-panel">
+                <div className="viz-tooltip-title">{ts("selectedRoot")}</div>
+                <div className="viz-tooltip-subtitle arabic-text">{highlightRoot}</div>
+                {highlightAyahs.length > 0 && (
+                  <div className="viz-tooltip-row viz-tooltip-row--stacked">
+                    <span className="viz-tooltip-label">
+                      {ts("occursInAyahs", { count: highlightAyahs.length })}
+                    </span>
+                    <div className="viz-ayah-chip-row">
+                      {highlightAyahs.map((ayahNum) => (
+                        <span
+                          key={ayahNum}
+                          className="viz-ayah-chip"
+                          aria-label={`${ts("surah")} ${suraId}, ${ts("ayah")} ${ayahNum}`}
+                        >
+                          {suraId}:{ayahNum}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <AnimatePresence>
               {(selectedConnection || hoveredConnection) && (
                 <motion.div
@@ -871,6 +1352,7 @@ export default function RadialSuraMap({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: motionSafeDuration(200) / 1000 }}
                 >
                   <div className="viz-tooltip-title">{t("rootConnection")}</div>
                   <div className="viz-tooltip-subtitle arabic-text">
@@ -957,19 +1439,72 @@ export default function RadialSuraMap({
         document.getElementById('viz-sidebar-portal')!
       )}
 
-      <div className="viz-controls floating-controls">
-        <div className="ayah-meta-wrapper">
-          <button
-            className="kg-reset-btn"
-            onClick={resetZoom}
-            title="Focus View"
+      {/* B) Floating "selected" pill — V2 Observatory design */}
+      {(() => {
+        const pillArabic: string | null = highlightRoot ?? fullAyahText ?? null;
+        const isVisible = pillArabic !== null && (!!highlightRoot || !!selectedAyah);
+        if (!isVisible || !pillArabic) return null;
+        return (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "46%",
+              left: "60%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 11px",
+              borderRadius: 999,
+              background: "rgba(13,13,17,0.9)",
+              border: "1px solid rgba(251,234,210,0.4)",
+              boxShadow: "0 0 18px rgba(251,234,210,0.25)",
+              pointerEvents: "none",
+              zIndex: 20,
+              maxWidth: "38%",
+              overflow: "hidden",
+            }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-            </svg>
-          </button>
-        </div>
-      </div>
+            <span
+              lang="ar"
+              dir="rtl"
+              style={{
+                fontFamily: "Amiri, serif",
+                fontSize: 18,
+                color: "#ECE4D8",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "22ch",
+              }}
+            >
+              {pillArabic}
+            </span>
+            <span
+              aria-hidden
+              style={{
+                width: 1,
+                height: 14,
+                background: "rgba(237,225,209,0.15)",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontWeight: 500,
+                fontSize: 11,
+                color: "#f0b074",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              selected
+            </span>
+          </div>
+        );
+      })()}
 
       <div ref={containerRef} className="viz-container" style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
         {!isMounted ? null : (
@@ -1019,6 +1554,17 @@ export default function RadialSuraMap({
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
+
+                {/* V2 selection ring glow — rgba(251,234,210,0.6) */}
+                <filter id="selectionGlow" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur" in="SourceGraphic" />
+                  <feFlood floodColor="rgba(251,234,210,0.6)" result="glowColor" />
+                  <feComposite in="glowColor" in2="blur" operator="in" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
               </defs>
               <VizExplainerDialog
                 isOpen={showHelp}
@@ -1058,8 +1604,19 @@ export default function RadialSuraMap({
                 strokeWidth={3}
               />
 
-              {/* Center Title */}
-              <g className="center-title" transform={`translate(${centerX}, ${centerY})`}>
+              {/* Center Title. In overview mode the camera sits fitted OUT
+                  (scale ~0.3 for a 286-ayah ring), which would shrink this
+                  label to a ~10px smudge — counter-scale it by the inverse
+                  zoom so it keeps its familiar on-screen size. zoomScale only
+                  updates on zoom END, so this is a discrete snap, not a new
+                  continuous animation. Detail mode (and every small surah,
+                  which never enters overview) renders exactly as before. */}
+              <g
+                className="center-title"
+                transform={`translate(${centerX}, ${centerY})${
+                  isOverviewMode ? ` scale(${Math.min(3.4, 1 / Math.max(0.15, zoomScale)).toFixed(4)})` : ""
+                }`}
+              >
                 <circle r={80} fill="url(#centerGlow)" />
                 <text
                   y={-10}
@@ -1088,9 +1645,39 @@ export default function RadialSuraMap({
                 >
                   {ayahCount} {ts("ayah")}
                 </text>
+                {highlightRoot && highlightAyahs.length > 0 && (
+                  <text
+                    y={64}
+                    textAnchor="middle"
+                    fill={themeColors.textColors.muted}
+                    fontSize="11"
+                    fontWeight={600}
+                    letterSpacing={centerAnnotationSpacing}
+                    style={{ textTransform: "uppercase" }}
+                  >
+                    {t("matchSummary", {
+                      matchCount: rootTokenTotals.get(highlightRoot) ?? highlightAyahs.length,
+                      matchAyahCount: highlightAyahs.length,
+                    })}
+                  </text>
+                )}
+                {isOverviewMode && (
+                  <text
+                    y={highlightRoot && highlightAyahs.length > 0 ? 84 : 64}
+                    textAnchor="middle"
+                    fill={themeColors.textColors.muted}
+                    fontSize="10.5"
+                  >
+                    {t("overviewLine", { count: ayahCount })}
+                  </text>
+                )}
               </g>
 
-              {/* Root connections (flowing curves inside the circle) */}
+              {/* Root connections (flowing curves inside the circle) — this
+                  curve mesh is exactly what turns a large surah into an
+                  illegible hairball at scale, so overview mode skips it
+                  entirely rather than just thinning it out. */}
+              {!isOverviewMode && (
               <g className="connections">
                 {renderedConnections.map((conn, idx) => {
                   const isActiveAyah =
@@ -1099,6 +1686,11 @@ export default function RadialSuraMap({
                   const isHighlighted = highlightRoot
                     ? (conn.root === highlightRoot || hoveredRoot === conn.root)
                     : (hoveredRoot === conn.root || isActiveAyah);
+                  // With a root highlighted, other roots' connections dim further
+                  // (0.2) than the default unfiltered view (0.3) — the highlighted
+                  // root's own arcs read as the clear signal, while the rest of the
+                  // surah's root web stays faintly present instead of disappearing.
+                  const dimmedOpacity = highlightRoot ? 0.2 : 0.3;
                   const pathKey = `${conn.sourceAyah}-${conn.targetAyah}`;
                   const pathD = connectionPaths.get(pathKey) ?? "";
 
@@ -1120,8 +1712,8 @@ export default function RadialSuraMap({
                           fill="none"
                           pointerEvents="none"
                           initial={{ pathLength: 0, opacity: 0 }}
-                          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : 0.3 }}
-                          transition={{ duration: 1.1, delay: idx * 0.012 }}
+                          animate={{ pathLength: 1, opacity: isHighlighted ? 1 : dimmedOpacity }}
+                          transition={{ duration: motionSafeDuration(1100) / 1000, delay: motionSafeStagger(idx, 12) / 1000 }}
                           filter={isHighlighted ? "url(#glow)" : undefined}
                           onMouseEnter={() => handleConnectionHover(conn)}
                           onMouseLeave={() => handleConnectionHover(null)}
@@ -1132,7 +1724,7 @@ export default function RadialSuraMap({
                           className={`connection ${isHighlighted ? "highlighted" : ""}`}
                           stroke={strokeColor}
                           strokeWidth={isHighlighted ? 2.5 : 1.5}
-                          style={{ opacity: isHighlighted ? 1 : 0.3 }}
+                          style={{ opacity: isHighlighted ? 1 : dimmedOpacity }}
                           fill="none"
                           pointerEvents="none"
                           filter={isHighlighted ? "url(#glow)" : undefined}
@@ -1156,8 +1748,151 @@ export default function RadialSuraMap({
                   );
                 })}
               </g>
+              )}
 
-              {/* Ayah bars radiating outward */}
+              {/* Ayah bars radiating outward (detail mode), or one hairline
+                  tick per ayah (overview mode) — see isOverviewMode above. */}
+              {/* Staged overview mesh: dominant roots' arcs at stage 1, the
+                  full faint mesh at stage 2 — every zoom step earns more
+                  structure instead of one all-or-nothing cliff at the
+                  detail threshold. */}
+              {isOverviewMode && overviewStageConnections.length > 0 && (
+                <g className="overview-connections overview-stage" pointerEvents="none">
+                  {overviewStageConnections.map(({ key, d }) => (
+                    <path
+                      key={key}
+                      d={d}
+                      className="connection"
+                      stroke="url(#connectionGrad)"
+                      strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
+                      fill="none"
+                      style={{ opacity: overviewStage === 2 ? 0.16 : overviewStage === 1 ? 0.24 : 0.2 }}
+                    />
+                  ))}
+                </g>
+              )}
+
+              {/* Overview highlight web: the searched root's arcs stay
+                  visible at the zoomed-out level — this is the one signal
+                  the overview was hiding entirely. */}
+              {isOverviewMode && overviewHighlightConnections.length > 0 && (
+                <g className="overview-connections" pointerEvents="none">
+                  {overviewHighlightConnections.map(({ key, d }) => (
+                    <path
+                      key={key}
+                      d={d}
+                      className="connection"
+                      stroke={themeColors.accent}
+                      strokeWidth={Math.max(1, innerRadius * 0.002)}
+                      fill="none"
+                      style={{ opacity: 0.45 }}
+                    />
+                  ))}
+                </g>
+              )}
+
+              {isOverviewMode ? (
+                <g className="ayah-ticks">
+                  {(() => {
+                    // Stroke widths scale with the ring like tick lengths do,
+                    // landing at ~1-2 screen px at the fitted-out overview
+                    // zoom — the mood-board hairline. Hover/emphasis states
+                    // widen relative to that same base.
+                    const tickStrokeBase = Math.max(1.6, innerRadius * 0.0035);
+                    const bandOuter = innerRadius * (OVERVIEW_TICK_MAX_RATIO + OVERVIEW_TICK_MATCH_BONUS_RATIO);
+                    return (
+                      <>
+                        {overviewTicks.map((tick) => {
+                          const isSelected = selectedAyah === tick.ayah;
+                          const isHovered = hoveredAyah === tick.ayah;
+                          return (
+                            <line
+                              key={tick.ayah}
+                              x1={tick.startX}
+                              y1={tick.startY}
+                              x2={tick.endX}
+                              y2={tick.endY}
+                              stroke={isSelected ? themeColors.accent : tick.color}
+                              strokeWidth={
+                                isSelected || isHovered
+                                  ? tickStrokeBase * 2
+                                  : tick.isMatch
+                                    ? tickStrokeBase * 1.6
+                                    : tickStrokeBase
+                              }
+                              strokeLinecap="round"
+                              filter={isSelected ? "url(#glow)" : undefined}
+                              pointerEvents="none"
+                            />
+                          );
+                        })}
+                        {/* Ayah-number milestones just inside the ring so the
+                            overview carries scale/orientation (which part of
+                            the surah am I looking at?) without any zoom. */}
+                        {(() => {
+                          const step = ayahCount > 200 ? 25 : ayahCount > 80 ? 20 : 10;
+                          const milestones: number[] = [1];
+                          for (let a = step; a <= ayahCount; a += step) milestones.push(a);
+                          const labelRadius = innerRadius * 0.94;
+                          const fontSize = Math.max(9, innerRadius * 0.02);
+                          return milestones.map((ayah) => {
+                            const tick = overviewTicksByAyah.get(ayah);
+                            if (!tick) return null;
+                            return (
+                              <text
+                                key={`ayah-label-${ayah}`}
+                                x={centerX + Math.cos(tick.angleRad) * labelRadius}
+                                y={centerY + Math.sin(tick.angleRad) * labelRadius}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fill={themeColors.textColors.muted}
+                                fontSize={fontSize}
+                                pointerEvents="none"
+                                style={{ opacity: 0.75, fontVariantNumeric: "tabular-nums" }}
+                              >
+                                {ayah}
+                              </text>
+                            );
+                          });
+                        })()}
+                        {/* Single invisible hit band over the whole tick ring
+                            (see ayahFromPointerEvent). pointerdown is NOT
+                            stopped, so d3-zoom drag-panning still starts here. */}
+                        <circle
+                          className="ayah-tick-hit"
+                          cx={centerX}
+                          cy={centerY}
+                          r={innerRadius + bandOuter / 2}
+                          fill="none"
+                          stroke="transparent"
+                          strokeWidth={bandOuter + innerRadius * 0.08}
+                          pointerEvents="stroke"
+                          style={{ cursor: "pointer" }}
+                          onPointerMove={(event) => {
+                            const ayah = ayahFromPointerEvent(event);
+                            if (lastPointerAyahRef.current !== ayah) {
+                              lastPointerAyahRef.current = ayah;
+                              handleBarHover(ayah);
+                            }
+                          }}
+                          onPointerLeave={() => {
+                            lastPointerAyahRef.current = null;
+                            handleBarHover(null);
+                          }}
+                          onClick={(event) => {
+                            const ayah = ayahFromPointerEvent(event);
+                            if (!ayah) return;
+                            event.stopPropagation();
+                            setSelectedConnection(null);
+                            setHoveredConnection(null);
+                            handleOverviewTickSelect(ayah);
+                          }}
+                        />
+                      </>
+                    );
+                  })()}
+                </g>
+              ) : (
               <g className="ayah-bars">
                 {barsForRender.map(({ bar, angleRad, startX, startY, endX, endY, visibleRootNodes, isFocusedAyah }, barIndex) => {
                   const isSelected = selectedAyah === bar.ayah;
@@ -1189,9 +1924,7 @@ export default function RadialSuraMap({
                         const isRootHighlighted = hoveredRoot === node.root || highlightRoot === node.root;
                         const isDimmed = !!highlightRoot && node.root !== highlightRoot;
                         const displayRadius = isRootHighlighted ? node.r + 0.7 : node.r;
-                        const tintColor = isDimmed
-                          ? (theme === "dark" ? "rgba(255,255,255,0.14)" : "rgba(31, 28, 25, 0.2)")
-                          : node.baseColor;
+                        const tintColor = isDimmed ? dimTone(node.baseColor, 1) : node.baseColor;
                         const highlightedRootColor = theme === "dark" ? "#FFD166" : "#E27B13";
 
                         const shouldShowRootLabel =
@@ -1243,13 +1976,26 @@ export default function RadialSuraMap({
                               fill="transparent"
                               stroke={isRootHighlighted ? highlightedRootColor : tintColor}
                               strokeWidth={isRootHighlighted ? 2.5 : 1.8}
-                              opacity={isDimmed ? 0.35 : 0.9}
+                              opacity={isDimmed ? 0.38 : 0.9}
                               filter={isRootHighlighted ? "url(#glow)" : undefined}
                               style={{ cursor: "pointer" }}
                               onMouseEnter={() => handleRootNodeHover(bar.ayah, node.root)}
                               onMouseLeave={() => handleRootNodeHover(null, null)}
                               onClick={(event) => handleRootNodeSelect(event, bar.ayah, node.root)}
                             />
+                            {isRootHighlighted && (
+                              <circle
+                                cx={circleX}
+                                cy={circleY}
+                                r={displayRadius + 6}
+                                fill="none"
+                                stroke={SELECTION_RING}
+                                strokeWidth={1.6}
+                                opacity={0.95}
+                                filter="url(#selectionGlow)"
+                                pointerEvents="none"
+                              />
+                            )}
                             {shouldShowRootLabel && (
                               <text
                                 x={selectedLabelX}
@@ -1259,9 +2005,11 @@ export default function RadialSuraMap({
                                 fill={
                                   isRootHighlighted
                                     ? highlightedRootColor
-                                    : theme === "dark"
-                                      ? "rgba(255,255,255,0.78)"
-                                      : "rgba(31, 28, 25, 0.78)"
+                                    : isDimmed
+                                      ? (theme === "dark" ? "rgba(255,255,255,0.32)" : "rgba(31, 28, 25, 0.32)")
+                                      : theme === "dark"
+                                        ? "rgba(255,255,255,0.78)"
+                                        : "rgba(31, 28, 25, 0.78)"
                                 }
                                 fontSize={rootLabelFontSize}
                                 fontWeight={isRootHighlighted ? 600 : 500}
@@ -1284,6 +2032,20 @@ export default function RadialSuraMap({
                         fill={isSelected ? themeColors.accent : bar.color}
                         filter={isSelected ? "url(#glow)" : undefined}
                       />
+                      {/* V2 selection ring on selected ayah endpoint */}
+                      {isSelected && (
+                        <circle
+                          cx={endX}
+                          cy={endY}
+                          r={endpointRadius + 7}
+                          fill="none"
+                          stroke={SELECTION_RING}
+                          strokeWidth={1.6}
+                          opacity={0.95}
+                          filter="url(#selectionGlow)"
+                          pointerEvents="none"
+                        />
+                      )}
                       <circle
                         cx={endX}
                         cy={endY}
@@ -1355,7 +2117,7 @@ export default function RadialSuraMap({
                       key={bar.ayah}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: bar.ayah * 0.012 }}
+                      transition={{ delay: motionSafeStagger(bar.ayah, 12) / 1000 }}
                     >
                       {barContent}
                     </motion.g>
@@ -1366,6 +2128,7 @@ export default function RadialSuraMap({
                   );
                 })}
               </g>
+              )}
             </g>
           </svg>
         )}

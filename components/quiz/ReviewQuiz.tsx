@@ -17,6 +17,12 @@ export default function ReviewQuiz({ corpusData }: ReviewQuizProps) {
   const { roots, updateRoot } = useKnowledge();
   const { recordSession } = useQuizProgressRecorder();
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Guards handleFinish against double-fire (fast double-click/tap, or a
+  // second click landing before the disabled state re-renders): the ref
+  // flips synchronously so a second invocation in the same tick still sees
+  // it, unlike state. `isFinishing` mirrors it just to disable the button.
+  const finishingRef = useRef(false);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   const trackedRootsArray = useMemo(
     () => Array.from(roots.values()),
@@ -38,6 +44,8 @@ export default function ReviewQuiz({ corpusData }: ReviewQuizProps) {
     setFinished(false);
     setSelectedAnswers(questions.map(() => null));
     setRevealedAnswers(questions.map(() => false));
+    finishingRef.current = false;
+    setIsFinishing(false);
   }, [questions]);
 
   const goToIndex = useCallback((nextIndex: number) => {
@@ -59,29 +67,41 @@ export default function ReviewQuiz({ corpusData }: ReviewQuizProps) {
   }, [currentIndex, revealedAnswers, selectedAnswers]);
 
   const handleFinish = useCallback(async () => {
-    const reviewedRoots = extractQuizRoots(questions);
-    const score = questions.reduce((total, question, index) => (
-      revealedAnswers[index] && selectedAnswers[index] === question.correctIndex ? total + 1 : total
-    ), 0);
+    // In-flight guard: a second click/tap before this settles (or before
+    // the disabled-button re-render lands) must not run recordSession/
+    // updateRoot twice.
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    setIsFinishing(true);
 
-    for (const root of reviewedRoots) {
-      try {
-        await updateRoot(root, { state: roots.get(root)?.state ?? "learning" });
-      } catch {
-        // Non-critical: quiz progress still completes.
+    try {
+      const reviewedRoots = extractQuizRoots(questions);
+      const score = questions.reduce((total, question, index) => (
+        revealedAnswers[index] && selectedAnswers[index] === question.correctIndex ? total + 1 : total
+      ), 0);
+
+      for (const root of reviewedRoots) {
+        try {
+          await updateRoot(root, { state: roots.get(root)?.state ?? "learning" });
+        } catch {
+          // Non-critical: quiz progress still completes.
+        }
       }
-    }
 
-    await recordSession({
-      id: `study-${Date.now()}-${questions.map((question) => question.id).join("|")}`,
-      sessionType: "study",
-      score,
-      total: questions.length,
-      completedAt: Date.now(),
-      reviewedRoots: reviewedRoots.length,
-      usedTrackedRoots: reviewedRoots.some((root) => roots.has(root)),
-    });
-    setFinished(true);
+      await recordSession({
+        id: `study-${Date.now()}-${questions.map((question) => question.id).join("|")}`,
+        sessionType: "study",
+        score,
+        total: questions.length,
+        completedAt: Date.now(),
+        reviewedRoots: reviewedRoots.length,
+        usedTrackedRoots: reviewedRoots.some((root) => roots.has(root)),
+      });
+      setFinished(true);
+    } finally {
+      finishingRef.current = false;
+      setIsFinishing(false);
+    }
   }, [questions, recordSession, revealedAnswers, roots, selectedAnswers, updateRoot]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -280,7 +300,7 @@ export default function ReviewQuiz({ corpusData }: ReviewQuizProps) {
 
       {allAnswered ? (
         <div className="review-finish">
-          <button type="button" className="review-next-btn" onClick={handleFinish}>
+          <button type="button" className="review-next-btn" onClick={handleFinish} disabled={isFinishing}>
             {t("finish")}
           </button>
         </div>
@@ -363,6 +383,10 @@ export default function ReviewQuiz({ corpusData }: ReviewQuizProps) {
         }
         .review-next-btn:hover {
           background: color-mix(in srgb, var(--accent), black 12%);
+        }
+        .review-next-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         :global([data-theme="dark"] .review-nav-btn) {
           background: rgba(255, 255, 255, 0.03);

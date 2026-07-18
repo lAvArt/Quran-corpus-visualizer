@@ -96,11 +96,11 @@ export default function MissionChecklist({
           ${isRtl ? "left" : "right"}: 24px;
           z-index: 110;
           width: min(300px, calc(100vw - 48px));
-          border-radius: 14px;
+          border-radius: var(--radius-lg);
           border: 1px solid var(--line);
-          background: color-mix(in srgb, var(--bg-0), white 10%);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-          padding: 16px;
+          background: var(--bg-2);
+          box-shadow: var(--shadow-2);
+          padding: 16px 18px;
           display: grid;
           gap: 12px;
           backdrop-filter: blur(12px);
@@ -113,17 +113,19 @@ export default function MissionChecklist({
         }
 
         .mission-checklist-title {
-          font-size: 0.82rem;
+          font-family: var(--font-sans);
+          font-size: 11px;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.14em;
           color: var(--ink-muted);
         }
 
         .mission-checklist-count {
+          font-family: var(--font-sans);
           font-size: 0.78rem;
           font-weight: 600;
-          color: var(--accent);
+          color: var(--ink-secondary);
         }
 
         .mission-checklist-tasks {
@@ -131,40 +133,41 @@ export default function MissionChecklist({
           margin: 0;
           padding: 0;
           display: grid;
-          gap: 8px;
         }
 
         .mission-checklist-task {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 0.86rem;
+          align-items: flex-start;
+          gap: 11px;
+          padding: 7px 0;
+          font-family: var(--font-sans);
+          font-size: 12.5px;
+          line-height: 1.4;
           color: var(--ink-secondary);
           transition: color 0.2s, opacity 0.2s;
         }
 
         .mission-checklist-task[data-done="true"] {
-          color: var(--accent);
+          color: var(--ink-muted);
           text-decoration: line-through;
-          opacity: 0.7;
         }
 
         .mission-check-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          border: 1px solid var(--line);
+          width: 16px;
+          height: 16px;
+          border-radius: var(--radius-pill);
+          border: 1.5px solid var(--ink-muted);
           font-size: 0.7rem;
           font-weight: 700;
           flex-shrink: 0;
         }
 
         .mission-checklist-task[data-done="true"] .mission-check-icon {
-          background: var(--accent);
-          border-color: var(--accent);
+          background: #56A697;
+          border-color: #56A697;
           color: #fff;
         }
 

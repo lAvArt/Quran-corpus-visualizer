@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import TopBar from "@/components/shell/TopBar";
 import StatusBar from "@/components/shell/StatusBar";
@@ -8,27 +9,194 @@ import JourneyRail from "@/components/shell/JourneyRail";
 import ContextDrawer from "@/components/shell/ContextDrawer";
 import GraphToolbar from "@/components/shell/GraphToolbar";
 import VisualizationViewport from "@/components/home/VisualizationViewport";
-import CurrentSelectionPanel from "@/components/ui/CurrentSelectionPanel";
 import MobileBottomBar from "@/components/ui/MobileBottomBar";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
+import VizIntroCard from "@/components/ui/VizIntroCard";
 import FirstRunMission from "@/components/onboarding/FirstRunMission";
 import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useHomePageController, VizControlProvider } from "@/lib/hooks/useHomePageController";
+import { ALL_VIZ_MODES } from "@/lib/hooks/useVizModeState";
+import { useEdgeSwipe } from "@/lib/hooks/useEdgeSwipe";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
 import type { ThemePreferenceState } from "@/lib/theme/themePreferences";
+import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
 
 interface AppShellProps {
   initialCorpusData: CorpusOverviewData;
   initialThemePreference: ThemePreferenceState;
 }
 
+/** Persists the left dock's collapsed/expanded state across sessions — its
+ *  own key (not folded into useHomePageController's viz-state blob) since
+ *  it's dock chrome, not a viz preference. */
+const LEFT_DOCK_STORAGE_KEY = "quran-corpus-left-dock";
+
 function AppShellContent({ initialCorpusData, initialThemePreference }: AppShellProps) {
   const t = useTranslations("Index");
   const tViz = useTranslations("VisualizationSwitcher.modes");
-  const c = useHomePageController(initialCorpusData, initialThemePreference);
+  // Flips true once the deep-link stage/apply chain below (searchParams ->
+  // pendingDeepLink -> navigateToResult) has settled — either there was
+  // nothing to hydrate, or the hydration it staged has been applied. Passed
+  // into the controller so its URL-sync effect (state -> URL) never fires
+  // before then and clobbers an incoming deep link's params.
+  const [isDeepLinkHydrated, setIsDeepLinkHydrated] = useState(false);
+  // Tracks the last searchParams string this component has already applied
+  // (see the stage/apply effects below) — declared here, ahead of the
+  // controller, so `markUrlSynced` can be handed down to it before it mounts.
+  // Next's App Router patches `history.replaceState` globally and echoes ANY
+  // URL change (even a passive one) back into `useSearchParams()`, so the
+  // controller's own URL-sync effect writing the address bar would otherwise
+  // look exactly like a fresh incoming deep link and re-trigger
+  // `navigateToResult` below — re-running the deep-link selection from
+  // whatever was JUST echoed and clobbering any local edit made in between.
+  // `markUrlSynced` records the string *as it writes it*, so the echo is
+  // recognized as already-applied via the apply effect's own dedupe check
+  // instead of being reprocessed.
+  const lastAppliedParamsRef = useRef<string | null>(null);
+  const markUrlSynced = useCallback((search: string) => {
+    lastAppliedParamsRef.current = search;
+  }, []);
+  const c = useHomePageController(initialCorpusData, initialThemePreference, isDeepLinkHydrated, markUrlSynced);
+  // Expanded by default so the zoom controls + legend are always visible in a
+  // fixed, predictable dock (top-anchored, grows downward). Collapsible on demand.
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+
+  // Hydrate the collapsed state from localStorage once mounted. Starting
+  // from the `false` default above (rather than a lazy useState initializer
+  // reading localStorage directly) keeps the server-rendered markup and the
+  // client's first render identical — no hydration mismatch — then this
+  // effect reconciles to the stored value right after, same pattern as
+  // useHomePageController's own localStorage hydration.
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(LEFT_DOCK_STORAGE_KEY) === "true") {
+        setIsLeftPanelCollapsed(true);
+      }
+    } catch {
+      // Ignore localStorage errors (private mode, quota, disabled storage, etc.)
+    }
+  }, []);
+
+  // Calm entry collapses the dock for THIS landing only — skip persisting
+  // that programmatic collapse so future organic visits aren't affected.
+  // Re-set to true before each such setIsLeftPanelCollapsed call.
+  const skipNextDockPersistRef = useRef(false);
+  useEffect(() => {
+    if (skipNextDockPersistRef.current) {
+      skipNextDockPersistRef.current = false;
+      return;
+    }
+    try {
+      window.localStorage.setItem(LEFT_DOCK_STORAGE_KEY, String(isLeftPanelCollapsed));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [isLeftPanelCollapsed]);
+
+  // Edge-swipe gestures (touch): swipe in from the left edge to reveal the legend,
+  // from the right edge to reveal the inspector; swipe back over a panel to dismiss.
+  const handleOpenLeft = useCallback(() => setIsLeftPanelCollapsed(false), []);
+  const handleCloseLeft = useCallback(() => setIsLeftPanelCollapsed(true), []);
+  const handleOpenRight = useCallback(() => c.setIsSidebarOpen(true), [c.setIsSidebarOpen]);
+  const handleCloseRight = useCallback(() => c.setIsSidebarOpen(false), [c.setIsSidebarOpen]);
+
+  // Intro chip → drawer wiring: clicking the chip's label must open the
+  // drawer AND land on its Explain tab. ContextDrawer's active tab is its
+  // own internal state (it already reacts to a prop changing this way — see
+  // its token-focus-triggers-Inspect effect), so a bump counter is enough to
+  // ask it to switch without lifting the whole tab state up here.
+  const [explainRequestId, setExplainRequestId] = useState(0);
+  const handleOpenExplain = useCallback(() => {
+    c.setIsSidebarOpen(true);
+    setExplainRequestId((n) => n + 1);
+  }, [c.setIsSidebarOpen]);
+
+  useEdgeSwipe({
+    leftOpen: !isLeftPanelCollapsed,
+    rightOpen: c.isSidebarOpen,
+    openLeft: handleOpenLeft,
+    closeLeft: handleCloseLeft,
+    openRight: handleOpenRight,
+    closeRight: handleCloseRight,
+  });
+
+  // Deep-link hydration: ?viz=&surah=&ayah=&root=&lemma=&token= (e.g. from
+  // /search or the minimal home's CTAs). Read via useSearchParams — NOT
+  // window.location — because during a client-side navigation this effect can
+  // run before the browser URL is updated, which used to strand the selection
+  // until a hard refresh. useSearchParams is reactive to soft navigations, so
+  // changed params re-apply; the ref keeps identical params from re-applying.
+  const searchParams = useSearchParams();
+  const navigateToResult = c.handleSearchResultNavigate;
+
+  // Stage → apply as a two-commit chain: the controller's own localStorage
+  // hydration effect runs in the mount commit and can queue state updates
+  // AFTER ours (clobbering the deep link with persisted defaults). Staging the
+  // params string first means the apply effect belongs to a later commit,
+  // whose updates deterministically flush after the controller's — the deep
+  // link always wins, in dev (StrictMode double-invoke) and prod alike.
+  const [pendingDeepLink, setPendingDeepLink] = useState<string | null>(null);
+  useEffect(() => {
+    const hasRelevantParam =
+      searchParams.get("root") ||
+      searchParams.get("lemma") ||
+      searchParams.get("surah") ||
+      searchParams.get("ayah") ||
+      searchParams.get("token") ||
+      searchParams.get("viz");
+    if (!hasRelevantParam) {
+      // Nothing to hydrate — the URL-sync effect is safe to start immediately.
+      setIsDeepLinkHydrated(true);
+      return;
+    }
+    // Same string re-sets are no-ops for React, so this can't loop.
+    setPendingDeepLink(searchParams.toString());
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!pendingDeepLink || lastAppliedParamsRef.current === pendingDeepLink) return;
+    lastAppliedParamsRef.current = pendingDeepLink;
+    const sp = new URLSearchParams(pendingDeepLink);
+    const root = sp.get("root");
+    const lemma = sp.get("lemma");
+    const surah = sp.get("surah");
+    const ayah = sp.get("ayah");
+    const token = sp.get("token");
+    const vizParam = sp.get("viz");
+    const calmEntry = sp.get("entry") === "calm";
+    // Only honour ?viz= when it names a real, renderable mode — an unknown
+    // value must not steer navigation (or unlock the advanced mode set).
+    const viz = ALL_VIZ_MODES.includes(vizParam as VisualizationMode)
+      ? (vizParam as VisualizationMode)
+      : null;
+    navigateToResult({
+      id: "deeplink",
+      kind: "ayah",
+      title: "",
+      actionTarget: {
+        routeMode: "explore",
+        visualizationMode: viz ?? undefined,
+        selection: {
+          surahId: surah ? Number(surah) : undefined,
+          ayah: ayah ? Number(ayah) : undefined,
+          root: root || undefined,
+          lemma: lemma || undefined,
+          tokenId: token || undefined,
+        },
+        calmEntry,
+      },
+    });
+    if (calmEntry) {
+      // Chrome-light first contact: spine-only dock (not persisted — see
+      // skipNextDockPersistRef). The drawer stays closed via the same flag
+      // inside handleSearchResultNavigate.
+      skipNextDockPersistRef.current = true;
+      setIsLeftPanelCollapsed(true);
+    }
+    setIsDeepLinkHydrated(true);
+  }, [pendingDeepLink, navigateToResult]);
 
   const clearFocus = useCallback(() => {
     c.setFocusedTokenId(null);
@@ -55,13 +223,52 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("header")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "header")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "header")}
+        onResultNavigate={c.handleSearchResultNavigate}
       />
 
-      {/* ── Left journey rail (desktop only via CSS) ── */}
-      <JourneyRail
-        vizMode={c.vizMode}
-        onVizModeChange={c.handleVizModeChange}
-      />
+      {/* ── Left dock: journey rail (spine) + viz info panel (body), fused
+          into one glass container — mirrors the right side's single
+          .context-drawer object (see `.viz-dock` in globals.css). Below
+          980px the fusion is a no-op (`.viz-dock` is `display: contents`):
+          the rail becomes its own horizontal top strip and the info panel
+          is reached via MobileBottomBar, exactly as before. Collapsing the
+          dock (the spine's own bottom toggle) shrinks the info column to
+          zero width, leaving only the spine. */}
+      <div className="viz-dock">
+        <JourneyRail
+          vizMode={c.vizMode}
+          onVizModeChange={c.handleVizModeChange}
+          isPanelCollapsed={isLeftPanelCollapsed}
+          onTogglePanelCollapse={() => setIsLeftPanelCollapsed((collapsed) => !collapsed)}
+          inDock
+        />
+        {/* Full-height info panel. Layout: legend pinned top, transient
+            selection cards in the middle, zoom controls + collapse at the
+            bottom. The portal renders legend/selection/zoom; CSS orders them.
+            Conditionally mounted on mobile (only while opened from
+            MobileBottomBar); always mounted on desktop, where collapsing it
+            just shrinks its width to 0 inside the dock. */}
+        {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
+          <aside
+            className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}
+            aria-hidden={isLeftPanelCollapsed || undefined}
+          >
+            <div id="viz-sidebar-portal" className="viz-sidebar-content" />
+            <button
+              type="button"
+              className="viz-left-collapse"
+              onClick={() => setIsLeftPanelCollapsed(true)}
+              aria-label={t("overlay.collapsePanel")}
+              title={t("overlay.collapsePanel")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              <span>{t("overlay.collapsePanel")}</span>
+            </button>
+          </aside>
+        )}
+      </div>
 
       {/* ── Main visualization area ── */}
       <main ref={c.mainVizRef} className="immersive-viewport viz-fullwidth" data-tour-id="main-viewport">
@@ -84,6 +291,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
           setSelectedSurahId={c.setSelectedSurahId}
           handleRootSelect={c.handleRootSelect}
           handleSurahSelect={c.handleSurahSelect}
+          onExploreRoots={() => c.handleVizModeChange("root-network")}
         />
       </main>
 
@@ -107,18 +315,18 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         showAdvancedModes={c.showAdvancedModes}
         setShowAdvancedModes={c.setShowAdvancedModes}
         handleVizModeChange={c.handleVizModeChange}
-        isSidebarOpen={c.isSidebarOpen}
-        setIsSidebarOpen={c.setIsSidebarOpen}
       />
 
       {/* ── Right context drawer ── */}
       <ContextDrawer
         isOpen={c.isSidebarOpen}
+        onToggleOpen={() => c.setIsSidebarOpen(!c.isSidebarOpen)}
         allTokens={c.allTokens}
         vizMode={c.vizMode}
         inspectorToken={c.inspectorTokenFinal}
         inspectorMode={c.inspectorModeFinal}
         selectedSurahId={c.selectedSurahId}
+        explainRequestId={explainRequestId}
         clearFocus={clearFocus}
         onTokenHover={c.setHoverTokenId}
         onTokenSelect={c.handleTokenSelect}
@@ -128,6 +336,8 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("sidebar")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "sidebar")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "sidebar")}
+        onResultNavigate={c.handleSearchResultNavigate}
+        isCorpusLoading={c.isLoadingCorpus}
       />
 
       {/* ── Consolidated status / notification bar ── */}
@@ -151,6 +361,19 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onBreadcrumbNavigate={c.handleBreadcrumbNavigate}
       />
 
+      {/* Intro chip — a small non-blocking "How to read this view" pill under
+          the breadcrumb, introducing the active viz once per mode (persisted
+          in localStorage). Keyed by mode so switching modes mounts a fresh
+          instance (fresh dismiss check + auto-fade timer). Hidden only while
+          the first-run overlay is up — being non-blocking, it no longer needs
+          special-casing for deep links that arrive mid-task. */}
+      <VizIntroCard
+        key={c.vizMode}
+        vizMode={c.vizMode}
+        suppressed={c.firstRunState === "intent-selection"}
+        onOpenExplain={handleOpenExplain}
+      />
+
       {/* First-task feedback prompt */}
       {c.showFirstTaskFeedbackPrompt && (
         <div className="ui-floating-feedback" role="status" aria-live="polite">
@@ -159,40 +382,6 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
             <button type="button" onClick={() => c.handleFirstTaskFeedback("helpful")}>{t("feedbackPrompt.helpful")}</button>
             <button type="button" onClick={() => c.handleFirstTaskFeedback("not_helpful")}>{t("feedbackPrompt.notHelpful")}</button>
             <button type="button" onClick={c.handleDismissFirstTaskFeedback}>{t("feedbackPrompt.dismiss")}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Left selection panel (desktop, or mobile when left sidebar open) */}
-      {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
-        <div className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}>
-          <button
-            type="button"
-            className="viz-sidebar-collapse-btn"
-            onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)}
-            aria-label={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
-            title={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points={isLeftPanelCollapsed ? "9 18 15 12 9 6" : "15 18 9 12 15 6"} />
-            </svg>
-          </button>
-          <div
-            id="viz-sidebar-portal"
-            className="viz-sidebar-content"
-            aria-hidden={isLeftPanelCollapsed}
-          >
-            <div data-tour-id="current-selection">
-              <CurrentSelectionPanel
-                vizMode={c.vizMode}
-                selectedSurahId={c.selectedSurahId}
-                selectedAyah={c.selectedAyahInSurah}
-                selectedRoot={c.selectedRootValue}
-                selectedLemma={c.selectedLemmaValue}
-                activeToken={c.focusedToken ?? null}
-                allTokens={c.allTokens}
-              />
-            </div>
           </div>
         </div>
       )}
@@ -220,6 +409,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onSearchOpened={() => c.handleSearchOpened("mobile")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "mobile")}
         onSearchResultSelected={(m) => c.handleSearchResultSelected(m, "mobile")}
+        onResultNavigate={c.handleSearchResultNavigate}
       />
 
       {/* Onboarding overlays */}

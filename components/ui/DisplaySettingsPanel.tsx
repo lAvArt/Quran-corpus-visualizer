@@ -628,11 +628,11 @@ export default function DisplaySettingsPanel({
         }
 
         :global([data-theme="dark"]) .display-settings-trigger {
-          background: rgba(18, 18, 26, 0.75);
+          background: rgba(20, 30, 36, 0.75);
         }
 
         :global([data-theme="dark"]) .display-settings-panel {
-          background: rgba(18, 18, 26, 0.95);
+          background: rgba(20, 30, 36, 0.95);
           box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
         }
 

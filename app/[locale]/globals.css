@@ -15,6 +15,13 @@
   --accent-3: #1d4ed8;
   --accent-glow: rgba(15, 118, 110, 0.4);
   --accent-2-glow: rgba(245, 158, 11, 0.45);
+  /* Theme-stable category colors — e.g. Makki/Madani in SurahDistributionGraph.
+     Never bind a categorical encoding to --accent/--accent-2: those swap
+     hues between light/dark (see dark-theme.css), so a category would read
+     as a different color per theme. Same hue family in both themes (teal for
+     Makki, amber for Madani); only lightness is tuned per theme. */
+  --viz-cat-makki: #0f766e;
+  --viz-cat-madani: #b45309;
   --toolbar-bg: rgba(255, 255, 255, 0.85);
   --footer-glass-bg: rgba(255, 255, 255, 0.56);
   --header-dock-height: 42px;
@@ -28,6 +35,54 @@
   --mobile-tools-bar-clearance: calc(var(--mobile-tools-bar-height) + var(--mobile-tools-bar-offset) + env(safe-area-inset-bottom));
   --sidebar-slide-out: 120%;
   --user-font-scale: 1;
+
+  /* ── Design tokens (Observatory V2 style tile) ──
+     One scale for radius / spacing / elevation / blur / z / type so the shell
+     stops hand-coding 99px-vs-999px radii and one-off shadows. */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.24);
+  --shadow-glow: 0 0 28px var(--accent-glow);
+
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 24px;
+
+  --z-base: 1;
+  --z-sticky: 30;
+  --z-header: 50;
+  --z-overlay: 100;
+  --z-toast: 101;
+  --z-modal: 9999;
+
+  --text-display: 2.5rem;     /* 40 */
+  --text-h1: 1.875rem;        /* 30 */
+  --text-h2: 1.375rem;        /* 22 */
+  --text-h3: 1.125rem;        /* 18 */
+  --text-body: 0.9375rem;     /* 15 */
+  --text-caption: 0.8125rem;  /* 13 */
+  --text-overline: 0.6875rem; /* 11 */
+
+  /* Text color to use ON an --accent fill. Light theme accent (teal) is dark
+     enough for white; dark theme accent (amber) needs dark ink for WCAG AA. */
+  --accent-ink: #ffffff;
+  /* Reserved selection / highlight color — excluded from the data palette, so a
+     selected node / rail item never collides with an encoded hue. */
+  --selection: #1f1c19;
 }
 
 /* --- User font scaling --- */
@@ -97,7 +152,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.14);
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background-clip: padding-box;
   transition: background 0.2s ease;
@@ -203,7 +258,7 @@ body {
 
 .ui-card-muted {
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   background: var(--ui-surface-muted);
 }
 
@@ -269,6 +324,34 @@ body {
   flex-shrink: 0;
 }
 
+/* Monogram brand — matches the Explore TopBar mark. */
+.ui-workspace-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+
+.ui-workspace-brand-name {
+  font-family: var(--font-display, "Fraunces"), serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .ui-workspace-brand-name {
+    display: none;
+  }
+}
+
 .ui-workspace-brand-copy {
   display: grid;
   gap: 1px;
@@ -305,6 +388,22 @@ body {
   justify-content: flex-end;
   gap: 0.6rem;
   flex: 0 0 auto;
+}
+
+/* Clear the left journey rail on desktop workspace pages (rail becomes a
+   horizontal top bar below 981px, so no inline-start clearance is needed there). */
+@media (min-width: 981px) {
+  .ui-workspace-railed {
+    padding-inline-start: calc(1rem + 84px);
+  }
+}
+
+/* Below 981px the rail is a compact horizontal bar at top-center; push the
+   workspace content down so the rail never overlaps the page header. */
+@media (max-width: 980px) {
+  .ui-workspace-railed {
+    padding-top: calc(var(--header-clearance) + 68px);
+  }
 }
 
 .ui-workspace-shell::before {
@@ -769,12 +868,32 @@ body {
   line-height: 1.6;
 }
 
+/* Compact head — the page reads as a lean search surface, not an editorial
+   spread. Specificity (3 classes) beats the per-shell .ui-title overrides. */
+.ui-page-head--compact {
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+}
+
+.ui-workspace-shell .ui-page-head--compact .ui-title {
+  max-width: none;
+  font-size: clamp(1.4rem, 2vw, 1.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+}
+
+.ui-page-head--compact .ui-subtitle {
+  max-width: 70ch;
+  margin-top: 0.4rem;
+  font-size: 0.92rem;
+}
+
 .ui-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.55rem 0.85rem;
   background: var(--ui-surface-muted);
   color: var(--ink-secondary);
@@ -790,7 +909,7 @@ body {
   align-items: center;
   gap: 4px;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel), var(--bg-0) 24%);
   backdrop-filter: blur(10px);
@@ -807,7 +926,7 @@ body {
   justify-content: center;
   min-width: 74px;
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--ink-secondary);
   text-decoration: none;
   font-size: 0.76rem;
@@ -824,7 +943,7 @@ body {
 
 .ui-mode-link.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   box-shadow: 0 10px 20px var(--accent-glow);
 }
 
@@ -833,13 +952,13 @@ body {
   gap: 0.35rem;
   padding: 0.35rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--panel), var(--bg-0) 22%);
 }
 
 .ui-tab {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--ink-secondary);
   padding: 0.7rem 1rem;
@@ -850,7 +969,7 @@ body {
 
 .ui-tab.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 [data-theme="dark"] .ui-tab-group,
@@ -874,7 +993,7 @@ body {
 
 .ui-btn {
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.78rem 1rem;
   font: inherit;
   font-weight: 700;
@@ -899,7 +1018,7 @@ body {
 .ui-btn-primary {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .ui-btn-danger {
@@ -926,7 +1045,7 @@ body {
 }
 
 .ui-state-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.2rem 0.65rem;
   font-size: 0.74rem;
   font-weight: 700;
@@ -977,7 +1096,7 @@ body {
 /* Progress bar integrated into pill */
 .ui-overlay-pill[data-loading] {
   flex-wrap: wrap;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   padding: 0;
   gap: 0;
 }
@@ -1061,7 +1180,7 @@ body {
   gap: 8px;
   padding: 8px 12px;
   max-width: min(calc(100vw - 24px), 620px);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: rgba(8, 10, 16, 0.72);
   backdrop-filter: blur(8px);
@@ -1126,7 +1245,7 @@ body {
 .ui-floating-feedback {
   position: fixed;
   bottom: calc(var(--footer-height) + 18px);
-  right: 18px;
+  inset-inline-end: 18px;
   z-index: 101;
   width: min(340px, calc(100vw - 24px));
   border-radius: 12px;
@@ -1266,7 +1385,7 @@ body {
   color: var(--ink-muted);
   background: none;
   border: 1px dashed var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   text-align: center;
   margin-bottom: 8px;
@@ -1290,7 +1409,7 @@ body {
   gap: 10px;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.7);
   color: var(--ink);
   font-family: inherit;
@@ -1316,7 +1435,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: rgba(15, 118, 110, 0.12);
   color: var(--accent);
   font-size: 1.05rem;
@@ -1370,12 +1489,14 @@ body {
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
-  max-height: calc(100vh - 160px);
+  max-height: min(60vh, calc(100vh - var(--footer-height, 48px) - 150px));
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .ui-viz-switcher-section {
@@ -1411,15 +1532,29 @@ body {
 
 .ui-viz-switcher-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+/* Options must show their FULL label + description (the trigger truncates, the
+   list must not). Override the shared nowrap/ellipsis used by the trigger. */
+.ui-viz-switcher-option .ui-viz-switcher-label,
+.ui-viz-switcher-option .ui-viz-switcher-desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.ui-viz-switcher-option .ui-viz-switcher-desc {
+  line-height: 1.4;
 }
 
 .ui-viz-switcher-option:hover {
@@ -1431,11 +1566,11 @@ body {
 }
 
 .ui-viz-switcher-option.active .ui-viz-switcher-label {
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .ui-viz-switcher-option.active .ui-viz-switcher-desc {
-  color: rgba(255, 255, 255, 0.8);
+  color: color-mix(in srgb, var(--accent-ink) 75%, transparent);
 }
 
 .ui-viz-switcher-helper {
@@ -1450,7 +1585,7 @@ body {
 .ui-viz-switcher-toggle {
   margin-top: 4px;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-secondary);
   font-size: 0.78rem;
@@ -1608,7 +1743,7 @@ body {
 
 .ayah-text-content::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent), var(--line) 45%);
   background-clip: content-box;
 }
@@ -1662,7 +1797,7 @@ body {
 .knowledge-btn {
   padding: 5px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink-secondary);
   font-size: 0.76rem;
@@ -1677,20 +1812,22 @@ body {
 }
 
 .knowledge-btn.active.learning {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
 }
 
 .knowledge-btn.active.learned {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #56a697 14%, transparent);
+  color: #56a697;
 }
 
 .knowledge-btn.save-btn {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-radius: var(--radius-pill);
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .knowledge-btn.remove-btn {
@@ -1700,8 +1837,8 @@ body {
 }
 
 .knowledge-btn.remove-btn:hover {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: #dd6a47;
+  color: #dd6a47;
 }
 
 .knowledge-notes {
@@ -1732,7 +1869,7 @@ body {
 .knowledge-saved-notes {
   margin: 6px 0 0;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: rgba(0, 0, 0, 0.04);
   color: var(--ink-secondary);
   font-size: 0.78rem;
@@ -1822,13 +1959,19 @@ body {
 }
 
 @media (max-width: 420px) {
+  /* Keep the mode label visible even on small phones — an icon-only trigger
+     leaves the primary mode control unlabeled. Truncate instead of hiding. */
   .ui-viz-switcher-current .ui-viz-switcher-label {
-    display: none;
+    max-width: 38vw;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
 [data-theme="dark"] .ui-viz-switcher-current {
-  background: rgba(18, 18, 26, 0.75);
+  background: rgba(20, 30, 36, 0.75);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -1838,7 +1981,7 @@ body {
 }
 
 [data-theme="dark"] .ui-viz-switcher-dropdown {
-  background: rgba(18, 18, 26, 0.92);
+  background: rgba(20, 30, 36, 0.92);
 }
 
 .site-footer {
@@ -1852,6 +1995,29 @@ body {
   -webkit-backdrop-filter: blur(22px) saturate(145%);
   box-shadow: none;
   z-index: 80;
+}
+
+/* The minimal home is a calm, chrome-free landing — hide the global footer. */
+.mhome-active .site-footer {
+  display: none;
+}
+
+/* Observatory (AppShell) on mobile: the marketing footer stacks a third bar
+   under the graph toolbar and the mobile legend/tools bar, eating vertical
+   space the graph needs. Hide it here only — desktop, and non-viz pages
+   (search/study/quiz), keep it at all widths. `.immersive-dashboard` is
+   AppShell's root, so :has() scopes this to the viz route specifically.
+   Collapsing --footer-height to 0 in the same scope lets every fixed
+   element that clears the footer (mobile bottom bar, graph toolbar, viz
+   legend, etc.) settle into the space the hidden footer leaves behind. */
+@media (max-width: 767px) {
+  body:has(.immersive-dashboard) .site-footer {
+    display: none;
+  }
+
+  body:has(.immersive-dashboard) {
+    --footer-height: 0px;
+  }
 }
 
 [data-theme='dark'] .site-footer {
@@ -2054,7 +2220,7 @@ button.site-footer-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 
 .dialog-close-btn:hover,
@@ -2165,6 +2331,34 @@ button.site-footer-link {
   font-weight: 600;
 }
 
+/* Muted one-line message under the graph header (status strip) — same
+   quiet voice as .eyebrow, but sentence case since it carries a full
+   phrase rather than a short label. Centered beneath the status bar
+   (fixed at var(--header-clearance)), like the strip itself, so it works
+   identically in LTR and RTL. */
+.surah-distribution-caption {
+  position: fixed;
+  top: calc(var(--header-clearance) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  margin: 0;
+  max-width: min(520px, calc(100vw - 32px));
+  font-size: 0.78rem;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .surah-distribution-caption {
+    display: none;
+  }
+}
+
 .panel {
   margin-top: 28px;
   border: 1px solid var(--line);
@@ -2202,7 +2396,7 @@ button.site-footer-link {
 .filter select {
   min-width: 138px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg-2);
   color: var(--ink);
   padding: 8px 10px;
@@ -2243,15 +2437,16 @@ button.site-footer-link {
   fill: var(--ink-secondary);
 }
 
+/* Sankey ribbons (RootFlowSankey). No animation/filter/opacity here: the
+   component drives per-ribbon opacity via the SVG attribute for its
+   muted-neutral / accent-emphasis states, and a CSS opacity animation or an
+   :hover opacity override would silently beat that attribute. */
 .flow-path {
   cursor: pointer;
   transition: opacity 180ms ease, filter 180ms ease;
-  filter: drop-shadow(0 0 5px var(--accent-2-glow));
-  animation: pulse-link 2.4s ease-in-out infinite alternate;
 }
 
 .flow-path:hover {
-  opacity: 1;
   filter: drop-shadow(0 0 12px var(--accent-glow));
 }
 
@@ -2364,7 +2559,7 @@ button.site-footer-link {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg-2);
   padding: 8px 10px;
   font-size: 0.92rem;
@@ -2385,7 +2580,7 @@ button.site-footer-link {
   border: 1px solid var(--line);
   background: var(--bg-2);
   color: var(--ink);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 7px 10px;
   cursor: pointer;
 }
@@ -2400,7 +2595,7 @@ button.site-footer-link {
 .result-chip {
   text-align: start;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg-2);
   color: var(--ink);
   padding: 8px 10px;
@@ -2425,16 +2620,6 @@ button.site-footer-link {
 @keyframes draw-edge {
   to {
     stroke-dashoffset: 0;
-  }
-}
-
-@keyframes pulse-link {
-  from {
-    opacity: 0.6;
-  }
-
-  to {
-    opacity: 0.92;
   }
 }
 
@@ -2520,6 +2705,36 @@ button.site-footer-link {
   overflow: auto;
 }
 
+/* Corpus Architecture Map: staggered reveal as the corpus streams in
+   batches (see docs/VIZ_ARCHITECTURE.md, "Corpus data streams in").
+   `.corpus-arch-fade` is a plain value-change transition for elements that
+   already exist and simply change opacity (a surah dot brightening once
+   its batch lands, or any node/link dimming on hover). `.corpus-arch-reveal`
+   is a mount-time entrance for elements that don't exist until their
+   surah's root data arrives (root nodes/links) — plain CSS transitions
+   can't animate a freshly-mounted element (no "previous value" to ease
+   from), so this uses an `animation` instead. The keyframe only sets the
+   START state; the omitted 100% falls back to the element's own live
+   opacity attribute, so hover/focus dimming keeps working the instant the
+   entrance finishes (`backwards` fill only holds the 0% state during the
+   staggered delay, never the end state — it does not linger as
+   `forwards` would). Both durations collapse under prefers-reduced-motion
+   via the global rule above; the stagger delay itself is zeroed in JS
+   (motionSafeStagger) before it ever reaches these classes. */
+.corpus-arch-fade {
+  transition: opacity 220ms ease-out;
+}
+
+@keyframes corpus-arch-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+.corpus-arch-reveal {
+  animation: corpus-arch-reveal 220ms ease-out backwards;
+}
+
 @media (max-width: 1000px) {
   .dashboard-container {
     grid-template-columns: 1fr;
@@ -2585,7 +2800,7 @@ button.site-footer-link {
 .viz-suggestion-accept {
   padding: 4px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--accent, #0f766e);
   color: #fff;
   font-size: 0.78rem;
@@ -2605,7 +2820,7 @@ button.site-footer-link {
   line-height: 1;
 }
 [data-theme="dark"] .viz-suggestion-toast {
-  background: rgba(18, 18, 26, 0.95);
+  background: rgba(20, 30, 36, 0.95);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -2655,7 +2870,26 @@ button.site-footer-link {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0;
+  gap: 10px;
+}
+
+/* One-shot attention pulse for escalation affordances (e.g. the focused
+   root-network's "Show full network" pill): three gentle rings, then still.
+   Guides the eye without nagging; disabled under reduced motion. */
+@keyframes qcv-attention-pulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.qcv-attention-pulse {
+  animation: qcv-attention-pulse 1.8s ease-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qcv-attention-pulse {
+    animation: none;
+  }
 }
 
 .brand-logo {
@@ -2696,7 +2930,7 @@ button.site-footer-link {
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 0.1rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.6);
   color: var(--ink-secondary);
@@ -2735,7 +2969,7 @@ button.site-footer-link {
   color: #f97316;
   border: 2px solid #f97316;
   padding: 0.45rem 1.1rem;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
   min-width: 7.8rem;
   text-align: center;
@@ -2800,7 +3034,7 @@ button.site-footer-link {
   border: 1px solid var(--line);
   color: var(--ink);
   padding: 0.22rem 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
@@ -2974,7 +3208,7 @@ button.site-footer-link {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(8px);
   padding: 4px 12px;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
   color: var(--ink-secondary);
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -3058,7 +3292,7 @@ button.site-footer-link {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 3px;
 }
 
@@ -3117,7 +3351,7 @@ button.site-footer-link {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
   font-size: 0.78rem;
   color: var(--ink-secondary);
@@ -3146,7 +3380,7 @@ button.site-footer-link {
 .kg-info-track-btn {
   margin-left: 4px;
   padding: 2px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--accent, #f59e0b);
   background: transparent;
   color: var(--accent, #f59e0b);
@@ -3160,6 +3394,114 @@ button.site-footer-link {
 .kg-info-track-btn:hover {
   background: var(--accent, #f59e0b);
   color: #000;
+}
+
+/* Knowledge Graph — Empty state. The outer overlay stays click-through so
+   the ghost network underneath remains explorable (clicking a ghost root
+   still opens the .kg-info-card track flow above); only the card itself
+   captures pointer events. */
+.kg-empty-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.kg-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+  padding: 28px 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  pointer-events: auto;
+}
+
+[data-theme='light'] .kg-empty-card {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.kg-empty-icon {
+  font-size: 2.4rem;
+  opacity: 0.25;
+}
+
+.kg-empty-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.kg-empty-body {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--ink-muted);
+}
+
+.kg-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.kg-empty-btn-primary,
+.kg-empty-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  font-family: inherit;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.kg-empty-btn-primary {
+  border: 1px solid var(--accent, #f59e0b);
+  background: var(--accent, #f59e0b);
+  color: #000;
+}
+
+.kg-empty-btn-primary:hover,
+.kg-empty-btn-primary:focus-visible {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent, #f59e0b), black 10%);
+}
+
+.kg-empty-btn-secondary {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-secondary);
+}
+
+.kg-empty-btn-secondary:hover,
+.kg-empty-btn-secondary:focus-visible {
+  border-color: var(--accent, #f59e0b);
+  color: var(--ink);
+}
+
+.kg-empty-btn-primary:focus-visible,
+.kg-empty-btn-secondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 768px) {
@@ -3178,50 +3520,54 @@ button.site-footer-link {
   .kg-view-switch {
     bottom: 7.5rem;
   }
+
+  .kg-empty-card {
+    max-width: calc(100vw - 3rem);
+    padding: 22px 18px;
+  }
 }
 
 /* Visualization Overlays */
+/* Portaled into the compact bottom-left overlay (#viz-sidebar-portal). No
+   longer a full-height left column — it flows inside the small floating stack. */
 .viz-left-stack {
-  position: absolute;
-  top: var(--header-clearance);
-  left: 1.5rem;
-  bottom: 2rem;
-  width: 280px;
+  position: static;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   pointer-events: none;
-  z-index: 30;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .viz-left-panel {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(12px);
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--line);
-  padding: 16px;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  font-size: 0.8rem;
 }
 
 [data-theme='dark'] .viz-left-panel {
-  background: rgba(18, 18, 26, 0.8);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  background: rgba(20, 30, 36, 0.82);
+  border-color: var(--line);
 }
 
 .viz-legend {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(12px);
+  background: var(--panel);
+  backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--line);
-  padding: 12px 16px;
-  border-radius: 16px;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  font-size: 0.78rem;
 }
 
 [data-theme='dark'] .viz-legend {
-  background: rgba(18, 18, 26, 0.8);
+  background: rgba(20, 30, 36, 0.8);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -3258,7 +3604,7 @@ button.site-footer-link {
   }
 
   .viz-left-stack.collapsed {
-    transform: translateX(calc(-100% - 20px));
+    transform: translateX(calc(-1 * var(--sidebar-slide-out)));
   }
 }
 
@@ -3323,23 +3669,27 @@ button.site-footer-link {
   color: var(--ink);
 }
 
-/* Dark mode: light text */
+/* Dark mode — Observatory: cool slate-teal canvas (hue ~203°, from the design
+   reference image) + warm amber/teal/violet light. Mirrors styles/dark-theme.css;
+   this later block is the effective one (it overrides the @import on tie). */
 [data-theme="dark"] {
-  --bg-0: #0c0b0d;
-  --bg-1: #15151b;
-  --bg-2: #1e1e28;
-  --ink: #f3f1e8;
-  --ink-secondary: rgba(243, 241, 232, 0.85);
-  --ink-muted: rgba(243, 241, 232, 0.65);
-  --panel: rgba(20, 20, 28, 0.92);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --line: rgba(255, 255, 255, 0.14);
-  --accent: #f97316;
-  --accent-2: #22d3ee;
-  --accent-glow: rgba(249, 115, 22, 0.5);
-  --accent-2-glow: rgba(34, 211, 238, 0.5);
-  --toolbar-bg: rgba(18, 18, 26, 0.85);
-  --footer-glass-bg: rgba(10, 12, 20, 0.56);
+  --bg-0: #0e161a;
+  --bg-1: #142026;
+  --bg-2: #1c2a31;
+  --ink: #ece4d8;
+  --ink-secondary: rgba(236, 228, 216, 0.72);
+  --ink-muted: rgba(236, 228, 216, 0.55);
+  --panel: rgba(20, 32, 38, 0.92);
+  --panel-border: rgba(198, 222, 230, 0.1);
+  --line: rgba(198, 222, 230, 0.1);
+  --accent: #e8924a;
+  --accent-2: #56a697;
+  --accent-glow: rgba(232, 146, 74, 0.5);
+  --accent-2-glow: rgba(86, 166, 151, 0.45);
+  --accent-ink: #2a1606;
+  --selection: #fbead2;
+  --toolbar-bg: rgba(18, 28, 33, 0.85);
+  --footer-glass-bg: rgba(12, 20, 24, 0.56);
   color: var(--ink);
 }
 
@@ -3379,80 +3729,284 @@ button.site-footer-link {
   color: var(--ink-secondary);
 }
 
-/* Unified Sidebar Stack */
+/* Unified left dock */
+/* Spine (journey rail) + body (viz info panel) fused into ONE glass
+   container on desktop — mirrors the right side's single .context-drawer
+   object. Below 980px the fusion is switched off (`display: contents`), so
+   the rail (horizontal top strip) and the info panel (MobileBottomBar sheet)
+   keep their own independent, unchanged mobile layouts — see each element's
+   own `@media (max-width: 980px)` rules. */
+.viz-dock {
+  display: contents;
+}
+
+@media (min-width: 981px) {
+  .viz-dock {
+    position: fixed;
+    inset-inline-start: 8px;
+    top: var(--header-clearance);
+    bottom: calc(var(--footer-height) + 0.5rem);
+    z-index: 40;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    pointer-events: auto;
+  }
+
+  [data-theme="dark"] .viz-dock {
+    background: rgba(22, 33, 39, 0.92);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* The spine's own floating-box chrome is stripped when it's fused into this
+   dock — see JourneyRail.tsx's `inDock` prop / `.journey-rail.in-dock`. That
+   override lives in JourneyRail's own styled-jsx (not here): styled-jsx
+   appends a scoping class to every rule the component owns, so an external
+   `.viz-dock .journey-rail` selector here would tie in specificity with the
+   rail's own rules and lose the tie (this stylesheet loads before
+   styled-jsx's injected <style> tag) — the rail stayed fixed-position and
+   floated on top of the panel body instead of beside it. Overriding from
+   inside the component's own style block instead keeps the fix at higher
+   specificity, unconditionally. */
+
+/* Compact bottom-left overlay (clears the rail) holding the active viz's
+   zoom + legend. The graph is full-bleed; this floats over its lower-left. */
+/* Full-height left controls drawer — mirrors the right .context-drawer (same
+   panel treatment), on the left, holding the active viz's zoom + legend.
+   >=981px this is the dock's body, a plain flex child (see `.viz-dock`
+   above) — its own fixed position + glass chrome below only apply where
+   there's no dock to fuse it with (`.viz-dock` is `display: contents`). */
 .viz-sidebar-stack {
   position: fixed;
+  inset-inline-start: 84px; /* clear the journey rail */
   top: var(--header-clearance);
-  inset-inline-start: 88px; /* Clear the 68px JourneyRail + 8px start + 12px gap */
   bottom: calc(var(--footer-height) + var(--graph-toolbar-clearance) + 0.75rem);
   max-height: calc(100dvh - var(--header-clearance) - var(--footer-height) - var(--graph-toolbar-clearance) - 0.75rem);
   z-index: 40;
-  width: min(280px, calc(100vw - 2rem));
+  width: min(264px, calc(100vw - 104px));
   display: flex;
   flex-direction: column;
-  gap: 0;
-  pointer-events: none;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 2rem;
-  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  contain: layout paint;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  pointer-events: auto;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .viz-sidebar-stack {
+  background: rgba(22, 33, 39, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
 .viz-sidebar-stack.collapsed {
-  width: 36px;
-  overflow: hidden;
+  transform: translateX(calc(-100% - 96px));
+  pointer-events: none;
 }
 
-.viz-sidebar-collapse-btn {
-  pointer-events: auto;
+[dir="rtl"] .viz-sidebar-stack.collapsed {
+  transform: translateX(calc(100% + 96px));
+}
+
+@media (min-width: 981px) {
+  /* Demoted from a floating box to the dock's body — a plain flex child that
+     just supplies width + its own scroll area; the dock (its new parent) now
+     owns the shared glass surface, position, and z-index (see `.viz-dock`
+     above). */
+  .viz-sidebar-stack {
+    position: static;
+    inset-inline-start: auto;
+    top: auto;
+    bottom: auto;
+    z-index: auto;
+    width: min(256px, calc(100vw - 96px));
+    min-width: 0;
+    flex: 0 1 auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+  }
+
+  /* Collapsing the dock removes this column from layout by shrinking it to
+     zero width (not `display: none` — #viz-sidebar-portal must stay mounted,
+     see AppShell.tsx) so only the spine remains. `min-width: 0` matters here:
+     flex items default to `min-width: auto`, which can otherwise refuse to
+     shrink a column below its content's intrinsic width. The mobile
+     slide-out transform above doesn't apply once this is a static flex child
+     rather than a fixed box, so it's cancelled too. */
+  .viz-sidebar-stack.collapsed {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: none;
+  }
+}
+
+/* Collapse = a full-width button at the very bottom of the panel. Desktop
+   (>=981px) hides this in favour of the spine's own toggle — see below. */
+.viz-left-collapse {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 16px 16px;
+  background: transparent;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.15s, background 0.15s;
+}
+
+.viz-left-collapse:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--selection) 7%, transparent);
+}
+
+@media (min-width: 981px) {
+  /* Superseded by the single collapse/expand toggle at the bottom of the
+     spine (JourneyRail's `.rail-collapse-btn`) once the rail and info panel
+     share one dock. Mobile keeps this as its only affordance to hide the
+     panel — the spine toggle is hidden there too (see JourneyRail.tsx). */
+  .viz-left-collapse {
+    display: none;
+  }
+}
+
+/* Right-edge open/close handle for the inspector drawer — a pull-tab at the
+   screen edge that slides out to the drawer's edge when open. (Global, not
+   styled-jsx: the button is a sibling of the drawer aside and wouldn't be
+   scoped by the aside's styled-jsx block.) */
+.drawer-edge-handle {
+  position: fixed;
+  top: 50%;
+  inset-inline-end: 0;
+  transform: translateY(-50%);
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 72px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel, rgba(255, 255, 255, 0.85));
+  border-inline-end: none;
+  /* Logical radii: rounded on the canvas-facing side, square where it attaches
+     to the drawer — correct in both LTR and RTL. */
+  border-radius: 0;
+  border-start-start-radius: 12px;
+  border-end-start-radius: 12px;
+  background: var(--panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: var(--ink-secondary);
   cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin-bottom: 6px;
-  align-self: flex-start;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  transition: inset-inline-end 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s,
+    border-color 0.15s, background 0.15s;
 }
 
-.viz-sidebar-collapse-btn:hover {
+.drawer-edge-handle:hover {
   color: var(--ink);
   border-color: var(--accent);
-  background: var(--panel);
 }
 
-[data-theme="dark"] .viz-sidebar-collapse-btn {
-  background: rgba(22, 22, 30, 0.85);
+.drawer-edge-handle svg {
+  transition: transform 0.3s ease;
+}
+
+/* Closed: chevron points left (pull the drawer in). Open: points right (push out). */
+.drawer-edge-handle.is-open {
+  inset-inline-end: calc(1rem + min(380px, 92vw));
+}
+
+.drawer-edge-handle.is-open svg {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .drawer-edge-handle svg {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .drawer-edge-handle.is-open svg {
+  transform: scaleX(1);
+}
+
+[data-theme="dark"] .drawer-edge-handle {
+  background: rgba(22, 33, 39, 0.92);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: -3px 0 12px rgba(0, 0, 0, 0.25);
 }
 
-[data-theme="dark"] .viz-sidebar-collapse-btn:hover {
-  border-color: var(--accent);
+@media (max-width: 980px) {
+  .drawer-edge-handle {
+    display: none;
+  }
+}
+
+/* Panel content order: legend pinned top · transient selection cards middle ·
+   zoom controls pushed to the bottom — so the view never jumps as the
+   Selected Root / Ayah / Root Connection cards pop in and out. The zoom card
+   is the first .viz-left-panel in the stack. */
+.viz-left-stack {
+  min-height: 100%;
+}
+
+.viz-left-stack > .viz-legend {
+  order: 0;
+}
+
+.viz-left-stack > .viz-left-panel {
+  order: 1;
+}
+
+.viz-left-stack > .viz-zoom-panel {
+  order: 2;
+  margin-top: auto !important;
+  /* Zoom = controls, not a card: strip the card chrome, keep the buttons. */
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 10px 2px 2px !important;
 }
 
 .viz-sidebar-content {
+  /* Fills the full-height left drawer below the (sibling) toggle and scrolls. */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  opacity: 1;
-  transform: translateX(0);
-  transform-origin: top left;
-  transition:
-    opacity 0.16s ease,
-    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear;
-  will-change: transform, opacity;
+  gap: 10px;
+  padding: 14px 14px calc(14px + var(--footer-height, 48px) / 2);
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
 }
 
 .viz-sidebar-stack.collapsed .viz-sidebar-content {
@@ -3469,6 +4023,10 @@ button.site-footer-link {
   position: static !important;
   /* Override any inline or specific fixed positioning */
   width: 100% !important;
+  /* Override inline `margin-top:auto` on the legend so it flows right after the
+     panels above it instead of being pinned to the bottom (a source of the
+     legend visibly jumping as selection panels appear/disappear). */
+  margin-top: 0 !important;
   pointer-events: auto;
   flex-shrink: 0;
   /* Prevent squashing */
@@ -3478,7 +4036,7 @@ button.site-footer-link {
 .current-selection-panel {
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.76);
   backdrop-filter: blur(12px);
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
@@ -3542,7 +4100,7 @@ button.site-footer-link {
   font-size: 0.62rem;
   font-family: "Amiri", serif;
   padding: 1px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--line);
   color: var(--ink-muted);
@@ -3582,7 +4140,7 @@ button.site-footer-link {
 .viz-left-panel {
   padding: 12px 14px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(10px);
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
@@ -3620,7 +4178,7 @@ button.site-footer-link {
   padding: 12px 14px;
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
@@ -3650,6 +4208,17 @@ button.site-footer-link {
   height: 3px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+/* Encoding notes ("Size = ayahs", "Height = words") — plain muted caption
+   text, not a category swatch row: a fake --line-colored dot next to them
+   reads as a disabled/greyed-out category, when they're really just
+   documenting how a size/height channel maps to data. */
+.viz-legend-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
 }
 
 @media (max-width: 980px) {
@@ -3718,7 +4287,7 @@ button.site-footer-link {
 }
 
 [data-theme='dark'] .header-button-group {
-  background: rgba(18, 18, 26, 0.5);
+  background: rgba(20, 30, 36, 0.5);
 }
 
 .control-pill-btn {
@@ -3761,7 +4330,9 @@ button.site-footer-link {
 }
 
 .viz-left-stack.collapsed {
-  transform: translateX(-120%);
+  /* Slide toward the panel's own edge — the inverse of the right drawer's
+     direction-aware slide, so it mirrors correctly in RTL. */
+  transform: translateX(calc(-1 * var(--sidebar-slide-out)));
   opacity: 0;
   pointer-events: none;
 }
@@ -3840,7 +4411,7 @@ button.site-footer-link {
 .dep-select-shell::after {
   content: "";
   position: absolute;
-  right: 14px;
+  inset-inline-end: 14px;
   top: 50%;
   width: 8px;
   height: 8px;
@@ -3935,7 +4506,7 @@ button.site-footer-link {
 
 .dep-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -4115,7 +4686,7 @@ button.site-footer-link {
 }
 
 .dep-clear-btn {
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
@@ -4302,7 +4873,7 @@ button.site-footer-link {
   justify-content: space-between;
   align-items: center;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   font-size: 0.82rem;
   transition: background 0.15s;
@@ -4566,7 +5137,7 @@ button.site-footer-link {
 .scope-pill {
   padding: 4px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.65);
   color: var(--ink-secondary);
   font-size: 0.7rem;
@@ -4639,7 +5210,7 @@ button.site-footer-link {
   margin-bottom: 12px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--accent), var(--line) 45%);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent), transparent 94%);
 }
 
@@ -4681,7 +5252,7 @@ button.site-footer-link {
   align-items: center;
   padding: 6px 4px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.5);
 }
 
@@ -4708,7 +5279,7 @@ button.site-footer-link {
 .pos-chip {
   padding: 2px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.6);
   color: var(--ink-secondary);
   font-size: 0.7rem;
@@ -4765,7 +5336,7 @@ button.site-footer-link {
   gap: 6px;
   padding: 5px 8px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   text-align: left;
@@ -4927,7 +5498,7 @@ button.site-footer-link {
   align-self: center;
   padding: 0.45rem 0.8rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--ink-secondary);
   font: inherit;
@@ -4973,7 +5544,7 @@ button.site-footer-link {
 
 [data-theme="dark"] .search-input,
 [data-theme="dark"] .search-select {
-  background: rgba(18, 18, 26, 0.75);
+  background: rgba(20, 30, 36, 0.75);
 }
 
 [data-theme="dark"] .result-item,
@@ -5010,15 +5581,24 @@ button.site-footer-link {
   margin: 0 auto;
 }
 
+/* The "panel" variant is embedded in a static content stack (search
+   workspace, drawer search tab) rather than floating over page content like
+   the header's "bar" variant. Keep the overlay in normal flow there so
+   expanded filters/results push following content down instead of
+   overlapping/clipping it (see .search-overlay-container above). */
+.global-search[data-variant="panel"] .search-overlay-container {
+  position: static;
+}
+
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1.5px solid var(--accent);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.7);
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .search-input-wrapper:focus-within {
@@ -5066,7 +5646,7 @@ button.site-footer-link {
   height: 28px;
   flex-shrink: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
@@ -5080,7 +5660,7 @@ button.site-footer-link {
 
 .search-filters-inline-toggle.active {
   color: var(--accent);
-  background: rgba(15, 118, 110, 0.1);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 [data-theme="dark"] .search-filters-inline-toggle:hover {
@@ -5088,77 +5668,70 @@ button.site-footer-link {
 }
 
 [data-theme="dark"] .search-filters-inline-toggle.active {
-  background: rgba(249, 115, 22, 0.15);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .search-results-dropdown {
   max-height: 420px;
   overflow-y: auto;
+  padding: 4px 4px 6px;
   border: 1px solid var(--line);
-  border-radius: 0 0 10px 10px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
-  margin-top: 2px;
-}
-
-.result-group + .result-group {
-  border-top: 1px solid var(--line);
+  backdrop-filter: blur(var(--blur-md));
+  box-shadow: var(--shadow-3);
+  margin-top: 6px;
 }
 
 .result-group-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.7rem 0.9rem 0.35rem;
+  gap: 7px;
+  padding: 0.7rem 0.9rem 0.4rem;
   color: var(--ink-muted);
-  font-size: 0.68rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .result-ai-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 5px;
+  padding: 2px 6px;
   font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #8b5cf6, #6366f1);
-  color: #fff;
+  letter-spacing: 0.06em;
+  border-radius: var(--radius-xs);
+  background: rgba(232, 146, 74, 0.14);
+  border: 1px solid rgba(232, 146, 74, 0.3);
+  color: #f0b074;
   text-transform: uppercase;
   line-height: 1.4;
-}
-
-.result-type-semantic {
-  background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
-}
-
-[data-theme="dark"] .result-type-semantic {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
 }
 
 .search-result-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 13px;
   width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 11px 14px;
+  margin: 1px 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: transparent;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.search-result-item:hover,
+.search-result-item:hover {
+  background: color-mix(in srgb, var(--selection) 6%, transparent);
+}
+
 .search-result-item.selected {
-  background: rgba(15, 118, 110, 0.08);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .result-arabic {
@@ -5185,35 +5758,38 @@ button.site-footer-link {
   letter-spacing: 0.06em;
 }
 
+/* Result-kind tags use the V2 data-encoding spectrum. */
 .result-type-root {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: rgba(142, 132, 204, 0.16);
+  color: #8e84cc;
 }
 
 .result-type-lemma {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: rgba(230, 194, 78, 0.16);
+  color: #e6c24e;
 }
 
 .result-type-token,
 .result-type-text {
-  background: rgba(249, 115, 22, 0.15);
-  color: #f97316;
+  background: rgba(86, 166, 151, 0.16);
+  color: #56a697;
 }
 
 .result-type-gloss {
-  background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
+  background: rgba(208, 106, 134, 0.16);
+  color: #d06a86;
 }
 
 .result-type-ayah {
-  background: rgba(6, 182, 212, 0.15);
-  color: #0891b2;
+  background: rgba(221, 106, 71, 0.16);
+  color: #dd6a47;
 }
 
+.result-type-surah,
+.result-type-translation,
 .result-type-semantic {
-  background: rgba(236, 72, 153, 0.15);
-  color: #db2777;
+  background: rgba(232, 146, 74, 0.16);
+  color: #e8924a;
 }
 
 .result-match {
@@ -5254,7 +5830,7 @@ button.site-footer-link {
 .search-intent-hint {
   position: fixed;
   bottom: calc(var(--footer-height) + 70px);
-  left: 16px;
+  inset-inline-start: 16px;
   z-index: 46;
   display: flex;
   align-items: center;
@@ -5271,7 +5847,7 @@ button.site-footer-link {
 }
 
 [data-theme="dark"] .search-intent-hint {
-  background: rgba(22, 22, 30, 0.9);
+  background: rgba(22, 33, 39, 0.9);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -5285,7 +5861,7 @@ button.site-footer-link {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: 0.7rem;
   font-weight: 500;
   background: var(--accent, #0f766e);
@@ -5330,7 +5906,7 @@ button.site-footer-link {
   padding: 5px 8px;
   font-size: 0.8rem;
   border: 1px solid var(--line, #d1d5db);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg-1, #fff);
   color: var(--ink, #1c1917);
   outline: none;
@@ -5345,7 +5921,7 @@ button.site-footer-link {
   padding: 5px 8px;
   font-size: 0.8rem;
   border: 1px solid var(--line, #d1d5db);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg-1, #fff);
   color: var(--ink, #1c1917);
   outline: none;
@@ -5372,17 +5948,17 @@ button.site-footer-link {
 
 [data-theme="dark"] .search-filter-input,
 [data-theme="dark"] .search-filter-select {
-  background: rgba(18, 18, 26, 0.75);
+  background: rgba(20, 30, 36, 0.75);
   border-color: rgba(255, 255, 255, 0.1);
   color: #e5e5e5;
 }
 
 [data-theme="dark"] .search-input-wrapper {
-  background: rgba(18, 18, 26, 0.75);
+  background: rgba(20, 30, 36, 0.75);
 }
 
 [data-theme="dark"] .search-results-dropdown {
-  background: rgba(18, 18, 26, 0.95);
+  background: rgba(20, 30, 36, 0.95);
 }
 
 [data-theme="dark"] .search-result-item:hover,
@@ -5426,8 +6002,9 @@ button.site-footer-link {
 
 .status-badge {
   padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(15, 118, 110, 0.12);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-size: 0.65rem;
   font-weight: 600;
@@ -5436,12 +6013,13 @@ button.site-footer-link {
 }
 
 .status-badge.focus {
+  border-color: transparent;
   background: var(--accent);
-  color: white;
+  color: var(--accent-ink);
 }
 
 .status-badge.hover {
-  background: rgba(15, 118, 110, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
 
@@ -5452,9 +6030,9 @@ button.site-footer-link {
   width: 28px;
   height: 28px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-2);
-  color: var(--ink);
+  color: var(--ink-secondary);
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
@@ -5464,7 +6042,7 @@ button.site-footer-link {
 .close-btn:hover {
   border-color: var(--accent);
   background: var(--accent);
-  color: white;
+  color: var(--accent-ink);
 }
 
 .token-arabic {
@@ -5484,9 +6062,9 @@ button.site-footer-link {
 .inspector-section {
   margin-bottom: 1rem;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--panel);
 }
 
 .inspector-section h3 {
@@ -5505,7 +6083,7 @@ button.site-footer-link {
 
 .data-item {
   background: var(--bg-2);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -5514,6 +6092,8 @@ button.site-footer-link {
 
 .data-item .label {
   font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--ink-muted);
   margin-bottom: 4px;
 }
@@ -5521,6 +6101,7 @@ button.site-footer-link {
 .data-item .value {
   font-weight: 600;
   font-size: 1rem;
+  color: var(--ink);
 }
 
 .arabic-font {
@@ -5551,10 +6132,10 @@ button.site-footer-link {
   display: inline-flex;
   gap: 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 10px;
   font-size: 0.78rem;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--bg-2);
 }
 
 .f-key {
@@ -5568,13 +6149,16 @@ button.site-footer-link {
   font-weight: 600;
 }
 
-[data-theme="dark"] .inspector-section,
+[data-theme="dark"] .inspector-section {
+  background: var(--panel);
+}
+
 [data-theme="dark"] .feature-tag {
-  background: rgba(16, 16, 24, 0.7);
+  background: var(--bg-2);
 }
 
 .root-dist-section {
-  border-color: var(--accent);
+  border-color: var(--line) var(--line) var(--line) var(--accent);
   border-width: 1px 1px 1px 3px;
 }
 
@@ -5595,7 +6179,7 @@ button.site-footer-link {
   text-align: center;
   padding: 6px 4px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-2);
 }
 
@@ -5642,7 +6226,7 @@ button.site-footer-link {
 .inspector-sort-select {
   background: var(--bg-1);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--ink);
   font-size: 0.65rem;
   padding: 2px 4px;
@@ -5651,7 +6235,7 @@ button.site-footer-link {
 }
 
 .inspector-sort-select:hover {
-  border-color: var(--ink-muted);
+  border-color: var(--accent);
 }
 
 .root-dist-list {
@@ -5663,7 +6247,7 @@ button.site-footer-link {
 }
 
 .root-dist-surah {
-  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+  border-bottom: 1px solid var(--line);
 }
 
 .root-dist-surah-btn {
@@ -5678,12 +6262,12 @@ button.site-footer-link {
   cursor: pointer;
   font-family: inherit;
   color: var(--ink);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   transition: background 0.15s;
 }
 
 .root-dist-surah-btn:hover {
-  background: rgba(128, 128, 128, 0.1);
+  background: color-mix(in srgb, var(--selection) 8%, transparent);
 }
 
 .rds-surah-name {
@@ -5703,7 +6287,7 @@ button.site-footer-link {
 .rds-bar-track {
   width: 48px;
   height: 4px;
-  background: rgba(128, 128, 128, 0.15);
+  background: color-mix(in srgb, var(--selection) 8%, transparent);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -5733,15 +6317,17 @@ button.site-footer-link {
 .rds-ayah-chip {
   font-size: 0.62rem;
   padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(128, 128, 128, 0.1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
   color: var(--ink-secondary);
   white-space: nowrap;
   cursor: default;
 }
 
 .rds-ayah-chip:hover {
-  background: rgba(128, 128, 128, 0.2);
+  background: color-mix(in srgb, var(--selection) 8%, transparent);
+  border-color: color-mix(in srgb, var(--selection) 22%, transparent);
 }
 
 .rds-ayah-x {
@@ -5946,5 +6532,134 @@ button.site-footer-link {
 
   .search-input-wrapper:focus-within .search-clear {
     display: block;
+  }
+
+  /* The collapse-to-icon treatment above is built for the header's "bar"
+     variant. The "panel" variant is embedded in static content stacks
+     (search workspace, drawer search tab), so it must stay a full-width
+     text field at every viewport width. Only the layout-collapse
+     properties are neutralized here; surface styling (padding, background,
+     border) still comes from the base rules and per-surface overrides. */
+  .global-search[data-variant="panel"] {
+    width: 100%;
+  }
+
+  .global-search[data-variant="panel"] .search-input-wrapper,
+  .global-search[data-variant="panel"] .search-input-wrapper:focus-within {
+    position: static;
+    width: auto;
+    height: auto;
+    justify-content: flex-start;
+  }
+
+  .global-search[data-variant="panel"] .search-input {
+    width: auto;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .global-search[data-variant="panel"] .search-clear {
+    display: block;
+  }
+}
+
+/* ── Intro chip ──────────────────────────────────────────────────────────
+   Compact, non-blocking "How to read this view" pill (ui/VizIntroCard.tsx),
+   replacing the old center-screen intro overlay. Anchored under the status
+   bar / breadcrumb pill, same horizontal center — short and capped in
+   height so it never sits over the canvas center. The label opens the right
+   drawer's Explain tab; the ✕ just dismisses. */
+.viz-intro-chip {
+  position: fixed;
+  top: calc(var(--header-clearance) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 44;
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-3, 0 18px 48px rgba(0, 0, 0, 0.35));
+  overflow: hidden;
+  animation: viz-intro-chip-in 0.2s ease-out both;
+  transition: opacity 0.2s ease-out;
+}
+
+.viz-intro-chip.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.viz-intro-chip-label {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-block: 0;
+  padding-inline: 14px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.viz-intro-chip-label:hover {
+  color: var(--accent);
+}
+
+.viz-intro-chip-icon {
+  font-size: 0.92rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.viz-intro-chip-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 30px;
+  border: none;
+  border-inline-start: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.viz-intro-chip-dismiss:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.viz-intro-chip-label:focus-visible,
+.viz-intro-chip-dismiss:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@keyframes viz-intro-chip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 980px) {
+  .viz-intro-chip {
+    top: calc(var(--header-clearance) + 40px);
   }
 }

@@ -30,6 +30,12 @@ export interface CommandBarProps {
   onSearchQuerySubmitted?: (query: string) => void;
   /** Called when a result is selected (with match type for analytics) */
   onSearchResultSelected?: (matchType: SearchMatchType) => void;
+  /**
+   * Optional — route the user to the result's target visualization + selection.
+   * When provided, takes over from onTokenSelect/onRootSelect so a result lands
+   * the user on the right viz (its actionTarget). Falls back to token selection.
+   */
+  onResultNavigate?: (result: SearchResultItem) => void;
   /** Optional — pass an externally-created search controller (for shared state) */
   search?: UseSearchReturn;
 }
@@ -48,6 +54,7 @@ export default function CommandBar({
   onSearchOpened,
   onSearchQuerySubmitted,
   onSearchResultSelected,
+  onResultNavigate,
   search: externalSearch,
 }: CommandBarProps) {
   const t = useTranslations("GlobalSearch");
@@ -128,13 +135,18 @@ export default function CommandBar({
     (result: SearchResultItem) => {
       const payload = selectResult(result);
       if (!payload) return;
-      onTokenSelect(payload.tokenId!);
       onSearchResultSelected?.(payload.matchType);
+      // Prefer routing to the result's target visualization + selection.
+      if (onResultNavigate) {
+        onResultNavigate(payload.result);
+        return;
+      }
+      onTokenSelect(payload.tokenId!);
       if (payload.matchedRoot && onRootSelect) {
         onRootSelect(payload.matchedRoot);
       }
     },
-    [selectResult, onTokenSelect, onSearchResultSelected, onRootSelect],
+    [selectResult, onResultNavigate, onTokenSelect, onSearchResultSelected, onRootSelect],
   );
 
   // ---- keyboard: delegate nav to hook, intercept Enter ourselves ----

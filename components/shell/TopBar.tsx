@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/routing";
 import CommandBar from "@/components/search/CommandBar";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { AuthButton } from "@/components/ui/AuthButton";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
+import type { SearchResultItem } from "@/lib/search/searchTypes";
 
 interface TopBarProps {
   allTokens: CorpusToken[];
@@ -20,6 +22,7 @@ interface TopBarProps {
   onSearchOpened: () => void;
   onSearchQuerySubmitted: (query: string) => void;
   onSearchResultSelected: (matchType: SearchMatchType) => void;
+  onResultNavigate?: (result: SearchResultItem) => void;
   /** Slot rendered in the center of the top bar */
   centerSlot?: ReactNode;
 }
@@ -34,6 +37,7 @@ export default function TopBar({
   onSearchOpened,
   onSearchQuerySubmitted,
   onSearchResultSelected,
+  onResultNavigate,
   centerSlot,
 }: TopBarProps) {
   const t = useTranslations("Index");
@@ -41,15 +45,18 @@ export default function TopBar({
   return (
     <header className="shell-topbar">
       <div className="shell-topbar-inner">
-        <div className="brand-block" data-tour-id="header-brand">
-          <Image src="/favicon.svg" alt="" className="brand-logo" width={34} height={34} />
-          <div className="brand-text">
-            <p className="eyebrow">{t("eyebrow")}</p>
-            <div className="brand-title-row">
-              <h1 className="brand-title">{t("brand")}</h1>
-            </div>
-          </div>
-        </div>
+        <Link
+          href="/"
+          className="brand-block"
+          data-tour-id="header-brand"
+          aria-label={t("eyebrow")}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          <span className="brand-mark">
+            <Image src="/favicon.svg" alt="" width={22} height={22} />
+          </span>
+          <span className="brand-name">{t("eyebrow")}</span>
+        </Link>
 
         {/* ── Center: status/breadcrumb bar ── */}
         {centerSlot && <div className="shell-topbar-center desktop-only">{centerSlot}</div>}
@@ -77,6 +84,7 @@ export default function TopBar({
           onSearchOpened={onSearchOpened}
           onSearchQuerySubmitted={onSearchQuerySubmitted}
           onSearchResultSelected={onSearchResultSelected}
+          onResultNavigate={onResultNavigate}
         />
       </div>
 
@@ -91,6 +99,15 @@ export default function TopBar({
           --centered-shell-dock-width: min(calc(100vw - 24px), 520px, 40vw);
         }
 
+        /* Wide monitors (2K+): a 520px bar centered in 2560px of viewport
+           reads as unanchored/misplaced. Let the centered dock grow with the
+           screen so it stays proportionate. */
+        @media (min-width: 1800px) {
+          .shell-topbar {
+            --centered-shell-dock-width: min(680px, 32vw);
+          }
+        }
+
         .shell-topbar-inner {
           pointer-events: auto;
           position: relative;
@@ -98,8 +115,13 @@ export default function TopBar({
           align-items: center;
           gap: 0.8rem;
           width: 100%;
-          min-height: var(--header-dock-height);
-          padding: 0.36rem 1rem;
+          /* Banner and the centered search slot share ONE explicit height —
+             previously the banner grew to ~56px from its content while the
+             search slot grew to ~64px from ITS content, so the search pill
+             overhung the banner's bottom border by a couple of px. */
+          height: var(--topbar-height, 58px);
+          min-height: 0;
+          padding: 0 1rem;
           background: var(--toolbar-bg);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
@@ -114,7 +136,36 @@ export default function TopBar({
 
         .brand-block {
           flex: 0 0 auto;
-          width: 340px;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .brand-mark {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--line);
+          background: var(--bg-2);
+          flex-shrink: 0;
+        }
+
+        .brand-name {
+          font-family: var(--font-display, "Fraunces"), serif;
+          font-size: 0.9rem;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: var(--ink);
+          white-space: nowrap;
+        }
+
+        @media (max-width: 760px) {
+          .brand-name {
+            display: none;
+          }
         }
 
         .shell-topbar-search {
@@ -123,11 +174,12 @@ export default function TopBar({
           left: 50%;
           transform: translateX(-50%);
           width: var(--centered-shell-dock-width);
-          min-height: var(--header-dock-height);
+          height: var(--topbar-height, 58px);
+          min-height: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.36rem 0;
+          padding: 0 2px;
           pointer-events: auto;
           z-index: 52;
         }
@@ -135,6 +187,13 @@ export default function TopBar({
         .shell-topbar-search :global(.global-search) {
           width: 100%;
           max-width: none;
+        }
+
+        /* Keep the pill comfortably INSIDE the banner: cap its height below
+           the shared bar height so there's visible breathing room above and
+           below instead of the pill kissing the banner's border. */
+        .shell-topbar-search :global(.search-input-wrapper) {
+          max-height: 46px;
         }
 
         .shell-topbar-center {

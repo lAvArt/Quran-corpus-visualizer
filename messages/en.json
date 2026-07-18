@@ -1,4 +1,50 @@
 {
+    "Meta": {
+        "title": "Quran Corpus Visualizer",
+        "description": "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
+        "ogDescription": "Interactive exploration of Quranic linguistic structure and morphology.",
+        "ogImageAlt": "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
+        "searchTitle": "Search the Corpus",
+        "searchDescription": "Search Quranic roots, lemmas, words, and meanings across the full corpus with morphological filters.",
+        "studyTitle": "Study Hub",
+        "studyDescription": "Track Arabic roots, review your learning progress, and build a personal knowledge map of the Quran.",
+        "quizTitle": "Quiz",
+        "quizDescription": "Test your knowledge of Quranic roots and morphology with generated quizzes."
+    },
+    "Home": {
+        "eyebrow": "Search the Qur'an by meaning",
+        "headline": "Every word has a root.",
+        "placeholder": "Search a root or word — ر-ح-م, mercy, knowledge…",
+        "enterHint": "Enter",
+        "matched": "matched root {root}",
+        "back": "Back",
+        "seeAll": "Full breakdown",
+        "statOccurrences": "occurrences",
+        "todaysRoot": "Today's root",
+        "occurrences": "× occurrences",
+        "statSurahs": "sūrahs",
+        "statVerses": "unique verses",
+        "statForms": "word forms",
+        "statFirst": "first appears",
+        "whereLabel": "Where it occurs · by sūrah",
+        "ofSurahs": "{n} of 114",
+        "exploreRoot": "See it in context",
+        "seeNetwork": "Study the root network",
+        "readVerses": "{n, plural, one {Read the verse} other {Read all # verses}}",
+        "compareForms": "{n, plural, one {Compare the form} other {Compare # forms}}",
+        "noMatch": "No exact match for “{q}”. Try one of these:",
+        "skipToApp": "Skip to the full Observatory",
+        "wordByWord": "Word by word",
+        "closeVerse": "Close",
+        "openInGraphs": "Open in graph tools",
+        "pos": {
+            "N": "noun",
+            "V": "verb",
+            "ADJ": "adjective",
+            "PRON": "pronoun",
+            "P": "particle"
+        }
+    },
     "Error": {
         "title": "Something went wrong",
         "message": "An unexpected error occurred. Please try again or return to the home page.",
@@ -17,12 +63,22 @@
     },
     "JourneyRail": {
         "label": "App mode navigation",
-        "discover": "Discover",
+        "groupViews": "Views",
+        "groupPages": "Pages",
+        "discover": "Overview",
+        "discoverHint": "All 114 surahs at a glance",
         "root": "Roots",
-        "ayah": "Ayah",
+        "rootHint": "Explore a root's network across the corpus",
+        "ayah": "Surah",
+        "ayahHint": "Map one surah word by word",
         "searchRoute": "Search",
+        "searchHint": "Search the whole corpus",
         "studyRoute": "Study",
-        "quizRoute": "Quiz"
+        "studyHint": "Your tracked roots and study plan",
+        "quizRoute": "Quiz",
+        "quizHint": "Quiz yourself on what you've tracked",
+        "collapsePanel": "Hide info panel",
+        "expandPanel": "Show info panel"
     },
     "ContextDrawer": {
         "label": "Context panel",
@@ -33,7 +89,9 @@
         "index": "Index",
         "close": "Close drawer",
         "scan": "Live scanner",
-        "hideScan": "Hide scanner"
+        "hideScan": "Hide scanner",
+        "expand": "Show tools",
+        "collapse": "Hide tools"
     },
     "Footer": {
         "github": "GitHub",
@@ -69,7 +127,7 @@
     },
     "Index": {
         "title": "Quran Corpus Visualizer",
-        "eyebrow": "Quran Corpus Visualizer",
+        "eyebrow": "Quranic Linguistics Observatory",
         "brand": "quran.pluragate.org",
         "hideTools": "Hide Tools",
         "showTools": "Show Tools",
@@ -158,6 +216,7 @@
             "noLens": "No active lens",
             "noSpotlight": "No spotlight yet",
             "noMatches": "No matches yet",
+            "readyHint": "Every root, ayah, and lemma in the corpus is indexed and ready to search.",
             "spotlightHint": "Search by root or meaning to pin a root family here."
         },
         "rootInsight": {
@@ -186,7 +245,7 @@
     },
     "GlobalSearch": {
         "ariaLabel": "Search roots, words, meanings",
-        "placeholder": "Search surahs, roots, words, meanings...",
+        "placeholder": "Search the corpus — root:, lemma:, pos:, ayah:, gloss:",
         "noResults": "No results found",
         "matchRoot": "Root: {root} ({count} occurrences)",
         "matchLemma": "Lemma: {lemma}",
@@ -359,9 +418,6 @@
             "clickToFocusSurah": "Click to focus surah and highlight"
         }
     },
-    "VizExplainer": {
-        "helpLabel": "How to read this graph"
-    },
     "MorphologyInspector": {
         "emptyState": {
             "hover": "Hover over a node to see quick details.",
@@ -372,6 +428,15 @@
             "preview": "PREVIEW"
         },
         "clearSelection": "Clear selection",
+        "almaanyAria": "Look up {word} in Almaany dictionary",
+        "dohaAria": "Look up {word} in the Doha Historical Dictionary",
+        "actions": {
+            "trackRoot": "Track this root",
+            "tracking": "Tracking",
+            "stopTracking": "Stop tracking this root",
+            "quizRoot": "Quiz me on this root",
+            "quizRootAria": "Quiz me on the root {root}"
+        },
         "sections": {
             "morphology": "Morphology",
             "translation": "Translation",
@@ -381,10 +446,12 @@
             "root": "Root",
             "lemma": "Lemma",
             "stem": "Stem",
-            "pos": "POS"
+            "pos": "POS",
+            "gloss": "Gloss"
         },
         "noGloss": "Translation not available for this form",
         "noGlossWithRoot": "Translation not available (root: {root})",
+        "posLegendHeading": "Color = part of speech",
         "rootDistribution": {
             "title": "Root Analysis",
             "meaning": "Meaning",
@@ -400,7 +467,10 @@
             "clickToFocus": "Click to focus",
             "sortAria": "Sort distribution",
             "sortByOccurrence": "Sort by occurrences",
-            "sortByOrder": "Sort by surah order"
+            "sortByOrder": "Sort by surah order",
+            "occurrencesOfRoot": "× occurrences of root",
+            "acrossSurahs": "across {count, plural, one {# surah} other {# surahs}}",
+            "stillCounting": "still counting — corpus loading"
         },
         "featuresMap": {
             "keys": {
@@ -499,6 +569,7 @@
             "legend": "Legend",
             "zoom": "Zoom",
             "reset": "Reset",
+            "focus": "Focus",
             "clear": "Clear",
             "surah": "Surah",
             "ayah": "Ayah",
@@ -512,7 +583,7 @@
             "hideHelp": "Hide Help",
             "showHelp": "Show Help",
             "filtering": "Filtering",
-            "linkedAyahs": "Linked Ayahs",
+            "occursInAyahs": "Occurs in {count, plural, one {# ayah} other {# ayahs}}",
             "selectedRoot": "Selected Root",
             "ayahCaps": "AYAH",
             "surahCaps": "SURAH",
@@ -559,18 +630,20 @@
             "learning": "Learning",
             "learned": "Learned",
             "untracked": "Untracked",
-            "global": "Global"
+            "global": "Global",
+            "makki": "Makki",
+            "madani": "Madani",
+            "revelationPlace": "Revelation"
         },
         "SurahDistribution": {
-            "fewerAyahs": "Fewer ayahs",
-            "moderateAyahs": "Moderate ayahs",
-            "moreAyahs": "More ayahs",
             "selectedRoot": "Selected / contains selected root",
-            "tokenCountSize": "Node size = token count",
+            "sizeAyahs": "Size = ayahs",
+            "heightWords": "Height = words",
             "xAxis": "SURAH INDEX",
-            "yAxis": "TOKEN COUNT",
+            "yAxis": "WORDS",
             "surah": "Surah",
             "words": "Words",
+            "caption": "Every sūrah by length and revelation place",
             "Help": {
                 "title": "Surah Distribution Graph",
                 "description": "Compares surahs by token volume in one view.",
@@ -600,7 +673,7 @@
             "contextLinks": "Context-linked links",
             "activeNode": "Hovered or selected node",
             "contextMatch": "Matches current selection",
-            "linksRoot": "Links connect roots that share lemmas",
+            "linksRoot": "Links connect roots that share a verse",
             "linksPOS": "Links connect adjacent POS pairs",
             "linksAyah": "Links connect ayahs through selected-context transitions",
             "tokens": "tokens",
@@ -613,7 +686,7 @@
                 "title": "Arc Flow Diagram",
                 "description": "A ranked overview of frequent roots, POS tags, or ayahs in the current scope.",
                 "rootLabel": "By Root",
-                "rootText": "Each bar is a root. Longer bars mean higher frequency. Curves connect roots that share lemmas.",
+                "rootText": "Each bar is a root. Longer bars mean higher frequency. Curves connect roots that share a verse.",
                 "posLabel": "By POS",
                 "posText": "Each bar is a POS category. Curves connect POS tags that appear next to each other inside ayahs.",
                 "ayahLabel": "By Ayah",
@@ -622,7 +695,8 @@
                 "tipsText": "Switch mode in the sidebar, use root search in Root mode, and zoom in to reveal more items."
             },
             "posMeaning": "POS meaning",
-            "contextMatches": "Context matches"
+            "contextMatches": "Context matches",
+            "sharedVerses": "{count, plural, one {# shared verse} other {# shared verses}}"
         },
         "RadialSura": {
             "advanced": "Advanced Visualization",
@@ -634,6 +708,9 @@
             "hints": "Hover for preview, click to pin, drag to pan, scroll to zoom.",
             "helpText": "Bars represent ayahs (length = token count, color = dominant POS). Arcs connect ayahs that share roots.",
             "filtering": "Filtering: {root}",
+            "matchSummary": "{matchCount, plural, one {# match} other {# matches}} · {matchAyahCount, plural, one {# ayah} other {# ayahs}}",
+            "overviewLine": "overview · {count, plural, one {# ayah} other {# ayahs}} — zoom for words",
+            "matchesLabel": "Matches",
             "linkedVerses": "Linked verses: {verses}",
             "selectedRoot": "Selected Root",
             "nodeAyah": "Ayah {id}",
@@ -733,8 +810,8 @@
             "helpBands": "Each curved band maps one root to one lemma.",
             "helpThickness": "Thicker bands mean higher frequency in the current scope.",
             "helpHover": "Hover a band to preview a sample token; click to inspect.",
-            "rootNode": "Root Nodes",
-            "lemmaNode": "Lemma Nodes",
+            "rootNode": "Roots",
+            "lemmaNode": "Word forms",
             "Help": {
                 "title": "Root-Lemma Flow",
                 "description": "A Sankey view of how roots distribute across derived lemmas.",
@@ -748,6 +825,9 @@
         },
         "RootNetwork": {
             "rootLimit": "Visible roots",
+            "focusEntryTitle": "Focused view",
+            "focusEntryDescription": "Showing this root with its {count} closest companions — roots that share verses with it.",
+            "focusEntryExpand": "Show full network",
             "availableRoots": "Total available roots:",
             "dragPan": "Drag to pan - wheel to zoom",
             "noTokens": "No token data loaded for this surah yet. Keep corpus loading, then retry this surah.",
@@ -769,6 +849,20 @@
                 "distanceText": "Shorter links usually indicate stronger or more frequent root-lemma association.",
                 "sizeLabel": "Node Size",
                 "sizeText": "Node size reflects occurrence frequency in the selected scope."
+            }
+        },
+        "KnowledgeGraph": {
+            "empty": {
+                "title": "Your knowledge garden is empty",
+                "body": "Track any root — from the inspector on any graph, or after a quiz — to plant your first seed here.",
+                "exploreRoots": "Browse roots",
+                "openStudy": "Open Study"
+            },
+            "viewToggle": {
+                "neural": "Neural",
+                "neuralTitle": "Neural map",
+                "flow": "Flow",
+                "flowTitle": "Flow chart"
             }
         },
         "CollocationNetwork": {
@@ -815,6 +909,15 @@
             "pmiHigher": "Higher PMI (stronger than expected association)",
             "pmiLower": "Lower PMI (weaker association)",
             "lemmaLayerHint": "Hover or tap a collocate to reveal lemma samples.",
+            "SeededExample": {
+                "title": "Example — words that travel with {root}",
+                "subtitle": "Search or pick any root to see its own neighborhood."
+            },
+            "HeuristicBadge": {
+                "label": "Heuristic estimate",
+                "tooltip": "Co-occurrence strength is a statistical estimate (PMI) based on word proximity. Pairs seen together fewer than {n} times are excluded."
+            },
+            "nodeCapDisclosure": "Showing top {n} by strength",
             "Help": {
                 "title": "Collocation Network",
                 "description": "Maps the semantic neighborhood of a selected root using statistical co-occurrence.",
@@ -852,9 +955,9 @@
         "coloring": {
             "title": "Lexical coloring",
             "options": {
-                "theme": "Theme default",
+                "theme": "By part of speech",
                 "frequency": "By frequency",
-                "identity": "By identity"
+                "identity": "By root"
             }
         },
         "modes": {
@@ -1083,89 +1186,159 @@
         "helpLabel": "What am I seeing?",
         "surah-distribution": {
             "summary": "A radial chart showing surah lengths and root frequency distribution across the Quran.",
+            "legend": {
+                "makki": "Makki surah",
+                "madani": "Madani surah",
+                "rootFrequency": "Root frequency"
+            },
             "hint": {
-                "hover": "Hover a segment to see surah name and ayah count.",
+                "hover": "Hover or tap a segment to see surah name and ayah count.",
                 "click": "Click a surah to dive into its token-level view.",
                 "zoom": "Scroll to zoom in or out."
             },
-            "purpose": "Quickly compare surah sizes and spot where specific roots concentrate."
+            "purpose": "Quickly compare surah sizes and spot where specific roots concentrate.",
+            "claim": "How long each surah is, and where a root clusters."
         },
         "corpus-architecture": {
             "summary": "A hierarchical treemap of the Quran's physical structure: juz → surah → ayah groups.",
+            "legend": {
+                "juz": "Juz",
+                "surah": "Surah",
+                "ayahGroup": "Ayah group"
+            },
             "hint": {
                 "expand": "Click a block to expand and see its contents.",
-                "click": "Click a surah cell to focus on it."
+                "click": "Click a surah cell to focus on it.",
+                "zoom": "Scroll to zoom in for more detail."
             },
-            "purpose": "Understand the Quran's structural layout before diving into individual views."
+            "purpose": "Understand the Quran's structural layout before diving into individual views.",
+            "claim": "How the Quran nests: juz, then surah, then ayah."
         },
         "radial-sura": {
             "summary": "A circular layout of every token in one surah, colored by linguistic role.",
+            "legend": {
+                "noun": "Noun",
+                "verb": "Verb",
+                "adjective": "Adjective",
+                "preposition": "Preposition",
+                "ayahBoundary": "Ayah boundary"
+            },
             "hint": {
-                "hover": "Hover a token to preview its gloss and POS.",
+                "hover": "Hover or tap a token to preview its gloss and POS.",
                 "click": "Click a token to open full details in the inspector.",
                 "drag": "Drag to pan around the surah.",
                 "zoom": "Scroll to zoom in or out."
             },
-            "purpose": "Read one surah visually and spot grammatical patterns at the token level."
+            "purpose": "Read one surah visually and spot grammatical patterns at the token level.",
+            "claim": "Every word in one surah, laid out in a circle."
         },
         "dependency-tree": {
             "summary": "A tree diagram showing syntactic dependencies between words in a verse.",
-            "hint": {
-                "hover": "Hover a node to highlight its dependents.",
-                "click": "Click a node to see full morphology."
+            "legend": {
+                "token": "Token (by part of speech)",
+                "edge": "Dependency edge"
             },
-            "purpose": "Study how words in an ayah relate grammatically."
+            "hint": {
+                "hover": "Hover or tap a node to highlight its dependents.",
+                "click": "Click a node to see full morphology.",
+                "zoom": "Scroll to zoom in on a dense ayah."
+            },
+            "purpose": "Study how words in an ayah relate grammatically.",
+            "claim": "Which word each word depends on, grammatically."
         },
         "arc-flow": {
             "summary": "Arcs connect co-occurring roots and lemmas within each ayah.",
-            "hint": {
-                "hover": "Hover an arc to see which pair it connects.",
-                "click": "Click a token to lock focus on its connections."
+            "legend": {
+                "token": "Token (by part of speech)",
+                "arc": "Syntactic arc"
             },
-            "purpose": "Discover which roots and lemmas appear together in the same verse."
+            "hint": {
+                "hover": "Hover or tap an arc to see which pair it connects.",
+                "click": "Click a token to lock focus on its connections.",
+                "pan": "Drag to pan across a busy ayah."
+            },
+            "purpose": "Discover which roots and lemmas appear together in the same verse.",
+            "claim": "Which roots and lemmas share a verse."
         },
         "root-network": {
             "summary": "A force-directed graph where nodes are roots and edges show co-occurrence.",
+            "legend": {
+                "root": "Root node",
+                "lemma": "Lemma node",
+                "link": "Derivation link"
+            },
             "hint": {
-                "hover": "Hover a root node to see its frequency and connections.",
+                "hover": "Hover or tap a root node to see its frequency and connections.",
                 "click": "Click to lock focus and filter the network.",
                 "drag": "Drag nodes to rearrange the layout."
             },
-            "purpose": "Explore how roots relate to each other across the entire corpus."
+            "purpose": "Explore how roots relate to each other across the entire corpus.",
+            "claim": "Which roots keep company with each other, across the Quran."
         },
         "sankey-flow": {
             "summary": "A flow diagram tracing how one root branches into lemmas and tokens.",
-            "hint": {
-                "hover": "Hover a flow band to see the count and path.",
-                "click": "Click a lemma or token to focus the inspector."
+            "legend": {
+                "root": "Root",
+                "lemma": "Lemma",
+                "flow": "Derivation flow"
             },
-            "purpose": "Trace the derivational flow from root to every surface form."
+            "hint": {
+                "hover": "Hover or tap a flow band to see the count and path.",
+                "click": "Click a lemma or token to focus the inspector.",
+                "path": "Follow the path: root, then lemma, then token."
+            },
+            "purpose": "Trace the derivational flow from root to every surface form.",
+            "claim": "How one root branches into lemmas, then tokens."
         },
         "collocation-network": {
             "summary": "A network of root pairs that frequently appear near each other.",
+            "legend": {
+                "root": "Root",
+                "collocate": "Collocate",
+                "pmi": "PMI strength"
+            },
             "hint": {
-                "hover": "Hover an edge to see collocation strength.",
+                "hover": "Hover or tap an edge to see collocation strength.",
                 "click": "Click a node to filter to that root's collocations.",
                 "drag": "Drag nodes to rearrange the network."
             },
-            "purpose": "Find statistically significant root pairings in the text."
+            "purpose": "Find statistically significant root pairings in the text.",
+            "claim": "Which words travel together in the text."
         },
         "knowledge-graph": {
             "summary": "An interactive map of tracked roots and studied topics.",
-            "hint": {
-                "hover": "Hover a node to see your study progress.",
-                "click": "Click to review or drill into a topic."
+            "legend": {
+                "tracked": "Tracked root",
+                "untracked": "Untracked root",
+                "link": "Semantic link"
             },
-            "purpose": "Track your learning journey and find gaps in your exploration."
+            "hint": {
+                "hover": "Hover or tap a node to see your study progress.",
+                "click": "Click to review or drill into a topic.",
+                "legend": "Brighter nodes are tracked; dim ones aren't yet."
+            },
+            "purpose": "Track your learning journey and find gaps in your exploration.",
+            "claim": "Which roots you've tracked, and where the gaps are."
         },
         "heatmap": {
             "summary": "A grid where color intensity shows word frequency across surahs.",
-            "hint": {
-                "hover": "Hover a cell to see the exact count.",
-                "click": "Click a cell to jump to the corresponding surah view."
+            "legend": {
+                "low": "Low frequency",
+                "medium": "Medium frequency",
+                "high": "High frequency"
             },
-            "purpose": "Spot frequency patterns at a glance across the entire Quran."
+            "hint": {
+                "hover": "Hover or tap a cell to see the exact count.",
+                "click": "Click a cell to jump to the corresponding surah view.",
+                "legend": "Warmer colors mean the word appears more often."
+            },
+            "purpose": "Spot frequency patterns at a glance across the entire Quran.",
+            "claim": "Where a word shows up most, across every surah."
         }
+    },
+    "VizIntroCard": {
+        "chipLabel": "How to read this view",
+        "dismissAria": "Dismiss"
     },
     "Glossary": {
         "label": "Linguistic glossary",
@@ -1315,6 +1488,13 @@
         "preparingTitle": "Preparing quiz",
         "preparingDesc": "Loading the full corpus so the quiz can generate real question sets.",
         "noQuestions": "This quiz isn't ready right now. Try again in a moment.",
+        "allQuizzes": "All quizzes",
+        "rootQuiz": {
+            "title": "Quiz: root {root}",
+            "description": "Five questions built entirely from this root's occurrences across the corpus.",
+            "badge": "Root focus"
+        },
+        "rootQuizTooFew": "This root doesn't have enough corpus data yet for a full quiz. Try a more frequent root.",
         "previous": "Previous",
         "submit": "Submit",
         "next": "Next",

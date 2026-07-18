@@ -61,11 +61,41 @@ describe("buildShellCorpusTokens", () => {
 });
 
 describe("buildVisualizationCorpusTokens", () => {
-  it("ensures dependency sample tokens are present for inspector-ready visualization state", () => {
+  it("does not merge the ayah-dependency demo fixture into the corpus-wide pool", () => {
     const shellTokens = buildShellCorpusTokens();
     const visualizationTokens = buildVisualizationCorpusTokens(shellTokens, []);
 
-    expect(visualizationTokens.some((token) => token.id === sampleAyahDependency.tokens[4]?.id)).toBe(true);
+    // The fixture hand-splits ayah 1:5 into five word positions, but the real
+    // corpus has four (1:5:3 is the fused "وَإِيَّاكَ"). Its phantom id 1:5:5 must
+    // never leak into corpus-wide token counts.
+    expect(sampleAyahDependency.tokens.some((token) => token.id === "1:5:5")).toBe(true);
+    expect(visualizationTokens.some((token) => token.id === "1:5:5")).toBe(false);
+  });
+
+  it("keeps the corpus-wide pool count exact (shell + deep only, no fixture inflation)", () => {
+    const syntheticDeep: CorpusToken[] = Array.from({ length: 12 }, (_, index) => ({
+      id: `114:1:${index + 1}`,
+      sura: 114,
+      ayah: 1,
+      position: index + 1,
+      text: `t${index + 1}`,
+      root: "قول",
+      lemma: `l${index + 1}`,
+      pos: "N",
+      morphology: { features: {}, gloss: null, stem: null },
+    }));
+
+    const visualizationTokens = buildVisualizationCorpusTokens([], syntheticDeep);
+
+    expect(visualizationTokens).toHaveLength(syntheticDeep.length);
+    expect(visualizationTokens.map((token) => token.id)).toEqual(syntheticDeep.map((token) => token.id));
+  });
+
+  it("still covers ayah 1:5 for the dependency demo via shell tokens, with the real four-word split", () => {
+    const visualizationTokens = buildVisualizationCorpusTokens(buildShellCorpusTokens(), []);
+    const ayahTokens = visualizationTokens.filter((token) => token.sura === 1 && token.ayah === 5);
+
+    expect(ayahTokens.map((token) => token.position)).toEqual([1, 2, 3, 4]);
   });
 });
 

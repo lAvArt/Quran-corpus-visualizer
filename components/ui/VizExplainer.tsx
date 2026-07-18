@@ -15,7 +15,10 @@ interface VizExplainerProps {
  * Available to all users (not just first-run).
  */
 export default function VizExplainer({ vizMode }: VizExplainerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  // Defaults to expanded: this panel is the single home for "how to read
+  // this view" (the old floating intro card is gone), so the Explain tab
+  // must never land as a lone collapsed header in an empty column.
+  const [isOpen, setIsOpen] = useState(true);
   const t = useTranslations("VizExplainer");
   const explainer = VIZ_EXPLAINERS[vizMode];
 
@@ -56,7 +59,7 @@ export default function VizExplainer({ vizMode }: VizExplainerProps) {
                   className={`viz-explainer-swatch viz-explainer-swatch--${item.shape}`}
                   aria-hidden="true"
                 />
-                <span className="viz-explainer-legend-label">{item.label}</span>
+                <span className="viz-explainer-legend-label">{t(item.labelKey)}</span>
               </div>
             ))}
           </div>

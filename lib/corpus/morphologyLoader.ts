@@ -160,22 +160,51 @@ function buildFeatureMap(features: string[]): Record<string, string> {
   return map;
 }
 
-function parseMorphologyText(text: string): Map<string, MorphologyEntry> {
+/**
+ * Parse the 128k-line morphology file in chunks, yielding to the event loop
+ * between chunks so the first surah click doesn't freeze the main thread for
+ * the entire parse.
+ *
+ * Exported for unit testing; production code should go through
+ * `loadMorphologyMap()`.
+ */
+export async function parseMorphologyText(text: string): Promise<Map<string, MorphologyEntry>> {
   const map = new Map<string, MorphologyEntry & { hasRoot: boolean }>();
 
   const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    if (!line || line.startsWith("#")) continue;
+  const CHUNK = 8000;
+  for (let start = 0; start < lines.length; start += CHUNK) {
+    const end = Math.min(start + CHUNK, lines.length);
+    for (let li = start; li < end; li++) {
+      parseLine(lines[li], map);
+    }
+    if (end < lines.length) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  // Strip internal flag before returning
+  const result = new Map<string, MorphologyEntry>();
+  for (const [key, value] of map.entries()) {
+    const { hasRoot: _hasRoot, ...entry } = value;
+    result.set(key, entry);
+  }
+  return result;
+}
+
+function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: boolean }>): void {
+  {
+    if (!line || line.startsWith("#")) return;
 
     const parts = line.split("\t");
-    if (parts.length < 4) continue;
+    if (parts.length < 4) return;
 
     const location = parts[0];
     const tag = parts[2]?.trim();
     const featureRaw = parts[3]?.trim() ?? "";
 
     const match = location.match(/\((\d+):(\d+):(\d+):(\d+)\)/);
-    if (!match) continue;
+    if (!match) return;
 
     const key = `${match[1]}:${match[2]}:${match[3]}`;
     const featureTokens = featureRaw.split("|").filter(Boolean);
@@ -193,14 +222,19 @@ function parseMorphologyText(text: string): Map<string, MorphologyEntry> {
       hasRoot: false,
     };
 
-    if (root) {
+    if (root && !entry.hasRoot) {
+      // FIRST root-bearing segment wins for a multi-segment word, matching the
+      // convention in scripts/build-root-stats.ts. Only one word in the whole
+      // corpus carries two distinct roots: 20:94:2 "يَبْنَؤُمَّ" (segments ROOT:bny
+      // then ROOT:Amm) — first-wins attributes it to bny, where last-wins used
+      // to flip it to Amm and desync token roots from the root-stats index.
       entry.root = buckwalterToArabic(root);
       entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
       entry.pos = normalizedPos;
       entry.features = buildFeatureMap(featureTokens);
       entry.stem = entry.lemma || entry.stem;
       entry.hasRoot = true;
-    } else if (!entry.hasRoot) {
+    } else if (!root && !entry.hasRoot) {
       if (!entry.lemma) {
         entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
       }
@@ -216,14 +250,6 @@ function parseMorphologyText(text: string): Map<string, MorphologyEntry> {
 
     map.set(key, entry);
   }
-
-  // Strip internal flag before returning
-  const result = new Map<string, MorphologyEntry>();
-  for (const [key, value] of map.entries()) {
-    const { hasRoot: _hasRoot, ...entry } = value;
-    result.set(key, entry);
-  }
-  return result;
 }
 
 let morphologyMap: Map<string, MorphologyEntry> | null = null;
@@ -238,7 +264,7 @@ export async function loadMorphologyMap(): Promise<Map<string, MorphologyEntry>>
         throw new Error(`Failed to load morphology data: ${response.status} ${response.statusText}`);
       }
       const text = await response.text();
-      morphologyMap = parseMorphologyText(text);
+      morphologyMap = await parseMorphologyText(text);
       return morphologyMap;
     })();
   }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import VisualizationSwitcher from "@/components/ui/VisualizationSwitcher";
 import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
+import LexicalColorSwitch from "@/components/shell/LexicalColorSwitch";
 import VizExportMenu from "@/components/ui/VizExportMenu";
 import type { ExperienceLevel } from "@/lib/schema/experience";
 import type { VisualizationMode } from "@/lib/schema/visualizationTypes";
@@ -28,11 +28,9 @@ interface GraphToolbarProps {
   showAdvancedModes: boolean;
   setShowAdvancedModes: (show: boolean) => void;
   handleVizModeChange: (mode: VisualizationMode) => void;
-  isSidebarOpen: boolean;
-  setIsSidebarOpen: (open: boolean) => void;
 }
 
-/** Floating toolbar below the graph — holds viz switcher, display settings, export, drawer toggle */
+/** Floating toolbar below the graph — colour switch (left) · graph selector (center) · settings + export (right) */
 export default function GraphToolbar({
   theme,
   setTheme,
@@ -52,15 +50,18 @@ export default function GraphToolbar({
   showAdvancedModes,
   setShowAdvancedModes,
   handleVizModeChange,
-  isSidebarOpen,
-  setIsSidebarOpen,
 }: GraphToolbarProps) {
-  const t = useTranslations("Index");
 
   return (
     <div className="graph-toolbar" data-tour-id="graph-toolbar">
       <div className="graph-toolbar-inner">
-        <div className="graph-toolbar-switcher" data-tour-id="viz-switcher">
+        {/* Left: colour encoding · Center: graph selector · Right: settings + export.
+            The tools open/close moved to the right screen edge (the drawer handle). */}
+        <div className="graph-toolbar-left">
+          <LexicalColorSwitch mode={lexicalColorMode} onChange={setLexicalColorMode} />
+        </div>
+
+        <div className="graph-toolbar-center" data-tour-id="viz-switcher">
           <VisualizationSwitcher
             currentMode={vizMode}
             onModeChange={handleVizModeChange}
@@ -72,7 +73,7 @@ export default function GraphToolbar({
           />
         </div>
 
-        <div className="graph-toolbar-actions">
+        <div className="graph-toolbar-right">
           <div data-tour-id="display-settings">
             <DisplaySettingsPanel
               theme={theme}
@@ -94,14 +95,6 @@ export default function GraphToolbar({
           </div>
 
           <VizExportMenu targetRef={mainVizRef} vizMode={vizMode} selectedSurahId={selectedSurahId} />
-
-          <button
-            className={`toolbar-drawer-toggle ${isSidebarOpen ? "active" : ""}`}
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            data-tour-id="tools-toggle"
-          >
-            {isSidebarOpen ? t("hideTools") : t("showTools")}
-          </button>
         </div>
       </div>
 
@@ -113,7 +106,7 @@ export default function GraphToolbar({
           transform: translateX(-50%);
           z-index: 45;
           pointer-events: none;
-          max-width: min(720px, 92vw);
+          max-width: min(820px, 94vw);
           width: 100%;
         }
 
@@ -132,53 +125,28 @@ export default function GraphToolbar({
         }
 
         :global([data-theme="dark"]) .graph-toolbar-inner {
-          background: rgba(22, 22, 30, 0.9);
+          background: rgba(22, 33, 39, 0.9);
           border-color: rgba(255, 255, 255, 0.1);
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        .graph-toolbar-switcher {
+        /* Left: colour switch · Center: graph selector (fills) · Right: settings + export */
+        .graph-toolbar-left {
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+        }
+
+        .graph-toolbar-center {
           flex: 1 1 auto;
           min-width: 0;
         }
 
-        .graph-toolbar-actions {
+        .graph-toolbar-right {
           display: flex;
           align-items: center;
           gap: 6px;
           flex-shrink: 0;
-        }
-
-        .toolbar-drawer-toggle {
-          background: transparent;
-          color: #f97316;
-          border: 2px solid #f97316;
-          padding: 0.4rem 0.9rem;
-          border-radius: 99px;
-          font-size: 0.75rem;
-          min-width: 7.2rem;
-          text-align: center;
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          white-space: nowrap;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .toolbar-drawer-toggle:hover {
-          background: rgba(249, 115, 22, 0.1);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
-        }
-
-        .toolbar-drawer-toggle.active {
-          background: #f97316;
-          color: #fff;
-        }
-
-        .toolbar-drawer-toggle.active:hover {
-          background: #ea580c;
-          border-color: #ea580c;
         }
 
         @media (max-width: 980px) {
@@ -190,10 +158,6 @@ export default function GraphToolbar({
           .graph-toolbar-inner {
             gap: 6px;
             padding: 5px 8px;
-          }
-
-          .toolbar-drawer-toggle {
-            display: none;
           }
         }
       `}</style>

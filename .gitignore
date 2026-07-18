@@ -18,3 +18,6 @@ tsconfig.tsbuildinfo
 # MCP config contains secrets (access tokens)
 .vscode/mcp.json
 arabic-book-corpus-platform/
+
+# UX screenshot harness output
+.ux-shots/

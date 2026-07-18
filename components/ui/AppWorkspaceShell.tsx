@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
-import AppModeNav from "@/components/ui/AppModeNav";
+import JourneyRail from "@/components/shell/JourneyRail";
 import { AuthButton } from "@/components/ui/AuthButton";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
@@ -14,6 +15,8 @@ interface AppWorkspaceShellProps {
   status?: ReactNode;
   panelWidth?: "default" | "wide";
   backgroundVariant?: "default" | "search" | "study";
+  /** Compact head — modest heading instead of the big editorial display. */
+  compact?: boolean;
   children: ReactNode;
 }
 
@@ -24,26 +27,25 @@ export default function AppWorkspaceShell({
   status,
   panelWidth = "default",
   backgroundVariant = "default",
+  compact = false,
   children,
 }: AppWorkspaceShellProps) {
+  const t = useTranslations("Index");
   return (
-    <main className={`ui-page-shell ui-theme-scope ui-workspace-shell ui-workspace-shell-${backgroundVariant}`}>
+    <main className={`ui-page-shell ui-theme-scope ui-workspace-shell ui-workspace-shell-${backgroundVariant} ui-workspace-railed`}>
       <div className="ui-shell-backdrop" aria-hidden />
       <div className="ui-workspace-atmosphere" aria-hidden />
       <div className="ui-workspace-grid" aria-hidden />
+      {/* Single navigation metaphor: the same journey rail used on Explore. */}
+      <JourneyRail />
       <header className="ui-workspace-topbar">
         <div className="ui-workspace-topbar-inner">
-          <Link href="/" className="ui-workspace-brand" aria-label="Quran Corpus Visualizer home">
-            <Image src="/favicon.svg" alt="" width={26} height={26} className="ui-workspace-brand-logo" />
-            <div className="ui-workspace-brand-copy">
-              <span className="ui-workspace-brand-kicker">Quran Corpus Visualizer</span>
-              <strong className="ui-workspace-brand-title">quran.pluragate.org</strong>
-            </div>
+          <Link href="/" className="ui-workspace-brand" aria-label={t("eyebrow")}>
+            <span className="ui-workspace-brand-mark">
+              <Image src="/favicon.svg" alt="" width={22} height={22} />
+            </span>
+            <span className="ui-workspace-brand-name">{t("eyebrow")}</span>
           </Link>
-
-          <div className="ui-workspace-topbar-nav">
-            <AppModeNav />
-          </div>
 
           <div className="ui-workspace-topbar-actions">
             <LanguageSwitcher />
@@ -52,7 +54,7 @@ export default function AppWorkspaceShell({
         </div>
       </header>
       <section className={`ui-panel ui-page-panel ${panelWidth === "wide" ? "ui-page-panel-wide" : ""}`}>
-        <header className="ui-page-head">
+        <header className={`ui-page-head ${compact ? "ui-page-head--compact" : ""}`}>
           <div>
             <p className="ui-kicker">{kicker}</p>
             <h1 className="ui-title">{title}</h1>

@@ -6,6 +6,8 @@ import {
   ALL_TEMPLATES,
   TEMPLATES_BY_DIFFICULTY,
   type Difficulty,
+  type QuestionTemplate,
+  type QuestionTemplateType,
   type QuizCorpusData,
   type QuizQuestion,
   type SeededRng,
@@ -44,6 +46,14 @@ export interface GenerateOptions {
   curve: Difficulty[];
   /** Optional: prefer questions about these roots (for personalized quiz) */
   preferredRoots?: string[];
+  /**
+   * Optional: force every question's subject root to this exact root
+   * (root-focused quiz, e.g. "Quiz me on this root"). Overrides
+   * preferredRoots/usedRoots exclusion for subject-root selection —
+   * templates still skip themselves (return null) when this root doesn't
+   * have enough data for that particular question type.
+   */
+  lockedRoot?: string;
   /** Seed string or number */
   seed: string | number;
 }
@@ -61,6 +71,28 @@ export function generateQuiz(data: QuizCorpusData, options: GenerateOptions): Qu
   const usedRoots = new Set<string>();
   const questions: QuizQuestion[] = [];
 
+  // With a lockedRoot, `usedRoots` never grows for that root (pickFreshRoot
+  // returns it unconditionally — see questionTemplates.ts), so nothing
+  // stopped the SAME template from firing again in a later curve slot and
+  // producing a question with an identical id/prompt. Track template types
+  // already used for the locked root instead, and back that up with a
+  // hard id-uniqueness check that applies regardless of mode — no two
+  // questions in one quiz may ever share an id.
+  const usedLockedRootTemplateTypes = new Set<QuestionTemplateType>();
+  const usedQuestionIds = new Set<string>();
+
+  const tryTemplate = (template: QuestionTemplate): boolean => {
+    if (options.lockedRoot && usedLockedRootTemplateTypes.has(template.type)) return false;
+
+    const q = template.generate(data, rng, usedRoots, options.preferredRoots, options.lockedRoot);
+    if (!q || usedQuestionIds.has(q.id) || !validateQuizQuestion(q, data).valid) return false;
+
+    questions.push(q);
+    usedQuestionIds.add(q.id);
+    if (options.lockedRoot) usedLockedRootTemplateTypes.add(template.type);
+    return true;
+  };
+
   for (const difficulty of options.curve) {
     const templates = TEMPLATES_BY_DIFFICULTY[difficulty].filter((t) => t.canGenerate(data));
     if (templates.length === 0) continue;
@@ -71,24 +103,21 @@ export function generateQuiz(data: QuizCorpusData, options: GenerateOptions): Qu
 
     let produced = false;
     for (const template of order) {
-      const q = template.generate(data, rng, usedRoots, options.preferredRoots);
-      if (q && validateQuizQuestion(q, data).valid) {
-        questions.push(q);
+      if (tryTemplate(template)) {
         produced = true;
         break;
       }
     }
 
-    // Fallback: try ALL templates at any difficulty
+    // Fallback: try ALL templates at any difficulty. A slot that still
+    // can't produce a fresh question (e.g. a root-focused quiz has already
+    // used every template type this root supports) simply yields nothing
+    // — a short quiz is fine; a quiz with a duplicate question is not.
     if (!produced) {
       const fallbacks = ALL_TEMPLATES.filter((t) => t.canGenerate(data));
       shuffleArray(fallbacks, rng);
       for (const template of fallbacks) {
-        const q = template.generate(data, rng, usedRoots, options.preferredRoots);
-        if (q && validateQuizQuestion(q, data).valid) {
-          questions.push(q);
-          break;
-        }
+        if (tryTemplate(template)) break;
       }
     }
   }

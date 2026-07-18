@@ -2,19 +2,26 @@
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useKnowledge } from "@/lib/context/KnowledgeContext";
+import { fitGraphToView } from "@/lib/viz/fitToView";
+import { motionSafeDuration, motionSafeStagger, prefersReducedMotion } from "@/lib/viz/motionPrefs";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/routing";
 
 // ── Types ──────────────────────────────────────────────────────────
 
 interface KnowledgeGraphVizProps {
     tokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
+    /** Shared selected root (survives mode switches, search, deep links). */
+    highlightRoot?: string | null;
     theme?: "light" | "dark";
+    /** Empty-state CTA: switches the observatory to the root-network view. */
+    onExploreRoots?: () => void;
 }
 
 interface KGNode extends d3.SimulationNodeDatum {
@@ -54,12 +61,19 @@ function pickGhostRoots(
 export default function KnowledgeGraphViz({
     tokens,
     onRootSelect,
+    highlightRoot,
     theme = "dark",
+    onExploreRoots,
 }: KnowledgeGraphVizProps) {
-    const { roots: trackedRoots, stats, trackRoot } = useKnowledge();
+    const { roots: trackedRoots, stats, trackRoot, loading: knowledgeLoading } = useKnowledge();
     const ts = useTranslations("Visualizations.Shared");
     const tk = useTranslations("CurrentSelectionPanel.knowledge");
+    const tkg = useTranslations("Visualizations.KnowledgeGraph");
     const themeColors = resolveVisualizationTheme(theme);
+    // Framer-motion entrance/pulse animations below are JS-driven and bypass
+    // the global CSS prefers-reduced-motion rule (globals.css) — gate them
+    // manually. Read once per render; matchMedia-backed, SSR-safe.
+    const reduceMotion = prefersReducedMotion();
 
     const svgRef = useRef<SVGSVGElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -86,12 +100,12 @@ export default function KnowledgeGraphViz({
             learningGlow: isDark ? "rgba(34,211,238,0.5)" : "rgba(8,145,178,0.4)",
             learnedNode: isDark ? "#4ade80" : "#16a34a",      // green
             learnedGlow: isDark ? "rgba(74,222,128,0.5)" : "rgba(22,163,74,0.4)",
-            ghostNode: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            ghostStroke: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+            ghostNode: "rgba(28,42,49,0.7)",
+            ghostStroke: "var(--line)",
             lemmaNode: themeColors.accent,
             linkLearning: isDark ? "rgba(34,211,238,0.25)" : "rgba(8,145,178,0.18)",
             linkLearned: isDark ? "rgba(74,222,128,0.25)" : "rgba(22,163,74,0.18)",
-            linkGhost: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+            linkGhost: "var(--line)",
             coreGlow: isDark
                 ? "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)"
                 : "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)",
@@ -423,44 +437,27 @@ export default function KnowledgeGraphViz({
     // ── Empty state ──────────────────────────────────────────────────
 
     const hasTracked = stats.total > 0;
+    // The knowledge context hydrates asynchronously (IndexedDB or a Supabase
+    // round-trip) — `stats.total` reads 0 for that first beat even for a
+    // signed-in user with tracked roots. Gate the "start tracking" CTA and
+    // the legend's tracked/learned/untracked key (which only make sense once
+    // we actually know the answer) on `!knowledgeLoading` too, so hydration
+    // renders as the ambient ghost network rather than flashing the empty
+    // state. `hasTracked` itself stays ungated — it also drives the
+    // decorative core glow, which is fine to key off live data.
+    const showEmptyState = !knowledgeLoading && !hasTracked;
+    const showLegend = !knowledgeLoading && hasTracked;
 
     // ── Render ───────────────────────────────────────────────────────
 
     return (
         <section className="immersive-viz" data-theme={theme}>
-            {/* Floating stats pill */}
-            <div className="viz-controls floating-controls">
-                <div className="ayah-meta-wrapper">
-                    <button
-                        className="kg-reset-btn"
-                        onClick={() => {
-                            if (svgRef.current && zoomBehaviorRef.current) {
-                                d3.select(svgRef.current)
-                                    .transition()
-                                    .duration(750)
-                                    .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-                            }
-                        }}
-                        title="Focus View"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 14v4h4M20 10V6h-4M4 10V6h4M20 14v4h-4M10 10l-6-6M14 14l6 6M10 14l-6 6M14 10l6-6" />
-                        </svg>
-                    </button>
-                    <p className="ayah-meta-glass" style={{ marginLeft: 8 }}>
-                        {nodes.filter(n => n.type === "tracked-root" || n.type === "ghost-root").length} roots · {nodes.filter(n => n.type === "lemma").length} lemmas · {links.length} connections
-                        {hasTracked && ` · ${stats.total} tracked`}
-                        {!hasTracked && " · Select roots to begin tracking"}
-                    </p>
-                </div>
-            </div>
-
             {/* Graph switch toggle */}
             <div className="kg-view-switch" data-tour-id="kg-view-switch">
                 <button
                     className={`kg-switch-btn ${viewMode === "neural" ? "active" : ""}`}
                     onClick={() => setViewMode("neural")}
-                    title="Neural Map"
+                    title={tkg("viewToggle.neuralTitle")}
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="3" />
@@ -473,12 +470,12 @@ export default function KnowledgeGraphViz({
                         <line x1="9.5" y1="14" x2="5.5" y2="16.5" />
                         <line x1="14.5" y1="14" x2="18.5" y2="16.5" />
                     </svg>
-                    Neural
+                    {tkg("viewToggle.neural")}
                 </button>
                 <button
                     className={`kg-switch-btn ${viewMode === "flow" ? "active" : ""}`}
                     onClick={() => setViewMode("flow")}
-                    title="Flow Chart"
+                    title={tkg("viewToggle.flowTitle")}
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="6" cy="4" r="2" />
@@ -491,7 +488,7 @@ export default function KnowledgeGraphViz({
                         <path d="M12 6 C12 12, 16 14, 16 18" />
                         <path d="M18 6 C18 12, 16 14, 16 18" />
                     </svg>
-                    Flow
+                    {tkg("viewToggle.flow")}
                 </button>
             </div>
 
@@ -500,28 +497,38 @@ export default function KnowledgeGraphViz({
                 className="viz-container"
                 style={{ width: "100vw", height: "100vh", position: "absolute", top: 0, left: 0 }}
             >
-                {/* Empty-state overlay */}
-                {!hasTracked && isMounted && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            zIndex: 10,
-                            pointerEvents: "none",
-                            textAlign: "center",
-                            gap: 12,
-                        }}
-                    >
-                        <span style={{ fontSize: "3rem", opacity: 0.2 }}>🌱</span>
-                        <p style={{ color: themeColors.textColors.muted, fontSize: "0.95rem", maxWidth: 320, lineHeight: 1.6 }}>
-                            Your knowledge garden is empty.<br />
-                            <strong style={{ color: themeColors.textColors.secondary }}>Select a root</strong> in any
-                            visualization and click &ldquo;Start Learning&rdquo; to plant your first seed.
-                        </p>
+                {/* Empty-state overlay — the outer wrapper stays click-through
+                    (pointerEvents: none) so the ghost network underneath is
+                    still explorable; only the card itself captures clicks,
+                    keeping the "click a ghost root, then Start Learning" path
+                    alive alongside the two CTAs below. */}
+                {showEmptyState && isMounted && (
+                    <div className="kg-empty-overlay">
+                        <div className="kg-empty-card">
+                            <span className="kg-empty-icon" aria-hidden="true">🌱</span>
+                            <p className="kg-empty-title">{tkg("empty.title")}</p>
+                            <p className="kg-empty-body">{tkg("empty.body")}</p>
+                            {/* onExploreRoots is only wired up by the observatory shell —
+                                embeds (components/embed/EmbedClient.tsx) render this viz
+                                standalone with no such handler and no /study route to send
+                                visitors to (it would hijack the host page from inside an
+                                iframe). Show the explanatory copy above either way, but only
+                                render actionable CTAs when there's somewhere for them to go. */}
+                            {onExploreRoots && (
+                                <div className="kg-empty-actions">
+                                    <button
+                                        type="button"
+                                        className="kg-empty-btn-primary"
+                                        onClick={() => onExploreRoots()}
+                                    >
+                                        {tkg("empty.exploreRoots")}
+                                    </button>
+                                    <Link href="/study" className="kg-empty-btn-secondary">
+                                        {tkg("empty.openStudy")}
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -605,7 +612,10 @@ export default function KnowledgeGraphViz({
                                             strokeWidth={highlighted ? 2.5 : 1}
                                             initial={{ pathLength: 0, opacity: 0 }}
                                             animate={{ pathLength: 1, opacity: highlighted ? 0.85 : 0.5 }}
-                                            transition={{ duration: 1.2, delay: idx * 0.004 }}
+                                            transition={{
+                                                duration: motionSafeDuration(1200) / 1000,
+                                                delay: motionSafeStagger(idx, 4, 600) / 1000,
+                                            }}
                                             filter={highlighted ? "url(#kg-subtleGlow)" : undefined}
                                         />
                                     );
@@ -622,6 +632,13 @@ export default function KnowledgeGraphViz({
                                     const isHighlighted = isHovered || isSelected;
                                     const isTrackedRoot = node.type === "tracked-root";
                                     const isGhost = node.type === "ghost-root";
+                                    // The app-wide shared root, when it happens to be one of
+                                    // this learner's own tracked roots — same accent ring
+                                    // convention RootNetworkGraph uses for its search/deep-
+                                    // link highlight. Ghost roots intentionally don't get
+                                    // this (nothing to track yet), so an untracked shared
+                                    // root causes no visual change here.
+                                    const isSharedRootMatch = isTrackedRoot && Boolean(highlightRoot) && node.label === highlightRoot;
 
                                     return (
                                         <g
@@ -648,9 +665,31 @@ export default function KnowledgeGraphViz({
                                                         opacity: node.state === "learning" ? [0.4, 0.1, 0.4] : 0.3,
                                                     }}
                                                     transition={
-                                                        node.state === "learning"
-                                                            ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" }
-                                                            : { duration: 0.5 }
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : node.state === "learning"
+                                                                ? { repeat: Infinity, duration: 2.5, ease: "easeInOut" }
+                                                                : { duration: 0.5 }
+                                                    }
+                                                />
+                                            )}
+
+                                            {/* Accent ring for the app-wide shared root (distinct
+                                                from the per-state ring above: accent color, sits
+                                                just outside it) */}
+                                            {isSharedRootMatch && (
+                                                <motion.circle
+                                                    r={node.radius + 15}
+                                                    fill="none"
+                                                    stroke={themeColors.accent}
+                                                    strokeWidth={2}
+                                                    opacity={0.5}
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1.1, opacity: 0.5 }}
+                                                    transition={
+                                                        reduceMotion
+                                                            ? { duration: 0 }
+                                                            : { repeat: Infinity, repeatType: "reverse", duration: 1 }
                                                     }
                                                 />
                                             )}
@@ -664,7 +703,7 @@ export default function KnowledgeGraphViz({
                                                         ? node.color
                                                         : isGhost
                                                             ? palette.ghostStroke
-                                                            : "rgba(255,255,255,0.15)"
+                                                            : "var(--line)"
                                                 }
                                                 strokeWidth={isTrackedRoot ? 2 : 0.5}
                                                 filter={isTrackedRoot || isHighlighted ? "url(#kg-glow)" : undefined}
@@ -672,7 +711,7 @@ export default function KnowledgeGraphViz({
 
                                             {/* Inner bright dot for tracked roots */}
                                             {isTrackedRoot && (
-                                                <circle r={node.radius * 0.25} fill="rgba(255,255,255,0.35)" />
+                                                <circle r={node.radius * 0.25} fill="var(--ink-secondary)" />
                                             )}
 
                                             {/* Label */}
@@ -707,7 +746,7 @@ export default function KnowledgeGraphViz({
                             initial={{ opacity: 0, y: 8, x: "-50%" }}
                             animate={{ opacity: 1, y: 0, x: "-50%" }}
                             exit={{ opacity: 0, y: 8, x: "-50%" }}
-                            transition={{ duration: 0.18 }}
+                            transition={{ duration: motionSafeDuration(180) / 1000 }}
                         >
                             {(() => {
                                 const node = nodes.find((n) => n.id === (hoveredNode ?? selectedNode));
@@ -749,35 +788,69 @@ export default function KnowledgeGraphViz({
                 typeof document !== "undefined" &&
                 document.getElementById("viz-sidebar-portal") &&
                 createPortal(
-                    <div className="viz-legend" data-tour-id="viz-legend">
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.learningNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learningGlow}` }}
-                            />
-                            <span>{ts("learning")}</span>
+                    <div className="viz-left-stack">
+                        {/* Zoom controls */}
+                        <div className="viz-left-panel viz-zoom-panel">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span className="eyebrow" style={{ fontSize: "0.7em" }}>{ts("zoom")}</span>
+                            </div>
+                            <div className="viz-zoom-row">
+                                <button
+                                    type="button"
+                                    className="viz-zoom-reset-btn"
+                                    onClick={() => {
+                                        fitGraphToView(svgRef.current, gRef.current, zoomBehaviorRef.current, {
+                                            duration: motionSafeDuration(750),
+                                        });
+                                    }}
+                                >
+                                    {ts("focus")}
+                                </button>
+                            </div>
                         </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.learnedNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learnedGlow}` }}
-                            />
-                            <span>{ts("learned")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.ghostNode, width: 10, height: 10, borderRadius: "50%", border: `1px solid ${palette.ghostStroke}` }}
-                            />
-                            <span>{ts("untracked")}</span>
-                        </div>
-                        <div className="viz-legend-item">
-                            <div
-                                className="viz-legend-dot"
-                                style={{ background: palette.lemmaNode, width: 8, height: 8, borderRadius: "50%" }}
-                            />
-                            <span>{ts("lemma")}</span>
-                        </div>
+
+                        {/* The legend explains tracked-root states (learning/
+                            learned), which don't exist yet with nothing
+                            tracked — suppress it until there's something to
+                            key. Also gated on !knowledgeLoading (see
+                            showLegend above): a signed-in user's roots
+                            haven't loaded yet during that first render, and
+                            the ghost-preview graph shouldn't flash a legend
+                            that's about to become wrong. The zoom panel
+                            above stays: it's functional even over the ghost
+                            preview. */}
+                        {showLegend && (
+                            <div className="viz-legend" data-tour-id="viz-legend">
+                                <div className="viz-legend-item">
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: palette.learningNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learningGlow}` }}
+                                    />
+                                    <span>{ts("learning")}</span>
+                                </div>
+                                <div className="viz-legend-item">
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: palette.learnedNode, width: 14, height: 14, borderRadius: "50%", boxShadow: `0 0 8px ${palette.learnedGlow}` }}
+                                    />
+                                    <span>{ts("learned")}</span>
+                                </div>
+                                <div className="viz-legend-item">
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: palette.ghostNode, width: 10, height: 10, borderRadius: "50%", border: `1px solid ${palette.ghostStroke}` }}
+                                    />
+                                    <span>{ts("untracked")}</span>
+                                </div>
+                                <div className="viz-legend-item">
+                                    <div
+                                        className="viz-legend-dot"
+                                        style={{ background: palette.lemmaNode, width: 8, height: 8, borderRadius: "50%" }}
+                                    />
+                                    <span>{ts("lemma")}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>,
                     document.getElementById("viz-sidebar-portal")!
                 )}

@@ -4,13 +4,15 @@ import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 
-import * as d3 from "d3";
+import * as d3 from "@/lib/viz/d3";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { getAyah } from "@/lib/corpus/corpusLoader";
 import { quranApi, type QuranWord } from "@/lib/api/quranApi";
 import type { CorpusToken, AyahDependencyData, DependencyEdge } from "@/lib/schema/types";
 import { getNodeColor } from "@/lib/schema/visualizationTypes";
+import { fitGraphToView } from "@/lib/viz/fitToView";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
+import { motionSafeDuration } from "@/lib/viz/motionPrefs";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 
@@ -102,6 +104,16 @@ export default function AyahDependencyGraph({
   const zoomLayerRef = useRef<SVGGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  // Entry auto-fit bookkeeping — same pattern as ArcFlowDiagram/RadialSuraMap
+  // (see docs/VIZ_ARCHITECTURE.md, "Corpus data streams in"). `userInteractedRef`
+  // flips true the moment a real wheel/drag/touch gesture reaches the zoom
+  // behavior — never for a programmatic `.transform()` call like the auto-fit
+  // itself — so a user who starts exploring before this ayah's data finishes
+  // streaming never gets the camera yanked back. `autoFittedRef` marks the
+  // current ayah as already framed so the fit only ever runs once per ayah;
+  // both reset whenever surah or ayah changes.
+  const userInteractedRef = useRef(false);
+  const autoFittedRef = useRef(false);
 
   const [activeSurah, setActiveSurah] = useState<number>(selectedSurahId);
   const [activeAyah, setActiveAyah] = useState<number | null>(null);
@@ -109,7 +121,6 @@ export default function AyahDependencyGraph({
   const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
-  const [zoomScale, setZoomScale] = useState(1);
   const [dimensions, setDimensions] = useState({ width: 1200, height: 620 });
   const [isMounted, setIsMounted] = useState(false);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
@@ -170,6 +181,19 @@ export default function AyahDependencyGraph({
     for (const token of surahTokens) ayahs.add(token.ayah);
     return [...ayahs].sort((a, b) => a - b);
   }, [surahTokens]);
+
+  // Data completeness for the ACTIVE surah — mirrors `isSurahDataComplete` in
+  // RadialSuraMap / `isScopeDataComplete` in ArcFlowDiagram (see
+  // docs/VIZ_ARCHITECTURE.md, "Corpus data streams in"). `tokens` streams in
+  // whole surahs at a time, but `sampleCorpus.ts`'s pre-real-data stub seeds a
+  // handful of tokens for a FEW ayahs of surah 2 (never the whole surah) —
+  // fitting to that stub's tree would lock the camera onto a fragment of the
+  // real ayah once the rest of the surah lands.
+  const isSurahDataComplete = useMemo(() => {
+    const expectedAyahCount = SURAH_NAMES[activeSurah]?.verses ?? 0;
+    if (expectedAyahCount === 0) return true;
+    return availableAyahs.length >= expectedAyahCount;
+  }, [activeSurah, availableAyahs]);
 
   useEffect(() => {
     if (availableAyahs.length === 0) {
@@ -239,7 +263,6 @@ export default function AyahDependencyGraph({
   const nodeHeight = 104;
   const spacing = 170;
   const horizontalPadding = 120;
-  const graphWidth = Math.max(dimensions.width, sortedTokens.length * spacing + horizontalPadding * 2);
   const graphHeight = Math.max(dimensions.height, 620);
   const baseY = Math.max(320, Math.min(graphHeight - 170, graphHeight * 0.68));
   const tokenTopY = baseY - nodeHeight / 2 - 8;
@@ -345,6 +368,15 @@ export default function AyahDependencyGraph({
     return () => observer.disconnect();
   }, []);
 
+  // Bind the d3-zoom behavior to the SVG once it exists. Deliberately keyed
+  // only on `data`'s presence (not dimensions/activeAyah): the
+  // `<svg>` node itself only unmounts/remounts when the component swaps
+  // between the "no data yet" empty state and the real canvas (see the
+  // `!data` early return below), so re-running this on every resize or ayah
+  // change would rebind listeners and, worse, was previously pairing this
+  // with an unconditional transform reset that clobbered the user's own
+  // pan/zoom on every dimension tick. Framing now lives entirely in the fit
+  // effect below.
   useEffect(() => {
     if (!svgRef.current || !zoomLayerRef.current) return;
 
@@ -356,35 +388,55 @@ export default function AyahDependencyGraph({
       .scaleExtent([0.4, 4.5])
       .on("zoom", (event) => {
         zoomLayerSelection.attr("transform", event.transform.toString());
-        setZoomScale(event.transform.k);
+        // Only a real gesture carries a sourceEvent, so this can't be tripped
+        // by the entry auto-fit or the sidebar's +/-/Focus buttons calling
+        // `.transform()`/`.scaleBy()` programmatically.
+        if (event.sourceEvent) userInteractedRef.current = true;
       });
-
-    const initialX = (dimensions.width - graphWidth) / 2;
-    const initialY = 26;
 
     zoomBehaviorRef.current = zoomBehavior;
     svgSelection.call(zoomBehavior);
     svgSelection.on("dblclick.zoom", null);
-    svgSelection.call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(initialX, initialY)
-    );
 
     return () => {
       svgSelection.on(".zoom", null);
       zoomBehaviorRef.current = null;
     };
-  }, [dimensions.width, graphWidth, activeSurah, activeAyah, sortedTokens.length]);
+  }, [Boolean(data)]);
+
+  // A new ayah (or surah) is a completely different tree and deserves its
+  // own framing, regardless of whether the user had already taken control of
+  // the camera on the previous one.
+  useEffect(() => {
+    userInteractedRef.current = false;
+    autoFittedRef.current = false;
+  }, [activeSurah, activeAyah]);
+
+  // One-time chrome-aware fit per ayah, replacing the old fixed-scale,
+  // translate-only centering — that never accounted for content wider than
+  // the viewport, so long ayahs (2:255's 50 tokens) blew past the canvas with
+  // no scale-down, clipped under the dock/toolbar. `fitGraphToView` measures
+  // the actual rendered token+arc bounds and scales AND translates them into
+  // the chrome-aware free region (see lib/viz/fitToView.ts) — the same
+  // primitive the "Focus" button below already uses. Runs as soon as this
+  // ayah's data is complete and stands down for good once it has fired for
+  // this ayah or the user pans/zooms.
+  useEffect(() => {
+    if (userInteractedRef.current || autoFittedRef.current) return;
+    if (!isMounted || sortedTokens.length === 0) return;
+    if (!isSurahDataComplete) return;
+
+    autoFittedRef.current = true;
+    fitGraphToView(svgRef.current, zoomLayerRef.current, zoomBehaviorRef.current, {
+      duration: motionSafeDuration(600),
+    });
+  }, [isMounted, activeSurah, activeAyah, sortedTokens.length, isSurahDataComplete, dimensions.width, dimensions.height]);
 
   const handleResetZoom = useCallback(() => {
-    if (!svgRef.current || !zoomBehaviorRef.current) return;
-    const initialX = (dimensions.width - graphWidth) / 2;
-    const initialY = 26;
-    d3.select(svgRef.current)
-      .transition()
-      .duration(260)
-      .call(zoomBehaviorRef.current.transform, d3.zoomIdentity.translate(initialX, initialY));
-  }, [dimensions.width, graphWidth]);
+    fitGraphToView(svgRef.current, zoomLayerRef.current, zoomBehaviorRef.current, {
+      duration: motionSafeDuration(750),
+    });
+  }, []);
 
   const handleNextAyah = useCallback(() => {
     if (!activeAyah || availableAyahs.length === 0) return;
@@ -423,7 +475,6 @@ export default function AyahDependencyGraph({
 
       <div className="viz-left-panel dep-control-card">
         <div className="dep-card-head">
-          <p className="eyebrow">{ts("advancedViz")}</p>
           <h3>{t("title")}</h3>
         </div>
 
@@ -518,10 +569,6 @@ export default function AyahDependencyGraph({
             <span className="dep-stat-value">{edgeLayouts.length}</span>
             <span className="dep-stat-key">{ts("total")}</span>
           </div>
-          <div className="dep-stat-item">
-            <span className="dep-stat-value">{Math.round(zoomScale * 100)}%</span>
-            <span className="dep-stat-key">{ts("zoom")}</span>
-          </div>
         </div>
 
         <div className="dep-view-row">
@@ -532,7 +579,7 @@ export default function AyahDependencyGraph({
               className="dep-zoom-btn dep-zoom-step-btn"
               onClick={() => {
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
-                d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 1.2);
+                d3.select(svgRef.current).transition().duration(motionSafeDuration(140)).call(zoomBehaviorRef.current.scaleBy, 1.2);
               }}
               aria-label={ts("zoomIn")}
             >
@@ -543,14 +590,14 @@ export default function AyahDependencyGraph({
               className="dep-zoom-btn dep-zoom-step-btn"
               onClick={() => {
                 if (!svgRef.current || !zoomBehaviorRef.current) return;
-                d3.select(svgRef.current).transition().duration(140).call(zoomBehaviorRef.current.scaleBy, 0.85);
+                d3.select(svgRef.current).transition().duration(motionSafeDuration(140)).call(zoomBehaviorRef.current.scaleBy, 0.85);
               }}
               aria-label={ts("zoomOut")}
             >
               -
             </button>
             <button type="button" className="dep-fit-btn" onClick={handleResetZoom}>
-              {ts("reset")}
+              {ts("focus")}
             </button>
           </div>
         </div>

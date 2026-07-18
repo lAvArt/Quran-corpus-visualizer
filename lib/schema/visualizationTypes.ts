@@ -362,16 +362,26 @@ export function resolveVisualizationTheme(theme: "light" | "dark"): Visualizatio
 // Color Palettes
 // ============================================================================
 
+// Part-of-speech encoding palette — the authoritative "data-encoding spectrum"
+// from the Observatory V2 design concept (DesignReference zip · color = part of
+// speech). This is a DATA palette (carries linguistic meaning for analysis +
+// teaching), kept separate from the selection/highlight ring (#FBEAD2, reserved,
+// see SELECTION_RING). The on-canvas + Explain legends derive from these via
+// getNodeColor(), so canvas and legend can never disagree. Shown in all modes.
 export const CATEGORY_COLORS = {
-  noun: "#3b82f6",      // Blue
-  verb: "#22c55e",      // Green
-  adjective: "#f59e0b", // Amber
-  pronoun: "#8b5cf6",   // Purple
-  preposition: "#ec4899", // Pink
-  particle: "#6b7280",  // Gray
-  conjunction: "#14b8a6", // Teal
+  noun: "#e8924a",      // Amber
+  verb: "#d06a86",      // Pink
+  adjective: "#dd6a47", // Coral
+  pronoun: "#56a697",   // Teal
+  preposition: "#8e84cc", // Violet (V2 "proper noun / function word" hue)
+  particle: "#e6c24e",  // Yellow
+  conjunction: "#9fd4c4", // Mint
   other: "#94a3b8",     // Slate
 };
+
+// Reserved selection/highlight ring — excluded from the data palette so a
+// "selected" state never collides with a part-of-speech color.
+export const SELECTION_RING = "#fbead2";
 
 export const GRADIENT_PALETTES = {
   warm: ["#ef4444", "#f97316", "#f59e0b", "#eab308"],

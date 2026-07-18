@@ -7,27 +7,37 @@
    Theme Toggle & Variables
    ============================================================================ */
 
+/* Observatory dark — cool slate-teal canvas (hue ~203°, derived from the
+   design reference image) with warm amber light layered on top. Accents
+   (--accent*) are applied at runtime from the color-theme preset. */
 [data-theme="dark"] {
-  --bg-0: #0c0b0d;
-  --bg-1: #15151b;
-  --bg-2: #1e1e28;
-  --ink: #f3f1e8;
-  --ink-secondary: rgba(243, 241, 232, 0.85);
-  --ink-muted: rgba(243, 241, 232, 0.65);
-  --panel: rgba(20, 20, 28, 0.92);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --line: rgba(255, 255, 255, 0.14);
-  --accent: #f97316;
-  --accent-2: #22d3ee;
-  --accent-glow: rgba(249, 115, 22, 0.5);
-  --accent-2-glow: rgba(34, 211, 238, 0.5);
+  --bg-0: #0e161a;
+  --bg-1: #142026;
+  --bg-2: #1c2a31;
+  --ink: #ece4d8;
+  --ink-secondary: rgba(236, 228, 216, 0.72);
+  --ink-muted: rgba(236, 228, 216, 0.55);
+  --panel: rgba(20, 32, 38, 0.92);
+  --panel-border: rgba(198, 222, 230, 0.1);
+  --line: rgba(198, 222, 230, 0.1);
+  --accent: #e8924a;
+  --accent-2: #56a697;
+  --accent-glow: rgba(232, 146, 74, 0.5);
+  --accent-2-glow: rgba(86, 166, 151, 0.45);
+  /* Theme-stable category colors — same hue family as light (teal/amber),
+     lightness tuned for the dark canvas. See app/[locale]/globals.css :root
+     for the matching light values and full rationale. */
+  --viz-cat-makki: #56a697;
+  --viz-cat-madani: #e8924a;
+  --accent-ink: #2a1606;
+  --selection: #fbead2;
 }
 
 [data-theme="dark"] body {
   background:
-    radial-gradient(ellipse at 18% 30%, rgba(249, 115, 22, 0.12), transparent 52%),
-    radial-gradient(ellipse at 82% 70%, rgba(34, 211, 238, 0.1), transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(56, 189, 248, 0.07), transparent 60%),
+    radial-gradient(ellipse at 16% 24%, rgba(232, 146, 74, 0.1), transparent 52%),
+    radial-gradient(ellipse at 84% 70%, rgba(86, 166, 151, 0.08), transparent 52%),
+    radial-gradient(ellipse at 50% 120%, rgba(142, 132, 204, 0.06), transparent 55%),
     var(--bg-0);
   color: var(--ink);
 }
@@ -50,9 +60,9 @@
 
 [data-theme="dark"] .neural-bg {
   background:
-    radial-gradient(circle at 15% 25%, rgba(249, 115, 22, 0.12), transparent 35%),
-    radial-gradient(circle at 85% 15%, rgba(34, 211, 238, 0.12), transparent 35%),
-    radial-gradient(circle at 50% 80%, rgba(56, 189, 248, 0.08), transparent 40%);
+    radial-gradient(circle at 15% 25%, rgba(232, 146, 74, 0.1), transparent 38%),
+    radial-gradient(circle at 85% 18%, rgba(86, 166, 151, 0.1), transparent 38%),
+    radial-gradient(circle at 50% 82%, rgba(142, 132, 204, 0.07), transparent 42%);
 }
 
 /* Animated background glow */
@@ -114,8 +124,8 @@
 [data-theme="dark"] .viz-container {
   background: radial-gradient(
     ellipse at center,
-    rgba(20, 20, 30, 0.95),
-    rgba(10, 10, 15, 1)
+    rgba(20, 32, 38, 0.95),
+    rgba(10, 17, 21, 1)
   );
 }
 
@@ -148,7 +158,11 @@
   stroke: var(--node-stroke);
   stroke-width: 1;
   cursor: pointer;
-  transition: all 0.3s ease;
+  /* Explicit list — never `all` on SVG geometry classes: `all` catches
+     animatable presentation attributes (cx/cy/d/x/y in Chromium) and makes
+     the browser ease every per-render geometry write. */
+  transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease,
+    transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .radial-arc .node:hover {
@@ -180,7 +194,7 @@
 /* Bar extensions from arc */
 .radial-arc .bar {
   fill: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
+  transition: fill 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .radial-arc .bar:hover {
@@ -206,7 +220,19 @@
   stroke: var(--edge-default);
   stroke-width: 1;
   fill: none;
-  transition: all 0.3s ease;
+  /* NOT `all`: `d` is a per-simulation-tick presentation attribute, and in
+     Chromium `d` is CSS-animatable (SVG2's `d` property), so `transition:
+     all` was catching it — React wrote the new `d` to the DOM instantly on
+     every tick, but the browser then EASED the rendered/painted path
+     toward it over ~300ms, so the wire visibly lagged/rubber-banded behind
+     the (instantly-moved) node during a drag even though every attribute-
+     level probe read 0px gap (measured: an isolated single `d` jump eased
+     over ~400px before settling; a realistic fast continuous drag showed
+     an ~8px sustained rendered gap across ~86% of frames). Explicit list =
+     the highlight-state properties this component actually varies (see
+     RootNetworkGraph's edge render) — stays smooth, never touches
+     geometry. Same reasoning for .node-circle below. */
+  transition: stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
 }
 
 .network-graph .edge.highlighted {
@@ -220,7 +246,9 @@
   stroke: rgba(255, 255, 255, 0.3);
   stroke-width: 1;
   cursor: pointer;
-  transition: all 0.3s ease;
+  /* See the .edge comment above — explicit list excludes r/cx/cy (and any
+     future transform) so a node's own geometry can never ease either. */
+  transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease, filter 0.3s ease;
 }
 
 .network-graph .node-circle:hover {
@@ -349,7 +377,7 @@
 .viz-control-btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--accent-ink);
 }
 
 .viz-control-select {
@@ -379,7 +407,7 @@
 .viz-tooltip {
   position: absolute;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
   pointer-events: none;
   z-index: 100;
@@ -389,8 +417,8 @@
 }
 
 [data-theme="dark"] .viz-tooltip {
-  background: rgba(20, 20, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(20, 32, 38, 0.96);
+  border: 1px solid rgba(198, 222, 230, 0.15);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   color: var(--ink);
 }
@@ -425,6 +453,37 @@
 
 .viz-tooltip-value {
   font-weight: 500;
+}
+
+.viz-tooltip-row--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.viz-ayah-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viz-ayah-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+  color: var(--ink-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .viz-ayah-chip {
+  background: color-mix(in srgb, var(--accent), transparent 78%);
+  border-color: rgba(198, 222, 230, 0.16);
 }
 
 /* ============================================================================
@@ -491,7 +550,7 @@
 
 .mode-switcher-btn.active {
   background: var(--accent);
-  color: white;
+  color: var(--accent-ink);
   box-shadow: 0 2px 8px var(--accent-glow);
 }
 
