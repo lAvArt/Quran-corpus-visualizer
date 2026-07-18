@@ -123,6 +123,7 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
 
 export default function MinimalHome() {
   const t = useTranslations("Home");
+  const tFooter = useTranslations("Footer");
   const params = useParams();
   const router = useRouter();
   const locale = (params?.locale as string) || "en";
@@ -270,6 +271,19 @@ export default function MinimalHome() {
           {t("wordmark2")}
         </span>
       </button>
+      {/* The minimal home hides the site footer, but the Kais Dukes /
+          Quranic Arabic Corpus credit is a standing rule on EVERY page —
+          a slim fixed line stands in for the full footer here. */}
+      <a
+        className="mhome-credit"
+        href="https://corpus.quran.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        title={tFooter("creditTitle")}
+      >
+        {tFooter("credit")}
+      </a>
+
       <div className="mhome-topright">
         <div className="mhome-lang">
           <LanguageSwitcher />
@@ -844,6 +858,13 @@ const styles = `
     position: absolute; top: 22px; inset-inline-end: 26px; z-index: 3;
     display: flex; align-items: center; gap: 12px;
   }
+  .mhome-credit {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 3; font: 500 10.5px 'Space Grotesk', sans-serif; letter-spacing: 0.04em;
+    color: rgba(var(--mh-ink-rgb), 0.4); text-decoration: none; white-space: nowrap;
+    transition: color 0.15s ease;
+  }
+  .mhome-credit:hover { color: rgba(var(--mh-ink-rgb), 0.75); }
   .mhome-lang :global(.control-pill-btn) {
     background: transparent; border: 1px solid var(--mh-btn-hairline); border-radius: 999px;
     padding: 7px 12px; color: var(--mh-ink-55); cursor: pointer;
