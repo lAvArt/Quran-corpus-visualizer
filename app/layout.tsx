@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://quran.pluragate.org"),
+  metadataBase: new URL("https://quranobservatory.org"),
 };
 
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {

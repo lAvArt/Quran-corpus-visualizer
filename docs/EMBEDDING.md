@@ -6,7 +6,7 @@ Quran Corpus Visualizer supports embedding individual visualizations in external
 
 ```html
 <iframe
-  src="https://quran.pluragate.org/embed/root-network?surah=3&theme=dark"
+  src="https://quranobservatory.org/embed/root-network?surah=3&theme=dark"
   width="800"
   height="600"
   style="border:0;border-radius:8px"
@@ -18,7 +18,7 @@ Quran Corpus Visualizer supports embedding individual visualizations in external
 ## URL Format
 
 ```
-https://quran.pluragate.org/embed/{vizMode}?surah={number}&theme={light|dark}&root={root}
+https://quranobservatory.org/embed/{vizMode}?surah={number}&theme={light|dark}&root={root}
 ```
 
 ## Available Visualization Modes
@@ -50,7 +50,7 @@ https://quran.pluragate.org/embed/{vizMode}?surah={number}&theme={light|dark}&ro
 
 ```html
 <iframe
-  src="https://quran.pluragate.org/embed/root-network?surah=3&theme=dark"
+  src="https://quranobservatory.org/embed/root-network?surah=3&theme=dark"
   width="800"
   height="600"
   style="border:0;border-radius:8px"
@@ -63,7 +63,7 @@ https://quran.pluragate.org/embed/{vizMode}?surah={number}&theme={light|dark}&ro
 
 ```html
 <iframe
-  src="https://quran.pluragate.org/embed/radial-sura?surah=36&theme=light"
+  src="https://quranobservatory.org/embed/radial-sura?surah=36&theme=light"
   width="800"
   height="600"
   style="border:0;border-radius:8px"
@@ -76,7 +76,7 @@ https://quran.pluragate.org/embed/{vizMode}?surah={number}&theme={light|dark}&ro
 
 ```html
 <iframe
-  src="https://quran.pluragate.org/embed/sankey-flow?surah=2&theme=dark"
+  src="https://quranobservatory.org/embed/sankey-flow?surah=2&theme=dark"
   width="800"
   height="600"
   style="border:0;border-radius:8px"
@@ -92,7 +92,7 @@ For responsive layouts, wrap the iframe in a container:
 ```html
 <div style="position:relative;width:100%;padding-bottom:75%;overflow:hidden">
   <iframe
-    src="https://quran.pluragate.org/embed/root-network?surah=3&theme=dark"
+    src="https://quranobservatory.org/embed/root-network?surah=3&theme=dark"
     style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:8px"
     loading="lazy"
     allowfullscreen

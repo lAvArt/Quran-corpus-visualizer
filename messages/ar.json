@@ -132,7 +132,7 @@
     "Index": {
         "title": "مرئيات المدونة القرآنية",
         "eyebrow": "مرصد اللسانيات القرآنية",
-        "brand": "quran.pluragate.org",
+        "brand": "quranobservatory.org",
         "hideTools": "إخفاء الأدوات",
         "showTools": "عرض الأدوات",
         "dataStatus": {
@@ -227,6 +227,16 @@
             "title": "بطاقة الجذر",
             "topLemmas": "أكثر الجذوع",
             "posMix": "مزيج الأنواع"
+        },
+        "surahInsight": {
+            "title": "بطاقة السورة",
+            "verses": "آيات",
+            "words": "كلمات",
+            "roots": "جذور مميزة",
+            "lemmas": "أبنية مميزة",
+            "topRoots": "أكثر الجذور في هذه السورة",
+            "topLemmas": "أكثر الأبنية في هذه السورة",
+            "rootChipHint": "افتح بطاقة هذا الجذر على مستوى المدونة"
         }
     },
     "AppSidebar": {
@@ -366,7 +376,12 @@
         "searchPlaceholder": "تصفية...",
         "verses": "آيات",
         "noResults": "لم توجد نتائج",
-        "tabsAriaLabel": "فئات الفهرس"
+        "tabsAriaLabel": "فئات الفهرس",
+        "scopedTo": "في {name}",
+        "clearScope": "كل السور",
+        "pageStatus": "{from}–{to} من {total}",
+        "prevPage": "الصفحة السابقة",
+        "nextPage": "الصفحة التالية"
     },
     "CurrentSelectionPanel": {
         "title": "التحديد الحالي",

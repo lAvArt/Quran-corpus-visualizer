@@ -98,7 +98,7 @@ export default async function OGImage() {
             display: "flex",
           }}
         >
-          quran.pluragate.org
+          quranobservatory.org
         </div>
       </div>
     ),

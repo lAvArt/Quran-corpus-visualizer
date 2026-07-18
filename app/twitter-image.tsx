@@ -98,7 +98,7 @@ export default async function TwitterImage() {
             display: "flex",
           }}
         >
-          quran.pluragate.org
+          quranobservatory.org
         </div>
       </div>
     ),

@@ -41,7 +41,7 @@ Report it by email to `info@pluragate.org` with:
 
 This policy covers:
 
-- the application at `quran.pluragate.org`
+- the application at `quranobservatory.org`
 - the source code in this repository
 - Supabase schema, RLS policies, and function exposure
 - deployed dependencies under this app's control

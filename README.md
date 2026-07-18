@@ -8,9 +8,9 @@ Interactive exploration of Quranic linguistic structure, morphology, search, and
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![CI](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml)
-[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://quran.pluragate.org)
+[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://quranobservatory.org)
 
-[Live Demo](https://quran.pluragate.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
+[Live Demo](https://quranobservatory.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
 
 </div>
 
