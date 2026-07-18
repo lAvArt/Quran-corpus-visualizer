@@ -1,7 +1,5 @@
 import { MetadataRoute } from 'next';
-
-const BASE_URL = 'https://quran.pluragate.org';
-const LOCALES = ['en', 'ar'] as const;
+import { SITE_URL, LOCALES } from '@/lib/seo/site';
 
 const PAGES = [
     { path: '',              changeFrequency: 'daily'   as const, priority: 1.0 },
@@ -11,51 +9,31 @@ const PAGES = [
     { path: '/auth/login',   changeFrequency: 'monthly' as const, priority: 0.3 },
 ];
 
-const VIZ_MODES = [
-    'radial-sura',
-    'root-network',
-    'arc-flow',
-    'dependency-tree',
-    'sankey-flow',
-    'surah-distribution',
-    'corpus-architecture',
-    'knowledge-graph',
-    'collocation-network',
-    'heatmap',
-] as const;
+// NOTE: /embed/* routes are deliberately NOT listed — app/embed/layout.tsx
+// sets robots noindex on them (they're iframe payloads, not landing pages),
+// and a sitemap that lists noindexed URLs generates Search Console errors.
 
 export default function sitemap(): MetadataRoute.Sitemap {
     const now = new Date();
     const entries: MetadataRoute.Sitemap = [];
 
-    // Root URL
-    entries.push({
-        url: BASE_URL,
-        lastModified: now,
-        changeFrequency: 'daily',
-        priority: 1.0,
-    });
-
-    // Locale pages
     for (const locale of LOCALES) {
         for (const page of PAGES) {
             entries.push({
-                url: `${BASE_URL}/${locale}${page.path}`,
+                url: `${SITE_URL}/${locale}${page.path}`,
                 lastModified: now,
                 changeFrequency: page.changeFrequency,
                 priority: page.priority,
+                // hreflang cross-links so Google treats en/ar as one page in
+                // two languages instead of duplicate content.
+                alternates: {
+                    languages: {
+                        en: `${SITE_URL}/en${page.path}`,
+                        ar: `${SITE_URL}/ar${page.path}`,
+                    },
+                },
             });
         }
-    }
-
-    // Embed visualization routes (useful for SEO as standalone content pages)
-    for (const mode of VIZ_MODES) {
-        entries.push({
-            url: `${BASE_URL}/embed/${mode}`,
-            lastModified: now,
-            changeFrequency: 'monthly',
-            priority: 0.4,
-        });
     }
 
     return entries;

@@ -1,4 +1,16 @@
 {
+    "Meta": {
+        "title": "Quran Corpus Visualizer",
+        "description": "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
+        "ogDescription": "Interactive exploration of Quranic linguistic structure and morphology.",
+        "ogImageAlt": "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
+        "searchTitle": "Search the Corpus",
+        "searchDescription": "Search Quranic roots, lemmas, words, and meanings across the full corpus with morphological filters.",
+        "studyTitle": "Study Hub",
+        "studyDescription": "Track Arabic roots, review your learning progress, and build a personal knowledge map of the Quran.",
+        "quizTitle": "Quiz",
+        "quizDescription": "Test your knowledge of Quranic roots and morphology with generated quizzes."
+    },
     "Home": {
         "eyebrow": "Search the Qur'an by meaning",
         "headline": "Every word has a root.",

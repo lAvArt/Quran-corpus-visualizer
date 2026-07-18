@@ -1,8 +1,20 @@
+import type { Metadata } from "next";
 import AppShell from "@/components/shell/AppShell";
 import MinimalHome from "@/components/home/MinimalHome";
 import { buildExploreOverviewPayload } from "@/lib/corpus/overviewData";
 import { cookies } from "next/headers";
 import { THEME_COOKIE_NAME, parseThemePreferenceCookie } from "@/lib/theme/themePreferences";
+import { SITE_URL, languageAlternates } from "@/lib/seo/site";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  return {
+    alternates: {
+      canonical: `${SITE_URL}/${locale}`,
+      languages: languageAlternates(""),
+    },
+  };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

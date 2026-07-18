@@ -45,6 +45,16 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
     initialFiltersExpanded: true,
   });
 
+  // Hydrate the query from ?q= once on mount, making /{locale}/search?q=…
+  // a shareable deep link (and the layout's JSON-LD SearchAction target an
+  // honest one). window.location instead of useSearchParams keeps this page
+  // statically prerenderable without a Suspense boundary.
+  const applyInitialQuery = search.setQuery;
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) applyInitialQuery(q);
+  }, [applyInitialQuery]);
+
   const statusPresentation = useMemo(
     () => deriveCorpusStatusPresentation(readiness, dataStatus, isLoadingCorpus),
     [dataStatus, isLoadingCorpus, readiness]
