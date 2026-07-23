@@ -8,7 +8,7 @@ export const SITE_URL = (
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://quranobservatory.org"
 ).replace(/\/$/, "");
 
-export const SITE_NAME = "Quran Corpus Visualizer";
+export const SITE_NAME = "Quran Observatory";
 
 export const LOCALES = ["en", "ar"] as const;
 

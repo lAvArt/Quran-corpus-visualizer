@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Quran Corpus Visualizer",
-    short_name: "Quran Corpus",
+    name: "Quran Observatory",
+    short_name: "Observatory",
     description:
       "Interactive exploration of Quranic linguistic structure and morphology through dynamic visualizations.",
     start_url: "/",
