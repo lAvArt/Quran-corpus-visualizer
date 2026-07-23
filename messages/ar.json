@@ -17,6 +17,7 @@
         "wordmark1": "مرصد اللسانيات",
         "wordmark2": "القرآنية",
         "placeholder": "ابحث عن جذر أو كلمة — ر-ح-م، رحمة، علم…",
+        "placeholderShort": "ابحث عن جذر أو كلمة…",
         "enterHint": "إدخال",
         "matched": "الجذر المطابق {root}",
         "back": "رجوع",

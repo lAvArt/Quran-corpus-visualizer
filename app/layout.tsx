@@ -35,6 +35,10 @@ const amiri = Amiri({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Let the app draw into the safe-area insets on notched/rounded-corner
+  // phones — the CSS already reads env(safe-area-inset-*) in several
+  // places (e.g. the footer), which otherwise no-ops without this.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {

@@ -17,6 +17,7 @@
         "wordmark1": "Quranic Linguistics",
         "wordmark2": "Observatory",
         "placeholder": "Search a root or word — ر-ح-م, mercy, knowledge…",
+        "placeholderShort": "Search a root or word…",
         "enterHint": "Enter",
         "matched": "matched root {root}",
         "back": "Back",

@@ -271,6 +271,26 @@ displayed counts against fresh recomputation from the raw morphology file):
   RULE: never `import * as d3 from "d3"` again — add missing submodules to the barrel.
 - Dead deps removed: tesseract.js, @use-gesture/react (zero imports).
 
+Fixed 2026-07-24 (branch `feature/mobile-polish`, mobile 390px pass; before/after in
+`.ux-shots/mobile-audit` vs `.ux-shots/mobile-after*`):
+
+- MinimalHome mobile header collision (lang pill over wordmark, buried skip pill) →
+  ≤640px hides `.mhome-mark` entirely, top-right row nowrap + ellipsized skip pill;
+  short search placeholder via `Home.placeholderShort` picked by SSR-safe matchMedia.
+- Workspace pages (search/study/quiz): standalone JourneyRail strip overlapped the
+  page header → `.ui-workspace-railed` mobile padding-top 68px→118px offset.
+- `.viz-intro-chip` sat ON the mobile rail strip (top +40px vs rail +48px) → +108px.
+- Footer credit clipped to "…Kais D" at 390px → ≤680px hides the Quran API link,
+  credit 0.72rem + flex-shrink:0, links overflow:visible; ≤480px feedback icon-only.
+  Kais Dukes credit now always fully legible (standing rule).
+- Study guest banner: Sign In stretched full card height (flex align-items default)
+  → center + wrap ≤480px.
+- Search quick-filter chips: English placeholders in dir="rtl" inputs rendered
+  scrambled BiDi → `::placeholder { unicode-bidi: plaintext }`; POS select clipped
+  mid-letter → filters row wraps, controls flex-basis 48%.
+- PWA: `viewportFit: "cover"` added to the root viewport export (safe-area env()
+  insets were no-ops on notched phones without it).
+
 Known, deliberately deferred (next iterations):
 
 - Lemma glosses missing for many forms ("Translation not available") — data gap, see
@@ -308,6 +328,11 @@ Known, deliberately deferred (next iterations):
   root form (plain alif) — both sites land on their search page for non-citation
   forms; if lookups miss for hamza-family roots (امن vs أمن), consider mapping to
   citation orthography before linking.
+- Mobile leftovers (2026-07-24 pass): the Ayah quick-filter placeholder still clips
+  ("Ayah (e.g") at 390px; surah-distribution chart renders small with dead space on
+  mobile (needs a viz-level responsive margin pass); the 900px (VizControlContext
+  MOBILE_QUERY) vs 980/981px (CSS) breakpoint mismatch means 900–980px gets desktop
+  drawer state with mobile layout — unify when touching shell state next.
 
 ## Review checklist for viz changes
 
