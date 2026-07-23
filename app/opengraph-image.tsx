@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Quranic Linguistics Observatory - Interactive Quranic linguistic exploration";
+export const alt = "Quran Observatory - Interactive Quranic linguistic exploration";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -54,7 +54,7 @@ export default async function OGImage() {
             marginBottom: 20,
           }}
         >
-          Quranic Linguistics Observatory
+          Quran Observatory
         </div>
         <div
           style={{

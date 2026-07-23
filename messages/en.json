@@ -1,9 +1,9 @@
 {
     "Meta": {
-        "title": "Quranic Linguistics Observatory",
+        "title": "Quran Observatory",
         "description": "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
         "ogDescription": "Interactive exploration of Quranic linguistic structure and morphology.",
-        "ogImageAlt": "Quranic Linguistics Observatory – Interactive Quranic linguistic exploration",
+        "ogImageAlt": "Quran Observatory – Interactive Quranic linguistic exploration",
         "searchTitle": "Search the Corpus",
         "searchDescription": "Search Quranic roots, lemmas, words, and meanings across the full corpus with morphological filters.",
         "studyTitle": "Study Hub",
@@ -17,6 +17,7 @@
         "wordmark1": "Quranic Linguistics",
         "wordmark2": "Observatory",
         "placeholder": "Search a root or word — ر-ح-م, mercy, knowledge…",
+        "placeholderShort": "Search a root or word…",
         "enterHint": "Enter",
         "matched": "matched root {root}",
         "back": "Back",
@@ -107,7 +108,7 @@
         "installing": "Preparing install..."
     },
     "About": {
-        "title": "About Quranic Linguistics Observatory",
+        "title": "About Quran Observatory",
         "description": "An interactive exploration of the Quran through advanced linguistic visualization. This project aims to make the intricate morphological structure of the Quran accessible and engaging for everyone.",
         "dataSourcesTitle": "Data sources and attribution",
         "quranicCorpus": "Morphology and corpus structure by Quranic Arabic Corpus.",
@@ -130,7 +131,7 @@
         "error": "Something went wrong. Please try again."
     },
     "Index": {
-        "title": "Quranic Linguistics Observatory",
+        "title": "Quran Observatory",
         "eyebrow": "Quranic Linguistics Observatory",
         "brand": "quranobservatory.org",
         "hideTools": "Hide Tools",
@@ -1061,7 +1062,7 @@
         "preview": "Preview"
     },
     "Onboarding": {
-        "title": "Welcome to Quranic Linguistics Observatory",
+        "title": "Welcome to Quran Observatory",
         "subtitle": "Start with one practical task, then follow a short guided walkthrough.",
         "close": "Close onboarding",
         "progress": "Step {current} of {total}",

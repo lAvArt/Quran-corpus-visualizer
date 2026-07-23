@@ -409,7 +409,9 @@ body {
    workspace content down so the rail never overlaps the page header. */
 @media (max-width: 980px) {
   .ui-workspace-railed {
-    padding-top: calc(var(--header-clearance) + 68px);
+    /* Rail sits at header-clearance + 48px and stands ~52px tall; clear it
+       with room to spare so it never overlaps the page kicker/title. */
+    padding-top: calc(var(--header-clearance) + 118px);
   }
 }
 
@@ -2094,6 +2096,14 @@ button.site-footer-link {
 
 .site-footer-feedback {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-footer-feedback-icon {
+  display: none;
+  flex-shrink: 0;
 }
 
 .site-footer-install {
@@ -2122,8 +2132,9 @@ button.site-footer-link {
 @media (max-width: 680px) {
   .site-footer-inner {
     padding: 0.3rem 0.5rem;
-    padding-inline-start: 2.5rem;
-    /* Avoid Next.js dev badge overlap */
+    /* Avoid Next.js dev badge overlap; kept tight so the credit link never
+       has to compete with it for width. */
+    padding-inline-start: 0.75rem;
     gap: 6px;
   }
 
@@ -2131,9 +2142,49 @@ button.site-footer-link {
     display: none;
   }
 
+  /* Quran API docs link is the least essential item at narrow widths —
+     drop it first so the Kais Dukes / Quranic Arabic Corpus credit (a
+     standing requirement) always has room to render in full. */
+  .site-footer-quranapi {
+    display: none;
+  }
+
   .site-footer-link {
     font-size: 0.8rem;
     padding: 6px 8px;
+  }
+
+  /* Credit link must never truncate — shrink it slightly and stop it from
+     being squeezed by neighboring flex items instead. Give the whole nav
+     the same flex-shrink:0 treatment (and drop its own overflow:hidden)
+     so the browser can't clip the credit mid-word to fit the nav box; if
+     the row still can't fit, `body { overflow-x: hidden }` clips evenly
+     from the outer edges (least-essential items first) instead. */
+  .site-footer-links {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .site-footer-credit {
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .site-footer-install {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Collapse the feedback button to an icon-only affordance so it stops
+     competing with the credit link for the little width left at 390px.
+     aria-label on the button keeps it accessible. */
+  .site-footer-feedback-icon {
+    display: inline-flex;
+  }
+
+  .site-footer-feedback-text {
+    display: none;
   }
 }
 
@@ -5401,9 +5452,16 @@ button.site-footer-link {
 .migration-banner {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   padding: 1rem;
   margin-bottom: 1rem;
+}
+
+@media (max-width: 480px) {
+  .migration-banner {
+    flex-wrap: wrap;
+  }
 }
 
 .migration-banner p {
@@ -5904,6 +5962,7 @@ button.site-footer-link {
 
 .search-filters-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -5918,12 +5977,20 @@ button.site-footer-link {
   color: var(--ink, #1c1917);
   outline: none;
 }
+/* Placeholders mix English and Arabic (e.g. "Root (e.g. هدي)") even inside
+   an RTL-dir input on the Arabic locale — order each placeholder by its
+   own first strong character instead of inheriting the input's bidi
+   context, which otherwise scrambles the mixed text. */
+.search-filter-input::placeholder {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
 .search-filter-input:focus {
   border-color: var(--accent, #0f766e);
 }
 
 .search-filter-select {
-  flex: 1;
+  flex: 1 1 48%;
   min-width: 0;
   padding: 5px 8px;
   font-size: 0.8rem;
@@ -6669,7 +6736,9 @@ button.site-footer-link {
 
 @media (max-width: 980px) {
   .viz-intro-chip {
-    top: calc(var(--header-clearance) + 40px);
+    /* Clear the mobile AppShell rail strip (top-center icon bar) so the
+       chip doesn't sit on top of its icons. */
+    top: calc(var(--header-clearance) + 108px);
   }
 }
 

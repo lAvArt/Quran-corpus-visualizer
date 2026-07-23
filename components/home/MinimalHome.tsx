@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
@@ -16,6 +16,27 @@ import {
   type RootStatsIndex,
   type ExampleVerse,
 } from "@/lib/corpus/rootStatsClient";
+
+// SSR-safe "is this a narrow (≤640px) viewport" read — same
+// useSyncExternalStore + matchMedia shape as VizControlContext's mobile
+// query, so the server-rendered markup (which can't know the client's
+// viewport) always matches the client's first paint before hydration
+// swaps in the real value.
+const NARROW_QUERY = "(max-width: 640px)";
+function subscribeNarrowQuery(cb: () => void) {
+  const mql = window.matchMedia(NARROW_QUERY);
+  mql.addEventListener("change", cb);
+  return () => mql.removeEventListener("change", cb);
+}
+function getNarrowSnapshot() {
+  return window.matchMedia(NARROW_QUERY).matches;
+}
+function getNarrowServerSnapshot() {
+  return false; // SSR assumes the wider, unabridged placeholder
+}
+function useIsNarrowViewport() {
+  return useSyncExternalStore(subscribeNarrowQuery, getNarrowSnapshot, getNarrowServerSnapshot);
+}
 
 // Each root is tinted by its dominant part of speech (V2 POS spectrum).
 const POS_COLOR: Record<string, string> = {
@@ -128,6 +149,7 @@ export default function MinimalHome() {
   const params = useParams();
   const router = useRouter();
   const locale = (params?.locale as string) || "en";
+  const isNarrow = useIsNarrowViewport();
 
   const [q, setQ] = useState("");
   const [dq, setDq] = useState("");
@@ -323,7 +345,7 @@ export default function MinimalHome() {
                 setDq("");
               }
             }}
-            placeholder={t("placeholder")}
+            placeholder={isNarrow ? t("placeholderShort") : t("placeholder")}
             aria-label={t("eyebrow")}
             autoComplete="off"
             spellCheck={false}
@@ -1149,6 +1171,24 @@ const styles = `
     .mhome-result-head { gap: 15px; }
     .mhome-topright { inset-inline-end: 16px; }
     .mhome-mark { inset-inline-start: 18px; }
+    /* At this width the corner mark and the lang/skip/auth row share one
+       line — even glyph-only, the mark ends up underneath the row, so the
+       whole mark drops out (brand identity stays in the footer credit). */
+    .mhome-mark { display: none; }
+    .mhome-topright {
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+    /* The skip pill is the one element here with unbounded text length —
+       clamp + ellipsize it so it can never push the auth button off-row
+       or collide with the mark. Logical max-width so both LTR and RTL
+       reserve the same share of the viewport. */
+    .mhome-skip {
+      max-width: 42vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .mhome-resting, .mhome-result, .mhome-nomatch, .mhome-verse, .mhome-breakdown, .mhome-strip-tip { animation: none; }
