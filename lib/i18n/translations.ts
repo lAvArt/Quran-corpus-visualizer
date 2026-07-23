@@ -48,7 +48,7 @@ export interface Translations {
 export const translations: Record<Language, Translations> = {
     en: {
         // Header
-        appTitle: "Quran Corpus Visualizer",
+        appTitle: "Quranic Linguistics Observatory",
         corpusAtlas: "Corpus Atlas",
         surahs: "Surahs",
         tokens: "Tokens",

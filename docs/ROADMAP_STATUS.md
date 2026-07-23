@@ -1,6 +1,6 @@
 # Roadmap Status
 
-This file tracks delivery status against the current product direction of Quran Corpus Visualizer.
+This file tracks delivery status against the current product direction of Quranic Linguistics Observatory.
 
 ## Overall Status
 

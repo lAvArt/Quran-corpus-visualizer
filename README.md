@@ -1,6 +1,6 @@
 <div align="center">
 
-# Quran Corpus Visualizer
+# Quranic Linguistics Observatory
 
 Interactive exploration of Quranic linguistic structure, morphology, search, and study workflows.
 
@@ -17,10 +17,10 @@ Interactive exploration of Quranic linguistic structure, morphology, search, and
 ---
 
 <!-- HERO:HOME -->
-<img width="2560" height="1260" alt="Quran Observatory – search-first landing" src="public/docs/images/home-observatory.png" />
+<img width="2560" height="1260" alt="Quranic Linguistics Observatory – search-first landing" src="public/docs/images/home-observatory.png" />
 <!-- END:HERO -->
 
-Quran Corpus Visualizer is a Next.js application for exploring the Quran through normalized corpus data, D3-based visualizations, search tools, study workflows, and authenticated progress tracking. The app is built around four main product surfaces:
+Quranic Linguistics Observatory is a Next.js application for exploring the Quran through normalized corpus data, D3-based visualizations, search tools, study workflows, and authenticated progress tracking. The app is built around four main product surfaces:
 
 - `Explore`: interactive visualizations and inspectors
 - `Search`: dedicated search workspace with recovery-friendly states
@@ -31,9 +31,64 @@ Quran Corpus Visualizer is a Next.js application for exploring the Quran through
 
 ### Visual exploration
 
+<table>
+<tr>
+<td width="50%" valign="top">
 <!-- GRAPH:RADIAL_SURA -->
-<img width="2560" height="1260" alt="Quran Corpus Visualizer – Radial Surah Map" src="public/docs/images/radial-sura.png" />
+<img width="2560" height="1260" alt="Quranic Linguistics Observatory – Radial Surah Map" src="public/docs/images/radial-sura.png" />
 <!-- END:GRAPH -->
+<div align="center"><sub><b>Radial Surah Map</b> — verse structure with root connections</sub></div>
+</td>
+<td width="50%" valign="top">
+<!-- GRAPH:CORPUS_ARCHITECTURE -->
+<img width="2560" height="1260" alt="Corpus Architecture Map" src="public/docs/images/corpus-architecture.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Corpus Architecture</b> — global structure across all 114 surahs</sub></div>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<!-- GRAPH:ROOT_NETWORK -->
+<img width="2560" height="1260" alt="Root Network Graph" src="public/docs/images/root-network.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Root Network</b> — shared roots as a force-directed graph</sub></div>
+</td>
+<td width="50%" valign="top">
+<!-- GRAPH:KNOWLEDGE_GRAPH -->
+<img width="2560" height="1260" alt="Knowledge Graph Visualization" src="public/docs/images/knowledge-graph.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Knowledge Graph</b> — entities and their relations</sub></div>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<!-- GRAPH:SURAH_DISTRIBUTION -->
+<img width="2560" height="1260" alt="Surah Distribution" src="public/docs/images/surah-distribution.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Surah Distribution</b> — Makki/Madani split and root frequency</sub></div>
+</td>
+<td width="50%" valign="top">
+<!-- GRAPH:SANKEY_FLOW -->
+<img width="2560" height="1260" alt="Root Flow Sankey" src="public/docs/images/sankey-flow.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Root Flow Sankey</b> — how roots flow across surahs</sub></div>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<!-- GRAPH:ARC_FLOW -->
+<img width="2560" height="1260" alt="Arc Flow Diagram" src="public/docs/images/arc-flow.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Arc Flow</b> — linear ayah sequence with connecting arcs</sub></div>
+</td>
+<td width="50%" valign="top">
+<!-- GRAPH:DEPENDENCY_TREE -->
+<img width="2560" height="1260" alt="Ayah Dependency Graph" src="public/docs/images/dependency-tree.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Ayah Dependency Graph</b> — syntactic dependencies within an ayah</sub></div>
+</td>
+</tr>
+</table>
 
 - Radial Surah Map, Root Network, Collocation Network, Knowledge Graph, Surah Distribution, Arc Flow, Ayah Dependency Graph, Root Flow Sankey, and Corpus Architecture views
 - Shared inspectors, breadcrumbs, explainer content, export options, and embed support
