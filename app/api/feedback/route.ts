@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         const brevoApiKey = process.env.BREVO_API_KEY;
         const feedbackToEmail = process.env.FEEDBACK_TO_EMAIL || process.env.NEXT_PUBLIC_FEEDBACK_EMAIL;
         const feedbackFromEmail = process.env.FEEDBACK_FROM_EMAIL;
-        const feedbackFromName = process.env.FEEDBACK_FROM_NAME || 'Quran Corpus Visualizer';
+        const feedbackFromName = process.env.FEEDBACK_FROM_NAME || 'Quranic Linguistics Observatory';
 
         if (!brevoApiKey || !feedbackToEmail || !feedbackFromEmail) {
             console.error('Feedback email is not configured. Missing BREVO_API_KEY, FEEDBACK_TO_EMAIL, or FEEDBACK_FROM_EMAIL.');
