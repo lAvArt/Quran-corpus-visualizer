@@ -1,9 +1,9 @@
 {
     "Meta": {
-        "title": "Quran Corpus Visualizer",
+        "title": "Quranic Linguistics Observatory",
         "description": "Explore the Quran through interactive linguistic graphs, root-to-word flows, and advanced corpus visualization tools.",
         "ogDescription": "Interactive exploration of Quranic linguistic structure and morphology.",
-        "ogImageAlt": "Quran Corpus Visualizer – Interactive Quranic linguistic exploration",
+        "ogImageAlt": "Quranic Linguistics Observatory – Interactive Quranic linguistic exploration",
         "searchTitle": "Search the Corpus",
         "searchDescription": "Search Quranic roots, lemmas, words, and meanings across the full corpus with morphological filters.",
         "studyTitle": "Study Hub",
@@ -107,7 +107,7 @@
         "installing": "Preparing install..."
     },
     "About": {
-        "title": "About Quran Corpus Visualizer",
+        "title": "About Quranic Linguistics Observatory",
         "description": "An interactive exploration of the Quran through advanced linguistic visualization. This project aims to make the intricate morphological structure of the Quran accessible and engaging for everyone.",
         "dataSourcesTitle": "Data sources and attribution",
         "quranicCorpus": "Morphology and corpus structure by Quranic Arabic Corpus.",
@@ -130,7 +130,7 @@
         "error": "Something went wrong. Please try again."
     },
     "Index": {
-        "title": "Quran Corpus Visualizer",
+        "title": "Quranic Linguistics Observatory",
         "eyebrow": "Quranic Linguistics Observatory",
         "brand": "quranobservatory.org",
         "hideTools": "Hide Tools",
@@ -1061,7 +1061,7 @@
         "preview": "Preview"
     },
     "Onboarding": {
-        "title": "Welcome to Quran Corpus Visualizer",
+        "title": "Welcome to Quranic Linguistics Observatory",
         "subtitle": "Start with one practical task, then follow a short guided walkthrough.",
         "close": "Close onboarding",
         "progress": "Step {current} of {total}",
