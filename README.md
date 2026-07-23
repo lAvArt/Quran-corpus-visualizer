@@ -16,9 +16,9 @@ Interactive exploration of Quranic linguistic structure, morphology, search, and
 
 ---
 
-<!-- GRAPH:RADIAL_SURA -->
-<img width="2560" height="1260" alt="Quran Corpus Visualizer - Radial Surah Map" src="public/docs/images/radial-sura.png" />
-<!-- END:GRAPH -->
+<!-- HERO:HOME -->
+<img width="2560" height="1260" alt="Quran Observatory – search-first landing" src="public/docs/images/home-observatory.png" />
+<!-- END:HERO -->
 
 Quran Corpus Visualizer is a Next.js application for exploring the Quran through normalized corpus data, D3-based visualizations, search tools, study workflows, and authenticated progress tracking. The app is built around four main product surfaces:
 
@@ -30,6 +30,10 @@ Quran Corpus Visualizer is a Next.js application for exploring the Quran through
 ## Key Capabilities
 
 ### Visual exploration
+
+<!-- GRAPH:RADIAL_SURA -->
+<img width="2560" height="1260" alt="Quran Corpus Visualizer – Radial Surah Map" src="public/docs/images/radial-sura.png" />
+<!-- END:GRAPH -->
 
 - Radial Surah Map, Root Network, Collocation Network, Knowledge Graph, Surah Distribution, Arc Flow, Ayah Dependency Graph, Root Flow Sankey, and Corpus Architecture views
 - Shared inspectors, breadcrumbs, explainer content, export options, and embed support
