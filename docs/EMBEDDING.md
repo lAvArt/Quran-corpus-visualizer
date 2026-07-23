@@ -1,6 +1,6 @@
 # Embedding Visualizations
 
-Quran Corpus Visualizer supports embedding individual visualizations in external websites, blogs, or documentation via iframes.
+Quranic Linguistics Observatory supports embedding individual visualizations in external websites, blogs, or documentation via iframes.
 
 ## Quick Start
 

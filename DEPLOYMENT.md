@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Quran Corpus Visualizer is deployed as a Next.js app on Vercel with Supabase as the primary database and auth backend.
+Quranic Linguistics Observatory is deployed as a Next.js app on Vercel with Supabase as the primary database and auth backend.
 
 ## Prerequisites
 

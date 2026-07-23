@@ -11,7 +11,7 @@ const BASE = 'http://localhost:3000';
 const HERO_TARGET = {
     id: 'HOME',
     filename: 'home-observatory.png',
-    alt: 'Quran Observatory – search-first landing'
+    alt: 'Quranic Linguistics Observatory – search-first landing'
 };
 
 const VIZ_TARGETS = [
@@ -20,7 +20,7 @@ const VIZ_TARGETS = [
         vizMode: 'radial-sura',
         switcherLabel: 'Radial Sura',
         filename: 'radial-sura.png',
-        alt: 'Quran Corpus Visualizer – Radial Surah Map'
+        alt: 'Quranic Linguistics Observatory – Radial Surah Map'
     },
     {
         id: 'ROOT_NETWORK',
@@ -99,6 +99,13 @@ async function generateDocumentationScreenshots() {
             version: "2",
             showOnStartup: false,
             completed: true
+        }));
+        // Suppress the per-mode "How to read this view" intro chip on every graph
+        // so the docs screenshots show the clean canvas.
+        localStorage.setItem('quran-corpus-viz-intro', JSON.stringify({
+            'corpus-architecture': true, 'surah-distribution': true, 'radial-sura': true,
+            'root-network': true, 'arc-flow': true, 'dependency-tree': true,
+            'sankey-flow': true, 'collocation-network': true, 'knowledge-graph': true,
         }));
     });
 
