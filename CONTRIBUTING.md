@@ -1,4 +1,4 @@
-# Contributing to Quran Corpus Visualizer
+# Contributing to Quranic Linguistics Observatory
 
 This project treats documentation, source attribution, and behavior correctness as first-class work. If a change affects product behavior, schema, or release flow, update the docs in the same branch.
 
