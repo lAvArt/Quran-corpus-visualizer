@@ -1258,9 +1258,14 @@ export default function CollocationNetworkGraph({
                       so this is RTL-safe without any dir-specific branching),
                       and offset far enough below that chip's own row
                       (top: header-clearance + 58px, 36px tall) that the two
-                      never collide.
+                      never collide. The `top` offset lives in the
+                      .collocation-heuristic-badge CSS class (not inline)
+                      so it can be pushed down at <=980px, below the intro
+                      chip's own mobile position (header-clearance + 108px,
+                      ~36px tall) instead of hiding behind it.
                     */}
                     <span
+                        className="collocation-heuristic-badge"
                         title={t("HeuristicBadge.tooltip", { n: minFrequency })}
                         aria-label={`${t("HeuristicBadge.label")} — ${t("HeuristicBadge.tooltip", { n: minFrequency })}`}
                         tabIndex={0}
@@ -1268,7 +1273,6 @@ export default function CollocationNetworkGraph({
                             position: "absolute",
                             left: "50%",
                             transform: "translateX(-50%)",
-                            top: "calc(var(--header-clearance) + 102px)",
                             zIndex: 25,
                             display: "inline-flex",
                             alignItems: "center",

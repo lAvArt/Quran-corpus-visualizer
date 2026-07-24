@@ -157,11 +157,15 @@ export default function ArcFlowDiagram({
     setIsMounted(true);
     if (!containerRef.current) return;
 
+    // Floors guard against measuring a mid-layout zero/tiny rect, but they
+    // must stay BELOW real phone sizes: a 900px floor on a 390px viewport
+    // meant the whole layout was drawn for a 900-wide canvas and then
+    // squeezed to 43% by the viewBox, squashing the fan on mobile.
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setDimensions({
-          width: Math.max(entry.contentRect.width, 900),
-          height: Math.max(entry.contentRect.height, 700),
+          width: Math.max(entry.contentRect.width, 320),
+          height: Math.max(entry.contentRect.height, 480),
         });
       }
     });
@@ -171,8 +175,8 @@ export default function ArcFlowDiagram({
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
       setDimensions({
-        width: Math.max(rect.width, 900),
-        height: Math.max(rect.height, 700),
+        width: Math.max(rect.width, 320),
+        height: Math.max(rect.height, 480),
       });
     }
 

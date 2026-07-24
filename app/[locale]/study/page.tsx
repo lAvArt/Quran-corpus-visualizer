@@ -17,5 +17,5 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 export default function StudyPage() {
-  return <StudyHub title="Study" />;
+  return <StudyHub />;
 }

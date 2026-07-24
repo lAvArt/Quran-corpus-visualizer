@@ -682,7 +682,7 @@ export default function AyahDependencyGraph({
       <section className="immersive-viz dep-graph-wrapper" data-theme={theme}>
         {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
           ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
-          : sidebarCards}
+          : null}
         <div className="dep-empty-msg">{ts("noData")} {surahName}</div>
         <style jsx>{`
           .dep-graph-wrapper {
@@ -707,7 +707,7 @@ export default function AyahDependencyGraph({
     <section className="immersive-viz dep-graph-wrapper" data-theme={theme} style={{ width: "100%", height: "100%", position: "relative" }}>
       {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
         ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
-        : sidebarCards}
+        : null}
 
       <div ref={containerRef} className="dep-canvas-container">
         <svg

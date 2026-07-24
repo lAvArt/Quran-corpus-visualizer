@@ -152,7 +152,7 @@ export default function VizExplainer({ vizMode }: VizExplainerProps) {
         }
 
         .viz-explainer-legend-item {
-          --viz-explainer-accent: #94a3b8;
+          --viz-explainer-accent: var(--ink-muted);
           position: relative;
           display: flex;
           align-items: center;

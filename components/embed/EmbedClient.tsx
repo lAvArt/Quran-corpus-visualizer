@@ -16,7 +16,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 function VizFallback() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
-      <div style={{ width: 28, height: 28, border: "3px solid #ccc", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <div style={{ width: 28, height: 28, border: "3px solid var(--line, rgba(148,163,184,0.3))", borderTopColor: "var(--accent, #56a697)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
     </div>
   );
 }
