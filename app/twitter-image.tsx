@@ -15,7 +15,7 @@ export default async function TwitterImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 40%, #16213e 70%, #0f3460 100%)",
+          background: "linear-gradient(135deg, #0a1013 0%, #0e161a 45%, #142026 78%, #1a2b33 100%)",
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -27,7 +27,7 @@ export default async function TwitterImage() {
             width: "400px",
             height: "400px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(99,179,237,0.15) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(86,166,151,0.16) 0%, transparent 70%)",
             display: "flex",
           }}
         />
@@ -39,7 +39,7 @@ export default async function TwitterImage() {
             width: "300px",
             height: "300px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(129,140,248,0.12) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(232,146,74,0.12) 0%, transparent 70%)",
             display: "flex",
           }}
         />
@@ -47,7 +47,7 @@ export default async function TwitterImage() {
           style={{
             fontSize: 64,
             fontWeight: 800,
-            background: "linear-gradient(90deg, #63b3ed, #818cf8)",
+            background: "linear-gradient(90deg, #56a697, #e8924a)",
             backgroundClip: "text",
             color: "transparent",
             display: "flex",
@@ -78,11 +78,11 @@ export default async function TwitterImage() {
               style={{
                 padding: "10px 24px",
                 borderRadius: "999px",
-                border: "1px solid rgba(99,179,237,0.3)",
+                border: "1px solid rgba(86,166,151,0.35)",
                 color: "rgba(255,255,255,0.8)",
                 fontSize: 18,
                 display: "flex",
-                background: "rgba(99,179,237,0.08)",
+                background: "rgba(86,166,151,0.1)",
               }}
             >
               {label}

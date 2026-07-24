@@ -11,8 +11,10 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "any",
-    background_color: "#05070d",
-    theme_color: "#0f172a",
+    // Match the dark shell (--bg-0) so the install splash and app chrome
+    // don't flash the old slate blue before the app paints.
+    background_color: "#0e161a",
+    theme_color: "#0e161a",
     lang: "en",
     dir: "auto",
     categories: ["education", "reference", "productivity"],

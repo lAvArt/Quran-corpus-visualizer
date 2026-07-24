@@ -1,5 +1,7 @@
 
-const SW_VERSION = "2";
+// v3: rebrand — new manifest colors/name + recolored icons (cache-first
+// would otherwise pin the old slate-blue splash on installed PWAs).
+const SW_VERSION = "3";
 const STATIC_CACHE = `qcv-static-${SW_VERSION}`;
 const PAGE_CACHE = `qcv-pages-${SW_VERSION}`;
 
