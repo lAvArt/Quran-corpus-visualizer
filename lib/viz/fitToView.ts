@@ -51,8 +51,17 @@ const STATUS_BAR_SELECTOR = ".status-bar";
 
 /** Class name of the floating graph mode/colour toolbar (see
  *  components/shell/GraphToolbar.tsx, `.graph-toolbar`) — always centred at
- *  the BOTTOM of the canvas, the mirror image of the status pill above. */
+ *  the BOTTOM of the canvas, the mirror image of the status pill above.
+ *  Hidden entirely below 980px (see MOBILE_VIZ_BAR_SELECTOR below). */
 const GRAPH_TOOLBAR_SELECTOR = ".graph-toolbar";
+
+/** Class name of the floating mobile viz bar (see
+ *  components/ui/MobileVizBar.tsx, `.mobile-viz-bar`) — the bottom-centred
+ *  pill that replaces the graph toolbar below 980px. Never mounted at the
+ *  same time as a visible `.graph-toolbar` (one hides exactly where the
+ *  other shows), so their bottom occlusion is combined with `Math.max`
+ *  rather than summed. */
+const MOBILE_VIZ_BAR_SELECTOR = ".mobile-viz-bar";
 
 /** Horizontal inline occlusion (dock + drawer combined, see
  *  `getInlineOcclusionInset`) never eats more than this fraction of the
@@ -179,7 +188,17 @@ function getVerticalOcclusionInset(svg: SVGSVGElement, vh: number): { top: numbe
   const top = statusBarOverlap ? Math.max(0, statusBarOverlap.rect.bottom - svgRect.top) * pxToUser : 0;
 
   const toolbarOverlap = getElementOverlap(getOccludingElement(GRAPH_TOOLBAR_SELECTOR), svgRect);
-  const bottom = toolbarOverlap ? Math.max(0, svgRect.bottom - toolbarOverlap.rect.top) * pxToUser : 0;
+  const toolbarBottom = toolbarOverlap ? Math.max(0, svgRect.bottom - toolbarOverlap.rect.top) * pxToUser : 0;
+
+  // The mobile viz bar occupies the same edge the graph toolbar would on
+  // desktop — the two never coexist, so Math.max (not a sum) gives the
+  // correct combined inset regardless of which one is actually on screen.
+  const mobileVizBarOverlap = getElementOverlap(getOccludingElement(MOBILE_VIZ_BAR_SELECTOR), svgRect);
+  const mobileVizBarBottom = mobileVizBarOverlap
+    ? Math.max(0, svgRect.bottom - mobileVizBarOverlap.rect.top) * pxToUser
+    : 0;
+
+  const bottom = Math.max(toolbarBottom, mobileVizBarBottom);
 
   return { top, bottom };
 }

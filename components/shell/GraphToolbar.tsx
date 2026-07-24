@@ -149,15 +149,13 @@ export default function GraphToolbar({
           flex-shrink: 0;
         }
 
+        /* The mobile viz screen consolidates this toolbar's contents (mode
+           switcher, colour switch, settings, export) into one floating pill
+           — see components/ui/MobileVizBar.tsx, rendered by AppShell in its
+           place. Desktop (>980px) is unaffected. */
         @media (max-width: 980px) {
           .graph-toolbar {
-            bottom: calc(var(--footer-height) + var(--mobile-tools-bar-clearance, 60px) + 8px);
-            max-width: calc(100vw - 16px);
-          }
-
-          .graph-toolbar-inner {
-            gap: 6px;
-            padding: 5px 8px;
+            display: none;
           }
         }
       `}</style>

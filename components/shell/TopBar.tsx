@@ -8,6 +8,7 @@ import CommandBar from "@/components/search/CommandBar";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { AuthButton } from "@/components/ui/AuthButton";
 import MobileNavMenu from "@/components/ui/MobileNavMenu";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 import type { CorpusToken } from "@/lib/schema/types";
 import type { SearchMatchType } from "@/lib/analytics/events";
 import type { SearchResultItem } from "@/lib/search/searchTypes";
@@ -41,6 +42,8 @@ export default function TopBar({
   centerSlot,
 }: TopBarProps) {
   const t = useTranslations("Index");
+  const tMobileBar = useTranslations("MobileBottomBar");
+  const { toggleMobileSearch } = useVizControl();
 
   return (
     <header className="shell-topbar">
@@ -60,6 +63,22 @@ export default function TopBar({
 
         {/* ── Center: status/breadcrumb bar ── */}
         {centerSlot && <div className="shell-topbar-center desktop-only">{centerSlot}</div>}
+
+        {/* ≤980px: the CommandBar below is desktop-only, leaving the center
+            of the bar empty — this button fills that gap and opens the same
+            mobile search surface as MobileBottomBar's search trigger. */}
+        <button
+          type="button"
+          className="topbar-mobile-search-btn mobile-only"
+          data-testid="topbar-mobile-search-trigger"
+          onClick={toggleMobileSearch}
+          aria-label={tMobileBar("search")}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+        </button>
 
         <div className="shell-topbar-actions">
           <div className="desktop-only" style={{ display: "contents" }}>
@@ -201,6 +220,42 @@ export default function TopBar({
           min-width: 0;
           display: flex;
           justify-content: center;
+        }
+
+        /* Absolutely centered in the bar regardless of how wide the brand
+           block / actions cluster are — physical left/translateX is safe
+           here (RTL included) since the button has no logical inset base to
+           conflict with; it just needs to sit in the dead-center gap. */
+        .topbar-mobile-search-btn {
+          /* .mobile-only (globals.css) handles hiding this at >=981px; below
+             that it falls back to this flex layout for icon centering. */
+          display: flex;
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          width: 40px;
+          height: 40px;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid var(--line);
+          border-radius: var(--radius-pill);
+          color: var(--ink);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .topbar-mobile-search-btn:hover,
+        .topbar-mobile-search-btn:focus-visible {
+          background: var(--bg-2);
+          color: var(--accent);
+          border-color: var(--accent);
+        }
+
+        .topbar-mobile-search-btn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .shell-topbar-actions {

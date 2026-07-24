@@ -9,7 +9,10 @@ import JourneyRail from "@/components/shell/JourneyRail";
 import ContextDrawer from "@/components/shell/ContextDrawer";
 import GraphToolbar from "@/components/shell/GraphToolbar";
 import VisualizationViewport from "@/components/home/VisualizationViewport";
-import MobileBottomBar from "@/components/ui/MobileBottomBar";
+import MobileVizBar from "@/components/ui/MobileVizBar";
+import DisplaySettingsPanel from "@/components/ui/DisplaySettingsPanel";
+import LexicalColorSwitch from "@/components/shell/LexicalColorSwitch";
+import VizExportMenu from "@/components/ui/VizExportMenu";
 import MobileSearchOverlay from "@/components/ui/MobileSearchOverlay";
 import VizIntroCard from "@/components/ui/VizIntroCard";
 import FirstRunMission from "@/components/onboarding/FirstRunMission";
@@ -17,6 +20,7 @@ import MissionChecklist from "@/components/onboarding/MissionChecklist";
 import { deriveCorpusStatusPresentation } from "@/lib/corpus/statusPresentation";
 import { SURAH_NAMES } from "@/lib/data/surahData";
 import { useHomePageController, VizControlProvider } from "@/lib/hooks/useHomePageController";
+import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { ALL_VIZ_MODES } from "@/lib/hooks/useVizModeState";
 import { useEdgeSwipe } from "@/lib/hooks/useEdgeSwipe";
 import type { CorpusOverviewData } from "@/lib/corpus/overviewData";
@@ -59,6 +63,10 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     lastAppliedParamsRef.current = search;
   }, []);
   const c = useHomePageController(initialCorpusData, initialThemePreference, isDeepLinkHydrated, markUrlSynced);
+  // Mobile-only controlled settings surface — its trigger lives outside this
+  // component (owned elsewhere); read directly from the same context
+  // MobileVizBar itself pulls its legend/tools toggles from.
+  const vizControl = useVizControl();
   // Expanded by default so the zoom controls + legend are always visible in a
   // fixed, predictable dock (top-anchored, grows downward). Collapsible on demand.
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
@@ -229,10 +237,11 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
       {/* ── Left dock: journey rail (spine) + viz info panel (body), fused
           into one glass container — mirrors the right side's single
           .context-drawer object (see `.viz-dock` in globals.css). Below
-          980px the fusion is a no-op (`.viz-dock` is `display: contents`):
-          the rail becomes its own horizontal top strip and the info panel
-          is reached via MobileBottomBar, exactly as before. Collapsing the
-          dock (the spine's own bottom toggle) shrinks the info column to
+          980px the fusion is a no-op (`.viz-dock` is `display: contents`)
+          AND the spine itself hides (`.journey-rail.in-dock`, see
+          JourneyRail) — its views/legend/tools are consolidated into the
+          floating MobileVizBar pill instead. Collapsing the dock (the
+          spine's own bottom toggle, desktop only) shrinks the info column to
           zero width, leaving only the spine. */}
       <div className="viz-dock">
         <JourneyRail
@@ -246,8 +255,8 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
             selection cards in the middle, zoom controls + collapse at the
             bottom. The portal renders legend/selection/zoom; CSS orders them.
             Conditionally mounted on mobile (only while opened from
-            MobileBottomBar); always mounted on desktop, where collapsing it
-            just shrinks its width to 0 inside the dock. */}
+            MobileVizBar's legend toggle); always mounted on desktop, where
+            collapsing it just shrinks its width to 0 inside the dock. */}
         {(!c.isMobileViewport || c.isLeftSidebarOpen) && (
           <aside
             className={`viz-sidebar-stack ${isLeftPanelCollapsed ? "collapsed" : ""}`}
@@ -400,7 +409,50 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
       )}
 
       {/* Mobile overlays */}
-      <MobileBottomBar />
+      <MobileVizBar
+        vizMode={c.vizMode}
+        onVizModeChange={c.handleVizModeChange}
+        experienceLevel={c.experienceLevel}
+        showAdvancedModes={c.showAdvancedModes}
+        onToggleAdvancedModes={c.setShowAdvancedModes}
+        theme={c.theme}
+        onThemeChange={c.setTheme}
+      />
+      {/* One controlled display-settings sheet for mobile — GraphToolbar
+          (which owns the desktop instance, gear trigger included) is hidden
+          entirely below 980px, so this instance has no trigger of its own
+          (`hideTrigger`) and is opened by a button elsewhere (owned by
+          another component); it only needs to exist and answer to
+          `isMobileSettingsOpen`. `mobileExtras` adds the toolbar controls
+          that would otherwise be stranded with GraphToolbar — colour
+          encoding switch and export menu, same props GraphToolbar gives
+          them. */}
+      {c.isMobileViewport && (
+        <DisplaySettingsPanel
+          theme={c.theme}
+          onThemeChange={c.setTheme}
+          colorTheme={c.colorThemeId}
+          onColorThemeChange={c.setColorThemeId}
+          lexicalColorMode={c.lexicalColorMode}
+          onLexicalColorModeChange={c.setLexicalColorMode}
+          customColorTheme={c.customColorTheme}
+          onCustomColorThemeChange={c.handleCustomColorThemeChange}
+          onResetCustomColorTheme={c.handleResetCustomColorTheme}
+          experienceLevel={c.experienceLevel}
+          onExperienceLevelChange={c.handleExperienceLevelChange}
+          onReplayExperience={c.handleReplayExperience}
+          exportTargetRef={c.mainVizRef}
+          vizMode={c.vizMode}
+          selectedSurahId={c.selectedSurahId}
+          isOpen={vizControl.isMobileSettingsOpen}
+          onOpenChange={vizControl.setMobileSettingsOpen}
+          hideTrigger
+          mobileExtras
+        >
+          <LexicalColorSwitch mode={c.lexicalColorMode} onChange={c.setLexicalColorMode} />
+          <VizExportMenu targetRef={c.mainVizRef} vizMode={c.vizMode} selectedSurahId={c.selectedSurahId} />
+        </DisplaySettingsPanel>
+      )}
       <MobileSearchOverlay
         tokens={c.allTokens}
         onTokenSelect={c.handleTokenSelect}

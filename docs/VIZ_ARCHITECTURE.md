@@ -70,8 +70,15 @@ beginner/advanced toggle) inside `components/shell/GraphToolbar.tsx`.
   breadcrumb; opens drawer → Explain. Per-mode dismissal in localStorage
   `quran-corpus-viz-intro`. (Was a center-screen overlay card before 2026-07;
   do not reintroduce overlays over the canvas.)
-- **Mobile**: `ui/MobileBottomBar.tsx` (Show Legend / search / Show Tools) above the
-  toolbar; marketing `ui/Footer.tsx` is hidden on mobile for the observatory view.
+- **Mobile** (redesigned 2026-07-24): ONE floating bottom pill `ui/MobileVizBar.tsx`
+  (VisualizationSwitcher + Overview/Roots/Surah quick-views + Legend/Tools toggles;
+  fitToView measures `.mobile-viz-bar` as the bottom occluder). GraphToolbar and the
+  in-dock rail strip are `display: none` ≤980px; `MobileBottomBar` is deleted. Search
+  opens from a centered TopBar icon (`topbar-mobile-search-trigger`); Settings opens
+  from the hamburger (`MobileNavMenu` → `setMobileSettingsOpen`, a controlled
+  `DisplaySettingsPanel` instance in AppShell whose mobile section also hosts
+  LexicalColorSwitch + VizExportMenu). MobileNavMenu also carries Search/Study/Quiz
+  links. Marketing `ui/Footer.tsx` stays hidden on mobile for the observatory view.
 - **Onboarding**: `onboarding/FirstRunMission.tsx` (intent selection; suppresses intro chip),
   `MissionChecklist.tsx`.
 

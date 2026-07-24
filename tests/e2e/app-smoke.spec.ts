@@ -658,9 +658,9 @@ test.describe("mobile shell flows", () => {
   test("mobile search overlay selects a result and selection can be inspected", async ({ page }) => {
     await page.goto("/en");
 
-    await expect(page.getByTestId("mobile-bottom-bar")).toBeVisible();
+    await expect(page.getByTestId("mobile-viz-bar")).toBeVisible();
 
-    await page.getByTestId("mobile-bottom-bar-search").click();
+    await page.getByTestId("topbar-mobile-search-trigger").click();
     await expect(page.getByTestId("mobile-search-overlay")).toBeVisible();
 
     const searchInput = page.getByTestId("mobile-search-overlay").getByRole("combobox");
@@ -669,7 +669,7 @@ test.describe("mobile shell flows", () => {
     await page.locator(".search-result-item").first().click();
 
     await expect(page.getByTestId("mobile-search-overlay")).toBeHidden();
-    await page.getByTestId("mobile-bottom-bar-tools").click({ force: true });
+    await page.getByTestId("mobile-viz-bar-tools").click({ force: true });
     await expect(page.locator('[data-tour-id="app-sidebar"]')).toBeVisible();
 
     const recentExploration = await page.evaluate(() => {
@@ -685,12 +685,12 @@ test.describe("mobile shell flows", () => {
   test("mobile surfaces stay mutually exclusive", async ({ page }) => {
     await page.goto("/en");
 
-    await expect(page.getByTestId("mobile-bottom-bar")).toBeVisible();
+    await expect(page.getByTestId("mobile-viz-bar")).toBeVisible();
 
-    await page.getByTestId("mobile-bottom-bar-search").click();
+    await page.getByTestId("topbar-mobile-search-trigger").click();
     await expect(page.getByTestId("mobile-search-overlay")).toBeVisible();
 
-    await page.getByTestId("mobile-bottom-bar-tools").click({ force: true });
+    await page.getByTestId("mobile-viz-bar-tools").click({ force: true });
     await expect(page.getByTestId("mobile-search-overlay")).toBeHidden();
     await expect(page.locator('[data-tour-id="app-sidebar"]')).toBeVisible();
 

@@ -173,7 +173,7 @@ test.describe("visual regression — mobile chrome (mobile only)", () => {
     await page.goto("/en");
     await waitForExploreReady(page);
 
-    await expect(page.getByTestId("mobile-bottom-bar")).toBeVisible();
+    await expect(page.getByTestId("mobile-viz-bar")).toBeVisible();
     await expect(page).toHaveScreenshot("mobile-explore-full.png", FULL_PAGE);
   });
 
@@ -181,7 +181,7 @@ test.describe("visual regression — mobile chrome (mobile only)", () => {
     await page.goto("/en");
     await waitForExploreReady(page);
 
-    await page.getByTestId("mobile-bottom-bar-search").click();
+    await page.getByTestId("topbar-mobile-search-trigger").click();
     await expect(page.getByTestId("mobile-search-overlay")).toBeVisible();
     await page.waitForTimeout(300);
 
@@ -193,7 +193,7 @@ test.describe("visual regression — mobile chrome (mobile only)", () => {
     await page.goto("/en");
     await waitForExploreReady(page);
 
-    await page.getByTestId("mobile-bottom-bar-search").click();
+    await page.getByTestId("topbar-mobile-search-trigger").click();
     const overlay = page.getByTestId("mobile-search-overlay");
     await expect(overlay).toBeVisible();
 
@@ -209,7 +209,7 @@ test.describe("visual regression — mobile chrome (mobile only)", () => {
     await page.goto("/en");
     await waitForExploreReady(page);
 
-    await page.getByTestId("mobile-bottom-bar-tools").click({ force: true });
+    await page.getByTestId("mobile-viz-bar-tools").click({ force: true });
     await expect(page.locator('[data-tour-id="app-sidebar"]')).toBeVisible();
     await page.waitForTimeout(400);
 
@@ -234,10 +234,10 @@ test.describe("visual regression — mobile chrome (mobile only)", () => {
     await waitForExploreReady(page);
 
     // Open search → open tools → search should close
-    await page.getByTestId("mobile-bottom-bar-search").click();
+    await page.getByTestId("topbar-mobile-search-trigger").click();
     await expect(page.getByTestId("mobile-search-overlay")).toBeVisible();
 
-    await page.getByTestId("mobile-bottom-bar-tools").click({ force: true });
+    await page.getByTestId("mobile-viz-bar-tools").click({ force: true });
     await expect(page.getByTestId("mobile-search-overlay")).toBeHidden();
     await expect(page.locator('[data-tour-id="app-sidebar"]')).toBeVisible();
 
