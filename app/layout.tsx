@@ -32,14 +32,25 @@ const amiri = Amiri({
   display: "swap",
 });
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  // Let the app draw into the safe-area insets on notched/rounded-corner
-  // phones — the CSS already reads env(safe-area-inset-*) in several
-  // places (e.g. the footer), which otherwise no-ops without this.
-  viewportFit: "cover",
-};
+export async function generateViewport(): Promise<Viewport> {
+  // themeColor must match the shell background the user actually gets
+  // (cookie-driven data-theme, dark by default) — a static value painted
+  // the browser/PWA chrome the old slate blue regardless of theme.
+  const cookieStore = await cookies();
+  const { theme } = parseThemePreferenceCookie(
+    cookieStore.get(THEME_COOKIE_NAME)?.value
+  );
+
+  return {
+    width: "device-width",
+    initialScale: 1,
+    // Let the app draw into the safe-area insets on notched/rounded-corner
+    // phones — the CSS already reads env(safe-area-inset-*) in several
+    // places (e.g. the footer), which otherwise no-ops without this.
+    viewportFit: "cover",
+    themeColor: theme === "light" ? "#f7f3ea" : "#0e161a",
+  };
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://quranobservatory.org"),
