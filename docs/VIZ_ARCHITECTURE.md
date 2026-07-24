@@ -291,6 +291,43 @@ Fixed 2026-07-24 (branch `feature/mobile-polish`, mobile 390px pass; before/afte
 - PWA: `viewportFit: "cover"` added to the root viewport export (safe-area env()
   insets were no-ops on notched phones without it).
 
+Fixed 2026-07-24 later pass (branch `feature/ar-mobile-redesign`, AR/mobile audit;
+before `.ux-shots/ar-mobile-audit`, after `.ux-shots/mobile-final`):
+
+- **Portal-fallback canvas starvation (mobile).** AppShell mounts
+  `#viz-sidebar-portal` only while the mobile legend sheet is open, and
+  RootFlowSankey + AyahDependencyGraph fell back to rendering `sidebarCards`
+  INLINE inside the canvas wrapper when the target was absent — ~770px of
+  invisible cards starved sankey's SVG to 18px (users saw only the background
+  glow) and squashed the dependency tree. Fallback is now `null`, matching the
+  other seven vizzes. RULE: sidebar cards are portal-or-nothing — never inline.
+- **Arc-flow drawn for a phantom 900px canvas.** ArcFlowDiagram clamped its
+  measured width to `Math.max(width, 900)` (height 700), so a 390px phone drew
+  a 900-wide layout squeezed to 43% by the viewBox. Floors lowered to 320/480
+  (only guarding against mid-layout zero rects); the fan now fills the phone
+  viewport.
+- **Logical-vs-physical centering trap (the rail clip).** The CSS compiler
+  (Lightning CSS) rewrites `inset-inline-*` into `:lang()`-guarded physical
+  rules at HIGHER specificity (0,3,0) than the plain class rule that carried
+  them — so a later `left: 50%` (0,2,0) in JourneyRail's mobile block silently
+  lost to the base rule's `inset-inline-start: 8px`, and the strip hung half
+  off-screen (visually obvious in RTL, actually broken in BOTH directions).
+  Fix: center via `inset-inline-start: 50%` (same compiled specificity) +
+  `[dir="rtl"]`-scoped `translateX(50%)` flip. RULE: never mix a physical
+  override against a logical base property in this codebase — same property
+  group, but the compiled logical side wins on specificity.
+- Workspace pages ≤600px hid the LanguageSwitcher (`.header-button-group
+  { display: none }`) — language was unswitchable on search/study/quiz mobile.
+  Now compacted instead of hidden.
+- /ar study page h1 was hardcoded English (`<StudyHub title="Study" />`);
+  drops to the localized Profile.title fallback.
+- Old-palette stragglers tokenized: embed spinner #3b82f6, DisplaySettingsPanel
+  toggle fallback #6366f1, VizExplainer legend accent #94a3b8.
+- Collocation "Heuristic estimate" badge sat under the mobile intro chip →
+  dropped to header+152px; knowledge-graph empty-state CTA clipped by the
+  bottom toolbar → `.kg-empty-overlay` mobile padding-block-end clears
+  toolbar + tools-bar.
+
 Known, deliberately deferred (next iterations):
 
 - Lemma glosses missing for many forms ("Translation not available") — data gap, see
@@ -328,6 +365,10 @@ Known, deliberately deferred (next iterations):
   root form (plain alif) — both sites land on their search page for non-citation
   forms; if lookups miss for hamza-family roots (امن vs أمن), consider mapping to
   citation orthography before linking.
+- Sankey on mobile now renders (post portal-fix) but pins to the top of the
+  scroll area under the rail/status chrome (`preserveAspectRatio="xMidYMin"` +
+  no initial vertical fit) — needs a chrome-aware initial centering like the
+  other vizzes. Dependency-tree mobile still leaves dead space above the tree.
 - Mobile leftovers (2026-07-24 pass): the Ayah quick-filter placeholder still clips
   ("Ayah (e.g") at 390px; surah-distribution chart renders small with dead space on
   mobile (needs a viz-level responsive margin pass); the 900px (VizControlContext

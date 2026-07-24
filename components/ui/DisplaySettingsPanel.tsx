@@ -670,7 +670,7 @@ export default function DisplaySettingsPanel({
         }
 
         .toggle-switch.on {
-          background: var(--accent, #6366f1);
+          background: var(--accent);
         }
 
         .toggle-thumb {

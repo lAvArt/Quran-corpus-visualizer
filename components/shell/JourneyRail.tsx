@@ -397,6 +397,14 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
                z-index) — without this offset the icon strip renders half
                underneath it. Pill is ~34px tall incl. its 6px margin. */
             top: calc(var(--header-clearance) + 48px);
+            /* Centering must go through the LOGICAL property: the CSS
+               compiler rewrites inset-inline-* into :lang()-guarded
+               physical rules whose selectors carry HIGHER specificity
+               (0,3,0) than a plain class rule, so a physical left: 50%
+               here (0,2,0) silently loses to the base rule's
+               inset-inline-start: 8px and the strip hangs off-screen.
+               In RTL this resolves to right: 50%, so the translateX flip
+               below (dir-scoped) completes the centering there. */
             inset-inline-start: 50%;
             transform: translateX(-50%);
             flex-direction: row;
@@ -406,6 +414,14 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
             max-width: calc(100vw - 16px);
             padding: 6px 8px;
             border-radius: var(--radius-pill);
+          }
+
+          /* RTL half of the centering pair above: inset-inline-start: 50%
+             compiles to right: 50% there, so the shift must run +50%
+             (rightward) to land the strip centered instead of fully left
+             of center. */
+          :global([dir="rtl"]) .journey-rail {
+            transform: translateX(50%);
           }
 
           .rail-group {

@@ -692,7 +692,7 @@ export default function RootFlowSankey({
     <section className="sankey-wrapper">
       {isMounted && typeof document !== "undefined" && document.getElementById("viz-sidebar-portal")
         ? createPortal(sidebarCards, document.getElementById("viz-sidebar-portal")!)
-        : sidebarCards}
+        : null}
 
       {/* Scope + active root live in the StatusBar breadcrumb already — the
           only unique, actionable fact here is coverage, so this bar carries

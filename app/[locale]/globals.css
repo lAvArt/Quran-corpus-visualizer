@@ -3238,8 +3238,11 @@ button.site-footer-link {
     gap: 0.3rem;
   }
 
-  .ui-workspace-topbar-actions .header-button-group {
-    display: none;
+  /* Keep the language switcher reachable at this width instead of hiding
+     it — compact its pills so brand + lang + auth still fit a 390px row. */
+  .ui-workspace-topbar-actions .control-pill-btn {
+    padding: 4px 8px;
+    font-size: 0.68rem;
   }
 }
 
@@ -3466,6 +3469,17 @@ button.site-footer-link {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+}
+
+@media (max-width: 980px) {
+  /* Below the toolbar's own mobile breakpoint the fixed graph toolbar
+     (z-index 45, above this overlay's z-index 10) sits over the bottom of
+     the viewport, clipping the vertically-centered empty-state card's CTA
+     row. Pad the bottom of the centering box by the toolbar's mobile
+     clearance so the card centers itself above it instead. */
+  .kg-empty-overlay {
+    padding-block-end: calc(var(--graph-toolbar-mobile-clearance, 78px) + var(--mobile-tools-bar-clearance, 72px));
+  }
 }
 
 .kg-empty-card {
@@ -6739,6 +6753,21 @@ button.site-footer-link {
     /* Clear the mobile AppShell rail strip (top-center icon bar) so the
        chip doesn't sit on top of its icons. */
     top: calc(var(--header-clearance) + 108px);
+  }
+}
+
+/* Collocation graph's "Heuristic estimate" honesty badge
+   (components/visualisations/CollocationNetworkGraph.tsx). Desktop offset
+   sits just under the intro chip's desktop row; on mobile the intro chip
+   itself moves down (see .viz-intro-chip above), so the badge has to move
+   further down too or the chip's pill hides it. */
+.collocation-heuristic-badge {
+  top: calc(var(--header-clearance) + 102px);
+}
+
+@media (max-width: 980px) {
+  .collocation-heuristic-badge {
+    top: calc(var(--header-clearance) + 152px);
   }
 }
 
