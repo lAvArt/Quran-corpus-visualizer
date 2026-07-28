@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
 import { usePwaInstall } from "@/components/providers/PwaProvider";
@@ -33,6 +34,24 @@ interface DisplaySettingsPanelProps {
   exportTargetRef?: RefObject<HTMLElement | null>;
   vizMode?: VisualizationMode;
   selectedSurahId?: number;
+  /** Controlled open state — when provided, overrides internal state and
+   *  every close path (outside click, Escape, trigger click) routes through
+   *  `onOpenChange` instead of a local setter. Omitted (uncontrolled)
+   *  preserves the original self-managed behavior used by GraphToolbar. */
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hides the ⚙ trigger button — for callers (AppShell's mobile instance)
+   *  that drive `isOpen` from elsewhere (a top-bar button owned by another
+   *  component) and only want the panel body rendered. */
+  hideTrigger?: boolean;
+  /** Renders `children` in a mobile-only section at the bottom of the panel
+   *  — the toolbar controls (colour encoding switch, export menu) that
+   *  otherwise live in GraphToolbar, which is hidden entirely on mobile.
+   *  Also suppresses the panel's own built-in export section (below) so a
+   *  caller passing a `VizExportMenu` as a child doesn't get it rendered
+   *  twice. */
+  mobileExtras?: boolean;
+  children?: ReactNode;
 }
 
 export default function DisplaySettingsPanel({
@@ -51,9 +70,30 @@ export default function DisplaySettingsPanel({
   exportTargetRef,
   vizMode,
   selectedSurahId,
+  isOpen: controlledOpen,
+  onOpenChange,
+  hideTrigger,
+  mobileExtras,
+  children,
 }: DisplaySettingsPanelProps) {
   const t = useTranslations("DisplaySettings");
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  // Controlled/uncontrolled split: an external `isOpen` prop takes over
+  // entirely (every setter below routes through `onOpenChange` instead of
+  // the internal state), same pattern as a controlled <input>.
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setIsOpen = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      const next = typeof value === "function" ? (value as (prev: boolean) => boolean)(isOpen) : value;
+      if (isControlled) {
+        onOpenChange?.(next);
+      } else {
+        setInternalOpen(next);
+      }
+    },
+    [isControlled, isOpen, onOpenChange]
+  );
   const [isInstalling, setIsInstalling] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [highContrast, setHighContrast] = useState(false);
@@ -119,18 +159,20 @@ export default function DisplaySettingsPanel({
 
   return (
     <div className="display-settings" ref={containerRef}>
-      <button
-        type="button"
-        className={`display-settings-trigger ${isOpen ? "open" : ""}`}
-        data-testid="display-settings-trigger"
-        aria-expanded={isOpen}
-        aria-controls={panelId}
-        aria-label={t("panelLabel")}
-        data-tour-id="display-settings-trigger"
-        onClick={() => setIsOpen((prev) => !prev)}
-      >
-        {"\u2699"}
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className={`display-settings-trigger ${isOpen ? "open" : ""}`}
+          data-testid="display-settings-trigger"
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          aria-label={t("panelLabel")}
+          data-tour-id="display-settings-trigger"
+          onClick={() => setIsOpen((prev) => !prev)}
+        >
+          {"\u2699"}
+        </button>
+      )}
 
       {isOpen && (
         <div className="display-settings-panel" id={panelId} role="dialog" aria-label={t("panelLabel")}>
@@ -287,7 +329,10 @@ export default function DisplaySettingsPanel({
             </div>
           )}
 
-          {exportTargetRef && vizMode != null && selectedSurahId != null && (
+          {/* Suppressed when `mobileExtras` is set: that caller (AppShell's
+              mobile instance) passes its own VizExportMenu as a child in the
+              section below instead — rendering both would duplicate it. */}
+          {!mobileExtras && exportTargetRef && vizMode != null && selectedSurahId != null && (
             <div className="display-settings-section custom-colors mobile-export-section">
               <div className="display-settings-title">{t("export")}</div>
               <VizExportMenu
@@ -295,6 +340,17 @@ export default function DisplaySettingsPanel({
                 vizMode={vizMode}
                 selectedSurahId={selectedSurahId}
               />
+            </div>
+          )}
+
+          {/* Mobile-only toolbar controls that would otherwise live in
+              GraphToolbar (hidden entirely on mobile — see AppShell). No
+              single existing i18n key names this mix of tools, so it's a
+              plain visual divider (border-top, via `.custom-colors`) rather
+              than a mislabeled section title. */}
+          {mobileExtras && children && (
+            <div className="display-settings-section custom-colors mobile-settings-extras">
+              {children}
             </div>
           )}
 
@@ -653,6 +709,27 @@ export default function DisplaySettingsPanel({
 
         .mobile-export-section {
           display: none;
+        }
+
+        .mobile-settings-extras {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        /* LexicalColorSwitch normally lives in GraphToolbar's left slot and
+           hides itself below 980px via its own styled-jsx (that toolbar is
+           hidden on mobile anyway) — override for its new mobile home here.
+           The .mobile-settings-extras :global(.lex-switch) selector compiles
+           to 2 scoped/unscoped selector parts vs. the 1 LexicalColorSwitch's
+           own rule compiles to before styled-jsx appends ITS OWN scoping
+           class (which brings it to 2 as well) — the !important settles the
+           tie regardless of style tag insertion order (same trap documented
+           in JourneyRail's in-dock override, without the luxury of sharing a
+           style block with the rule being overridden here). */
+        .mobile-settings-extras :global(.lex-switch) {
+          display: inline-flex !important;
         }
 
         /* Toggle switch */

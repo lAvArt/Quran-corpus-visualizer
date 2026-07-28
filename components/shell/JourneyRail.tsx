@@ -392,6 +392,17 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
         /* Mobile: a compact single icon-row (no labels, no wrap) so the rail
            stays short and never blankets the page content below it. */
         @media (max-width: 980px) {
+          /* Fused into AppShell's dock (see the inDock prop doc above): on
+             the viz screen the mobile top strip below would just duplicate
+             the views/legend/tools now consolidated into the bottom
+             MobileVizBar pill (components/ui/MobileVizBar.tsx) — hide it
+             there entirely. The standalone rail used by AppWorkspaceShell
+             (search/study/quiz), which never gets the in-dock class, is
+             untouched and keeps floating as before. */
+          .journey-rail.in-dock {
+            display: none;
+          }
+
           .journey-rail {
             /* Clear the fixed StatusBar pill (same top anchor, higher
                z-index) — without this offset the icon strip renders half

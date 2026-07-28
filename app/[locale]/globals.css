@@ -30,7 +30,13 @@
   --footer-height: 42px;
   --graph-toolbar-clearance: 82px;
   --graph-toolbar-mobile-clearance: 78px;
-  --mobile-tools-bar-height: 56px;
+  /* Matches MobileVizBar's rendered height (components/ui/MobileVizBar.tsx)
+     — its tallest child is the VisualizationSwitcher trigger (two-line
+     label+description plus padding/border), a bit taller than the pill's
+     40px icon buttons alone would suggest. Consumers of
+     --mobile-tools-bar-clearance below rely on this figure to clear the
+     pill; re-measure here if MobileVizBar's padding or contents change. */
+  --mobile-tools-bar-height: 60px;
   --mobile-tools-bar-offset: 16px;
   --mobile-tools-bar-clearance: calc(var(--mobile-tools-bar-height) + var(--mobile-tools-bar-offset) + env(safe-area-inset-bottom));
   --sidebar-slide-out: 120%;
@@ -1937,9 +1943,13 @@ body {
     position: static;
   }
 
+  /* Anchored above the MobileVizBar pill (its sole mobile host now that
+     GraphToolbar hides below 980px — see components/ui/MobileVizBar.tsx):
+     the pill's own `bottom` offset plus its height (--mobile-tools-bar-height
+     — the pill was sized to match that existing token) plus a small gap. */
   .ui-viz-switcher-dropdown {
     position: fixed;
-    bottom: calc(var(--mobile-tools-bar-clearance, 60px) + 70px);
+    bottom: calc(env(safe-area-inset-bottom) + 14px + var(--mobile-tools-bar-height, 60px) + 10px);
     top: auto;
     left: 50%;
     right: auto;
@@ -3804,10 +3814,11 @@ button.site-footer-link {
 /* Unified left dock */
 /* Spine (journey rail) + body (viz info panel) fused into ONE glass
    container on desktop — mirrors the right side's single .context-drawer
-   object. Below 980px the fusion is switched off (`display: contents`), so
-   the rail (horizontal top strip) and the info panel (MobileBottomBar sheet)
-   keep their own independent, unchanged mobile layouts — see each element's
-   own `@media (max-width: 980px)` rules. */
+   object. Below 980px the fusion is switched off (`display: contents`); the
+   spine itself (`.journey-rail.in-dock`) hides there too, its views/legend/
+   tools consolidated into the floating MobileVizBar pill instead — see
+   components/ui/MobileVizBar.tsx and each element's own
+   `@media (max-width: 980px)` rules. */
 .viz-dock {
   display: contents;
 }

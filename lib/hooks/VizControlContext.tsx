@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useSyncExternalStore } from "react";
 
-type MobileSurface = "none" | "context" | "tools" | "search" | "nav";
+type MobileSurface = "none" | "context" | "tools" | "search" | "nav" | "settings";
 
 interface VizControlContextType {
     activeMobileSurface: MobileSurface;
@@ -11,6 +11,7 @@ interface VizControlContextType {
     isRightSidebarOpen: boolean;
     isMobileNavOpen: boolean;
     isMobileSearchOpen: boolean;
+    isMobileSettingsOpen: boolean;
     closeMobileSurface: () => void;
     openMobileSurface: (surface: Exclude<MobileSurface, "none">) => void;
     toggleMobileSurface: (surface: Exclude<MobileSurface, "none">) => void;
@@ -22,6 +23,7 @@ interface VizControlContextType {
     setRightSidebarOpen: (isOpen: boolean) => void;
     setMobileNavOpen: (isOpen: boolean) => void;
     setMobileSearchOpen: (isOpen: boolean) => void;
+    setMobileSettingsOpen: (isOpen: boolean) => void;
 }
 
 const VizControlContext = createContext<VizControlContextType | undefined>(undefined);
@@ -132,6 +134,17 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
         }
     }, [activeMobileSurface, closeMobileSurface, isMobileViewport, openMobileSurface]);
 
+    const setMobileSettingsOpen = useCallback((isOpen: boolean) => {
+        if (!isMobileViewport) return;
+        if (isOpen) {
+            openMobileSurface("settings");
+            return;
+        }
+        if (activeMobileSurface === "settings") {
+            closeMobileSurface();
+        }
+    }, [activeMobileSurface, closeMobileSurface, isMobileViewport, openMobileSurface]);
+
     const toggleLeftSidebar = useCallback(() => {
         if (isMobileViewport) {
             toggleMobileSurface("context");
@@ -160,6 +173,7 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
 
     const isMobileNavOpen = activeMobileSurface === "nav";
     const isMobileSearchOpen = activeMobileSurface === "search";
+    const isMobileSettingsOpen = activeMobileSurface === "settings";
 
     return (
         <VizControlContext.Provider
@@ -170,6 +184,7 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
                 isRightSidebarOpen,
                 isMobileNavOpen,
                 isMobileSearchOpen,
+                isMobileSettingsOpen,
                 closeMobileSurface,
                 openMobileSurface,
                 toggleMobileSurface,
@@ -181,6 +196,7 @@ export function VizControlProvider({ children }: { children: ReactNode }) {
                 setRightSidebarOpen,
                 setMobileNavOpen,
                 setMobileSearchOpen,
+                setMobileSettingsOpen,
             }}
         >
             {children}
