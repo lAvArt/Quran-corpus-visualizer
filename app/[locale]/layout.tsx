@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     },
     description: t('description'),
     keywords: isAr
-      ? ["القرآن", "المدونة القرآنية", "جذور", "صرف", "لغويات", "تصور بياني", "عربي"]
+      ? ["القرآن", "المدونة القرآنية", "جذور", "صرف", "لسانيات", "تصور بياني", "عربي"]
       : ["Quran", "Corpus", "Visualization", "Linguistics", "Arabic", "Islam", "Data Visualization", "Graph", "Roots", "Morphology"],
     authors: [{ name: SITE_NAME }],
     creator: SITE_NAME,
