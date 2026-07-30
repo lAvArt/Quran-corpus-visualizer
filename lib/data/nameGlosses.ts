@@ -17,41 +17,50 @@ export interface NameGloss {
   en: string;
   /** Display transliteration, e.g. "Mūsā". */
   translit: string;
+  /**
+   * Extra surface spellings a user might type that neither the corpus form nor
+   * the gloss/translit already cover — common Arabic variants (e.g. داوود with
+   * two waws) and Latin variants (e.g. "mohammed"). Arabic aliases are matched
+   * via the normalized name index; Latin aliases feed the transliteration term
+   * index. Corpus spelling, gloss and translit are matched automatically and
+   * don't need to be repeated here.
+   */
+  aliases?: string[];
 }
 
 export const NAME_GLOSSES = new Map<string, NameGloss>([
   // ── Prophets & messengers ──
-  ["muwsaY`", { en: "Moses", translit: "Mūsā" }],
+  ["muwsaY`", { en: "Moses", translit: "Mūsā", aliases: ["musa"] }],
   ["EiysaY", { en: "Jesus", translit: "ʿĪsā" }],
-  ["muHam~ad", { en: "Muhammad", translit: "Muḥammad" }],
+  ["muHam~ad", { en: "Muhammad", translit: "Muḥammad", aliases: ["mohammed", "mohamed", "mohammad", "muhammed"] }],
   [">aHomad", { en: "Ahmad (Muhammad)", translit: "Aḥmad" }],
   ["<iboraAhiym", { en: "Abraham", translit: "Ibrāhīm" }],
-  ["<isomaAEiyl", { en: "Ishmael", translit: "Ismāʿīl" }],
+  ["<isomaAEiyl", { en: "Ishmael", translit: "Ismāʿīl", aliases: ["ismael", "ismaeel"] }],
   ["<isoHaAq", { en: "Isaac", translit: "Isḥāq" }],
-  ["yaEoquwb", { en: "Jacob", translit: "Yaʿqūb" }],
+  ["yaEoquwb", { en: "Jacob", translit: "Yaʿqūb", aliases: ["yakub", "yacoub"] }],
   ["yuwsuf", { en: "Joseph", translit: "Yūsuf" }],
   ["nuwH", { en: "Noah", translit: "Nūḥ" }],
   ["luwT", { en: "Lot", translit: "Lūṭ" }],
-  ["ha`ruwn", { en: "Aaron", translit: "Hārūn" }],
-  ["sulayoma`n", { en: "Solomon", translit: "Sulaymān" }],
-  ["daAwud", { en: "David", translit: "Dāwūd" }],
-  ["zakariy~aA", { en: "Zachariah", translit: "Zakariyyā" }],
-  ["yaHoyaY`", { en: "John (the Baptist)", translit: "Yaḥyā" }],
-  [">ay~uwb", { en: "Job", translit: "Ayyūb" }],
-  ["yuwnus", { en: "Jonah", translit: "Yūnus" }],
+  ["ha`ruwn", { en: "Aaron", translit: "Hārūn", aliases: ["هارون", "haroon"] }],
+  ["sulayoma`n", { en: "Solomon", translit: "Sulaymān", aliases: ["سليمان", "sulaiman", "suleiman"] }],
+  ["daAwud", { en: "David", translit: "Dāwūd", aliases: ["داوود", "dawood", "davud"] }],
+  ["zakariy~aA", { en: "Zachariah", translit: "Zakariyyā", aliases: ["zakariya", "zachariah"] }],
+  ["yaHoyaY`", { en: "John (the Baptist)", translit: "Yaḥyā", aliases: ["yahya"] }],
+  [">ay~uwb", { en: "Job", translit: "Ayyūb", aliases: ["ayoub", "ayyoub"] }],
+  ["yuwnus", { en: "Jonah", translit: "Yūnus", aliases: ["younus", "younis"] }],
   ["$uEayob", { en: "Shuʿayb", translit: "Shuʿayb" }],
   ["<idoriys", { en: "Enoch (Idris)", translit: "Idrīs" }],
   ["<iloyaAs", { en: "Elijah", translit: "Ilyās" }],
   ["{loyasaEa", { en: "Elisha", translit: "al-Yasaʿ" }],
-  ["luqoma`n", { en: "Luqman", translit: "Luqmān" }],
+  ["luqoma`n", { en: "Luqman", translit: "Luqmān", aliases: ["لقمان"] }],
   ["*uwaAlokifol", { en: "Dhūl-Kifl (Ezekiel)", translit: "Dhū al-Kifl" }],
 
   // ── Figures: righteous, kings, opponents ──
   ["maroyam", { en: "Mary", translit: "Maryam" }],
-  ["Eimora`n", { en: "Imran (Amram)", translit: "ʿImrān" }],
+  ["Eimora`n", { en: "Imran (Amram)", translit: "ʿImrān", aliases: ["عمران", "imran"] }],
   ["masiyH", { en: "Messiah (Christ)", translit: "Masīḥ" }],
-  ["firoEawon", { en: "Pharaoh", translit: "Firʿawn" }],
-  ["ha`ma`n", { en: "Haman", translit: "Hāmān" }],
+  ["firoEawon", { en: "Pharaoh", translit: "Firʿawn", aliases: ["firaun", "pharoah"] }],
+  ["ha`ma`n", { en: "Haman", translit: "Hāmān", aliases: ["هامان"] }],
   ["qa`ruwn", { en: "Korah (Qarun)", translit: "Qārūn" }],
   ["jaAluwt", { en: "Goliath", translit: "Jālūt" }],
   ["TaAluwt", { en: "Saul (Talut)", translit: "Ṭālūt" }],
@@ -63,7 +72,7 @@ export const NAME_GLOSSES = new Map<string, NameGloss>([
   ["A^dam", { en: "Adam", translit: "Ādam" }],
 
   // ── Angels & unseen beings ──
-  ["jiboriyl", { en: "Gabriel", translit: "Jibrīl" }],
+  ["jiboriyl", { en: "Gabriel", translit: "Jibrīl", aliases: ["جبرائيل", "jibreel", "jibrail"] }],
   ["miykaY`l", { en: "Michael", translit: "Mīkāl" }],
   ["ha`ruwt", { en: "Harut (angel)", translit: "Hārūt" }],
   ["ma`ruwt", { en: "Marut (angel)", translit: "Mārūt" }],
@@ -79,7 +88,7 @@ export const NAME_GLOSSES = new Map<string, NameGloss>([
   ["r~uwm", { en: "Romans (Byzantines)", translit: "Rūm" }],
 
   // ── Scriptures ──
-  ["t~aworaY`p", { en: "Torah", translit: "Tawrāh" }],
+  ["t~aworaY`p", { en: "Torah", translit: "Tawrāh", aliases: ["توراة", "tawrat"] }],
   ["<injiyl", { en: "Gospel (Injil)", translit: "Injīl" }],
 
   // ── Places ──

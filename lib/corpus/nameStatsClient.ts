@@ -30,6 +30,8 @@ export interface NameStat {
   lemma: string;
   translit: string;
   gloss: string | null;
+  /** Latin spelling variants that feed the transliteration term index. */
+  latinAliases?: string[];
   count: number;
   surahs: number;
   verses: number;
@@ -46,6 +48,8 @@ export interface NameStatsIndex {
   version: number;
   entryCount: number;
   nameCount: number;
+  /** Alternate Arabic spelling key → canonical entry key (e.g. سليمان → سليمن). */
+  aliasIndex?: Record<string, string>;
   /** Proper-noun keys, frequency-ranked (chips / suggestions). */
   featured: string[];
   names: Record<string, NameStat>;
@@ -53,7 +57,9 @@ export interface NameStatsIndex {
 
 let cache: NameStatsIndex | null = null;
 let promise: Promise<NameStatsIndex> | null = null;
-let termIndex: Map<string, string> | null = null;
+// Per-index Latin term index (keyed by the index object so switching indexes —
+// e.g. across tests — never reuses stale terms).
+const termIndexCache = new WeakMap<NameStatsIndex, Map<string, string>>();
 
 export async function loadNameStats(): Promise<NameStatsIndex> {
   if (cache) return cache;
@@ -90,6 +96,7 @@ function buildTermIndex(idx: NameStatsIndex): Map<string, string> {
   };
   for (const e of entries) {
     add(normalizeLatin(e.translit), e.key);
+    for (const al of e.latinAliases ?? []) add(normalizeLatin(al), e.key);
     if (e.gloss) {
       for (const word of e.gloss.split(/[^a-zA-Z]+/)) {
         add(normalizeLatin(word), e.key);
@@ -133,9 +140,17 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
   if (!q) return null;
 
   if (ARABIC_RE.test(q)) {
-    // Whole query: exact key → ال/clitic-suffix candidates → proclitic-stripped.
+    // Whole query: exact key → alias spelling → ال/clitic/proclitic candidates.
+    // (Alias resolves variant spellings like سليمان→سليمن, داوود→داود before the
+    //  affix fallbacks, and matches multi-word compound keys like "ذو القرنين".)
+    const wholeKey = normalizeArabicForSearch(q);
+    if (idx.names[wholeKey]) return idx.names[wholeKey];
+    const wholeAlias = idx.aliasIndex?.[wholeKey];
+    if (wholeAlias && idx.names[wholeAlias]) return idx.names[wholeAlias];
     for (const cand of arabicCandidates(q)) {
       if (idx.names[cand]) return idx.names[cand];
+      const a = idx.aliasIndex?.[cand];
+      if (a && idx.names[a]) return idx.names[a];
     }
     // Then each whitespace-separated word (e.g. "سورة مريم" → مريم).
     const parts = q.split(/\s+/).filter((w) => ARABIC_RE.test(w));
@@ -143,6 +158,8 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
       for (const part of parts) {
         for (const cand of arabicCandidates(part)) {
           if (idx.names[cand]) return idx.names[cand];
+          const a = idx.aliasIndex?.[cand];
+          if (a && idx.names[a]) return idx.names[a];
         }
       }
     }
@@ -150,7 +167,11 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
   }
 
   // Latin — English name / transliteration.
-  if (!termIndex) termIndex = buildTermIndex(idx);
+  let termIndex = termIndexCache.get(idx);
+  if (!termIndex) {
+    termIndex = buildTermIndex(idx);
+    termIndexCache.set(idx, termIndex);
+  }
   const tryLatin = (s: string): NameStat | null => {
     const lat = normalizeLatin(s);
     if (!lat) return null;

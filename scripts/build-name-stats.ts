@@ -121,6 +121,16 @@ async function main() {
     }
   }
 
+  // Per-ayah ordered words (normalized surface) — for compound phrase scanning.
+  const ayahWords = new Map<string, { word: number; norm: string }[]>();
+  for (const w of words.values()) {
+    const k = `${w.sura}:${w.ayah}`;
+    const arr = ayahWords.get(k) ?? [];
+    arr.push({ word: w.word, norm: normalizeArabicForSearch(bw2ar(w.formBw)) });
+    ayahWords.set(k, arr);
+  }
+  for (const arr of ayahWords.values()) arr.sort((a, b) => a.word - b.word);
+
   // Aggregate root-less words by their search-normalized display form, merging
   // homograph lemmas (min + man → من).
   interface Agg {
@@ -180,6 +190,8 @@ async function main() {
     lemma: string;            // vocalized Arabic of dominant LEM (for display/routing)
     translit: string;
     gloss: string | null;
+    /** Latin spelling variants (from NAME_GLOSSES.aliases) for the term index. */
+    latinAliases?: string[];
     count: number;
     surahs: number;
     verses: number;
@@ -193,6 +205,15 @@ async function main() {
   }
 
   const out: Record<string, OutEntry> = {};
+  // Alternate Arabic spelling → canonical entry key. Covers manual aliases plus
+  // an auto medial dagger-alif → alif variant (e.g. سُلَيْمَٰن → سليمان) so the
+  // full-alif spelling a user types resolves.
+  const aliasIndex: Record<string, string> = {};
+  const isArabic = (s: string) => /[؀-ۿ]/.test(s);
+  const addAlias = (raw: string, entryKey: string) => {
+    const k = normalizeArabicForSearch(raw);
+    if (k && k !== entryKey && !out[k] && !aliasIndex[k]) aliasIndex[k] = entryKey;
+  };
   const missingGloss: string[] = [];
   for (const a of agg.values()) {
     // Dominant lemma = the LEM contributing the most occurrences in this bucket.
@@ -202,15 +223,26 @@ async function main() {
       if (n > domN) { domN = n; domLem = lem; }
     }
     domLem = domLem ?? [...a.lems][0] ?? "";
-    // Gloss/translit: prefer a curated entry among the merged lemmas.
+    // Gloss/translit/aliases: gather from every curated lemma merged here.
     let gloss: string | null = null;
     let translit = "";
+    const arAliases: string[] = [];
+    const latinAliases: string[] = [];
     for (const lem of a.lems) {
       const g = NAME_GLOSSES.get(lem);
-      if (g) { gloss = g.en; translit = g.translit; break; }
+      if (!g) continue;
+      if (!gloss) { gloss = g.en; translit = g.translit; }
+      for (const al of g.aliases ?? []) (isArabic(al) ? arAliases : latinAliases).push(al);
     }
     if (!translit) translit = romanize(domLem);
     if (a.isPN && !gloss) missingGloss.push(`${domLem} (${a.display})`);
+    // Auto medial dagger-alif → alif variant (سُلَيْمَٰن → سليمان). A dagger alif
+    // (U+0670) after a consonant is a written long-ā that users spell with ا;
+    // one after ى/ا/و is word-final (مُوسَىٰ) and already normalizes correctly.
+    const domVocalized = bw2ar(domLem);
+    if (/[^ىاو]ٰ/.test(domVocalized)) {
+      arAliases.push(domVocalized.replace(/(?<=[^ىاو])ٰ/g, "ا"));
+    }
 
     const hist = a.hist.slice(1, 115);
     const top = hist
@@ -228,6 +260,7 @@ async function main() {
       lemma: bw2ar(domLem),
       translit,
       gloss,
+      latinAliases: latinAliases.length ? [...new Set(latinAliases)] : undefined,
       count: a.count,
       surahs: a.surahs.size,
       verses: a.verses.size,
@@ -237,6 +270,58 @@ async function main() {
       top,
       hist,
       pos,
+    };
+    for (const al of arAliases) addAlias(al, a.key);
+  }
+
+  // ── Compound proper nouns (multi-word entities the corpus has no single
+  //    lemma for) — counted by scanning consecutive words for the phrase. ──
+  // `scan` = the ALREADY-normalized corpus word forms to match consecutively
+  //   (length 1 = a single distinctive anchor word). Kept separate from the
+  //   `display` label because corpus surfaces inflect / carry proclitics
+  //   (ذو→ذي, أصحاب→اصحب dagger-alif, إسرائيل→اسرءيل) that a clean label doesn't.
+  const COMPOUNDS: Array<{ scan: string[]; display: string; en: string; translit: string }> = [
+    { scan: ["القرنين"], display: "ذو القرنين", en: "Dhul-Qarnayn", translit: "Dhū al-Qarnayn" },
+    { scan: ["بني", "اسرءيل"], display: "بني إسرائيل", en: "Children of Israel", translit: "Banū Isrāʾīl" },
+    { scan: ["اصحب", "الكهف"], display: "أصحاب الكهف", en: "People of the Cave (Aṣḥāb al-Kahf)", translit: "Aṣḥāb al-Kahf" },
+    { scan: ["ياجوج", "وماجوج"], display: "يأجوج ومأجوج", en: "Gog and Magog", translit: "Yaʾjūj wa-Maʾjūj" },
+  ];
+  for (const c of COMPOUNDS) {
+    const key = normalizeArabicForSearch(c.display);
+    if (out[key]) continue;
+    const tokens = c.scan;
+    const surahs = new Set<number>();
+    const verses = new Set<string>();
+    const hist = new Array(115).fill(0);
+    let count = 0;
+    let first: { sura: number; ayah: number; word: number } | null = null;
+    for (const [ayahKey, ws] of ayahWords) {
+      const [sura, ayah] = ayahKey.split(":").map(Number);
+      for (let i = 0; i + tokens.length <= ws.length; i++) {
+        let match = true;
+        for (let j = 0; j < tokens.length; j++) {
+          if (ws[i + j].norm !== tokens[j]) { match = false; break; }
+        }
+        if (!match) continue;
+        count++;
+        surahs.add(sura);
+        verses.add(`${sura}:${ayah}`);
+        if (sura >= 1 && sura <= 114) hist[sura]++;
+        const loc = { sura, ayah, word: ws[i].word };
+        if (!first || sura < first.sura ||
+          (sura === first.sura && (ayah < first.ayah ||
+            (ayah === first.ayah && loc.word < first.word)))) first = loc;
+      }
+    }
+    if (count === 0) { console.log(`   ⚠ compound "${c.display}" not found — skipped`); continue; }
+    const h = hist.slice(1, 115);
+    const top = h.map((v, i) => [i + 1, v] as [number, number])
+      .filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1]).slice(0, 5);
+    out[key] = {
+      kind: "name", key, root: c.display, bare: c.display, bw: "", lemma: c.display,
+      translit: c.translit, gloss: c.en, count, surahs: surahs.size, verses: verses.size,
+      forms: 1, first: first ? { sura: first.sura, ayah: first.ayah } : null,
+      rep: first, top, hist: h, pos: [["N", count]],
     };
   }
 
@@ -248,12 +333,12 @@ async function main() {
     .map((e) => e.key);
 
   const nameCount = Object.values(out).filter((e) => e.kind === "name").length;
-  const payload = { version: 1, entryCount: Object.keys(out).length, nameCount, featured, names: out };
+  const payload = { version: 2, entryCount: Object.keys(out).length, nameCount, aliasIndex, featured, names: out };
   await fs.writeFile(OUT, JSON.stringify(payload));
   const bytes = (await fs.stat(OUT)).size;
   console.log(
     `✅ name-stats.json — ${Object.keys(out).length} entries (${nameCount} proper nouns) · ` +
-    `${rootlessWords} root-less words · ${(bytes / 1024).toFixed(0)} KB`,
+    `${Object.keys(aliasIndex).length} aliases · ${rootlessWords} root-less words · ${(bytes / 1024).toFixed(0)} KB`,
   );
   if (missingGloss.length) {
     console.log(`   ⚠ ${missingGloss.length} proper-noun lemma(s) without a NAME_GLOSSES entry:`);
