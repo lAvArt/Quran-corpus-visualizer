@@ -25,10 +25,10 @@ function entry(over: Partial<NameStat> & { root: string; key: string }): NameSta
   };
 }
 
-function makeIndex(entries: NameStat[]): NameStatsIndex {
+function makeIndex(entries: NameStat[], aliasIndex: Record<string, string> = {}): NameStatsIndex {
   const names: Record<string, NameStat> = {};
   for (const e of entries) names[e.key] = e;
-  return { version: 1, entryCount: entries.length, nameCount: entries.length, featured: [], names };
+  return { version: 2, entryCount: entries.length, nameCount: entries.length, aliasIndex, featured: [], names };
 }
 
 describe("lookupName", () => {
@@ -66,6 +66,27 @@ describe("lookupName", () => {
   });
 });
 
+describe("lookupName aliases", () => {
+  const idx = makeIndex(
+    [
+      entry({
+        key: normalizeArabicForSearch("سليمن"), root: "سليمن", gloss: "Solomon",
+        translit: "Sulaymān", latinAliases: ["sulaiman"], count: 17,
+      }),
+    ],
+    // dagger-alif full spelling → canonical key
+    { [normalizeArabicForSearch("سليمان")]: normalizeArabicForSearch("سليمن") },
+  );
+
+  it("resolves an alternate Arabic spelling via aliasIndex", () => {
+    expect(lookupName(idx, "سليمان")?.gloss).toBe("Solomon"); // full-alif spelling
+  });
+
+  it("resolves a Latin alias", () => {
+    expect(lookupName(idx, "sulaiman")?.count).toBe(17);
+  });
+});
+
 describe("name-stats.json data integrity", () => {
   const file = path.resolve(process.cwd(), "public", "data", "name-stats.json");
   const data = JSON.parse(readFileSync(file, "utf8")) as NameStatsIndex;
@@ -92,5 +113,19 @@ describe("name-stats.json data integrity", () => {
     const e = data.names[normalizeArabicForSearch("حتى")];
     expect(e).toBeDefined();
     expect(e.count).toBeGreaterThan(0);
+  });
+
+  it("resolves full-alif spellings of dagger-alif names via aliasIndex", () => {
+    // Solomon is stored "سليمن"; users type "سليمان".
+    const key = data.aliasIndex?.[normalizeArabicForSearch("سليمان")];
+    expect(key, "سليمان alias missing").toBeDefined();
+    expect(data.names[key!].gloss).toBe("Solomon");
+  });
+
+  it("indexes multi-word compound names", () => {
+    const dhul = data.names[normalizeArabicForSearch("ذو القرنين")];
+    expect(dhul, "ذو القرنين missing").toBeDefined();
+    expect(dhul.count).toBe(3);
+    expect(data.names[normalizeArabicForSearch("يأجوج ومأجوج")]).toBeDefined();
   });
 });

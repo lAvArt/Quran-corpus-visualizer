@@ -45,15 +45,25 @@ async function main() {
   await page.screenshot({ path: `${SHOTS}/names-home-moses.png` });
   console.log(`saved ${SHOTS}/names-home-moses.png`);
 
-  // A function word with no root must resolve too.
-  await input.fill(""); await input.fill("حتى"); await input.press("Enter");
-  try {
-    await page.waitForSelector(".mhome-count", { state: "visible", timeout: 8000 });
-    await page.waitForTimeout(300);
-    const c = Number((await page.locator(".mhome-count").first().innerText()).replace(/[^\d]/g, ""));
-    console.log(`${c > 0 ? "✅" : "❌"} HOME حتى (root-less particle) → ${c}`);
-    if (!(c > 0)) failures++;
-  } catch { failures++; console.log("❌ HOME حتى → NO count card"); }
+  // Aliases, compounds, and a function word — all must resolve on home.
+  const EXTRA: Array<[string, number, string]> = [
+    ["حتى", 142, "root-less particle"],
+    ["سليمان", 17, "full-alif spelling of سليمن"],
+    ["داوود", 16, "two-waw spelling of داود"],
+    ["ذو القرنين", 3, "compound"],
+    ["يأجوج ومأجوج", 2, "compound"],
+  ];
+  for (const [q, expected, note] of EXTRA) {
+    await input.fill(""); await input.fill(q); await input.press("Enter");
+    try {
+      await page.waitForSelector(".mhome-count", { state: "visible", timeout: 8000 });
+      await page.waitForTimeout(300);
+      const c = Number((await page.locator(".mhome-count").first().innerText()).replace(/[^\d]/g, ""));
+      const ok = c === expected;
+      if (!ok) failures++;
+      console.log(`${ok ? "✅" : "❌"} HOME ${q} → ${c} (expected ${expected}, ${note})`);
+    } catch { failures++; console.log(`❌ HOME ${q} → NO count card (${note})`); }
+  }
 
   // ── /search workspace: a name query surfaces its occurrence dossier ──
   // The root dossier now falls back to lemma grouping for root-less names; wait
