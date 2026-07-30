@@ -14,14 +14,8 @@ export interface OccurrenceAyah {
   positions: number[];
 }
 
-export async function fetchOccurrences(
-  kind: "root" | "lemma",
-  term: string,
-  limit = 10,
-  signal?: AbortSignal,
-): Promise<OccurrenceAyah[]> {
+async function get(params: URLSearchParams, signal?: AbortSignal): Promise<OccurrenceAyah[]> {
   try {
-    const params = new URLSearchParams({ kind, term, limit: String(limit) });
     const res = await fetch(`/api/corpus/occurrences?${params.toString()}`, { signal });
     if (!res.ok) return [];
     const data = (await res.json()) as { ayahs?: OccurrenceAyah[] };
@@ -29,4 +23,24 @@ export async function fetchOccurrences(
   } catch {
     return [];
   }
+}
+
+export async function fetchOccurrences(
+  kind: "root" | "lemma",
+  term: string,
+  limit = 10,
+  signal?: AbortSignal,
+): Promise<OccurrenceAyah[]> {
+  return get(new URLSearchParams({ kind, term, limit: String(limit) }), signal);
+}
+
+/** Fetch specific occurrences by ref (compound names). refs = [sura,ayah,wordStart,len][]. */
+export async function fetchOccurrencesByRefs(
+  refs: [number, number, number, number][],
+  limit = 10,
+  signal?: AbortSignal,
+): Promise<OccurrenceAyah[]> {
+  if (!refs.length) return [];
+  const refsParam = refs.map((r) => r.join(":")).join(",");
+  return get(new URLSearchParams({ refs: refsParam, limit: String(limit) }), signal);
 }

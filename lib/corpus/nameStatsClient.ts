@@ -39,9 +39,12 @@ export interface NameStat {
   first: { sura: number; ayah: number } | null;
   /** First occurrence location, for deep-link focus. */
   rep: { sura: number; ayah: number; word: number } | null;
-  top: [number, number][];
+  /** Top sūrahs as [suraId, count, firstAyahInSurah]. */
+  top: [number, number, number][];
   hist: number[];
   pos: [string, number][];
+  /** Compound occurrence refs [sura, ayah, wordStart, len] (compounds only). */
+  occ?: [number, number, number, number][];
 }
 
 export interface NameStatsIndex {

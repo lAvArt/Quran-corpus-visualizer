@@ -78,7 +78,7 @@ async function main() {
   } catch (e) { failures++; console.log(`❌ API /occurrences → ${(e as Error).message.split("\n")[0]}`); }
 
   // UI: carousel shows for a root search, expands to a list, offers full-corpus CTA.
-  for (const [q, kind] of [["رحم", "root"], ["موسى", "name"], ["اسماعيل", "name"]] as const) {
+  for (const [q, kind] of [["رحم", "root"], ["موسى", "name"], ["اسماعيل", "name"], ["نوح", "name"], ["ذو القرنين", "compound"]] as const) {
     await page.goto(`${BASE}/en`);
     const si = page.locator(".mhome-search input");
     await si.waitFor({ state: "visible", timeout: 30000 });
@@ -93,7 +93,7 @@ async function main() {
       const ok = rows > 0 && highlights > 0;
       if (!ok) failures++;
       console.log(`${ok ? "✅" : "❌"} CAROUSEL ${q} (${kind}) → ${rows} ayahs, ${highlights} highlighted, CTA=${hasMore > 0}`);
-      if (q === "رحم") await page.screenshot({ path: `${SHOTS}/carousel-rahm.png` });
+      if (q === "رحم" || q === "نوح" || q === "ذو القرنين") await page.screenshot({ path: `${SHOTS}/carousel-${kind}.png` });
     } catch (e) { failures++; console.log(`❌ CAROUSEL ${q} → ${(e as Error).message.split("\n")[0]}`); }
   }
 

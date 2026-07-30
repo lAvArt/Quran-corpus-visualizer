@@ -25,7 +25,7 @@ import {
   type NameStatsIndex,
 } from "@/lib/corpus/nameStatsClient";
 import { loadFormIndex, lookupFormRoot, type FormIndex } from "@/lib/corpus/formIndexClient";
-import { fetchOccurrences, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
+import { fetchOccurrences, fetchOccurrencesByRefs, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
 import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
 /** A home search hit is either a root or a root-less name/word. */
@@ -682,11 +682,12 @@ function ResultPanel({
   const maxTop = Math.max(1, ...stat.top.map((x) => x[1]));
 
   // Preview ayahs that contain the searched word — lazily fetched (best-effort).
-  // The searched term is the lemma for names, the bare root otherwise; compound
-  // (multi-word) entries have no single lemma to match, so they skip the fetch.
+  // Compound (multi-word) names carry explicit occurrence refs (no single lemma
+  // to query); everything else fetches by lemma (names) or bare root.
   const statId = isName ? stat.key : stat.bare;
+  const occ = isName ? (stat as NameStat).occ : undefined;
   const fetchTerm = isName ? stat.lemma : stat.bare;
-  const canFetchVerses = Boolean(fetchTerm) && !/\s/.test(fetchTerm);
+  const canFetchVerses = (occ != null && occ.length > 0) || (Boolean(fetchTerm) && !/\s/.test(fetchTerm));
   const [verses, setVerses] = useState<OccurrenceAyah[] | null>(canFetchVerses ? null : []);
   useEffect(() => {
     if (!canFetchVerses) {
@@ -695,9 +696,14 @@ function ResultPanel({
     }
     setVerses(null);
     const ac = new AbortController();
-    fetchOccurrences(isName ? "lemma" : "root", fetchTerm, 10, ac.signal).then((a) => setVerses(a));
+    const request = occ != null && occ.length > 0
+      ? fetchOccurrencesByRefs(occ, 10, ac.signal)
+      : fetchOccurrences(isName ? "lemma" : "root", fetchTerm, 10, ac.signal);
+    request.then((a) => setVerses(a));
     return () => ac.abort();
-  }, [statId, isName, canFetchVerses, fetchTerm]);
+    // statId identifies the result; occ/fetchTerm/canFetchVerses derive from it.
+  }, [statId, isName]);
+
   return (
     <div className="mhome-result">
       <button type="button" className="mhome-back" onClick={onBack}>
@@ -770,15 +776,23 @@ function ResultPanel({
       </div>
 
       <div className="mhome-top">
-        {stat.top.map(([sura, c]) => (
+        {stat.top.map(([sura, c, ayah]) => (
           <div key={sura} className="mhome-top-chip">
             <span className="mhome-top-name">{surahName(sura)}</span>
-            <span className="mhome-top-bar">
-              <span style={{ width: `${Math.round((c / maxTop) * 100)}%`, background: color }} />
-            </span>
-            <span className="mhome-top-c" style={{ color }}>
-              {c}×
-            </span>
+            {/* When the word occurs in this sūrah just once, show its verse ref
+                instead of "1×" — more useful than a count of one. */}
+            {c === 1 && ayah ? (
+              <span className="mhome-top-ref">{sura}:{ayah}</span>
+            ) : (
+              <>
+                <span className="mhome-top-bar">
+                  <span style={{ width: `${Math.round((c / maxTop) * 100)}%`, background: color }} />
+                </span>
+                <span className="mhome-top-c" style={{ color }}>
+                  {c}×
+                </span>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -896,11 +910,20 @@ function ResultVerses({
   // word positions instead, and we mark the ayah's Nth word.
   const renderText = (ayah: OccurrenceAyah) => {
     const hit = new Set(ayah.positions);
-    return ayah.text.split(/\s+/).filter(Boolean).map((word, j) => {
-      const hl = hit.has(j + 1);
+    // Uthmani text carries standalone annotation marks (۞ ۩ ۖ ۚ …) that split on
+    // whitespace but are NOT corpus words, so they'd shift the position count.
+    // Advance the word index only over real words (tokens with an Arabic letter),
+    // while still rendering the marks.
+    let wi = 0;
+    return ayah.text.split(/\s+/).filter(Boolean).map((tok, j) => {
+      let hl = false;
+      if (/[ء-يٱ-ەﭐ-ﻼ]/.test(tok)) {
+        wi += 1;
+        hl = hit.has(wi);
+      }
       return (
         <span key={j} className={hl ? "mhome-verse-hl" : undefined} style={hl ? { color } : undefined}>
-          {word}{" "}
+          {tok}{" "}
         </span>
       );
     });
@@ -1569,6 +1592,7 @@ const styles = `
   .mhome-top-bar { width: 40px; height: 4px; border-radius: 999px; background: var(--mh-hairline); overflow: hidden; display: block; flex: 0 0 auto; }
   .mhome-top-bar span { display: block; height: 100%; border-radius: 999px; }
   .mhome-top-c { font: 600 12px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
+  .mhome-top-ref { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5); font-variant-numeric: tabular-nums; }
 
   .mhome-ctas { display: flex; flex-direction: column; align-items: center; gap: 13px; margin-top: 27px; }
   .mhome-ctas-sub { display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; }
