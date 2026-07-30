@@ -142,6 +142,7 @@ async function main() {
     forms: Set<string>;
     hist: number[];
     first: { sura: number; ayah: number; word: number } | null;
+    firstAyahBySura: Map<number, number>;
     pos: Record<string, number>;
     lems: Set<string>;          // raw Buckwalter LEMs merged here
     isPN: boolean;
@@ -160,7 +161,7 @@ async function main() {
     if (!a) {
       a = {
         key, display, count: 0, surahs: new Set(), verses: new Set(), forms: new Set(),
-        hist: new Array(115).fill(0), first: null, pos: {}, lems: new Set(), isPN: false,
+        hist: new Array(115).fill(0), first: null, firstAyahBySura: new Map(), pos: {}, lems: new Set(), isPN: false,
         lemCount: new Map(),
       };
       agg.set(key, a);
@@ -170,6 +171,7 @@ async function main() {
     a.verses.add(`${w.sura}:${w.ayah}`);
     if (w.formBw) a.forms.add(bw2ar(w.formBw));
     if (w.sura >= 1 && w.sura <= 114) a.hist[w.sura]++;
+    if (!a.firstAyahBySura.has(w.sura)) a.firstAyahBySura.set(w.sura, w.ayah);
     const pos = normalizePos(w.rawPos ?? "N");
     a.pos[pos] = (a.pos[pos] ?? 0) + 1;
     a.lems.add(w.lemBw);
@@ -199,9 +201,11 @@ async function main() {
     first: { sura: number; ayah: number } | null;
     /** First occurrence location for deep-link focus. */
     rep: { sura: number; ayah: number; word: number } | null;
-    top: [number, number][];
+    top: [number, number, number][];
     hist: number[];
     pos: [string, number][];
+    /** Compound occurrence refs [sura, ayah, wordStart, len] (compounds only). */
+    occ?: [number, number, number, number][];
   }
 
   const out: Record<string, OutEntry> = {};
@@ -249,7 +253,8 @@ async function main() {
       .map((c, i) => [i + 1, c] as [number, number])
       .filter(([, c]) => c > 0)
       .sort((x, y) => y[1] - x[1])
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(([s, c]) => [s, c, a.firstAyahBySura.get(s) ?? 0] as [number, number, number]);
     const pos = Object.entries(a.pos).sort((x, y) => y[1] - x[1]) as [string, number][];
     out[a.key] = {
       kind: a.isPN ? "name" : "word",
@@ -295,6 +300,10 @@ async function main() {
     const hist = new Array(115).fill(0);
     let count = 0;
     let first: { sura: number; ayah: number; word: number } | null = null;
+    // Occurrence refs [sura, ayah, wordStart, len] — the carousel fetches these
+    // ayahs' text and highlights the matched word span (compounds have no single
+    // lemma to query the corpus by).
+    const occ: [number, number, number, number][] = [];
     for (const [ayahKey, ws] of ayahWords) {
       const [sura, ayah] = ayahKey.split(":").map(Number);
       for (let i = 0; i + tokens.length <= ws.length; i++) {
@@ -307,6 +316,7 @@ async function main() {
         surahs.add(sura);
         verses.add(`${sura}:${ayah}`);
         if (sura >= 1 && sura <= 114) hist[sura]++;
+        if (occ.length < 11) occ.push([sura, ayah, ws[i].word, tokens.length]);
         const loc = { sura, ayah, word: ws[i].word };
         if (!first || sura < first.sura ||
           (sura === first.sura && (ayah < first.ayah ||
@@ -314,14 +324,17 @@ async function main() {
       }
     }
     if (count === 0) { console.log(`   ⚠ compound "${c.display}" not found — skipped`); continue; }
+    const firstAyahBySura = new Map<number, number>();
+    for (const [s, a] of occ) if (!firstAyahBySura.has(s)) firstAyahBySura.set(s, a);
     const h = hist.slice(1, 115);
     const top = h.map((v, i) => [i + 1, v] as [number, number])
-      .filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1]).slice(0, 5);
+      .filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1]).slice(0, 5)
+      .map(([s, v]) => [s, v, firstAyahBySura.get(s) ?? 0] as [number, number, number]);
     out[key] = {
       kind: "name", key, root: c.display, bare: c.display, bw: "", lemma: c.display,
       translit: c.translit, gloss: c.en, count, surahs: surahs.size, verses: verses.size,
       forms: 1, first: first ? { sura: first.sura, ayah: first.ayah } : null,
-      rep: first, top, hist: h, pos: [["N", count]],
+      rep: first, top, hist: h, pos: [["N", count]], occ,
     };
   }
 

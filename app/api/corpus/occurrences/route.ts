@@ -29,12 +29,44 @@ const norm = (s: string) => dbNormalize(s);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const kind = searchParams.get("kind") === "lemma" ? "lemma" : "root";
-  const term = searchParams.get("term")?.trim();
   const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "10"), 1), 20);
 
+  // Explicit-refs mode: `?refs=sura:ayah:wordStart:len,…` — used by multi-word
+  // compound names, which have no single root/lemma to query the corpus by. The
+  // build precomputes the occurrence refs; here we just fetch the ayah texts and
+  // expand each span into positions.
+  const refsParam = searchParams.get("refs");
+  if (refsParam) {
+    try {
+      const refs = refsParam
+        .split(",")
+        .map((r) => r.split(":").map(Number))
+        .filter((p) => p.length === 4 && p.every((n) => Number.isFinite(n)))
+        .slice(0, limit);
+      if (refs.length === 0) return NextResponse.json({ ayahs: [] });
+      const ids = [...new Set(refs.map(([s, a]) => `${s}:${a}`))];
+      const supabase = await createClient();
+      const { data: rows, error } = await supabase.from("ayahs").select("id,text_uthmani").in("id", ids);
+      if (error) throw error;
+      const textById = new Map((rows ?? []).map((r) => [r.id as string, r.text_uthmani as string]));
+      const ayahs = refs.map(([sura, ayah, word, len]) => ({
+        sura,
+        ayah,
+        text: textById.get(`${sura}:${ayah}`) ?? "",
+        positions: Array.from({ length: Math.max(1, len) }, (_, i) => word + i),
+      }));
+      return NextResponse.json({ ayahs });
+    } catch (err) {
+      console.error("[/api/corpus/occurrences refs]", err);
+      return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+    }
+  }
+
+  const kind = searchParams.get("kind") === "lemma" ? "lemma" : "root";
+  const term = searchParams.get("term")?.trim();
+
   if (!term) {
-    return NextResponse.json({ error: "term param is required" }, { status: 400 });
+    return NextResponse.json({ error: "term or refs param is required" }, { status: 400 });
   }
 
   const column = kind === "lemma" ? "lemma_normalized" : "root_normalized";

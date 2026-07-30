@@ -37,8 +37,8 @@ export interface RootStat {
   /** Distinct lemmas ("word forms"). */
   forms: number;
   first: { sura: number; ayah: number } | null;
-  /** Top sūrahs as [suraId, count]. */
-  top: [number, number][];
+  /** Top sūrahs as [suraId, count, firstAyahInSurah]. */
+  top: [number, number, number][];
   /** Per-sūrah occurrence counts, index 0 = sūrah 1 … 113 = sūrah 114. */
   hist: number[];
   /** POS breakdown as [POS, count], dominant first. */

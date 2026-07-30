@@ -175,6 +175,9 @@ async function main() {
     forms: Set<string>; // distinct lemmas (dictionary "word forms")
     hist: number[];
     first: { sura: number; ayah: number; word: number } | null;
+    /** First ayah of occurrence per sūrah — lets a top-sūrah chip show a
+     *  verse ref when the root occurs there just once. */
+    firstAyahBySura: Map<number, number>;
     pos: Record<string, number>;
   }
   // Ayah → its words (to reconstruct example verses), and per-root occurrences.
@@ -195,7 +198,7 @@ async function main() {
     else rootOccs.set(w.rootBw, [[w.sura, w.ayah, w.word]]);
     let a = roots.get(w.rootBw);
     if (!a) {
-      a = { count: 0, surahs: new Set(), verses: new Set(), forms: new Set(), hist: new Array(115).fill(0), first: null, pos: {} };
+      a = { count: 0, surahs: new Set(), verses: new Set(), forms: new Set(), hist: new Array(115).fill(0), first: null, firstAyahBySura: new Map(), pos: {} };
       roots.set(w.rootBw, a);
     }
     a.count++;
@@ -203,6 +206,7 @@ async function main() {
     a.verses.add(`${w.sura}:${w.ayah}`);
     if (w.lemBw) a.forms.add(bw2ar(w.lemBw));
     if (w.sura >= 1 && w.sura <= 114) a.hist[w.sura]++;
+    if (!a.firstAyahBySura.has(w.sura)) a.firstAyahBySura.set(w.sura, w.ayah);
     a.pos[w.pos] = (a.pos[w.pos] ?? 0) + 1;
     const earlier = !a.first || w.sura < a.first.sura || (w.sura === a.first.sura && (w.ayah < a.first.ayah || (w.ayah === a.first.ayah && w.word < a.first.word)));
     if (earlier) a.first = { sura: w.sura, ayah: w.ayah, word: w.word };
@@ -231,7 +235,7 @@ async function main() {
     verses: number;
     forms: number;
     first: { sura: number; ayah: number } | null;
-    top: [number, number][];
+    top: [number, number, number][];
     hist: number[];
     pos: [string, number][];
     examples?: Example[];
@@ -245,7 +249,8 @@ async function main() {
       .map((c, i) => [i + 1, c] as [number, number])
       .filter(([, c]) => c > 0)
       .sort((x, y) => y[1] - x[1])
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(([s, c]) => [s, c, a.firstAyahBySura.get(s) ?? 0] as [number, number, number]);
     const pos = Object.entries(a.pos).sort((x, y) => y[1] - x[1]) as [string, number][];
     out[bare] = {
       root: Array.from(bare).join("-"),
