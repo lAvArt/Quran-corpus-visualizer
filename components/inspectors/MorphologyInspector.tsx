@@ -61,11 +61,21 @@ export default function MorphologyInspector({
     };
 
     const rootDistribution = useMemo(() => {
-        if (!token?.root) return null;
-        const rootStr = token.root;
+        if (!token) return null;
+        // Root-bearing words group by root; root-LESS words (proper nouns like
+        // موسى / مريم, and function words) have no root, so they group by lemma
+        // instead — same occurrence card, driven by the corpus-wide token set.
+        // The per-word token.lemma is reliable here because the loader lets a
+        // real-LEM segment win over a leading proclitic (see morphologyLoader).
+        const byRoot = Boolean(token.root);
+        const groupKey = byRoot ? token.root : token.lemma;
+        if (!groupKey) return null;
 
-        const matchingTokens = allTokens.filter((tk) => tk.root === rootStr);
+        const matchingTokens = byRoot
+            ? allTokens.filter((tk) => tk.root === groupKey)
+            : allTokens.filter((tk) => !tk.root && tk.lemma === groupKey);
         if (matchingTokens.length === 0) return null;
+        const rootStr = groupKey;
 
         const surahMap = new Map<number, {
             count: number;
@@ -136,7 +146,7 @@ export default function MorphologyInspector({
             posBreakdown: Array.from(posBreakdown.entries()).sort((a, b) => b[1] - a[1]),
             surahDistribution,
         };
-    }, [token?.root, allTokens, sortBy]);
+    }, [token?.root, token?.lemma, allTokens, sortBy]);
 
     const tracked = rootDistribution ? isTracked(rootDistribution.root) : false;
 

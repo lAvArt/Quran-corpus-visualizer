@@ -55,4 +55,20 @@ describe("parseMorphologyText root attribution", () => {
 
     expect(map.get("1:1:2")?.root).toBe("حمد");
   });
+
+  it("gives a proclitic+name word the NAME's lemma, not the prefix's surface form", async () => {
+    // "وَمُوسَىٰ" — a leading conjunction (no LEM) must not capture the word's
+    // lemma; the proper-noun segment's LEM (muwsaY`) wins. This keeps root-less
+    // name occurrences counted under the name across every search surface.
+    const text = [
+      "(7:104:2:1)\twa\tCONJ\tPREFIX|w:CONJ+",
+      "(7:104:2:2)\tmuwsaY`\tPN\tSTEM|POS:PN|LEM:muwsaY`|NOM",
+    ].join("\n");
+
+    const map = await parseMorphologyText(text);
+    const entry = map.get("7:104:2");
+
+    expect(entry?.root).toBe(""); // proper noun — no triliteral root
+    expect(entry?.lemma).toBe("مُوسَىٰ"); // NOT "وَ"
+  });
 });

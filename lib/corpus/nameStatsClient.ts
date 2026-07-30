@@ -1,0 +1,183 @@
+/**
+ * Client loader + lookup for the precomputed name-stats index
+ * (`public/data/name-stats.json`, built by scripts/build-name-stats.ts).
+ *
+ * Covers the Quran's ROOT-LESS words — proper nouns (Moses, Mary, Pharaoh…) and
+ * function words (من, إلى, حتى…) — which never appear in root-stats.json. Lets
+ * the home search resolve a name typed as-is and show the same "how often /
+ * where" card, and gives every surface one consistent occurrence count.
+ *
+ * Matching uses the SHARED `normalizeArabicForSearch` (folds hamza→ا, ى→ي,
+ * ة→ه, strips diacritics/tatweel/dagger-alif) — the SAME function the build
+ * script keys entries by and that the BM25 lanes tokenize with — so surface
+ * typing agrees with the index and with /search.
+ */
+
+import { normalizeArabicForSearch, buildLemmaCandidates } from "@/lib/search/arabicNormalize";
+
+export interface NameStat {
+  /** "name" for proper nouns, "word" for root-less function words. */
+  kind: "name" | "word";
+  /** normalizeArabicForSearch(display) — the lookup key. */
+  key: string;
+  /** Plain Arabic display form, e.g. "موسى". */
+  root: string;
+  /** Same as `root` (kept so NameStat structurally satisfies RootStat). */
+  bare: string;
+  /** Dominant Buckwalter LEM. */
+  bw: string;
+  /** Vocalized Arabic of the dominant LEM. */
+  lemma: string;
+  translit: string;
+  gloss: string | null;
+  count: number;
+  surahs: number;
+  verses: number;
+  forms: number;
+  first: { sura: number; ayah: number } | null;
+  /** First occurrence location, for deep-link focus. */
+  rep: { sura: number; ayah: number; word: number } | null;
+  top: [number, number][];
+  hist: number[];
+  pos: [string, number][];
+}
+
+export interface NameStatsIndex {
+  version: number;
+  entryCount: number;
+  nameCount: number;
+  /** Proper-noun keys, frequency-ranked (chips / suggestions). */
+  featured: string[];
+  names: Record<string, NameStat>;
+}
+
+let cache: NameStatsIndex | null = null;
+let promise: Promise<NameStatsIndex> | null = null;
+let termIndex: Map<string, string> | null = null;
+
+export async function loadNameStats(): Promise<NameStatsIndex> {
+  if (cache) return cache;
+  if (!promise) {
+    promise = fetch("/data/name-stats.json")
+      .then((r) => {
+        if (!r.ok) throw new Error(`name-stats ${r.status}`);
+        return r.json();
+      })
+      .then((d: NameStatsIndex) => {
+        cache = d;
+        return d;
+      });
+  }
+  return promise;
+}
+
+/** Lowercase, fold accents (ḥ→h, ṣ→s, ʿ→ ), keep only a–z/0–9. */
+export function normalizeLatin(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯʿʾˀ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function buildTermIndex(idx: NameStatsIndex): Map<string, string> {
+  const map = new Map<string, string>();
+  // Higher-count entries win ambiguous terms; Map insertion order also lets
+  // the prefix scan land on the most frequent match first.
+  const entries = Object.values(idx.names).sort((a, b) => b.count - a.count);
+  const add = (term: string, key: string) => {
+    if (term && term.length >= 2 && !map.has(term)) map.set(term, key);
+  };
+  for (const e of entries) {
+    add(normalizeLatin(e.translit), e.key);
+    if (e.gloss) {
+      for (const word of e.gloss.split(/[^a-zA-Z]+/)) {
+        add(normalizeLatin(word), e.key);
+      }
+    }
+  }
+  return map;
+}
+
+const ARABIC_RE = /[؀-ۿ]/;
+
+// Single-letter proclitics (و/ف conjunctions, ب/ك/ل prepositions) that the
+// corpus splits into their own segments — a user may still type them glued to
+// the name ("ومريم"). Tried only after an exact/candidate miss, so names that
+// legitimately start with ال (al-Lat) are unaffected (direct match wins first).
+const AR_PROCLITICS = ["وال", "فال", "بال", "كال", "لل", "ال", "و", "ف", "ب", "ك", "ل"];
+
+/** Normalized lookup keys to try for an Arabic query, exact first. */
+function arabicCandidates(query: string): string[] {
+  const out: string[] = [];
+  const push = (s: string) => {
+    const k = normalizeArabicForSearch(s);
+    if (k && !out.includes(k)) out.push(k);
+  };
+  push(query);
+  for (const cand of buildLemmaCandidates(query)) if (!out.includes(cand)) out.push(cand);
+  const base = normalizeArabicForSearch(query);
+  for (const p of AR_PROCLITICS) {
+    if (base.startsWith(p) && base.length - p.length >= 2) push(base.slice(p.length));
+  }
+  return out;
+}
+
+/**
+ * Resolve a free-text query to a single root-less entry (name / word), or null.
+ * Arabic: exact normalized key → ال/clitic-stripped candidates. Latin: gloss or
+ * transliteration term, then a prefix fallback so partial typing stays matched.
+ */
+export function lookupName(idx: NameStatsIndex, query: string): NameStat | null {
+  const q = (query ?? "").trim();
+  if (!q) return null;
+
+  if (ARABIC_RE.test(q)) {
+    // Whole query: exact key → ال/clitic-suffix candidates → proclitic-stripped.
+    for (const cand of arabicCandidates(q)) {
+      if (idx.names[cand]) return idx.names[cand];
+    }
+    // Then each whitespace-separated word (e.g. "سورة مريم" → مريم).
+    const parts = q.split(/\s+/).filter((w) => ARABIC_RE.test(w));
+    if (parts.length > 1) {
+      for (const part of parts) {
+        for (const cand of arabicCandidates(part)) {
+          if (idx.names[cand]) return idx.names[cand];
+        }
+      }
+    }
+    return null;
+  }
+
+  // Latin — English name / transliteration.
+  if (!termIndex) termIndex = buildTermIndex(idx);
+  const tryLatin = (s: string): NameStat | null => {
+    const lat = normalizeLatin(s);
+    if (!lat) return null;
+    const key = termIndex!.get(lat);
+    if (key) return idx.names[key] ?? null;
+    if (lat.length >= 3) {
+      for (const [term, k] of termIndex!) {
+        if (term.startsWith(lat)) return idx.names[k] ?? null;
+      }
+    }
+    return null;
+  };
+  const whole = tryLatin(q);
+  if (whole) return whole;
+  const words = q.split(/[^a-zA-Z]+/).filter((w) => w.length >= 3);
+  if (words.length > 1) {
+    for (const w of words) {
+      const hit = tryLatin(w);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/** Deterministic "name of the day" from the featured list (optional chips). */
+export function nameOfTheDay(idx: NameStatsIndex, epochDay: number): NameStat | null {
+  if (!idx.featured.length) return null;
+  const key = idx.featured[epochDay % idx.featured.length];
+  return idx.names[key] ?? null;
+}

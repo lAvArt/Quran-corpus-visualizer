@@ -169,7 +169,7 @@ function buildFeatureMap(features: string[]): Record<string, string> {
  * `loadMorphologyMap()`.
  */
 export async function parseMorphologyText(text: string): Promise<Map<string, MorphologyEntry>> {
-  const map = new Map<string, MorphologyEntry & { hasRoot: boolean }>();
+  const map = new Map<string, MorphologyEntry & { hasRoot: boolean; lemmaFromLem: boolean }>();
 
   const lines = text.split(/\r?\n/);
   const CHUNK = 8000;
@@ -183,16 +183,16 @@ export async function parseMorphologyText(text: string): Promise<Map<string, Mor
     }
   }
 
-  // Strip internal flag before returning
+  // Strip internal flags before returning
   const result = new Map<string, MorphologyEntry>();
   for (const [key, value] of map.entries()) {
-    const { hasRoot: _hasRoot, ...entry } = value;
+    const { hasRoot: _hasRoot, lemmaFromLem: _lemmaFromLem, ...entry } = value;
     result.set(key, entry);
   }
   return result;
 }
 
-function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: boolean }>): void {
+function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: boolean; lemmaFromLem: boolean }>): void {
   {
     if (!line || line.startsWith("#")) return;
 
@@ -220,6 +220,7 @@ function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: b
       features: {},
       stem: null,
       hasRoot: false,
+      lemmaFromLem: false,
     };
 
     if (root && !entry.hasRoot) {
@@ -229,22 +230,32 @@ function parseLine(line: string, map: Map<string, MorphologyEntry & { hasRoot: b
       // then ROOT:Amm) — first-wins attributes it to bny, where last-wins used
       // to flip it to Amm and desync token roots from the root-stats index.
       entry.root = buckwalterToArabic(root);
-      entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
+      if (lemma) {
+        entry.lemma = buckwalterToArabic(lemma);
+        entry.lemmaFromLem = true;
+      }
       entry.pos = normalizedPos;
       entry.features = buildFeatureMap(featureTokens);
       entry.stem = entry.lemma || entry.stem;
       entry.hasRoot = true;
     } else if (!root && !entry.hasRoot) {
-      if (!entry.lemma) {
-        entry.lemma = lemma ? buckwalterToArabic(lemma) : entry.lemma;
-      }
-      if (!entry.lemma && parts[1]) {
+      if (lemma && !entry.lemmaFromLem) {
+        // A segment carrying a real LEM (the stem / proper noun) wins over a
+        // lemma set only from a surface form. Otherwise a leading proclitic
+        // (وَ / يٰ / بِ / لِ / ال — no LEM) would capture the word's lemma and a
+        // name like مُوسَىٰ in "وَمُوسَىٰ" / "يٰمُوسَىٰ" would be mis-attributed to
+        // the prefix, desyncing occurrence counts across surfaces.
+        entry.lemma = buckwalterToArabic(lemma);
+        entry.lemmaFromLem = true;
+        entry.pos = normalizedPos;
+        entry.features = buildFeatureMap(featureTokens);
+      } else if (!entry.lemma && parts[1]) {
         entry.lemma = buckwalterToArabic(parts[1]);
+        entry.pos = entry.pos || normalizedPos;
+        if (!entry.features || Object.keys(entry.features).length === 0) {
+          entry.features = buildFeatureMap(featureTokens);
+        }
       }
-      entry.pos = entry.pos || normalizedPos;
-      entry.features = entry.features && Object.keys(entry.features).length > 0
-        ? entry.features
-        : buildFeatureMap(featureTokens);
       entry.stem = entry.lemma || entry.stem;
     }
 

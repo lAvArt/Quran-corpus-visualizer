@@ -120,7 +120,9 @@ function metaToResult(
         id: `lemma:${meta.lemma}`,
         kind: overrideKind ?? "lemma",
         title: meta.lemma,
-        subtitle: meta.gloss ? `Lemma: ${meta.lemma} · ${meta.gloss}` : `Lemma: ${meta.lemma}`,
+        subtitle: meta.gloss
+          ? `Lemma: ${meta.lemma} · ${meta.gloss} (${meta.count})`
+          : `Lemma: ${meta.lemma} (${meta.count})`,
         arabicText: meta.lemma,
         location: { surah: meta.sura, ayah: meta.ayah, tokenId: meta.tokenId },
         explanation: explanation ?? "Matched lemma and lexical form",
