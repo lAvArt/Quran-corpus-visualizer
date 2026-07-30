@@ -60,6 +60,14 @@ describe("lookupName", () => {
     expect(lookupName(idx, "mus")?.gloss).toBe("Moses");
   });
 
+  it("resolves a partial Arabic prefix to the closest name", () => {
+    expect(lookupName(idx, "موس")?.gloss).toBe("Moses"); // موس → موسى
+  });
+
+  it("does not prefix-match a query shorter than 3 chars", () => {
+    expect(lookupName(idx, "مو")).toBeNull();
+  });
+
   it("returns null for an unknown word", () => {
     expect(lookupName(idx, "زقزقة")).toBeNull();
     expect(lookupName(idx, "xyzzy")).toBeNull();
@@ -120,6 +128,11 @@ describe("name-stats.json data integrity", () => {
     const key = data.aliasIndex?.[normalizeArabicForSearch("سليمان")];
     expect(key, "سليمان alias missing").toBeDefined();
     expect(data.names[key!].gloss).toBe("Solomon");
+  });
+
+  it("resolves a partial prefix to the closest name (اسماع → اسماعيل)", () => {
+    expect(lookupName(data, "اسماع")?.gloss).toBe("Ishmael");
+    expect(lookupName(data, "ابراه")?.gloss).toBe("Abraham");
   });
 
   it("indexes multi-word compound names", () => {

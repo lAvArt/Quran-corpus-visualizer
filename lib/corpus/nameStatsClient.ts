@@ -108,6 +108,29 @@ function buildTermIndex(idx: NameStatsIndex): Map<string, string> {
 
 const ARABIC_RE = /[؀-ۿ]/;
 
+/**
+ * Partial typing → closest name (اسماع → اسماعيل). Frequency-ranked prefix over
+ * the name keys and alias keys, preferring proper nouns over function words.
+ * Min 3 chars so a 1–2 letter prefix doesn't grab an arbitrary name.
+ */
+function prefixMatch(idx: NameStatsIndex, qn: string): NameStat | null {
+  if (qn.length < 3) return null;
+  let best: NameStat | null = null;
+  const consider = (e: NameStat | undefined) => {
+    if (!e) return;
+    if (!best) { best = e; return; }
+    const es = e.kind === "name" ? 1 : 0;
+    const bs = best.kind === "name" ? 1 : 0;
+    if (es !== bs) { if (es > bs) best = e; return; }
+    if (e.count > best.count) best = e;
+  };
+  for (const e of Object.values(idx.names)) if (e.key.startsWith(qn)) consider(e);
+  if (idx.aliasIndex) {
+    for (const [ak, ek] of Object.entries(idx.aliasIndex)) if (ak.startsWith(qn)) consider(idx.names[ek]);
+  }
+  return best;
+}
+
 // Single-letter proclitics (و/ف conjunctions, ب/ك/ل prepositions) that the
 // corpus splits into their own segments — a user may still type them glued to
 // the name ("ومريم"). Tried only after an exact/candidate miss, so names that
@@ -163,7 +186,8 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
         }
       }
     }
-    return null;
+    // Last resort: partial typing → closest name by prefix.
+    return prefixMatch(idx, wholeKey);
   }
 
   // Latin — English name / transliteration.
