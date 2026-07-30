@@ -22,6 +22,8 @@ import {
   type NameStat,
   type NameStatsIndex,
 } from "@/lib/corpus/nameStatsClient";
+import { fetchOccurrences, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
+import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
 /** A home search hit is either a root or a root-less name/word. */
 type HomeHit = RootStat | NameStat;
@@ -312,6 +314,15 @@ export default function MinimalHome() {
     [locale, router]
   );
 
+  // Open one specific ayah (from the result verse carousel) in the observatory.
+  const openAyah = useCallback(
+    (s: number, a: number) => {
+      const sp = new URLSearchParams({ viz: "radial-sura", surah: String(s), ayah: String(a), entry: "calm" });
+      router.push(`/${locale}?${sp.toString()}`);
+    },
+    [locale, router]
+  );
+
   return (
     <div className={`mhome ${result ? "has-result" : ""}`}>
       <div className="mhome-atmos" aria-hidden="true" />
@@ -409,7 +420,7 @@ export default function MinimalHome() {
         {/* reveal zone */}
         <div className="mhome-reveal">
           {result ? (
-            <ResultPanel stat={result} t={t} onExplore={enterApp} onExploreName={enterName} onBack={() => window.history.back()} />
+            <ResultPanel stat={result} t={t} onExplore={enterApp} onExploreName={enterName} onOpenAyah={openAyah} onBack={() => window.history.back()} />
           ) : noMatch ? (
             <div className="mhome-nomatch">
               <p>{t("noMatch", { q: q.trim() })}</p>
@@ -527,12 +538,14 @@ function ResultPanel({
   t,
   onExplore,
   onExploreName,
+  onOpenAyah,
   onBack,
 }: {
   stat: HomeHit;
   t: ReturnType<typeof useTranslations>;
   onExplore: (root?: string, viz?: string, surah?: number) => void;
   onExploreName: (stat: NameStat) => void;
+  onOpenAyah: (sura: number, ayah: number) => void;
   onBack: () => void;
 }) {
   const color = rootColor(stat);
@@ -541,6 +554,24 @@ function ResultPanel({
   const isName = isNameHit(stat);
   const resultGloss = resolveGloss(locale, stat.bare, stat.gloss);
   const maxTop = Math.max(1, ...stat.top.map((x) => x[1]));
+
+  // Preview ayahs that contain the searched word — lazily fetched (best-effort).
+  // The searched term is the lemma for names, the bare root otherwise; compound
+  // (multi-word) entries have no single lemma to match, so they skip the fetch.
+  const statId = isName ? stat.key : stat.bare;
+  const fetchTerm = isName ? stat.lemma : stat.bare;
+  const canFetchVerses = Boolean(fetchTerm) && !/\s/.test(fetchTerm);
+  const [verses, setVerses] = useState<OccurrenceAyah[] | null>(canFetchVerses ? null : []);
+  useEffect(() => {
+    if (!canFetchVerses) {
+      setVerses([]);
+      return;
+    }
+    setVerses(null);
+    const ac = new AbortController();
+    fetchOccurrences(isName ? "lemma" : "root", fetchTerm, 10, ac.signal).then((a) => setVerses(a));
+    return () => ac.abort();
+  }, [statId, isName, canFetchVerses, fetchTerm]);
   return (
     <div className="mhome-result">
       <button type="button" className="mhome-back" onClick={onBack}>
@@ -626,6 +657,18 @@ function ResultPanel({
         ))}
       </div>
 
+      {verses !== null && verses.length > 0 && (
+        <ResultVerses
+          verses={verses}
+          color={color}
+          total={stat.verses}
+          matchTerm={fetchTerm}
+          t={t}
+          onOpenAyah={onOpenAyah}
+          onOpenFull={() => (isName ? onExploreName(stat) : onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0]))}
+        />
+      )}
+
       <div className="mhome-ctas">
         {isName ? (
           /* Names have no root, so the root-network / sankey sub-CTAs (which
@@ -656,6 +699,165 @@ function ResultPanel({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Search-result verse carousel: cycles through the ayahs that contain the
+ * searched word (collapsed), and on click expands to a list of up to 10. When
+ * the word occurs in more ayahs than shown, a CTA sends the user to the full
+ * corpus. Mirrors the resting "today's root" carousel's look.
+ */
+function ResultVerses({
+  verses,
+  color,
+  total,
+  matchTerm,
+  t,
+  onOpenAyah,
+  onOpenFull,
+}: {
+  verses: OccurrenceAyah[];
+  color: string;
+  total: number;
+  matchTerm: string;
+  t: ReturnType<typeof useTranslations>;
+  onOpenAyah: (sura: number, ayah: number) => void;
+  onOpenFull: () => void;
+}) {
+  const surahName = useSurahName();
+  const isRtl = useLocale() === "ar";
+  const n = verses.length;
+  const [idx, setIdx] = useState(0);
+  const [dir, setDir] = useState(1);
+  const [open, setOpen] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (paused || open || n <= 1) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = setTimeout(() => {
+      setDir(1);
+      setIdx((i) => (i + 1) % n);
+    }, 5500);
+    return () => clearTimeout(timer);
+  }, [idx, paused, open, n]);
+
+  const go = useCallback((i: number, d: number) => {
+    setDir(d);
+    setIdx(((i % n) + n) % n);
+  }, [n]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const p = e.touches[0];
+    touch.current = { x: p.clientX, y: p.clientY };
+    setPaused(true);
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touch.current;
+    touch.current = null;
+    setPaused(false);
+    if (!start) return;
+    const p = e.changedTouches[0];
+    const dx = p.clientX - start.x;
+    if (Math.abs(dx) > 40) {
+      const forward = isRtl ? dx > 0 : dx < 0;
+      go(idx + (forward ? 1 : -1), forward ? 1 : -1);
+    }
+  };
+
+  // Highlight the searched word(s) within an ayah by normalized comparison, so
+  // Uthmani orthography / diacritics don't defeat the match.
+  const matchSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const v of verses) for (const m of v.matches) s.add(normalizeArabicForSearch(m));
+    const term = normalizeArabicForSearch(matchTerm);
+    if (term) s.add(term);
+    return s;
+  }, [verses, matchTerm]);
+
+  const renderText = (text: string) =>
+    text.split(/\s+/).filter(Boolean).map((word, j) => {
+      const hl = matchSet.has(normalizeArabicForSearch(word));
+      return (
+        <span key={j} className={hl ? "mhome-verse-hl" : undefined} style={hl ? { color } : undefined}>
+          {word}{" "}
+        </span>
+      );
+    });
+
+  const ex = verses[idx];
+  const hasMore = total > n;
+
+  return (
+    <div className="mhome-rv">
+      <div className="mhome-rv-lab">
+        <span className="mhome-where-lab">{t("versesTitle")}</span>
+        <span className="mhome-where-of">{t("versesCount", { shown: n, total })}</span>
+      </div>
+
+      {!open ? (
+        <div className="mhome-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+          <div className="mhome-carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <button
+              key={idx}
+              type="button"
+              className={`mhome-verse ${dir >= 0 ? "is-next" : "is-prev"}`}
+              onClick={() => setOpen(true)}
+              title={`${surahName(ex.sura)} ${ex.sura}:${ex.ayah}`}
+              aria-expanded={false}
+            >
+              <p dir="rtl" lang="ar" className="mhome-verse-ar">{renderText(ex.text)}</p>
+              <span className="mhome-verse-ref">
+                <span className="mhome-verse-name">{surahName(ex.sura)}</span>
+                <span className="mhome-verse-num">{ex.sura}:{ex.ayah}</span>
+              </span>
+            </button>
+          </div>
+          {n > 1 && (
+            <div className="mhome-dots" role="tablist" aria-label={t("versesTitle")}>
+              {verses.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === idx}
+                  aria-label={`${i + 1} / ${n}`}
+                  className={`mhome-dot ${i === idx ? "is-active" : ""}`}
+                  style={i === idx ? { background: color } : undefined}
+                  onClick={() => go(i, i > idx ? 1 : -1)}
+                />
+              ))}
+            </div>
+          )}
+          <div className="mhome-rv-hint">{t("versesOpenHint")}</div>
+        </div>
+      ) : (
+        <div className="mhome-rv-open">
+          <div className="mhome-bd-head">
+            <span className="mhome-bd-eyebrow">{t("versesCount", { shown: n, total })}</span>
+            <button type="button" className="mhome-bd-close" onClick={() => setOpen(false)} aria-label={t("closeVerse")}>×</button>
+          </div>
+          <div className="mhome-rv-list">
+            {verses.map((v, i) => (
+              <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah)}>
+                <p dir="rtl" lang="ar" className="mhome-rv-ar">{renderText(v.text)}</p>
+                <span className="mhome-rv-ref">
+                  <span className="mhome-verse-name">{surahName(v.sura)}</span>
+                  <span className="mhome-verse-num">{v.sura}:{v.ayah}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          {hasMore && (
+            <button type="button" className="mhome-rv-more" onClick={onOpenFull}>
+              {t("seeAllVerses", { total })} <span aria-hidden="true">→</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1101,6 +1303,33 @@ const styles = `
   /* In RTL, "next" enters from the left (reading direction is mirrored). */
   :global([dir="rtl"]) .mhome-verse.is-next { animation-name: mhSlidePrev; }
   :global([dir="rtl"]) .mhome-verse.is-prev { animation-name: mhSlideNext; }
+
+  /* result verse carousel (ayahs containing the searched word) */
+  .mhome-rv { display: flex; flex-direction: column; gap: 12px; }
+  .mhome-rv-lab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mhome-rv-hint { text-align: center; font: 500 10.5px 'Space Grotesk', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.4); }
+  .mhome-rv-open {
+    display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 16px;
+    background: rgba(var(--mh-panel-rgb), 0.92); border: 1px solid var(--mh-hairline); animation: mhfade 0.3s ease;
+  }
+  .mhome-rv-list { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+  .mhome-rv-row {
+    text-align: start; cursor: pointer; display: grid; grid-template-rows: auto auto; gap: 8px;
+    padding: 14px 16px; border-radius: 12px; background: rgba(var(--mh-card-rgb), 0.5);
+    border: 1px solid var(--mh-hairline); transition: border-color 0.16s, background 0.16s;
+  }
+  .mhome-rv-row:hover { border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.85); }
+  .mhome-rv-ar {
+    margin: 0; font-family: 'Amiri', serif; font-size: 18px; line-height: 1.8; color: rgba(var(--mh-ink-rgb), 0.85);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .mhome-rv-ref { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .mhome-rv-more {
+    cursor: pointer; text-align: center; padding: 12px 16px; border-radius: 12px;
+    border: 1px dashed var(--mh-accent-border); background: transparent; color: var(--mh-accent);
+    font: 600 12.5px 'Space Grotesk', sans-serif; transition: background 0.16s, border-color 0.16s;
+  }
+  .mhome-rv-more:hover { background: rgba(var(--mh-card-rgb), 0.6); border-color: var(--mh-accent); }
 
   /* inline word-by-word expand */
   .mhome-verse.is-open { border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.8); border-radius: 16px 16px 0 0; }

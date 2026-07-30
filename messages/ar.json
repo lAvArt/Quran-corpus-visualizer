@@ -42,6 +42,10 @@
         "wordByWord": "كلمة بكلمة",
         "closeVerse": "إغلاق",
         "openInGraphs": "افتح في أدوات الرسم",
+        "versesTitle": "آيات تحتوي هذه الكلمة",
+        "versesCount": "{shown} من {total}",
+        "versesOpenHint": "اضغط لعرض الآيات",
+        "seeAllVerses": "اعرض كل {total} في المدونة الكاملة",
         "pos": {
             "N": "اسم",
             "V": "فعل",

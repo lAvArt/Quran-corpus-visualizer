@@ -42,6 +42,10 @@
         "wordByWord": "Word by word",
         "closeVerse": "Close",
         "openInGraphs": "Open in graph tools",
+        "versesTitle": "Ayahs with this word",
+        "versesCount": "{shown} of {total}",
+        "versesOpenHint": "Tap to list them",
+        "seeAllVerses": "See all {total} in the full corpus",
         "pos": {
             "N": "noun",
             "V": "verb",

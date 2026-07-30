@@ -65,6 +65,35 @@ async function main() {
     } catch { failures++; console.log(`❌ HOME ${q} → NO count card (${note})`); }
   }
 
+  // ── Result verse carousel (ayahs containing the searched word) ──
+  // API returns preview ayahs.
+  try {
+    const apiRes = await page.request.get(`${BASE}/api/corpus/occurrences?kind=root&term=${encodeURIComponent("رحم")}&limit=10`);
+    const apiJson = await apiRes.json();
+    const okApi = Array.isArray(apiJson.ayahs) && apiJson.ayahs.length > 0 && typeof apiJson.ayahs[0].text === "string";
+    if (!okApi) failures++;
+    console.log(`${okApi ? "✅" : "❌"} API /occurrences رحم → ${apiJson.ayahs?.length ?? 0} ayahs`);
+  } catch (e) { failures++; console.log(`❌ API /occurrences → ${(e as Error).message.split("\n")[0]}`); }
+
+  // UI: carousel shows for a root search, expands to a list, offers full-corpus CTA.
+  for (const [q, kind] of [["رحم", "root"], ["موسى", "name"]] as const) {
+    await page.goto(`${BASE}/en`);
+    const si = page.locator(".mhome-search input");
+    await si.waitFor({ state: "visible", timeout: 30000 });
+    await si.fill(q); await si.press("Enter");
+    try {
+      await page.waitForSelector(".mhome-rv", { state: "visible", timeout: 12000 });
+      await page.locator(".mhome-rv .mhome-verse").first().click(); // expand
+      await page.waitForSelector(".mhome-rv-list", { state: "visible", timeout: 6000 });
+      const rows = await page.locator(".mhome-rv-row").count();
+      const hasMore = await page.locator(".mhome-rv-more").count();
+      const ok = rows > 0;
+      if (!ok) failures++;
+      console.log(`${ok ? "✅" : "❌"} CAROUSEL ${q} (${kind}) → ${rows} ayahs listed, full-corpus CTA=${hasMore > 0}`);
+      if (q === "رحم") await page.screenshot({ path: `${SHOTS}/carousel-rahm.png` });
+    } catch (e) { failures++; console.log(`❌ CAROUSEL ${q} → ${(e as Error).message.split("\n")[0]}`); }
+  }
+
   // ── /search workspace: a name query surfaces its occurrence dossier ──
   // The root dossier now falls back to lemma grouping for root-less names; wait
   // for the full corpus so the occurrence total is complete.
