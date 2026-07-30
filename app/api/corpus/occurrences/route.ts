@@ -5,10 +5,11 @@ import { createClient } from "@/lib/supabase/server";
  * GET /api/corpus/occurrences?kind=root|lemma&term=<arabic>&limit=10
  *
  * Returns the FIRST `limit` distinct ayahs (sūrah order) that contain the given
- * root or lemma, each with its Uthmani text and the surface form(s) that
- * matched (so the client can highlight the searched word). Powers the home
- * search result's verse carousel — the total occurrence count comes from the
- * precomputed stats, so this only needs the preview set.
+ * root or lemma, each with its Uthmani text and the 1-indexed WORD POSITIONS
+ * that matched (so the client highlights the searched word by position — the
+ * corpus stores surface text as font-glyph presentation forms, so text
+ * comparison is unreliable). Powers the home search result's verse carousel;
+ * the total occurrence count comes from the precomputed stats.
  *
  * corpus_tokens / ayahs are anon-readable (RLS public SELECT), so no RPC.
  */
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     //    first `limit` distinct ayahs even for high-frequency terms.
     const { data: toks, error: tErr } = await supabase
       .from("corpus_tokens")
-      .select("sura,ayah,text")
+      .select("sura,ayah,position")
       .eq(column, wanted)
       .order("sura", { ascending: true })
       .order("ayah", { ascending: true })
@@ -55,19 +56,19 @@ export async function GET(request: NextRequest) {
       .limit(400);
     if (tErr) throw tErr;
 
-    // 2. First `limit` distinct ayahs, collecting matched surfaces per ayah.
+    // 2. First `limit` distinct ayahs, collecting matched word positions per ayah.
     const order: string[] = [];
-    const matches = new Map<string, Set<string>>();
+    const positions = new Map<string, Set<number>>();
     for (const t of toks ?? []) {
       const key = `${t.sura}:${t.ayah}`;
-      let set = matches.get(key);
+      let set = positions.get(key);
       if (!set) {
         if (order.length >= limit) continue;
-        set = new Set<string>();
-        matches.set(key, set);
+        set = new Set<number>();
+        positions.set(key, set);
         order.push(key);
       }
-      if (t.text) set.add(t.text);
+      if (typeof t.position === "number") set.add(t.position);
     }
     if (order.length === 0) return NextResponse.json({ ayahs: [] });
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
         sura,
         ayah,
         text: textById.get(key) ?? "",
-        matches: [...(matches.get(key) ?? [])],
+        positions: [...(positions.get(key) ?? [])].sort((a, b) => a - b),
       };
     });
 

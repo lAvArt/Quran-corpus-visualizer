@@ -78,7 +78,7 @@ async function main() {
   } catch (e) { failures++; console.log(`❌ API /occurrences → ${(e as Error).message.split("\n")[0]}`); }
 
   // UI: carousel shows for a root search, expands to a list, offers full-corpus CTA.
-  for (const [q, kind] of [["رحم", "root"], ["موسى", "name"]] as const) {
+  for (const [q, kind] of [["رحم", "root"], ["موسى", "name"], ["اسماعيل", "name"]] as const) {
     await page.goto(`${BASE}/en`);
     const si = page.locator(".mhome-search input");
     await si.waitFor({ state: "visible", timeout: 30000 });
@@ -89,9 +89,10 @@ async function main() {
       await page.waitForSelector(".mhome-rv-list", { state: "visible", timeout: 6000 });
       const rows = await page.locator(".mhome-rv-row").count();
       const hasMore = await page.locator(".mhome-rv-more").count();
-      const ok = rows > 0;
+      const highlights = await page.locator(".mhome-rv-list .mhome-verse-hl").count();
+      const ok = rows > 0 && highlights > 0;
       if (!ok) failures++;
-      console.log(`${ok ? "✅" : "❌"} CAROUSEL ${q} (${kind}) → ${rows} ayahs listed, full-corpus CTA=${hasMore > 0}`);
+      console.log(`${ok ? "✅" : "❌"} CAROUSEL ${q} (${kind}) → ${rows} ayahs, ${highlights} highlighted, CTA=${hasMore > 0}`);
       if (q === "رحم") await page.screenshot({ path: `${SHOTS}/carousel-rahm.png` });
     } catch (e) { failures++; console.log(`❌ CAROUSEL ${q} → ${(e as Error).message.split("\n")[0]}`); }
   }
