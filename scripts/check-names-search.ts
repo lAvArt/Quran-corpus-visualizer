@@ -52,6 +52,8 @@ async function main() {
     ["داوود", 16, "two-waw spelling of داود"],
     ["ذو القرنين", 3, "compound"],
     ["يأجوج ومأجوج", 2, "compound"],
+    ["اسماع", 12, "partial → اسماعيل"],
+    ["موس", 136, "partial → موسى"],
   ];
   for (const [q, expected, note] of EXTRA) {
     await input.fill(""); await input.fill(q); await input.press("Enter");
