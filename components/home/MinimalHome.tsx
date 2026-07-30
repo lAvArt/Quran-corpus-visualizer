@@ -788,7 +788,6 @@ function ResultPanel({
           verses={verses}
           color={color}
           total={stat.verses}
-          matchTerm={fetchTerm}
           t={t}
           onOpenAyah={onOpenAyah}
           onOpenFull={() => (isName ? onExploreName(stat) : onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0]))}
@@ -839,7 +838,6 @@ function ResultVerses({
   verses,
   color,
   total,
-  matchTerm,
   t,
   onOpenAyah,
   onOpenFull,
@@ -847,7 +845,6 @@ function ResultVerses({
   verses: OccurrenceAyah[];
   color: string;
   total: number;
-  matchTerm: string;
   t: ReturnType<typeof useTranslations>;
   onOpenAyah: (sura: number, ayah: number) => void;
   onOpenFull: () => void;
@@ -894,25 +891,20 @@ function ResultVerses({
     }
   };
 
-  // Highlight the searched word(s) within an ayah by normalized comparison, so
-  // Uthmani orthography / diacritics don't defeat the match.
-  const matchSet = useMemo(() => {
-    const s = new Set<string>();
-    for (const v of verses) for (const m of v.matches) s.add(normalizeArabicForSearch(m));
-    const term = normalizeArabicForSearch(matchTerm);
-    if (term) s.add(term);
-    return s;
-  }, [verses, matchTerm]);
-
-  const renderText = (text: string) =>
-    text.split(/\s+/).filter(Boolean).map((word, j) => {
-      const hl = matchSet.has(normalizeArabicForSearch(word));
+  // Highlight the searched word(s) by POSITION — the corpus stores surface text
+  // as font-glyph presentation forms, so the API returns the matched 1-indexed
+  // word positions instead, and we mark the ayah's Nth word.
+  const renderText = (ayah: OccurrenceAyah) => {
+    const hit = new Set(ayah.positions);
+    return ayah.text.split(/\s+/).filter(Boolean).map((word, j) => {
+      const hl = hit.has(j + 1);
       return (
         <span key={j} className={hl ? "mhome-verse-hl" : undefined} style={hl ? { color } : undefined}>
           {word}{" "}
         </span>
       );
     });
+  };
 
   const ex = verses[idx];
   const hasMore = total > n;
@@ -935,7 +927,7 @@ function ResultVerses({
               title={`${surahName(ex.sura)} ${ex.sura}:${ex.ayah}`}
               aria-expanded={false}
             >
-              <p dir="rtl" lang="ar" className="mhome-verse-ar">{renderText(ex.text)}</p>
+              <p dir="rtl" lang="ar" className="mhome-verse-ar">{renderText(ex)}</p>
               <span className="mhome-verse-ref">
                 <span className="mhome-verse-name">{surahName(ex.sura)}</span>
                 <span className="mhome-verse-num">{ex.sura}:{ex.ayah}</span>
@@ -969,7 +961,7 @@ function ResultVerses({
           <div className="mhome-rv-list">
             {verses.map((v, i) => (
               <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah)}>
-                <p dir="rtl" lang="ar" className="mhome-rv-ar">{renderText(v.text)}</p>
+                <p dir="rtl" lang="ar" className="mhome-rv-ar">{renderText(v)}</p>
                 <span className="mhome-rv-ref">
                   <span className="mhome-verse-name">{surahName(v.sura)}</span>
                   <span className="mhome-verse-num">{v.sura}:{v.ayah}</span>

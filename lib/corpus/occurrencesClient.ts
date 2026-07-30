@@ -10,8 +10,8 @@ export interface OccurrenceAyah {
   ayah: number;
   /** Uthmani ayah text. */
   text: string;
-  /** Surface form(s) of the searched word in this ayah (for highlighting). */
-  matches: string[];
+  /** 1-indexed word positions of the searched word in this ayah (for highlight). */
+  positions: number[];
 }
 
 export async function fetchOccurrences(
