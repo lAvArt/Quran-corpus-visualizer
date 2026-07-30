@@ -220,6 +220,33 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
   return null;
 }
 
+/**
+ * All names whose key (or alias) starts with the query — for the result
+ * chooser. Proper nouns first, then by count. Min 3 chars (a 1–2 letter prefix
+ * is too broad). Excludes the exact match (the caller lists it separately).
+ */
+export function namePrefixMatches(idx: NameStatsIndex, query: string, limit = 8): NameStat[] {
+  const qn = normalizeArabicForSearch(query);
+  if (qn.length < 3) return [];
+  const seen = new Set<string>();
+  const hits: NameStat[] = [];
+  const add = (e: NameStat | undefined) => {
+    if (!e || e.key === qn || seen.has(e.key)) return;
+    seen.add(e.key);
+    hits.push(e);
+  };
+  for (const e of Object.values(idx.names)) if (e.key.startsWith(qn)) add(e);
+  if (idx.aliasIndex) {
+    for (const [ak, ek] of Object.entries(idx.aliasIndex)) if (ak.startsWith(qn)) add(idx.names[ek]);
+  }
+  hits.sort((a, b) => {
+    const as = a.kind === "name" ? 1 : 0;
+    const bs = b.kind === "name" ? 1 : 0;
+    return bs - as || b.count - a.count;
+  });
+  return hits.slice(0, limit);
+}
+
 /** Deterministic "name of the day" from the featured list (optional chips). */
 export function nameOfTheDay(idx: NameStatsIndex, epochDay: number): NameStat | null {
   if (!idx.featured.length) return null;

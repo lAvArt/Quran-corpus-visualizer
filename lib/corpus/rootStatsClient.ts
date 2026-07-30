@@ -7,6 +7,8 @@
  * its Buckwalter form, a romanized skeleton, or the curated English gloss.
  */
 
+import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+
 /** A reconstructed example verse: word tokens with the root word(s) marked (r=1). */
 export interface ExampleVerse {
   /** sūrah */
@@ -256,6 +258,23 @@ export function lookupRoot(idx: RootStatsIndex, query: string): RootStat | null 
     }
   }
   return null;
+}
+
+/**
+ * All roots whose bare form starts with the query (min 3 chars), by count — for
+ * the result chooser. Excludes an exact bare match (listed separately). Uses the
+ * shared search normalizer so it agrees with the name index and form index.
+ */
+export function rootPrefixMatches(idx: RootStatsIndex, query: string, limit = 6): RootStat[] {
+  const qn = normalizeArabicForSearch(query);
+  if (qn.length < 3) return [];
+  return Object.values(idx.roots)
+    .filter((r) => {
+      const b = normalizeArabicForSearch(r.bare);
+      return b !== qn && b.startsWith(qn);
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
 }
 
 /** Deterministic "root of the day" from the featured list. */

@@ -96,6 +96,26 @@ async function main() {
     } catch (e) { failures++; console.log(`❌ CAROUSEL ${q} → ${(e as Error).message.split("\n")[0]}`); }
   }
 
+  // ── Disambiguation chooser (root + same-prefix name) ──
+  for (const [q, note] of [["عمر", "root عمر + name عمران"], ["اسم", "root سمو + name إسماعيل"]] as const) {
+    await page.goto(`${BASE}/en`);
+    const si = page.locator(".mhome-search input");
+    await si.waitFor({ state: "visible", timeout: 30000 });
+    await si.fill(q); await si.press("Enter");
+    try {
+      await page.waitForSelector(".mhome-chooser", { state: "visible", timeout: 12000 });
+      const rows = await page.locator(".mhome-chooser-row").count();
+      const ok = rows >= 2;
+      if (!ok) failures++;
+      console.log(`${ok ? "✅" : "❌"} CHOOSER ${q} → ${rows} options (${note})`);
+      // Picking an option shows its result card.
+      await page.locator(".mhome-chooser-row").first().click();
+      await page.waitForSelector(".mhome-count", { state: "visible", timeout: 6000 });
+      console.log(`   ↳ picked first → result card shown`);
+      if (q === "اسم") await page.screenshot({ path: `${SHOTS}/chooser-ism.png` });
+    } catch (e) { failures++; console.log(`❌ CHOOSER ${q} → ${(e as Error).message.split("\n")[0]}`); }
+  }
+
   // ── /search workspace: a name query surfaces its occurrence dossier ──
   // The root dossier now falls back to lemma grouping for root-less names; wait
   // for the full corpus so the occurrence total is complete.
