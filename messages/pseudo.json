@@ -42,6 +42,10 @@
         "wordByWord": "[!! Ŵôṛḋ ḃý ŵôṛḋ !!]",
         "closeVerse": "[!! Çļôṡè !!]",
         "openInGraphs": "[!! Ôṗèñ îñ ġṛâṗħ ťôôļṡ !!]",
+        "versesTitle": "[!! Âýâħṡ ŵîťħ ťħîṡ ŵôṛḋ !!]",
+        "versesCount": "[!! {shown} ôḟ {total} !!]",
+        "versesOpenHint": "[!! Ťâṗ ťô ļîṡť ťħèṁ !!]",
+        "seeAllVerses": "[!! Ṡèè âļļ {total} îñ ťħè ḟûļļ çôṛṗûṡ !!]",
         "pos": {
             "N": "[!! ñôûñ !!]",
             "V": "[!! vèṛḃ !!]",
