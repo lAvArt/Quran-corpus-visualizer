@@ -48,6 +48,7 @@
     "i18n:check": "node scripts/check-i18n.js",
     "i18n:pseudo": "node scripts/pseudo-localize.js",
     "fetch:morphology": "node scripts/fetch-morphology.js",
+    "data:names": "tsx scripts/build-name-stats.ts",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed-corpus.ts",
     "db:email-templates": "dotenv -e .env.local -- tsx scripts/push-email-templates.ts",
     "docs:generate": "concurrently -k -s first \"npm run dev\" \"wait-on http://127.0.0.1:3000 && npx tsx scripts/generate-docs.ts\""

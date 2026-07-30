@@ -222,10 +222,24 @@ async function enrichTokensWithMorphology(
     }
 
     let filled = 0;
+    let relemmad = 0;
     const enriched = tokens.map((t) => {
         if (t.root?.trim()) return t;
         const m = map.get(`${t.sura}:${t.ayah}:${t.position}`);
-        if (!m?.root) return t;
+        if (!m) return t;
+        if (!m.root) {
+            // Root-less word (proper noun / particle): no root to fill, but the
+            // source (Supabase) derives a word's lemma from its FIRST segment,
+            // so a leading proclitic (وَ / يٰ / بِ / ال — no LEM) steals a name's
+            // lemma. The QAC map's content-lemma is authoritative — correcting
+            // it keeps every occurrence (وَمُوسَىٰ, يٰمُوسَىٰ) counted under the name,
+            // so /search and the inspector agree with the offline name-stats.
+            if (m.lemma && m.lemma !== t.lemma) {
+                relemmad++;
+                return { ...t, lemma: m.lemma };
+            }
+            return t;
+        }
         filled++;
         return {
             ...t,
@@ -239,7 +253,7 @@ async function enrichTokensWithMorphology(
             },
         };
     });
-    console.log(`[CorpusLoader] Morphology enrichment: filled ${filled.toLocaleString()} roots from QAC`);
+    console.log(`[CorpusLoader] Morphology enrichment: filled ${filled.toLocaleString()} roots, corrected ${relemmad.toLocaleString()} root-less lemmas from QAC`);
     return enriched;
 }
 

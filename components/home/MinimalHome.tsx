@@ -16,6 +16,19 @@ import {
   type RootStatsIndex,
   type ExampleVerse,
 } from "@/lib/corpus/rootStatsClient";
+import {
+  loadNameStats,
+  lookupName,
+  type NameStat,
+  type NameStatsIndex,
+} from "@/lib/corpus/nameStatsClient";
+
+/** A home search hit is either a root or a root-less name/word. */
+type HomeHit = RootStat | NameStat;
+/** NameStat carries a `kind`; RootStat does not — the structural discriminator. */
+function isNameHit(hit: HomeHit): hit is NameStat {
+  return "kind" in hit;
+}
 
 // SSR-safe "is this a narrow (≤640px) viewport" read — same
 // useSyncExternalStore + matchMedia shape as VizControlContext's mobile
@@ -155,6 +168,7 @@ export default function MinimalHome() {
   const [dq, setDq] = useState("");
   const [raised, setRaised] = useState(false);
   const [idx, setIdx] = useState<RootStatsIndex | null>(null);
+  const [nameIdx, setNameIdx] = useState<NameStatsIndex | null>(null);
   // Featured root is stable for the whole local calendar day — same root all
   // day, changing at local midnight — not per session/reload. This is a plain
   // integer day count (for `idx.featured[epochDay % length]`), not a PRNG
@@ -169,6 +183,11 @@ export default function MinimalHome() {
     let on = true;
     loadRootStats()
       .then((d) => on && setIdx(d))
+      .catch(() => {});
+    // Root-less names/words (Moses, Mary, من, حتى…) live in a parallel index so
+    // typing a name resolves to its own occurrence card instead of "no match".
+    loadNameStats()
+      .then((d) => on && setNameIdx(d))
       .catch(() => {});
     return () => {
       on = false;
@@ -226,14 +245,24 @@ export default function MinimalHome() {
     setDq(v);
   }, []);
 
-  const result = useMemo(() => (idx && dq.trim() ? lookupRoot(idx, dq) : null), [idx, dq]);
+  // Names first: lookupRoot's permissive de-affix/prefix fallbacks would
+  // otherwise resolve a name (e.g. فرعون) to a wrong root, shadowing the name
+  // index. A root-less name has no root to collide with, so name-first is safe.
+  const result = useMemo<HomeHit | null>(() => {
+    if (!dq.trim()) return null;
+    const byName = nameIdx ? lookupName(nameIdx, dq) : null;
+    if (byName) return byName;
+    return idx ? lookupRoot(idx, dq) : null;
+  }, [idx, nameIdx, dq]);
   const today = useMemo(() => (idx ? rootOfTheDay(idx, epochDay) : null), [idx, epochDay]);
   const todayGloss = useMemo(() => (today ? resolveGloss(locale, today.bare, today.gloss) : null), [today, locale]);
   const chips = useMemo(() => (idx ? idx.featured.slice(0, 6).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
   const suggestions = useMemo(() => (idx ? idx.featured.slice(0, 3).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
 
   const hasQuery = dq.trim().length > 0;
-  const noMatch = hasQuery && !!idx && !result;
+  // Wait for BOTH indexes before declaring "no match", so a name doesn't flash
+  // no-match while the name index is still loading.
+  const noMatch = hasQuery && !!idx && !!nameIdx && !result;
 
   const enterApp = useCallback(
     (root?: string, viz = "root-network", surah?: number) => {
@@ -261,6 +290,23 @@ export default function MinimalHome() {
         token: `${s}:${a}:${w}`,
         root,
       });
+      router.push(`/${locale}?${sp.toString()}`);
+    },
+    [locale, router]
+  );
+
+  // Names have no root, so they can't use enterApp (?root=… is meaningless
+  // downstream). Focus the name's first occurrence via ?token — the inspector
+  // groups by that token's lemma (the name) and shows its full occurrence card.
+  const enterName = useCallback(
+    (stat: NameStat) => {
+      const sp = new URLSearchParams({ viz: "radial-sura", entry: "calm" });
+      if (stat.rep) {
+        sp.set("surah", String(stat.rep.sura));
+        sp.set("ayah", String(stat.rep.ayah));
+        sp.set("token", `${stat.rep.sura}:${stat.rep.ayah}:${stat.rep.word}`);
+      }
+      if (stat.lemma) sp.set("lemma", stat.lemma);
       router.push(`/${locale}?${sp.toString()}`);
     },
     [locale, router]
@@ -353,7 +399,7 @@ export default function MinimalHome() {
           {result ? (
             <span className="mhome-matched">
               <span className="mhome-match-dot" style={{ background: rootColor(result) }} />
-              {t("matched", { root: result.root })}
+              {isNameHit(result) ? t("matchedName", { name: result.root }) : t("matched", { root: result.root })}
             </span>
           ) : (
             <kbd className="mhome-enter">{t("enterHint")} ⏎</kbd>
@@ -363,7 +409,7 @@ export default function MinimalHome() {
         {/* reveal zone */}
         <div className="mhome-reveal">
           {result ? (
-            <ResultPanel stat={result} t={t} onExplore={enterApp} onBack={() => window.history.back()} />
+            <ResultPanel stat={result} t={t} onExplore={enterApp} onExploreName={enterName} onBack={() => window.history.back()} />
           ) : noMatch ? (
             <div className="mhome-nomatch">
               <p>{t("noMatch", { q: q.trim() })}</p>
@@ -480,16 +526,19 @@ function ResultPanel({
   stat,
   t,
   onExplore,
+  onExploreName,
   onBack,
 }: {
-  stat: RootStat;
+  stat: HomeHit;
   t: ReturnType<typeof useTranslations>;
   onExplore: (root?: string, viz?: string, surah?: number) => void;
+  onExploreName: (stat: NameStat) => void;
   onBack: () => void;
 }) {
   const color = rootColor(stat);
   const surahName = useSurahName();
   const locale = useLocale();
+  const isName = isNameHit(stat);
   const resultGloss = resolveGloss(locale, stat.bare, stat.gloss);
   const maxTop = Math.max(1, ...stat.top.map((x) => x[1]));
   return (
@@ -578,23 +627,34 @@ function ResultPanel({
       </div>
 
       <div className="mhome-ctas">
-        {/* Primary lands on the radial surah view — one surah, the root's
-            words in context — the gentlest first graph; the network is the
-            explicit next step up in density. Scope to the SAME surah the
-            home preview showed (the root's first occurrence, which is where
-            the verse carousel starts) rather than its highest-frequency
-            surah, so the view the user opens matches the verse they saw. */}
-        <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0])}>
-          {t("exploreRoot")} <span aria-hidden="true">→</span>
-        </button>
-        <div className="mhome-ctas-sub">
-          <button type="button" className="mhome-cta-s" onClick={() => onExplore(stat.bare, "root-network")}>
-            {t("seeNetwork")}
+        {isName ? (
+          /* Names have no root, so the root-network / sankey sub-CTAs (which
+             emit ?root=…) don't apply. A single primary opens the name's first
+             occurrence in context, where the inspector shows its full count. */
+          <button type="button" className="mhome-cta-p" onClick={() => onExploreName(stat)}>
+            {t("exploreName")} <span aria-hidden="true">→</span>
           </button>
-          <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "sankey-flow", stat.top[0]?.[0])}>
-            {t("compareForms", { n: stat.forms })}
-          </button>
-        </div>
+        ) : (
+          <>
+            {/* Primary lands on the radial surah view — one surah, the root's
+                words in context — the gentlest first graph; the network is the
+                explicit next step up in density. Scope to the SAME surah the
+                home preview showed (the root's first occurrence, which is where
+                the verse carousel starts) rather than its highest-frequency
+                surah, so the view the user opens matches the verse they saw. */}
+            <button type="button" className="mhome-cta-p" onClick={() => onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0])}>
+              {t("exploreRoot")} <span aria-hidden="true">→</span>
+            </button>
+            <div className="mhome-ctas-sub">
+              <button type="button" className="mhome-cta-s" onClick={() => onExplore(stat.bare, "root-network")}>
+                {t("seeNetwork")}
+              </button>
+              <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "sankey-flow", stat.top[0]?.[0])}>
+                {t("compareForms", { n: stat.forms })}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

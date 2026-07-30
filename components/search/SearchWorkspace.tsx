@@ -15,7 +15,7 @@ import { readDevSearchStatus } from "@/lib/dev/testOverrides";
 import { useCorpusData } from "@/lib/hooks/useCorpusData";
 import { useSearch } from "@/lib/hooks/useSearch";
 import type { SearchMatchType } from "@/lib/analytics/events";
-import { normalizeRootFamily } from "@/lib/search/arabicNormalize";
+import { normalizeRootFamily, normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 import { parseSearchQuery } from "@/lib/search/queryParser";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import type { SearchResultItem, SearchResultKind } from "@/lib/search/searchTypes";
@@ -87,8 +87,16 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
     if (selectedRoot?.trim()) return selectedRoot.trim();
     if (search.filterRoot.trim()) return search.filterRoot.trim();
     if (parsedQuery.root?.trim()) return parsedQuery.root.trim();
-    if (search.queryIntent === "arabic-root" && search.query.trim()) return search.query.trim();
-    return search.results.find((result) => result.matchedRoot?.trim())?.matchedRoot?.trim() ?? "";
+    // Any bare Arabic query is a spotlight candidate — rootInsight tries a root
+    // family first, then a root-less name/word (Moses, Mary, حتى…) by lemma.
+    if ((search.queryIntent === "arabic-root" || search.queryIntent === "arabic-text") && search.query.trim()) {
+      return search.query.trim();
+    }
+    return (
+      search.results.find((result) => result.matchedRoot?.trim())?.matchedRoot?.trim() ??
+      search.results.find((result) => result.matchedLemma?.trim())?.matchedLemma?.trim() ??
+      ""
+    );
   }, [parsedQuery.root, search.filterRoot, search.query, search.queryIntent, search.results, selectedRoot]);
 
   useEffect(() => {
@@ -99,7 +107,21 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
     if (!spotlightRoot) return null;
 
     const rootFamily = normalizeRootFamily(spotlightRoot);
-    const matchingTokens = allTokens.filter((token) => normalizeRootFamily(token.root) === rootFamily);
+    let matchingTokens = allTokens.filter((token) => token.root && normalizeRootFamily(token.root) === rootFamily);
+    let byName = false;
+    if (matchingTokens.length === 0) {
+      // No root family — try a root-less name / function word by normalized
+      // lemma (proper nouns like موسى / مريم have a lemma but no root). The
+      // loader/enrichment makes token.lemma reliable for prefixed occurrences,
+      // so this counts every occurrence, matching the home name card.
+      const queryNorm = normalizeArabicForSearch(spotlightRoot);
+      if (queryNorm) {
+        matchingTokens = allTokens.filter(
+          (token) => !token.root && normalizeArabicForSearch(token.lemma) === queryNorm,
+        );
+        byName = matchingTokens.length > 0;
+      }
+    }
     if (matchingTokens.length === 0) return null;
 
     const rootCounts = new Map<string, number>();
@@ -124,10 +146,11 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
       surahMap.set(token.sura, entry);
     }
 
-    const displayRoot =
-      [...rootCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
-      matchingTokens[0]?.root ??
-      spotlightRoot;
+    const displayRoot = byName
+      ? (matchingTokens[0]?.lemma || spotlightRoot)
+      : ([...rootCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+         matchingTokens[0]?.root ??
+         spotlightRoot);
 
     return {
       displayRoot,

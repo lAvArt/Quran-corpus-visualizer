@@ -25,7 +25,7 @@ interface BaseMeta {
 
 export type SearchDocMeta =
   | (BaseMeta & { kind: "root"; root: string; lemma: string; count: number; gloss: string })
-  | (BaseMeta & { kind: "lemma"; root: string; lemma: string; gloss: string })
+  | (BaseMeta & { kind: "lemma"; root: string; lemma: string; gloss: string; count: number })
   | (BaseMeta & { kind: "ayah" })
   | (BaseMeta & { kind: "surah" });
 
@@ -56,7 +56,7 @@ export function buildSearchIndexes(tokens: CorpusToken[]): SearchIndexes {
   const metaById = new Map<string, SearchDocMeta>();
 
   interface RootAgg { rep: CorpusToken; count: number; forms: Set<string>; glosses: Set<string>; lemmas: Set<string> }
-  interface LemmaAgg { rep: CorpusToken; forms: Set<string>; glosses: Set<string>; root: string }
+  interface LemmaAgg { rep: CorpusToken; count: number; forms: Set<string>; glosses: Set<string>; root: string }
   interface AyahAgg { rep: CorpusToken; texts: string[]; glosses: Set<string>; roots: Set<string> }
 
   const roots = new Map<string, RootAgg>();
@@ -84,9 +84,10 @@ export function buildSearchIndexes(tokens: CorpusToken[]): SearchIndexes {
     if (token.lemma) {
       let agg = lemmas.get(token.lemma);
       if (!agg) {
-        agg = { rep: token, forms: new Set(), glosses: new Set(), root: token.root };
+        agg = { rep: token, count: 0, forms: new Set(), glosses: new Set(), root: token.root };
         lemmas.set(token.lemma, agg);
       }
+      agg.count++;
       if (token.text.trim()) agg.forms.add(token.text);
       if (gloss) agg.glosses.add(gloss);
     }
@@ -142,6 +143,7 @@ export function buildSearchIndexes(tokens: CorpusToken[]): SearchIndexes {
       root: agg.root,
       lemma,
       gloss: [...agg.glosses][0] ?? "",
+      count: agg.count,
       tokenId: agg.rep.id,
       sura: agg.rep.sura,
       ayah: agg.rep.ayah,
