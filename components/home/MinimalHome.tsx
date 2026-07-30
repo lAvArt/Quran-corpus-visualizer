@@ -11,6 +11,7 @@ import { ROOT_GLOSSES_AR } from "@/lib/data/rootGlossesAr";
 import {
   loadRootStats,
   lookupRoot,
+  rootPrefixMatches,
   rootOfTheDay,
   type RootStat,
   type RootStatsIndex,
@@ -19,9 +20,11 @@ import {
 import {
   loadNameStats,
   lookupName,
+  namePrefixMatches,
   type NameStat,
   type NameStatsIndex,
 } from "@/lib/corpus/nameStatsClient";
+import { loadFormIndex, lookupFormRoot, type FormIndex } from "@/lib/corpus/formIndexClient";
 import { fetchOccurrences, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
 import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
@@ -171,6 +174,10 @@ export default function MinimalHome() {
   const [raised, setRaised] = useState(false);
   const [idx, setIdx] = useState<RootStatsIndex | null>(null);
   const [nameIdx, setNameIdx] = useState<NameStatsIndex | null>(null);
+  const [formIdx, setFormIdx] = useState<FormIndex | null>(null);
+  // The candidate the user picked from the chooser (null = show chooser / the
+  // sole candidate). Cleared whenever the query changes.
+  const [selected, setSelected] = useState<HomeHit | null>(null);
   // Featured root is stable for the whole local calendar day — same root all
   // day, changing at local midnight — not per session/reload. This is a plain
   // integer day count (for `idx.featured[epochDay % length]`), not a PRNG
@@ -190,6 +197,11 @@ export default function MinimalHome() {
     // typing a name resolves to its own occurrence card instead of "no match".
     loadNameStats()
       .then((d) => on && setNameIdx(d))
+      .catch(() => {});
+    // Surface-form → root index: lets an inflected word (اسم, اسماء) resolve to
+    // its root so the chooser can offer it beside same-prefix names.
+    loadFormIndex()
+      .then((d) => on && setFormIdx(d))
       .catch(() => {});
     return () => {
       on = false;
@@ -247,24 +259,70 @@ export default function MinimalHome() {
     setDq(v);
   }, []);
 
-  // Names first: lookupRoot's permissive de-affix/prefix fallbacks would
-  // otherwise resolve a name (e.g. فرعون) to a wrong root, shadowing the name
-  // index. A root-less name has no root to collide with, so name-first is safe.
-  const result = useMemo<HomeHit | null>(() => {
-    if (!dq.trim()) return null;
-    const byName = nameIdx ? lookupName(nameIdx, dq) : null;
-    if (byName) return byName;
-    return idx ? lookupRoot(idx, dq) : null;
-  }, [idx, nameIdx, dq]);
+  // All plausible matches for the query — root(s) AND name(s) — so a shared
+  // prefix (e.g. اسم → root سمو + name إسماعيل, عمر → root عمر + name عمران)
+  // doesn't silently occlude one behind the other. Ranked: exact match first,
+  // then by occurrence count. When more than one survives, the UI shows a
+  // chooser instead of guessing.
+  const candidates = useMemo<HomeHit[]>(() => {
+    const q = dq.trim();
+    if (!q || !idx || !nameIdx) return [];
+    const qn = normalizeArabicForSearch(q);
+    const out: HomeHit[] = [];
+    const seen = new Set<string>();
+    const pushRoot = (bare?: string) => {
+      if (!bare) return;
+      const r = idx.roots[bare];
+      if (r && !seen.has(`r:${bare}`)) { seen.add(`r:${bare}`); out.push(r); }
+    };
+    const pushName = (e?: NameStat | null) => {
+      if (e && !seen.has(`n:${e.key}`)) { seen.add(`n:${e.key}`); out.push(e); }
+    };
+
+    // Multi-word queries are phrases / compound names; a sub-word's root would
+    // just be noise, so only match names (compounds) for them.
+    const multiWord = /\s/.test(q);
+
+    // Exact / direct matches.
+    pushName(nameIdx ? lookupName(nameIdx, q) : null);
+    if (!multiWord) {
+      const lr = lookupRoot(idx, q);
+      if (lr) pushRoot(lr.bare);
+      // Inflected surface word → its root (اسم → سمو, الرحمن → رحم).
+      if (formIdx) pushRoot(lookupFormRoot(formIdx, q) ?? undefined);
+    }
+    // Same-prefix alternatives (partial typing).
+    for (const e of namePrefixMatches(nameIdx, q)) pushName(e);
+    if (!multiWord) for (const r of rootPrefixMatches(idx, q)) pushRoot(r.bare);
+
+    const rank = (h: HomeHit) => {
+      const key = isNameHit(h) ? h.key : normalizeArabicForSearch(h.bare);
+      return key === qn ? 0 : 1; // exact match sorts first
+    };
+    out.sort((a, b) => rank(a) - rank(b) || b.count - a.count);
+    return out.slice(0, 8);
+  }, [idx, nameIdx, formIdx, dq]);
+
+  // The single result to render: an explicit chooser pick, or the sole
+  // candidate. More than one (and no pick) → show the chooser.
+  const active = selected ?? (candidates.length === 1 ? candidates[0] : null);
+  const showChooser = !selected && candidates.length > 1;
+
   const today = useMemo(() => (idx ? rootOfTheDay(idx, epochDay) : null), [idx, epochDay]);
   const todayGloss = useMemo(() => (today ? resolveGloss(locale, today.bare, today.gloss) : null), [today, locale]);
   const chips = useMemo(() => (idx ? idx.featured.slice(0, 6).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
   const suggestions = useMemo(() => (idx ? idx.featured.slice(0, 3).map((b) => idx.roots[b]).filter(Boolean) : []), [idx]);
 
   const hasQuery = dq.trim().length > 0;
+  const hasResult = active !== null || showChooser;
   // Wait for BOTH indexes before declaring "no match", so a name doesn't flash
   // no-match while the name index is still loading.
-  const noMatch = hasQuery && !!idx && !!nameIdx && !result;
+  const noMatch = hasQuery && !!idx && !!nameIdx && candidates.length === 0;
+
+  // A new query clears any prior chooser selection.
+  useEffect(() => {
+    setSelected(null);
+  }, [dq]);
 
   const enterApp = useCallback(
     (root?: string, viz = "root-network", surah?: number) => {
@@ -324,7 +382,7 @@ export default function MinimalHome() {
   );
 
   return (
-    <div className={`mhome ${result ? "has-result" : ""}`}>
+    <div className={`mhome ${hasResult ? "has-result" : ""}`}>
       <div className="mhome-atmos" aria-hidden="true" />
 
       {/* corner mark + lang/skip — standard logo affordance: click returns to
@@ -407,11 +465,13 @@ export default function MinimalHome() {
             autoComplete="off"
             spellCheck={false}
           />
-          {result ? (
+          {active ? (
             <span className="mhome-matched">
-              <span className="mhome-match-dot" style={{ background: rootColor(result) }} />
-              {isNameHit(result) ? t("matchedName", { name: result.root }) : t("matched", { root: result.root })}
+              <span className="mhome-match-dot" style={{ background: rootColor(active) }} />
+              {isNameHit(active) ? t("matchedName", { name: active.root }) : t("matched", { root: active.root })}
             </span>
+          ) : showChooser ? (
+            <span className="mhome-matched">{t("matchesCount", { n: candidates.length })}</span>
           ) : (
             <kbd className="mhome-enter">{t("enterHint")} ⏎</kbd>
           )}
@@ -419,8 +479,17 @@ export default function MinimalHome() {
 
         {/* reveal zone */}
         <div className="mhome-reveal">
-          {result ? (
-            <ResultPanel stat={result} t={t} onExplore={enterApp} onExploreName={enterName} onOpenAyah={openAyah} onBack={() => window.history.back()} />
+          {active ? (
+            <ResultPanel
+              stat={active}
+              t={t}
+              onExplore={enterApp}
+              onExploreName={enterName}
+              onOpenAyah={openAyah}
+              onBack={selected && candidates.length > 1 ? () => setSelected(null) : () => window.history.back()}
+            />
+          ) : showChooser ? (
+            <ResultChooser candidates={candidates} t={t} onPick={setSelected} />
           ) : noMatch ? (
             <div className="mhome-nomatch">
               <p>{t("noMatch", { q: q.trim() })}</p>
@@ -529,6 +598,63 @@ export default function MinimalHome() {
       </div>
 
       <style jsx>{styles}</style>
+    </div>
+  );
+}
+
+/**
+ * Disambiguation list — shown when a query matches more than one entity (a root
+ * and a same-prefix name, several names, …). The user picks; that choice then
+ * renders as the full result card.
+ */
+function ResultChooser({
+  candidates,
+  t,
+  onPick,
+}: {
+  candidates: HomeHit[];
+  t: ReturnType<typeof useTranslations>;
+  onPick: (hit: HomeHit) => void;
+}) {
+  const locale = useLocale();
+  return (
+    <div className="mhome-chooser">
+      <div className="mhome-chooser-lab">{t("chooserTitle")}</div>
+      <div className="mhome-chooser-list">
+        {candidates.map((c) => {
+          const isName = isNameHit(c);
+          const ar = isName ? c.root : c.bare;
+          const gloss = resolveGloss(locale, c.bare, c.gloss);
+          const color = rootColor(c);
+          return (
+            <button
+              key={`${isName ? "n" : "r"}:${isName ? c.key : c.bare}`}
+              type="button"
+              className="mhome-chooser-row"
+              onClick={() => onPick(c)}
+            >
+              <span className="mhome-chooser-dot" style={{ background: color }} />
+              <span className="mhome-chooser-ar" dir="rtl" lang="ar">{ar}</span>
+              <span className="mhome-chooser-meta">
+                <span className="mhome-chooser-kind">{isName ? t("kindName") : t("kindRoot")}</span>
+                {gloss && (
+                  <span
+                    className={gloss.isAr ? "mhome-gloss-ar" : undefined}
+                    dir={gloss.isAr ? "rtl" : undefined}
+                    lang={gloss.isAr ? "ar" : undefined}
+                  >
+                    {gloss.text.split(/[/·]/)[0].trim()}
+                  </span>
+                )}
+              </span>
+              <span className="mhome-chooser-count" style={{ color }}>
+                {c.count.toLocaleString()}
+                <span className="mhome-chooser-x">×</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1361,6 +1487,27 @@ const styles = `
   /* no match */
   .mhome-nomatch { text-align: center; animation: mhfade 0.3s ease; }
   .mhome-nomatch p { font: 400 15px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.6); margin: 0 0 14px; }
+
+  /* result chooser (disambiguation) */
+  .mhome-chooser { display: flex; flex-direction: column; gap: 12px; animation: mhfade 0.4s ease; }
+  .mhome-chooser-lab { font: 600 10px 'Space Grotesk', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-chooser-list { display: flex; flex-direction: column; gap: 8px; }
+  .mhome-chooser-row {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
+    padding: 15px 18px; border-radius: 14px; cursor: pointer; text-align: start;
+    background: rgba(var(--mh-card-rgb), 0.5); border: 1px solid var(--mh-hairline);
+    transition: border-color 0.16s, background 0.16s, transform 0.16s;
+  }
+  .mhome-chooser-row:hover { border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.85); }
+  :global([dir="ltr"]) .mhome-chooser-row:hover { transform: translateX(2px); }
+  :global([dir="rtl"]) .mhome-chooser-row:hover { transform: translateX(-2px); }
+  .mhome-chooser-dot { width: 9px; height: 9px; border-radius: 999px; }
+  .mhome-chooser-ar { font-family: 'Amiri', serif; font-size: 22px; color: var(--mh-ink); }
+  .mhome-chooser-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mhome-chooser-kind { font: 600 9px 'Space Grotesk', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.4); }
+  .mhome-chooser-meta > span:last-child { font: 500 12px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mhome-chooser-count { font: 600 17px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mhome-chooser-x { font-size: 11px; opacity: 0.6; margin-inline-start: 1px; }
 
   /* result */
   .mhome-result { animation: mhfade 0.4s ease; }

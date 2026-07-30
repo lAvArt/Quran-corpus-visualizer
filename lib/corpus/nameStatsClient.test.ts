@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { lookupName, type NameStat, type NameStatsIndex } from "@/lib/corpus/nameStatsClient";
+import { lookupName, namePrefixMatches, type NameStat, type NameStatsIndex } from "@/lib/corpus/nameStatsClient";
 import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
 function entry(over: Partial<NameStat> & { root: string; key: string }): NameStat {
@@ -133,6 +133,11 @@ describe("name-stats.json data integrity", () => {
   it("resolves a partial prefix to the closest name (اسماع → اسماعيل)", () => {
     expect(lookupName(data, "اسماع")?.gloss).toBe("Ishmael");
     expect(lookupName(data, "ابراه")?.gloss).toBe("Abraham");
+  });
+
+  it("namePrefixMatches returns same-prefix names for the chooser", () => {
+    const hits = namePrefixMatches(data, "عمر");
+    expect(hits.some((e) => e.gloss?.startsWith("Imran"))).toBe(true); // عمران
   });
 
   it("indexes multi-word compound names", () => {
