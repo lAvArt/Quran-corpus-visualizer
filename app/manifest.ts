@@ -10,7 +10,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    orientation: "any",
+    // Follow the device's natural orientation rather than free-rotating — an
+    // installed PWA with "any" spins even when the phone's rotation is locked;
+    // "natural" keeps it upright (portrait on phones) and respects the lock.
+    orientation: "natural",
     // Match the dark shell (--bg-0) so the install splash and app chrome
     // don't flash the old slate blue before the app paints.
     background_color: "#0e161a",
