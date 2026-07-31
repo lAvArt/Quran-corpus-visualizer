@@ -196,12 +196,18 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         calmEntry,
       },
     });
-    if (calmEntry) {
-      // Chrome-light first contact: spine-only dock (not persisted — see
-      // skipNextDockPersistRef). The drawer stays closed via the same flag
-      // inside handleSearchResultNavigate.
+    if (calmEntry && c.isMobileViewport) {
+      // Mobile: chrome-light first contact — spine-only dock (not persisted, see
+      // skipNextDockPersistRef); the drawer stays closed (its tools live in the
+      // floating MobileVizBar pill instead).
       skipNextDockPersistRef.current = true;
       setIsLeftPanelCollapsed(true);
+    } else if (calmEntry) {
+      // Desktop: land with BOTH side menus open so the full breakdown (left
+      // legend/controls + right inspector) is visible immediately.
+      skipNextDockPersistRef.current = true;
+      setIsLeftPanelCollapsed(false);
+      c.setIsSidebarOpen(true);
     }
     setIsDeepLinkHydrated(true);
   }, [pendingDeepLink, navigateToResult]);

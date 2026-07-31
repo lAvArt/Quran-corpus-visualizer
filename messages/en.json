@@ -46,6 +46,8 @@
         "wordByWord": "Word by word",
         "closeVerse": "Close",
         "openInGraphs": "Open in graph tools",
+        "dictAlmaany": "Look up {word} in Almaany (Lisān al-ʿArab)",
+        "dictDoha": "Look up {word} in the Doha Historical Dictionary",
         "versesTitle": "Ayahs with this word",
         "versesCount": "{shown} of {total}",
         "versesOpenHint": "Tap to list them",

@@ -680,6 +680,10 @@ function ResultPanel({
   const isName = isNameHit(stat);
   const resultGloss = resolveGloss(locale, stat.bare, stat.gloss);
   const maxTop = Math.max(1, ...stat.top.map((x) => x[1]));
+  // External classical-dictionary lookup word. Roots use the hamza-citation
+  // form (corpus writes hamza as plain alif, e.g. امن → أمن) that Almaany/Doha
+  // index by; names/words go as-is.
+  const dictWord = isName ? stat.bare : stat.bare.replace(/[اأإآٱئؤء]/g, "أ");
 
   // Preview ayahs that contain the searched word — lazily fetched (best-effort).
   // Compound (multi-word) names carry explicit occurrence refs (no single lemma
@@ -732,6 +736,40 @@ function ResultPanel({
                 “{resultGloss.text}”
               </span>
             )}
+            {/* Classical-dictionary lookups (Almaany · لسان العرب, Doha) — small
+                external links for deeper etymology. */}
+            <span className="mhome-dict">
+              <a
+                className="mhome-dict-badge"
+                href={`https://www.almaany.com/ar/dict/ar-ar/${dictWord}/?c=${encodeURIComponent("لسان العرب")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t("dictAlmaany", { word: dictWord })}
+                aria-label={t("dictAlmaany", { word: dictWord })}
+              >
+                <span lang="ar" dir="rtl">المعاني</span>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+              <a
+                className="mhome-dict-badge"
+                href={`https://www.dohadictionary.org/dictionary/${encodeURIComponent(dictWord)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t("dictDoha", { word: dictWord })}
+                aria-label={t("dictDoha", { word: dictWord })}
+              >
+                <span lang="ar" dir="rtl">معجم الدوحة</span>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            </span>
           </div>
         </div>
       </div>
@@ -1547,6 +1585,15 @@ const styles = `
   .mhome-ident-ar { font-family: 'Amiri', serif; font-size: 26px; }
   .mhome-ident-tr { font: 400 14px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
   .mhome-ident-gl { font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.5); }
+  .mhome-dict { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .mhome-dict-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--mh-hairline); background: rgba(var(--mh-card-rgb), 0.5);
+    font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.6);
+    text-decoration: none; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .mhome-dict-badge:hover { color: var(--mh-ink); border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.85); }
+  .mhome-dict-badge svg { opacity: 0.7; }
 
   /* occurrence stats — proper tiles, not cramped text */
   .mhome-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 19px; }

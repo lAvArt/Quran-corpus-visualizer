@@ -1,5 +1,19 @@
 @import url("../../styles/dark-theme.css");
 
+/* Mobile: the browser's default tap highlight is an opaque rectangle that
+   ignores border-radius — so rounded ("fillet") buttons flash a square. Kill it
+   globally; interactive elements supply their own :active / :hover feedback. */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+summary,
+label {
+  -webkit-tap-highlight-color: transparent;
+}
+
 :root {
   --bg-0: #f7f3ea;
   --bg-1: #efe6d6;

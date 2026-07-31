@@ -46,6 +46,8 @@
         "wordByWord": "كلمة بكلمة",
         "closeVerse": "إغلاق",
         "openInGraphs": "افتح في أدوات الرسم",
+        "dictAlmaany": "ابحث عن {word} في المعاني (لسان العرب)",
+        "dictDoha": "ابحث عن {word} في معجم الدوحة التاريخي",
         "versesTitle": "آيات تحتوي هذه الكلمة",
         "versesCount": "{shown} من {total}",
         "versesOpenHint": "اضغط لعرض الآيات",
