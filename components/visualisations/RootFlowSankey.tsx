@@ -222,18 +222,31 @@ export default function RootFlowSankey({
     onTokenHover(null);
   }, [highlightRoot, onTokenHover]);
 
-  // Reset selected root if it's no longer available in the new scope
+  // Keep the selection in sync with the (streaming) scope:
+  //  • re-adopt a requested highlightRoot once it appears in availableRoots —
+  //    the corpus loads incrementally, so a deep-linked root can arrive after an
+  //    early reset left the graph on "all"; the adopt-on-change effect above
+  //    won't re-fire (highlightRoot didn't change), so this brings it back.
+  //  • otherwise drop a manually-chosen root that left the current scope.
   useEffect(() => {
+    if (availableRoots.length === 0) return;
+    if (highlightRoot && availableRoots.includes(highlightRoot)) {
+      if (selectedRoot !== highlightRoot) setSelectedRoot(highlightRoot);
+      return;
+    }
     if (selectedRoot !== "all" && !availableRoots.includes(selectedRoot)) {
       setSelectedRoot("all");
     }
-  }, [availableRoots, selectedRoot]);
+  }, [availableRoots, selectedRoot, highlightRoot]);
 
   useEffect(() => {
-    if (isBeginner) {
+    // Beginners default to the unfiltered "all" view — UNLESS a specific root
+    // was requested (deep link / home's "Compare forms"), which must win so the
+    // graph focuses on that root instead of showing every flow.
+    if (isBeginner && !highlightRoot) {
       setSelectedRoot("all");
     }
-  }, [isBeginner]);
+  }, [isBeginner, highlightRoot]);
 
   // 3. Apply root filtering
   const filteredFlows = useMemo(() => {
