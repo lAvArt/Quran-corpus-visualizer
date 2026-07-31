@@ -679,14 +679,16 @@ export default function RadialSuraMap({
   const overviewHighlightConnections = useMemo(() => {
     if (!isOverviewMode || !highlightRoot) return [];
     const seen = new Set<string>();
-    const out: { key: string; d: string }[] = [];
+    // Carry a representative connection per ayah-pair so the overview arcs are
+    // clickable (select/hover) exactly like the detail-mode ones.
+    const out: { key: string; d: string; conn: RootConnection }[] = [];
     rootConnections.forEach((conn) => {
       if (conn.root !== highlightRoot) return;
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (seen.has(key)) return;
       seen.add(key);
       const d = connectionPaths.get(key);
-      if (d) out.push({ key, d });
+      if (d) out.push({ key, d, conn });
     });
     return out;
   }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
@@ -697,7 +699,7 @@ export default function RadialSuraMap({
   const overviewStageConnections = useMemo(() => {
     if (!isOverviewMode) return [];
     const seen = new Set<string>();
-    const out: { key: string; d: string }[] = [];
+    const out: { key: string; d: string; conn: RootConnection }[] = [];
     for (const conn of rootConnections) {
       if (conn.root === highlightRoot) continue;
       if (overviewStage < 2 && !overviewTopRoots.has(conn.root)) continue;
@@ -706,7 +708,7 @@ export default function RadialSuraMap({
       seen.add(key);
       const d = connectionPaths.get(key);
       if (d) {
-        out.push({ key, d });
+        out.push({ key, d, conn });
         if (out.length >= OVERVIEW_STAGE_ARC_CAP) break;
       }
     }
@@ -1826,17 +1828,35 @@ export default function RadialSuraMap({
                   structure instead of one all-or-nothing cliff at the
                   detail threshold. */}
               {isOverviewMode && overviewStageConnections.length > 0 && (
-                <g className="overview-connections overview-stage" pointerEvents="none">
-                  {overviewStageConnections.map(({ key, d }) => (
-                    <path
-                      key={key}
-                      d={d}
-                      className="connection"
-                      stroke="url(#connectionGrad)"
-                      strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
-                      fill="none"
-                      style={{ opacity: overviewStage === 2 ? 0.16 : overviewStage === 1 ? 0.24 : 0.2 }}
-                    />
+                <g className="overview-connections overview-stage">
+                  {overviewStageConnections.map(({ key, d, conn }) => (
+                    <g key={key}>
+                      <path
+                        d={d}
+                        className="connection"
+                        stroke="url(#connectionGrad)"
+                        strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
+                        fill="none"
+                        pointerEvents="none"
+                        style={{ opacity: overviewStage === 2 ? 0.16 : overviewStage === 1 ? 0.24 : 0.2 }}
+                      />
+                      {/* Invisible hit target — non-scaling so it stays a
+                          comfortable ~14 screen-px whatever the zoom, making the
+                          hairline arcs clickable even at the fitted-out overview. */}
+                      <path
+                        d={d}
+                        stroke="transparent"
+                        strokeWidth={14}
+                        vectorEffect="non-scaling-stroke"
+                        fill="none"
+                        pointerEvents="stroke"
+                        style={{ cursor: "pointer" }}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onMouseEnter={() => handleConnectionHover(conn)}
+                        onMouseLeave={() => handleConnectionHover(null)}
+                        onClick={(event) => handleConnectionSelect(event, conn)}
+                      />
+                    </g>
                   ))}
                 </g>
               )}
@@ -1845,17 +1865,32 @@ export default function RadialSuraMap({
                   visible at the zoomed-out level — this is the one signal
                   the overview was hiding entirely. */}
               {isOverviewMode && overviewHighlightConnections.length > 0 && (
-                <g className="overview-connections" pointerEvents="none">
-                  {overviewHighlightConnections.map(({ key, d }) => (
-                    <path
-                      key={key}
-                      d={d}
-                      className="connection"
-                      stroke={themeColors.accent}
-                      strokeWidth={Math.max(1, innerRadius * 0.002)}
-                      fill="none"
-                      style={{ opacity: 0.45 }}
-                    />
+                <g className="overview-connections">
+                  {overviewHighlightConnections.map(({ key, d, conn }) => (
+                    <g key={key}>
+                      <path
+                        d={d}
+                        className="connection"
+                        stroke={themeColors.accent}
+                        strokeWidth={Math.max(1, innerRadius * 0.002)}
+                        fill="none"
+                        pointerEvents="none"
+                        style={{ opacity: 0.45 }}
+                      />
+                      <path
+                        d={d}
+                        stroke="transparent"
+                        strokeWidth={14}
+                        vectorEffect="non-scaling-stroke"
+                        fill="none"
+                        pointerEvents="stroke"
+                        style={{ cursor: "pointer" }}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onMouseEnter={() => handleConnectionHover(conn)}
+                        onMouseLeave={() => handleConnectionHover(null)}
+                        onClick={(event) => handleConnectionSelect(event, conn)}
+                      />
+                    </g>
                   ))}
                 </g>
               )}
