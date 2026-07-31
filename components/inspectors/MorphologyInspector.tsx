@@ -344,6 +344,15 @@ export default function MorphologyInspector({
     const posLabel = translateFeature("pos", token.pos);
     const gloss = token.morphology.gloss;
 
+    // Hero line = the legible base word (root, else lemma), NOT the surface
+    // occurrence: corpus surface text is stored as font-glyph presentation
+    // forms that render as broken/illegible shapes without the Uthmani font,
+    // so it reads far worse than the plain root/lemma. The surface form drops
+    // to the small subtitle where it's still available but no longer the
+    // headline (per user: "reverse them for better legibility").
+    const heroWord = token.root || token.lemma || token.text;
+    const showSurfaceInSub = Boolean(token.text) && token.text !== heroWord;
+
     return (
         <div className="mi-root" aria-live="polite" aria-atomic="true">
 
@@ -371,19 +380,15 @@ export default function MorphologyInspector({
                  instead of an apology — the apology itself moves into the
                  data grid below (small, muted, not the hero line). */}
             <div className="mi-word-card">
-                <div className="mi-arabic-word" lang="ar" dir="rtl">{token.text}</div>
+                <div className="mi-arabic-word" lang="ar" dir="rtl">{heroWord}</div>
                 <div className="mi-word-sub">
-                    {gloss ? (
-                        gloss
-                    ) : token.root ? (
+                    {showSurfaceInSub && (
                         <>
-                            <span lang="ar" dir="rtl">{token.root}</span>
+                            <span lang="ar" dir="rtl">{token.text}</span>
                             {" · "}
-                            {posLabel}
                         </>
-                    ) : (
-                        posLabel
                     )}
+                    {gloss ? gloss : posLabel}
                 </div>
             </div>
 
