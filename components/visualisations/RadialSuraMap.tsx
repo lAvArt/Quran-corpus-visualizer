@@ -24,6 +24,14 @@ interface RadialSuraMapProps {
   onTokenFocus: (tokenId: string) => void;
   onRootSelect?: (root: string | null) => void;
   highlightRoot?: string | null;
+  /**
+   * Deep-linked ayah to highlight + frame on entry (e.g. from a home-search
+   * verse-carousel click). One-shot: applied once when this surah's geometry
+   * lands, then it never fights manual zoom/pan or later selections. Does NOT
+   * move the inspector — the caller sets the focused token separately so the
+   * SEARCHED word stays inspected, not the ayah's first proclitic.
+   */
+  focusAyah?: number | null;
   theme?: "light" | "dark";
   lexicalColorMode?: LexicalColorMode;
 }
@@ -137,6 +145,7 @@ export default function RadialSuraMap({
   onTokenFocus,
   onRootSelect,
   highlightRoot,
+  focusAyah,
   theme = "dark",
   lexicalColorMode = "theme",
 }: RadialSuraMapProps) {
@@ -1025,14 +1034,12 @@ export default function RadialSuraMap({
     if (tokenId) onTokenFocus(tokenId);
   }, [ayahTokenIdByAyahRoot, ayahTokenIdByAyah, onTokenFocus]);
 
-  // Clicking an overview tick both selects that ayah (same as clicking a
-  // detail-mode bar) and zooms into its neighborhood in DETAIL geometry —
-  // reusing the same fitBounds plumbing the deep-link one-shot focus uses —
-  // so the resulting scale reliably clears DETAIL_ZOOM_THRESHOLD and the view
-  // lands on a coherent sector (a handful of neighboring ayahs), not one
-  // isolated bar with nothing around it.
-  const handleOverviewTickSelect = useCallback((ayah: number) => {
-    handleAyahSelect(ayah);
+  // Zoom the camera into an ayah's neighborhood in DETAIL geometry (a handful
+  // of neighboring ayahs, not one isolated bar) — reused by both the overview
+  // tick-click and the deep-link one-shot focus. Pure camera move: no
+  // selection/inspector side effects, so a deep link can drive it without
+  // clobbering the caller's focused token.
+  const zoomToAyah = useCallback((ayah: number, duration: number) => {
     if (ayahCount <= 0) return;
 
     let minX = Infinity;
@@ -1079,9 +1086,51 @@ export default function RadialSuraMap({
 
     fitBounds(
       { x: minX, y: minY, width: boxW, height: boxH },
-      { padding: clickPadding, duration: motionSafeDuration(750) }
+      { padding: clickPadding, duration }
     );
-  }, [ayahCount, barsGeometryByAyah, fitBounds, handleAyahSelect, dimensions.width, dimensions.height]);
+  }, [ayahCount, barsGeometryByAyah, fitBounds, dimensions.width, dimensions.height]);
+
+  // Clicking an overview tick both selects that ayah (same as clicking a
+  // detail-mode bar) and zooms into its neighborhood so the landing scale
+  // reliably clears DETAIL_ZOOM_THRESHOLD.
+  const handleOverviewTickSelect = useCallback((ayah: number) => {
+    handleAyahSelect(ayah);
+    zoomToAyah(ayah, motionSafeDuration(750));
+  }, [handleAyahSelect, zoomToAyah]);
+
+  // Deep-link one-shot: a `focusAyah` (e.g. a home-search verse-carousel click
+  // routed as ?surah=&ayah=&token=) highlights that ayah in the graph AND
+  // frames the camera on it. Runs once, when this surah's real geometry lands.
+  // Deliberately does NOT call onTokenFocus: the deep link already set the
+  // focused token to the SEARCHED word, and re-focusing here would replace it
+  // with the ayah's representative token (back to an irrelevant proclitic).
+  const hasAppliedInitialAyahFocusRef = useRef(false);
+  useEffect(() => {
+    if (hasAppliedInitialAyahFocusRef.current) return;
+    if (!dimensionsReady || !isMounted) return;
+    if (focusAyah == null) return; // nothing to focus (or not yet resolved)
+    if (barsWithGeometry.length === 0) return; // this surah's tokens haven't landed
+    if (!isSurahDataComplete) return; // stub/shell data — isLargeSurah not trustworthy
+    if (!barsGeometryByAyah.has(focusAyah)) return; // target ayah's geometry not built yet
+
+    hasAppliedInitialAyahFocusRef.current = true;
+    // Stand down the root/ring entry-focus effects: this ayah owns the camera.
+    hasAppliedInitialFocusRef.current = true;
+    setSelectedAyah(focusAyah);
+    // Large surahs sit in overview at entry — zoom in so the highlighted ayah
+    // is actually legible. Small surahs already render the full detail ring
+    // (framed by the entry-fit effect), so the selection highlight alone reads.
+    if (isLargeSurah) zoomToAyah(focusAyah, 0);
+  }, [
+    focusAyah,
+    dimensionsReady,
+    isMounted,
+    barsWithGeometry,
+    isSurahDataComplete,
+    isLargeSurah,
+    barsGeometryByAyah,
+    zoomToAyah,
+  ]);
 
   // Overview hover/click hit-testing happens on ONE invisible annulus over
   // the tick band (rather than 286 separate fattened hit targets): the

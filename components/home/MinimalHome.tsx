@@ -374,8 +374,13 @@ export default function MinimalHome() {
 
   // Open one specific ayah (from the result verse carousel) in the observatory.
   const openAyah = useCallback(
-    (s: number, a: number) => {
+    // `word` is the 1-indexed matched word position (from the occurrence API):
+    // deep-link it as the focused token so the graph highlights that exact
+    // ayah + the inspector shows the SEARCHED word — not the ayah's first
+    // proclitic (a bare ?ayah= resolves to word 1, e.g. the "وَ" conjunction).
+    (s: number, a: number, word?: number) => {
       const sp = new URLSearchParams({ viz: "radial-sura", surah: String(s), ayah: String(a), entry: "calm" });
+      if (word && word > 0) sp.set("token", `${s}:${a}:${word}`);
       router.push(`/${locale}?${sp.toString()}`);
     },
     [locale, router]
@@ -671,7 +676,7 @@ function ResultPanel({
   t: ReturnType<typeof useTranslations>;
   onExplore: (root?: string, viz?: string, surah?: number) => void;
   onExploreName: (stat: NameStat) => void;
-  onOpenAyah: (sura: number, ayah: number) => void;
+  onOpenAyah: (sura: number, ayah: number, word?: number) => void;
   onBack: () => void;
 }) {
   const color = rootColor(stat);
@@ -898,7 +903,7 @@ function ResultVerses({
   color: string;
   total: number;
   t: ReturnType<typeof useTranslations>;
-  onOpenAyah: (sura: number, ayah: number) => void;
+  onOpenAyah: (sura: number, ayah: number, word?: number) => void;
   onOpenFull: () => void;
 }) {
   const surahName = useSurahName();
@@ -1021,7 +1026,7 @@ function ResultVerses({
           </div>
           <div className="mhome-rv-list">
             {verses.map((v, i) => (
-              <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah)}>
+              <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah, v.positions[0])}>
                 <p dir="rtl" lang="ar" className="mhome-rv-ar">{renderText(v)}</p>
                 <span className="mhome-rv-ref">
                   <span className="mhome-verse-name">{surahName(v.sura)}</span>
