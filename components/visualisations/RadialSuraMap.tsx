@@ -97,19 +97,27 @@ function dimTone(color: string, opacity: number = DIM_OPACITY): string {
 // in past the threshold — so nothing changes for Al-Fatihah-sized surahs and
 // zooming in on a big surah still reaches the exact same word-level view.
 const OVERVIEW_WORD_THRESHOLD = 800;
-const DETAIL_ZOOM_THRESHOLD = 2.2;
+// Detail (per-ayah bars + root dots + numbers + the full connection web) is
+// what makes the graph legible and beautiful, so reach it with a light zoom
+// rather than gating it behind a deep dive — earlier feedback was that you had
+// to zoom in far just to read ayah numbers/roots and see the wires. Entry
+// still fits the ring well below this (~0.3× base for a 286-ayah surah), so
+// large surahs open in the cheap overview and only cross into detail on a
+// deliberate zoom.
+const DETAIL_ZOOM_THRESHOLD = 1.3;
 // Staged overview reveal — instead of one cliff at DETAIL_ZOOM_THRESHOLD,
 // each zoom step earns more structure. The resting overview is never empty:
 // it always draws the dominant roots' arcs; stage 1 widens the set, stage 2
 // adds the full (faint) mesh before the detail swap. Highlighted-root arcs
 // show at every stage. Thresholds are RELATIVE to the entry-fit scale (a
-// 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so "one or two zoom
-// steps in" means the same thing in every surah.
-const OVERVIEW_STAGE1_RATIO = 1.6;
-const OVERVIEW_STAGE2_RATIO = 2.6;
-const OVERVIEW_REST_TOP_ROOTS = 8;
-const OVERVIEW_STAGE1_TOP_ROOTS = 20;
-const OVERVIEW_STAGE_ARC_CAP = 400;
+// 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so "a nudge of zoom"
+// means the same thing in every surah. Kept low so the connection web is
+// already interesting while still zoomed out, not only after diving to detail.
+const OVERVIEW_STAGE1_RATIO = 1.2;
+const OVERVIEW_STAGE2_RATIO = 1.6;
+const OVERVIEW_REST_TOP_ROOTS = 14;
+const OVERVIEW_STAGE1_TOP_ROOTS = 32;
+const OVERVIEW_STAGE_ARC_CAP = 600;
 
 // Overview shares detail mode's ring geometry (same innerRadius, same per-
 // ayah angles) so crossing the zoom threshold swaps tick <-> bar IN PLACE —
@@ -129,12 +137,14 @@ const OVERVIEW_TICK_MATCH_BONUS_RATIO = 0.03;
 // smaller scale) — tuned per user feedback that the click zoomed too deep.
 const OVERVIEW_CLICK_NEIGHBORS = 9;
 
-// Clicking a tick must actually LAND in detail mode: fitBounds derives its
-// scale from the framed box, so the box is clamped small enough that the
-// resulting scale still clears DETAIL_ZOOM_THRESHOLD (2.2) — but only just.
-// This is a FLOOR, not a target: keep it barely past the threshold so the
-// landing focuses the sector without diving all the way in.
-const OVERVIEW_CLICK_MIN_LANDING_SCALE = 2.25;
+// Clicking a tick (or a deep-link) must LAND in detail mode: fitBounds derives
+// its scale from the framed box, so the box is clamped small enough to force
+// the landing past DETAIL_ZOOM_THRESHOLD. NOTE this is a box-sizing knob, not
+// the literal landing scale — fitBounds frames within the panel-inset-reduced
+// canvas, so the ACTUAL landing settles around ~0.6× of this value (≈1.6× at
+// 3.0). Tuned so the sector lands gently into detail — legible numbers/roots/
+// wires — without the deep dive that earlier read as overkill.
+const OVERVIEW_CLICK_MIN_LANDING_SCALE = 3.0;
 
 export default function RadialSuraMap({
   tokens,
@@ -568,16 +578,16 @@ export default function RadialSuraMap({
   const compactLayout = arcSpacing < 10.0;
   const barStrokeWidth = compactLayout ? 2.4 : arcSpacing < 14 ? 3.0 : 3.6;
   const endpointRadius = compactLayout ? 3.6 : 5.0;
-  const rootDetailLevel = zoomScale >= 3.0 ? 3 : zoomScale >= 1.4 ? 2 : 1;
+  const rootDetailLevel = zoomScale >= 2.0 ? 3 : zoomScale >= 1.0 ? 2 : 1;
   const maxRootsPerAyahVisible =
     rootDetailLevel === 1
       ? compactLayout
-        ? 1
-        : 2
+        ? 2
+        : 3
       : rootDetailLevel === 2
         ? compactLayout
-          ? 3
-          : 4
+          ? 4
+          : 6
         : Number.POSITIVE_INFINITY;
   const showContextRootLabels = rootDetailLevel >= 2;
   const showAllRootLabels = rootDetailLevel >= 3;
@@ -1114,8 +1124,14 @@ export default function RadialSuraMap({
     if (!barsGeometryByAyah.has(focusAyah)) return; // target ayah's geometry not built yet
 
     hasAppliedInitialAyahFocusRef.current = true;
-    // Stand down the root/ring entry-focus effects: this ayah owns the camera.
+    // Stand down BOTH entry-focus effects: this ayah owns the camera. Setting
+    // hasAppliedInitialFocusRef blocks the root-focus effect; setting
+    // entryFitSuraRef to this surah blocks the "frame the whole ring" entry
+    // fit — otherwise, depending on which commit each fires in as the corpus
+    // streams, that ring fit can land AFTER this and clobber the ayah zoom
+    // (the landing scale was flaky between runs for exactly this reason).
     hasAppliedInitialFocusRef.current = true;
+    entryFitSuraRef.current = suraId;
     setSelectedAyah(focusAyah);
     // Large surahs sit in overview at entry — zoom in so the highlighted ayah
     // is actually legible. Small surahs already render the full detail ring
@@ -2124,15 +2140,18 @@ export default function RadialSuraMap({
                           bar.ayah === hoveredAyah;
                         const isSelectedAyahLabel = bar.ayah === selectedAyah;
                         const sparseInterval =
-                          ayahCount > 180 ? 12 :
-                            ayahCount > 120 ? 8 :
-                              ayahCount > 80 ? 6 :
-                                ayahCount > 50 ? 4 : 2;
+                          ayahCount > 180 ? 8 :
+                            ayahCount > 120 ? 6 :
+                              ayahCount > 80 ? 4 :
+                                ayahCount > 50 ? 3 : 2;
                         const passesSparseFilter = barIndex % sparseInterval === 0;
+                        // Numbers are the graph's orientation cue, so surface
+                        // them the moment detail appears (sparse), and show the
+                        // full set with just a nudge more zoom — not a deep dive.
                         const shouldShowAyahLabel =
                           isEmphasized ||
-                          zoomScale >= 2.4 ||
-                          (zoomScale >= 1.5 && passesSparseFilter);
+                          zoomScale >= 1.9 ||
+                          (zoomScale >= DETAIL_ZOOM_THRESHOLD && passesSparseFilter);
                         if (!shouldShowAyahLabel) return null;
                         return (
                           <text
