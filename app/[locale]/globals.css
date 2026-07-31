@@ -3928,6 +3928,11 @@ button.site-footer-link {
     inset-inline-start: auto;
     top: auto;
     bottom: auto;
+    /* The floating (mobile) variant caps its height to clear the bottom graph
+       toolbar; in the dock that cap would leave dead space below the panel, so
+       let it fill the full dock height (the left column never overlaps the
+       centered toolbar). */
+    max-height: none;
     z-index: auto;
     width: min(256px, calc(100vw - 96px));
     min-width: 0;
@@ -4066,6 +4071,77 @@ button.site-footer-link {
   }
 }
 
+/* Left dock's open/close pull-tab — the mirror of .drawer-edge-handle, on the
+   dock's INNER (canvas-facing) edge and vertically centered. Sits at the rail's
+   inner edge when collapsed and slides out to the info panel's edge when open.
+   The offsets track the dock geometry: 8px dock inset + 68px rail (+ the info
+   panel width when expanded). */
+.dock-left-handle {
+  position: fixed;
+  top: 50%;
+  inset-inline-start: calc(8px + 68px);
+  transform: translateY(-50%);
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 72px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-inline-start: none;
+  /* Rounded on the canvas-facing (inline-end) side, square where it attaches. */
+  border-radius: 0;
+  border-start-end-radius: 12px;
+  border-end-end-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  transition: inset-inline-start 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s,
+    border-color 0.15s, background 0.15s;
+}
+
+.dock-left-handle:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.dock-left-handle svg {
+  transition: transform 0.3s ease;
+}
+
+/* Expanded: shift out to the info panel's inner edge; flip the chevron. */
+.dock-left-handle.is-open {
+  inset-inline-start: calc(8px + 68px + min(256px, calc(100vw - 96px)));
+}
+
+.dock-left-handle.is-open svg {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .dock-left-handle svg {
+  transform: scaleX(-1);
+}
+
+[dir="rtl"] .dock-left-handle.is-open svg {
+  transform: scaleX(1);
+}
+
+[data-theme="dark"] .dock-left-handle {
+  background: rgba(22, 33, 39, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 3px 0 12px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 980px) {
+  .dock-left-handle {
+    display: none;
+  }
+}
+
 /* Panel content order: legend pinned top · transient selection cards middle ·
    zoom controls pushed to the bottom — so the view never jumps as the
    Selected Root / Ayah / Root Connection cards pop in and out. The zoom card
@@ -4100,7 +4176,9 @@ button.site-footer-link {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 14px calc(14px + var(--footer-height, 48px) / 2);
+  /* Even padding — the zoom controls (margin-top:auto) sit flush at the bottom;
+     the previous calc() added a footer-sized gap below them. */
+  padding: 14px;
   overflow-y: auto;
   overflow-x: hidden;
   pointer-events: auto;

@@ -285,6 +285,24 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         )}
       </div>
 
+      {/* Left dock edge handle — a vertically-centered pull-tab on the dock's
+          INNER (canvas-facing) edge, mirroring the right inspector drawer's
+          .drawer-edge-handle. Desktop only (mobile uses the floating pill). */}
+      {!c.isMobileViewport && (
+        <button
+          type="button"
+          className={`dock-left-handle ${isLeftPanelCollapsed ? "" : "is-open"}`}
+          onClick={() => setIsLeftPanelCollapsed((collapsed) => !collapsed)}
+          aria-expanded={!isLeftPanelCollapsed}
+          aria-label={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
+          title={isLeftPanelCollapsed ? t("overlay.expandPanel") : t("overlay.collapsePanel")}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      )}
+
       {/* ── Main visualization area ── */}
       <main ref={c.mainVizRef} className="immersive-viewport viz-fullwidth" data-tour-id="main-viewport">
         <VisualizationViewport

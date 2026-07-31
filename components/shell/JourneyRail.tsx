@@ -246,10 +246,7 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
            look identical there. */
         @media (min-width: 981px) {
           .journey-rail.in-dock {
-            /* relative (not static) so the collapse toggle can be absolutely
-               centered against the full-height rail — mirrors the right
-               drawer's vertically-centered edge handle. */
-            position: relative;
+            position: static;
             top: auto;
             inset-inline-start: auto;
             z-index: auto;
@@ -270,15 +267,12 @@ export default function JourneyRail({ vizMode, onVizModeChange, isPanelCollapsed
             box-shadow: none;
           }
 
-          /* Center the collapse/expand toggle on the rail edge (screen middle),
-             consistent with the right inspector drawer's edge handle, instead of
-             pinning it to the rail's bottom. */
+          /* In the dock, the collapse/expand affordance is the vertically-
+             centered edge handle on the dock's inner edge (AppShell's
+             .dock-left-handle, mirroring the right drawer), so the rail's own
+             bottom toggle is hidden here. */
           .journey-rail.in-dock .rail-bottom {
-            position: absolute;
-            top: 50%;
-            inset-inline: 0;
-            transform: translateY(-50%);
-            margin-top: 0;
+            display: none;
           }
         }
 
