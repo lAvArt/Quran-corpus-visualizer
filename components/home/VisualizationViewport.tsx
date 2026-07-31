@@ -92,6 +92,7 @@ export default function VisualizationViewport({
             onTokenFocus={setFocusedTokenId}
             onRootSelect={handleRootSelect}
             highlightRoot={selectedRoot}
+            focusAyah={selectedAyahInSurah}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
           />
