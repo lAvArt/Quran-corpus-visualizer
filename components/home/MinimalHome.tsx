@@ -33,7 +33,7 @@ import {
   type LemmaFormStats,
 } from "@/lib/corpus/lemmaFormStatsClient";
 import { fetchOccurrences, fetchOccurrencesByRefs, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
-import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+import { normalizeArabicForSearch, foldRasmAlef } from "@/lib/search/arabicNormalize";
 
 /** A home search hit is either a root or a root-less name/word. */
 type HomeHit = RootStat | NameStat;
@@ -168,7 +168,7 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
   );
 }
 
-export default function MinimalHome() {
+export default function MinimalHome({ initialQuery = "" }: { initialQuery?: string }) {
   const t = useTranslations("Home");
   const tFooter = useTranslations("Footer");
   const params = useParams();
@@ -176,8 +176,10 @@ export default function MinimalHome() {
   const locale = (params?.locale as string) || "en";
   const isNarrow = useIsNarrowViewport();
 
-  const [q, setQ] = useState("");
-  const [dq, setDq] = useState("");
+  // Seeded (server-side) from ?q= so returning to the home page — e.g. browser
+  // Back out of the graph — restores the last search instead of a blank box.
+  const [q, setQ] = useState(initialQuery);
+  const [dq, setDq] = useState(initialQuery);
   const [raised, setRaised] = useState(false);
   const [idx, setIdx] = useState<RootStatsIndex | null>(null);
   const [nameIdx, setNameIdx] = useState<NameStatsIndex | null>(null);
@@ -242,26 +244,19 @@ export default function MinimalHome() {
     return () => clearTimeout(timer);
   }, [q]);
 
-  // History guard: pressing Back (browser button / shortcut, or the panel's Back)
-  // returns to the resting home instead of leaving the site.
-  const searchGuardRef = useRef(false);
+  // Mirror the committed query into the URL (?q=) via router.replace — in place
+  // (no history spam) but through Next's router so it OWNS the entry. Opening a
+  // result pushes a new (?viz=…) entry, so browser Back returns here with ?q=
+  // intact and the search is restored (see initialQuery). A raw replaceState
+  // would desync from the router and get dropped on the next push. Cleared
+  // queries drop the param.
   useEffect(() => {
-    if (q.trim().length > 0 && !searchGuardRef.current) {
-      searchGuardRef.current = true;
-      window.history.pushState({ mhomeSearch: true }, "");
-    }
-  }, [q]);
-  useEffect(() => {
-    const onPop = () => {
-      if (searchGuardRef.current) {
-        searchGuardRef.current = false;
-        setQ("");
-        setDq("");
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
+    if (typeof window === "undefined") return;
+    const current = new URLSearchParams(window.location.search).get("q") ?? "";
+    const term = dq.trim();
+    if (current === term) return;
+    router.replace(term ? `/${locale}?q=${encodeURIComponent(term)}` : `/${locale}`, { scroll: false });
+  }, [dq, locale, router]);
 
   // Deliberate picks (chips / today / suggestions) resolve immediately.
   const pick = useCallback((v: string) => {
@@ -515,6 +510,8 @@ export default function MinimalHome() {
             <ResultPanel
               stat={active}
               drill={drill}
+              formIdx={formIdx}
+              drillIdx={drillIdx}
               t={t}
               onExplore={enterApp}
               onExploreName={enterName}
@@ -695,6 +692,8 @@ function ResultChooser({
 function ResultPanel({
   stat,
   drill,
+  formIdx,
+  drillIdx,
   t,
   onExplore,
   onExploreName,
@@ -703,6 +702,8 @@ function ResultPanel({
 }: {
   stat: HomeHit;
   drill: { lemma: DrillEntry | null; form: DrillEntry | null } | null;
+  formIdx: FormIndex | null;
+  drillIdx: LemmaFormStats | null;
   t: ReturnType<typeof useTranslations>;
   onExplore: (root?: string, viz?: string, surah?: number) => void;
   onExploreName: (stat: NameStat) => void;
@@ -766,6 +767,32 @@ function ResultPanel({
   const displayCount = drilling ? drillEntry!.c : stat.count;
   const displayArabic = drilling ? drillEntry!.d : stat.root;
   const versesTotal = drilling ? drillEntry!.c : stat.verses;
+
+  // Does a (normalized) rendered word belong to the current search target?
+  // Content-based so it survives the corpus's QAC-vs-Uthmani word-numbering
+  // drift (see ResultVerses). Root → the word's root; lemma → the word's lemma;
+  // form → exact spelling; name → the name's surface (proclitic-tolerant).
+  const formKey = drill?.form ? normalizeArabicForSearch(drill.form.d) : null;
+  const lemmaKey = drill?.lemma ? normalizeArabicForSearch(drill.lemma.d) : null;
+  const isHit = useCallback(
+    (w: string): boolean => {
+      if (!w) return false;
+      if (gran === "form") return !!formKey && (w === formKey || foldRasmAlef(w) === formKey);
+      if (gran === "lemma") {
+        if (!lemmaKey || !drillIdx) return false;
+        const e = drillIdx.forms[w] ?? drillIdx.forms[foldRasmAlef(w)];
+        return e?.l === lemmaKey;
+      }
+      if (isName) {
+        const target = normalizeArabicForSearch((stat as NameStat).lemma || stat.bare);
+        if (!target) return false;
+        const stripped = w.replace(/^(وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)/, "");
+        return w === target || stripped === target || foldRasmAlef(w) === target;
+      }
+      return !!formIdx && lookupFormRoot(formIdx, w) === stat.bare;
+    },
+    [gran, formKey, lemmaKey, drillIdx, isName, stat, formIdx],
+  );
 
   return (
     <div className="mhome-result">
@@ -933,6 +960,7 @@ function ResultPanel({
           verses={verses}
           color={color}
           total={versesTotal}
+          isHit={isHit}
           t={t}
           onOpenAyah={onOpenAyah}
           onOpenFull={() => (isName ? onExploreName(stat) : onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0]))}
@@ -983,6 +1011,7 @@ function ResultVerses({
   verses,
   color,
   total,
+  isHit,
   t,
   onOpenAyah,
   onOpenFull,
@@ -990,6 +1019,11 @@ function ResultVerses({
   verses: OccurrenceAyah[];
   color: string;
   total: number;
+  /** True when a rendered word (already normalized) belongs to the searched
+      root/lemma/form. Content-based so it's immune to the QAC-vs-Uthmani word-
+      numbering drift that made position-based highlighting land on the wrong
+      word (e.g. الله instead of the adjacent سميع). */
+  isHit: (normalizedWord: string) => boolean;
   t: ReturnType<typeof useTranslations>;
   onOpenAyah: (sura: number, ayah: number, word?: number) => void;
   onOpenFull: () => void;
@@ -1036,28 +1070,37 @@ function ResultVerses({
     }
   };
 
-  // Highlight the searched word(s) by POSITION — the corpus stores surface text
-  // as font-glyph presentation forms, so the API returns the matched 1-indexed
-  // word positions instead, and we mark the ayah's Nth word.
-  const renderText = (ayah: OccurrenceAyah) => {
-    const hit = new Set(ayah.positions);
-    // Uthmani text carries standalone annotation marks (۞ ۩ ۖ ۚ …) that split on
-    // whitespace but are NOT corpus words, so they'd shift the position count.
-    // Advance the word index only over real words (tokens with an Arabic letter),
-    // while still rendering the marks.
-    let wi = 0;
-    return ayah.text.split(/\s+/).filter(Boolean).map((tok, j) => {
-      let hl = false;
-      if (/[ء-يٱ-ەﭐ-ﻼ]/.test(tok)) {
-        wi += 1;
-        hl = hit.has(wi);
-      }
+  const isArabicWord = (tok: string) => /[ء-يٱ-ەﭐ-ﻼ]/.test(tok);
+
+  // Highlight the searched word(s) by CONTENT: normalize each rendered word and
+  // ask isHit whether it belongs to the searched root/lemma/form. Deliberately
+  // NOT by the API's word positions — those come from corpus_tokens, whose QAC-
+  // derived numbering drifts from the Uthmani whitespace tokenization after any
+  // QAC "merged" word (e.g. بعد+ما = one word), landing the mark on the wrong
+  // word. Content matching has no such offset.
+  const renderText = (ayah: OccurrenceAyah) =>
+    ayah.text.split(/\s+/).filter(Boolean).map((tok, j) => {
+      const norm = isArabicWord(tok) ? normalizeArabicForSearch(tok) : "";
+      const hl = norm.length >= 2 && isHit(norm);
       return (
         <span key={j} className={hl ? "mhome-verse-hl" : undefined} style={hl ? { color } : undefined}>
           {tok}{" "}
         </span>
       );
     });
+
+  // The Uthmani whitespace index (marks skipped) of the first matching word —
+  // this equals its corpus word position, so deep-linking it focuses the right
+  // word in the graph. Falls back to the API position if nothing matched.
+  const firstHitPosition = (ayah: OccurrenceAyah): number | undefined => {
+    let wi = 0;
+    for (const tok of ayah.text.split(/\s+/).filter(Boolean)) {
+      if (!isArabicWord(tok)) continue;
+      wi += 1;
+      const norm = normalizeArabicForSearch(tok);
+      if (norm.length >= 2 && isHit(norm)) return wi;
+    }
+    return ayah.positions[0];
   };
 
   const ex = verses[idx];
@@ -1114,7 +1157,7 @@ function ResultVerses({
           </div>
           <div className="mhome-rv-list">
             {verses.map((v, i) => (
-              <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah, v.positions[0])}>
+              <button key={i} type="button" className="mhome-rv-row" onClick={() => onOpenAyah(v.sura, v.ayah, firstHitPosition(v))}>
                 <p dir="rtl" lang="ar" className="mhome-rv-ar">{renderText(v)}</p>
                 <span className="mhome-rv-ref">
                   <span className="mhome-verse-name">{surahName(v.sura)}</span>

@@ -26,7 +26,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const entered = Boolean(sp.viz || sp.root || sp.lemma || sp.surah || sp.ayah || sp.token || sp.app);
 
   if (!entered) {
-    return <MinimalHome />;
+    // Seed the search box from ?q= so Back into the home restores the last query.
+    return <MinimalHome initialQuery={typeof sp.q === "string" ? sp.q : ""} />;
   }
 
   const initialCorpusData = buildExploreOverviewPayload();
