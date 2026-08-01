@@ -4,7 +4,7 @@
  * word (اسم, اسماء, كتاب, الرحمن) to its root's key, so the result chooser can
  * offer the root alongside any same-prefix name. Lazy + best-effort.
  */
-import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+import { normalizeArabicForSearch, foldRasmAlef } from "@/lib/search/arabicNormalize";
 
 export interface FormIndex {
   version: number;
@@ -32,19 +32,6 @@ export async function loadFormIndex(): Promise<FormIndex> {
 }
 
 const PROCLITIC = /^(وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)/;
-
-/**
- * Fold the modern (imlāʾī) spelling toward the corpus's Uthmani rasm by
- * dropping the MEDIAL long-alef — the letter the rasm most commonly omits
- * (صالح is written صلح, الصالحين → الصلحين, رحمان → رحمن). Keep the first and
- * last letters so a leading article/hamza-alif or a genuine final alef is
- * preserved. Used only as a fallback, so an over-fold that finds nothing is
- * harmless; the win is that a naturally-typed word like صالح now resolves.
- */
-function foldRasmAlef(s: string): string {
-  if (s.length <= 2) return s;
-  return s[0] + s.slice(1, -1).replace(/ا/g, "") + s[s.length - 1];
-}
 
 /** Resolve an inflected surface word to its root's bare key, or null. */
 export function lookupFormRoot(idx: FormIndex, query: string): string | null {

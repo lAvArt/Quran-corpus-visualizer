@@ -30,6 +30,19 @@ export function normalizeArabicForSearch(value: string): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Fold a modern (imlāʾī) spelling toward the corpus's Uthmani rasm by dropping
+ * the MEDIAL long-alef — the letter the rasm most commonly omits (صالح is
+ * written صلح, الصالحين → الصلحين, رحمان → رحمن). Keeps the first and last
+ * letters so a leading article/hamza-alif or a genuine final alef survives.
+ * Callers use it as a FALLBACK after a direct lookup misses, so an over-fold
+ * that matches nothing is harmless. Expects an already-normalized key.
+ */
+export function foldRasmAlef(normalized: string): string {
+  if (normalized.length <= 2) return normalized;
+  return normalized[0] + normalized.slice(1, -1).replace(/ا/g, "") + normalized[normalized.length - 1];
+}
+
 export function normalizeRootFamily(value: string): string {
   const normalized = normalizeArabicForSearch(value);
   if (!normalized) return normalized;

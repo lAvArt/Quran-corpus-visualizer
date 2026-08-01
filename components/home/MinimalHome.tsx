@@ -25,6 +25,13 @@ import {
   type NameStatsIndex,
 } from "@/lib/corpus/nameStatsClient";
 import { loadFormIndex, lookupFormRoot, type FormIndex } from "@/lib/corpus/formIndexClient";
+import {
+  loadLemmaFormStats,
+  lookupForm,
+  lookupLemma,
+  type DrillEntry,
+  type LemmaFormStats,
+} from "@/lib/corpus/lemmaFormStatsClient";
 import { fetchOccurrences, fetchOccurrencesByRefs, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
 import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
@@ -175,6 +182,9 @@ export default function MinimalHome() {
   const [idx, setIdx] = useState<RootStatsIndex | null>(null);
   const [nameIdx, setNameIdx] = useState<NameStatsIndex | null>(null);
   const [formIdx, setFormIdx] = useState<FormIndex | null>(null);
+  // Lemma/form drill-down stats — lazy, only once a root result is shown (~2 MB
+  // raw / ~0.5 MB brotli), so the resting home page never loads it.
+  const [drillIdx, setDrillIdx] = useState<LemmaFormStats | null>(null);
   // The candidate the user picked from the chooser (null = show chooser / the
   // sole candidate). Cleared whenever the query changes.
   const [selected, setSelected] = useState<HomeHit | null>(null);
@@ -307,6 +317,23 @@ export default function MinimalHome() {
   // candidate. More than one (and no pick) → show the chooser.
   const active = selected ?? (candidates.length === 1 ? candidates[0] : null);
   const showChooser = !selected && candidates.length > 1;
+
+  // Drill-down (root → lemma → form): fetch the stats once a ROOT result is
+  // shown, then resolve the typed word's specific lemma + exact form so the
+  // result panel can offer the "exact match" narrowing.
+  const activeIsRoot = active !== null && !isNameHit(active);
+  useEffect(() => {
+    if (!activeIsRoot || drillIdx) return;
+    let on = true;
+    loadLemmaFormStats().then((d) => on && setDrillIdx(d)).catch(() => {});
+    return () => { on = false; };
+  }, [activeIsRoot, drillIdx]);
+  const drill = useMemo<{ lemma: DrillEntry | null; form: DrillEntry | null } | null>(() => {
+    if (!activeIsRoot || !drillIdx) return null;
+    const term = dq.trim();
+    if (!term) return null;
+    return { lemma: lookupLemma(drillIdx, term), form: lookupForm(drillIdx, term) };
+  }, [activeIsRoot, drillIdx, dq]);
 
   const today = useMemo(() => (idx ? rootOfTheDay(idx, epochDay) : null), [idx, epochDay]);
   const todayGloss = useMemo(() => (today ? resolveGloss(locale, today.bare, today.gloss) : null), [today, locale]);
@@ -487,6 +514,7 @@ export default function MinimalHome() {
           {active ? (
             <ResultPanel
               stat={active}
+              drill={drill}
               t={t}
               onExplore={enterApp}
               onExploreName={enterName}
@@ -666,6 +694,7 @@ function ResultChooser({
 
 function ResultPanel({
   stat,
+  drill,
   t,
   onExplore,
   onExploreName,
@@ -673,6 +702,7 @@ function ResultPanel({
   onBack,
 }: {
   stat: HomeHit;
+  drill: { lemma: DrillEntry | null; form: DrillEntry | null } | null;
   t: ReturnType<typeof useTranslations>;
   onExplore: (root?: string, viz?: string, surah?: number) => void;
   onExploreName: (stat: NameStat) => void;
@@ -690,13 +720,26 @@ function ResultPanel({
   // index by; names/words go as-is.
   const dictWord = isName ? stat.bare : stat.bare.replace(/[اأإآٱئؤء]/g, "أ");
 
-  // Preview ayahs that contain the searched word — lazily fetched (best-effort).
-  // Compound (multi-word) names carry explicit occurrence refs (no single lemma
-  // to query); everything else fetches by lemma (names) or bare root.
   const statId = isName ? stat.key : stat.bare;
+
+  // Exact-match drill-down: narrow a root result to its specific lemma (word +
+  // inflections) or exact surface form. Only offered for roots that actually
+  // resolve to a lemma/form. Resets to the root view on every new result.
+  const [gran, setGran] = useState<"root" | "lemma" | "form">("root");
+  useEffect(() => setGran("root"), [statId]);
+  const showDrill = !isName && !!drill && !!(drill.lemma || drill.form);
+  const drillEntry: DrillEntry | null =
+    gran === "lemma" ? drill?.lemma ?? null : gran === "form" ? drill?.form ?? null : null;
+  const drilling = drillEntry !== null;
+
+  // Preview ayahs that contain the searched word — lazily fetched (best-effort).
+  // Drill-down views fetch by precomputed refs; compound (multi-word) names
+  // carry explicit occurrence refs (no single lemma); everything else fetches
+  // by lemma (names) or bare root.
   const occ = isName ? (stat as NameStat).occ : undefined;
   const fetchTerm = isName ? stat.lemma : stat.bare;
-  const canFetchVerses = (occ != null && occ.length > 0) || (Boolean(fetchTerm) && !/\s/.test(fetchTerm));
+  const canFetchVerses =
+    drilling || (occ != null && occ.length > 0) || (Boolean(fetchTerm) && !/\s/.test(fetchTerm));
   const [verses, setVerses] = useState<OccurrenceAyah[] | null>(canFetchVerses ? null : []);
   useEffect(() => {
     if (!canFetchVerses) {
@@ -705,13 +748,24 @@ function ResultPanel({
     }
     setVerses(null);
     const ac = new AbortController();
-    const request = occ != null && occ.length > 0
-      ? fetchOccurrencesByRefs(occ, 10, ac.signal)
-      : fetchOccurrences(isName ? "lemma" : "root", fetchTerm, 10, ac.signal);
+    const request = drillEntry
+      ? fetchOccurrencesByRefs(
+          drillEntry.refs.map(([s, a, w]) => [s, a, w, 1] as [number, number, number, number]),
+          10,
+          ac.signal,
+        )
+      : occ != null && occ.length > 0
+        ? fetchOccurrencesByRefs(occ, 10, ac.signal)
+        : fetchOccurrences(isName ? "lemma" : "root", fetchTerm, 10, ac.signal);
     request.then((a) => setVerses(a));
     return () => ac.abort();
-    // statId identifies the result; occ/fetchTerm/canFetchVerses derive from it.
-  }, [statId, isName]);
+    // statId identifies the result; gran switches the drill-down granularity.
+  }, [statId, isName, gran]);
+
+  // What the count card + carousel reflect: the drilled lemma/form, else root.
+  const displayCount = drilling ? drillEntry!.c : stat.count;
+  const displayArabic = drilling ? drillEntry!.d : stat.root;
+  const versesTotal = drilling ? drillEntry!.c : stat.verses;
 
   return (
     <div className="mhome-result">
@@ -723,16 +777,16 @@ function ResultPanel({
       </button>
       <div className="mhome-result-head">
         <div className="mhome-count">
-          {stat.count.toLocaleString()}
+          {displayCount.toLocaleString()}
         </div>
         <div className="mhome-count-lab">
           <div className="mhome-occ">{t("occurrences")}</div>
           <div className="mhome-ident">
             <span dir="rtl" lang="ar" className="mhome-ident-ar" style={{ color }}>
-              {stat.root}
+              {displayArabic}
             </span>
-            {locale !== "ar" && <span className="mhome-ident-tr">{stat.translit}</span>}
-            {resultGloss && (
+            {!drilling && locale !== "ar" && <span className="mhome-ident-tr">{stat.translit}</span>}
+            {!drilling && resultGloss && (
               <span
                 className={`mhome-ident-gl ${resultGloss.isAr ? "mhome-gloss-ar" : ""}`}
                 dir={resultGloss.isAr ? "rtl" : "ltr"}
@@ -779,6 +833,38 @@ function ResultPanel({
         </div>
       </div>
 
+      {showDrill && (
+        <>
+          <div className="mhome-drill" role="tablist" aria-label={t("exactLabel")}>
+            {(["root", "lemma", "form"] as const).map((g) => {
+              const e = g === "root" ? null : g === "lemma" ? drill!.lemma : drill!.form;
+              const n = g === "root" ? stat.count : e?.c;
+              const label = g === "root" ? t("granRoot") : g === "lemma" ? t("granWord") : t("granForm");
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  role="tab"
+                  aria-selected={gran === g}
+                  className={`mhome-drill-tab ${gran === g ? "is-active" : ""}`}
+                  style={gran === g ? { borderColor: color, color } : undefined}
+                  disabled={g !== "root" && !e}
+                  onClick={() => setGran(g)}
+                >
+                  <span className="mhome-drill-lab">{label}</span>
+                  {typeof n === "number" && <span className="mhome-drill-n">{n.toLocaleString()}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mhome-drill-hint">
+            {gran === "lemma" ? t("granHintWord") : gran === "form" ? t("granHintForm") : t("granHintRoot")}
+          </div>
+        </>
+      )}
+
+      {!drilling && (
+      <>
       <div className="mhome-stats">
         <div className="mhome-stat">
           <span className="mhome-stat-n">
@@ -839,12 +925,14 @@ function ResultPanel({
           </div>
         ))}
       </div>
+      </>
+      )}
 
       {verses !== null && verses.length > 0 && (
         <ResultVerses
           verses={verses}
           color={color}
-          total={stat.verses}
+          total={versesTotal}
           t={t}
           onOpenAyah={onOpenAyah}
           onOpenFull={() => (isName ? onExploreName(stat) : onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0]))}
@@ -1599,6 +1687,22 @@ const styles = `
   }
   .mhome-dict-badge:hover { color: var(--mh-ink); border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.85); }
   .mhome-dict-badge svg { opacity: 0.7; }
+
+  /* exact-match drill-down: root → word (lemma) → exact form */
+  .mhome-drill { display: flex; gap: 8px; margin-top: 18px; }
+  .mhome-drill-tab {
+    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 9px 10px; border-radius: 12px; cursor: pointer;
+    background: rgba(var(--mh-card-rgb), 0.45); border: 1px solid var(--mh-hairline-soft);
+    color: rgba(var(--mh-ink-rgb), 0.6); transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .mhome-drill-tab:hover:not(:disabled) { border-color: var(--mh-accent-border); color: var(--mh-ink); }
+  .mhome-drill-tab.is-active { background: rgba(var(--mh-card-rgb), 0.85); }
+  .mhome-drill-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mhome-drill-lab { font: 600 11px 'Space Grotesk', sans-serif; letter-spacing: 0.03em; text-transform: uppercase; }
+  .mhome-drill-n { font: 600 17px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; color: var(--mh-ink); }
+  .mhome-drill-tab:not(.is-active) .mhome-drill-n { color: rgba(var(--mh-ink-rgb), 0.6); }
+  .mhome-drill-hint { margin-top: 8px; font: 400 12px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.55); }
 
   /* occurrence stats — proper tiles, not cramped text */
   .mhome-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 19px; }
