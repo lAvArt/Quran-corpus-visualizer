@@ -17,6 +17,17 @@ describe("form-index (surface word → root)", () => {
     expect(lookupFormRoot(idx, word)).toBe(root);
   });
 
+  // Rasm fold: the corpus writes these defectively (صلح, رحمن), but users type
+  // the modern spelling with the medial alef — both must reach the root.
+  it.each([
+    ["صالح", "صلح"],
+    ["الصالحين", "صلح"],
+    ["صالحات", "صلح"],
+    ["رحمان", "رحم"],
+  ])("rasm-folds %s → root %s", (word, root) => {
+    expect(lookupFormRoot(idx, word)).toBe(root);
+  });
+
   it("returns null for a non-word", () => {
     expect(lookupFormRoot(idx, "زقزقةxyz")).toBeNull();
   });

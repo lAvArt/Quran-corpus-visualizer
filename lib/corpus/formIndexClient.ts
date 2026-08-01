@@ -33,12 +33,33 @@ export async function loadFormIndex(): Promise<FormIndex> {
 
 const PROCLITIC = /^(وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)/;
 
+/**
+ * Fold the modern (imlāʾī) spelling toward the corpus's Uthmani rasm by
+ * dropping the MEDIAL long-alef — the letter the rasm most commonly omits
+ * (صالح is written صلح, الصالحين → الصلحين, رحمان → رحمن). Keep the first and
+ * last letters so a leading article/hamza-alif or a genuine final alef is
+ * preserved. Used only as a fallback, so an over-fold that finds nothing is
+ * harmless; the win is that a naturally-typed word like صالح now resolves.
+ */
+function foldRasmAlef(s: string): string {
+  if (s.length <= 2) return s;
+  return s[0] + s.slice(1, -1).replace(/ا/g, "") + s[s.length - 1];
+}
+
 /** Resolve an inflected surface word to its root's bare key, or null. */
 export function lookupFormRoot(idx: FormIndex, query: string): string | null {
   const q = normalizeArabicForSearch(query);
   if (!q) return null;
-  if (idx.forms[q]) return idx.forms[q];
-  const stripped = q.replace(PROCLITIC, "");
-  if (stripped.length >= 2 && idx.forms[stripped]) return idx.forms[stripped];
-  return null;
+  const resolve = (k: string): string | null => {
+    if (idx.forms[k]) return idx.forms[k];
+    const stripped = k.replace(PROCLITIC, "");
+    if (stripped.length >= 2 && idx.forms[stripped]) return idx.forms[stripped];
+    return null;
+  };
+  // Direct (imlāʾī) match first; then the rasm-folded spelling so words the
+  // corpus writes defectively (صالح → صلح) still reach their root.
+  const direct = resolve(q);
+  if (direct) return direct;
+  const folded = foldRasmAlef(q);
+  return folded !== q ? resolve(folded) : null;
 }
