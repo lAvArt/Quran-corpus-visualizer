@@ -244,19 +244,33 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     return () => clearTimeout(timer);
   }, [q]);
 
-  // Mirror the committed query into the URL (?q=) via router.replace — in place
-  // (no history spam) but through Next's router so it OWNS the entry. Opening a
-  // result pushes a new (?viz=…) entry, so browser Back returns here with ?q=
-  // intact and the search is restored (see initialQuery). A raw replaceState
-  // would desync from the router and get dropped on the next push. Cleared
-  // queries drop the param.
+  // Mirror the committed query into the URL (?q=) through Next's router so it
+  // OWNS the entry. PUSH a new entry on the resting→search transition (so Back
+  // lands on the resting home instead of leaving the site), REPLACE for every
+  // later edit/clear (no history spam). Opening a result pushes a ?viz= entry,
+  // so Back from the graph returns here with ?q= intact (see initialQuery).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const current = new URLSearchParams(window.location.search).get("q") ?? "";
     const term = dq.trim();
     if (current === term) return;
-    router.replace(term ? `/${locale}?q=${encodeURIComponent(term)}` : `/${locale}`, { scroll: false });
+    const url = term ? `/${locale}?q=${encodeURIComponent(term)}` : `/${locale}`;
+    if (current === "" && term !== "") router.push(url, { scroll: false });
+    else router.replace(url, { scroll: false });
   }, [dq, locale, router]);
+
+  // /en and /en?q= both render this component (no remount), so Back/Forward
+  // between them must reconcile React state to the URL — otherwise a stale
+  // query lingers. Restores the resting home on Back out of a search.
+  useEffect(() => {
+    const onPop = () => {
+      const urlQ = new URLSearchParams(window.location.search).get("q") ?? "";
+      setQ(urlQ);
+      setDq(urlQ);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // Deliberate picks (chips / today / suggestions) resolve immediately.
   const pick = useCallback((v: string) => {

@@ -20,7 +20,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeArabicForSearch } from "../lib/search/arabicNormalize";
+import { normalizeArabicForSearch, foldHamza } from "../lib/search/arabicNormalize";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -131,15 +131,32 @@ async function main() {
   const lemmasOut: Record<string, unknown> = {};
   for (const [k, e] of lemmas) lemmasOut[k] = serialize(e);
 
+  // Hamza-dropped aliases (قُرْءَان → قران) so a hamza-less query reaches the
+  // entry. Additive: only fill a folded key that has no direct entry, so a word
+  // written with an explicit hamza never clobbers a distinct plain-alef word.
+  const addHamzaAliases = (out: Record<string, unknown>) => {
+    let n = 0;
+    for (const k of Object.keys(out)) {
+      const fh = foldHamza(k);
+      if (fh.length >= 2 && fh !== k && !(fh in out)) {
+        out[fh] = out[k];
+        n += 1;
+      }
+    }
+    return n;
+  };
+  const formAliases = addHamzaAliases(formsOut);
+  const lemmaAliases = addHamzaAliases(lemmasOut);
+
   await fs.writeFile(OUT, JSON.stringify({ version: 1, forms: formsOut, lemmas: lemmasOut }));
   const bytes = (await fs.stat(OUT)).size;
   console.log(
-    `✅ lemma-form-stats.json — ${lemmas.size} lemmas · ${forms.size} forms · ${(bytes / 1024).toFixed(0)} KB`,
+    `✅ lemma-form-stats.json — ${lemmas.size} lemmas (+${lemmaAliases} aliases) · ${forms.size} forms (+${formAliases} aliases) · ${(bytes / 1024).toFixed(0)} KB`,
   );
-  for (const q of ["عزيز", "العزيز", "صالح", "موسي"]) {
+  for (const q of ["عزيز", "العزيز", "صالح", "موسي", "قران", "قرءان"]) {
     const nk = normalizeArabicForSearch(q);
-    const f = forms.get(nk);
-    const l = lemmas.get(nk);
+    const f = formsOut[nk] as { d: string; c: number } | undefined;
+    const l = lemmasOut[nk] as { d: string; c: number } | undefined;
     console.log(`   ${q}: form=${f ? `${f.d} ×${f.c}` : "—"} · lemma=${l ? `${l.d} ×${l.c}` : "—"}`);
   }
 }

@@ -14,6 +14,11 @@ export const ROOT_GLOSSES: ReadonlyMap<string, string> = new Map([
   ["ٱلل", "God"],
   ["ءلل", "God"],
   ["قول", "to say / speak"],
+  // The read/recite root — the Quran itself (قُرْءَان). Keyed both bare (قرا, as
+  // the corpus stores it) and hamza (قرء) so both the app search doc gloss and
+  // the home gloss index resolve "quran"/"koran".
+  ["قرا", "to read / recite; the Quran (Koran)"],
+  ["قرء", "to read / recite; the Quran (Koran)"],
   ["كون", "to be / exist"],
   ["ربب", "lord / sustainer"],
   ["علم", "to know / knowledge"],

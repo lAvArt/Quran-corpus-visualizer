@@ -28,13 +28,23 @@ describe("form-index (surface word → root)", () => {
     expect(lookupFormRoot(idx, word)).toBe(root);
   });
 
-  // Hamza-alef bridge: the corpus writes قرآن with an explicit hamza (قرءان),
-  // so the madda query must reach root قرا — and NOT the rasm-fold's قرن.
+  // Hamza handling: the corpus writes قرآن with an explicit hamza (قرءان). EVERY
+  // modern spelling must reach root قرا — and NOT the rasm-fold's wrong قرن.
   it.each([
-    ["قرآن", "قرا"],
+    ["قرآن", "قرا"], // madda
     ["القرآن", "قرا"],
-  ])("bridges madda %s → root %s", (word, root) => {
+    ["قران", "قرا"], // bare alef (was resolving to the wrong root قرن)
+    ["القران", "قرا"],
+    ["قرأن", "قرا"], // hamza-on-alef
+    ["قرءان", "قرا"], // explicit hamza (as the corpus writes it)
+  ])("resolves hamza spelling %s → root %s", (word, root) => {
     expect(lookupFormRoot(idx, word)).toBe(root);
+  });
+
+  // The hamza alias is ADDITIVE — a direct plain-alef key must never be
+  // clobbered by a hamza word that folds onto it (امن stays believe, not آمن).
+  it("keeps a direct plain-alef key winning over a hamza-fold alias", () => {
+    expect(lookupFormRoot(idx, "امن")).toBe("امن");
   });
 
   // Regression: madda words the corpus writes WITHOUT a hamza (مآب → ماب) must
