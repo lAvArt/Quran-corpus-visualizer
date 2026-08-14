@@ -4,7 +4,7 @@
  * word (اسم, اسماء, كتاب, الرحمن) to its root's key, so the result chooser can
  * offer the root alongside any same-prefix name. Lazy + best-effort.
  */
-import { normalizeArabicForSearch, foldRasmAlef } from "@/lib/search/arabicNormalize";
+import { foldRasmAlef, searchKeyVariants } from "@/lib/search/arabicNormalize";
 
 export interface FormIndex {
   version: number;
@@ -35,18 +35,27 @@ const PROCLITIC = /^(وال|فال|بال|كال|لل|ال|و|ف|ب|ك|ل)/;
 
 /** Resolve an inflected surface word to its root's bare key, or null. */
 export function lookupFormRoot(idx: FormIndex, query: string): string | null {
-  const q = normalizeArabicForSearch(query);
-  if (!q) return null;
+  const variants = searchKeyVariants(query);
+  if (!variants.length) return null;
   const resolve = (k: string): string | null => {
     if (idx.forms[k]) return idx.forms[k];
     const stripped = k.replace(PROCLITIC, "");
     if (stripped.length >= 2 && idx.forms[stripped]) return idx.forms[stripped];
     return null;
   };
-  // Direct (imlāʾī) match first; then the rasm-folded spelling so words the
-  // corpus writes defectively (صالح → صلح) still reach their root.
-  const direct = resolve(q);
-  if (direct) return direct;
-  const folded = foldRasmAlef(q);
-  return folded !== q ? resolve(folded) : null;
+  // Direct (incl. the hamza-alef bridge, e.g. قرآن → قرءان) first, across every
+  // spelling variant; only then the rasm fold (صالح → صلح) — so a bridged hit
+  // wins over an over-fold that would land on a wrong root (قران → قرن).
+  for (const v of variants) {
+    const hit = resolve(v);
+    if (hit) return hit;
+  }
+  for (const v of variants) {
+    const folded = foldRasmAlef(v);
+    if (folded !== v) {
+      const hit = resolve(folded);
+      if (hit) return hit;
+    }
+  }
+  return null;
 }

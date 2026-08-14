@@ -29,6 +29,11 @@ describe("lemma/form drill-down stats", () => {
     expect(lookupForm(idx, "صالح")).not.toBeNull();
   });
 
+  it("bridges the madda spelling قرآن (corpus: قرءان)", () => {
+    expect(lookupForm(idx, "قرآن")).not.toBeNull();
+    expect(lookupLemma(idx, "قرآن")?.r).toBe("قرا");
+  });
+
   it("returns null for a non-word", () => {
     expect(lookupForm(idx, "زقزقةxyz")).toBeNull();
     expect(lookupLemma(idx, "زقزقةxyz")).toBeNull();

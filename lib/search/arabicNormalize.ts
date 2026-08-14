@@ -31,6 +31,33 @@ export function normalizeArabicForSearch(value: string): string {
 }
 
 /**
+ * Bridge the alef-madda (آ = hamza+alef) to the corpus's explicit hamza-alef
+ * spelling. The corpus is inconsistent: some words are written with a real
+ * hamza (قرآن → قُرْءَان, i.e. ء+ا) while others use the madda (مآب). A plain
+ * query with آ normalizes (NFKD strips the madda) to a bare alef — قرآن → قران
+ * — which misses the قرءان key. Rewriting آ → ء+ا on the RAW string, before
+ * normalization, produces the قرءان form. Applied only as an EXTRA variant
+ * (see searchKeyVariants), so the madda-spelled words (مآب) still resolve.
+ */
+export function foldMaddaToHamzaAlef(value: string): string {
+  // Composed آ (آ) and decomposed alef+maddah (آ) → ء+ا.
+  return value
+    .replace(/آ/g, "ءا")
+    .replace(/آ/g, "ءا");
+}
+
+/**
+ * Normalized key(s) to try for a search query: the plain normalization first,
+ * then the hamza-alef bridge (see foldMaddaToHamzaAlef) when it differs — so a
+ * lookup can try both the ا- and ءا-spellings of a madda word. Deduped.
+ */
+export function searchKeyVariants(query: string): string[] {
+  const base = normalizeArabicForSearch(query);
+  const bridged = normalizeArabicForSearch(foldMaddaToHamzaAlef(query));
+  return bridged && bridged !== base ? [base, bridged] : base ? [base] : [];
+}
+
+/**
  * Fold a modern (imlāʾī) spelling toward the corpus's Uthmani rasm by dropping
  * the MEDIAL long-alef — the letter the rasm most commonly omits (صالح is
  * written صلح, الصالحين → الصلحين, رحمان → رحمن). Keeps the first and last

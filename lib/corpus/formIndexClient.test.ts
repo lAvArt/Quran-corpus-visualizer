@@ -28,6 +28,21 @@ describe("form-index (surface word → root)", () => {
     expect(lookupFormRoot(idx, word)).toBe(root);
   });
 
+  // Hamza-alef bridge: the corpus writes قرآن with an explicit hamza (قرءان),
+  // so the madda query must reach root قرا — and NOT the rasm-fold's قرن.
+  it.each([
+    ["قرآن", "قرا"],
+    ["القرآن", "قرا"],
+  ])("bridges madda %s → root %s", (word, root) => {
+    expect(lookupFormRoot(idx, word)).toBe(root);
+  });
+
+  // Regression: madda words the corpus writes WITHOUT a hamza (مآب → ماب) must
+  // still resolve via the plain spelling, not be broken by the bridge.
+  it("keeps a madda word written without hamza resolving (مآب → اوب)", () => {
+    expect(lookupFormRoot(idx, "مآب")).toBe("اوب");
+  });
+
   it("returns null for a non-word", () => {
     expect(lookupFormRoot(idx, "زقزقةxyz")).toBeNull();
   });
