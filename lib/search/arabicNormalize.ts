@@ -47,14 +47,37 @@ export function foldMaddaToHamzaAlef(value: string): string {
 }
 
 /**
- * Normalized key(s) to try for a search query: the plain normalization first,
- * then the hamza-alef bridge (see foldMaddaToHamzaAlef) when it differs — so a
- * lookup can try both the ا- and ءا-spellings of a madda word. Deduped.
+ * Drop the standalone hamza (ء, U+0621). The corpus writes many words with an
+ * explicit hamza the modern speller omits — قُرْءَان vs قرآن/قران, دُعَاء vs دعا
+ * — so folding ء out lets a hamza-less query reach a hamza-carrying key (and
+ * vice-versa). Used ADDITIVELY (an extra alias key at build time, an extra
+ * lookup variant at query time), never to replace the literal key, so the many
+ * words whose ء-stripped form collides with a different real word stay distinct
+ * (the direct key always wins first).
+ */
+export function foldHamza(value: string): string {
+  return value.replace(/ء/g, "");
+}
+
+/**
+ * Normalized key(s) to try for a search query, most-specific first: the plain
+ * normalization, the alef-madda bridge (foldMaddaToHamzaAlef), and the
+ * hamza-dropped fold (foldHamza) of each — so a query reaches a key written
+ * with a different-but-equivalent hamza spelling (قران/قرآن/قرأن ↔ قرءان).
+ * Deduped, order-preserving; callers try these DIRECT before any rasm fold.
  */
 export function searchKeyVariants(query: string): string[] {
   const base = normalizeArabicForSearch(query);
   const bridged = normalizeArabicForSearch(foldMaddaToHamzaAlef(query));
-  return bridged && bridged !== base ? [base, bridged] : base ? [base] : [];
+  const out: string[] = [];
+  const add = (k: string) => {
+    if (k && k.length >= 2 && !out.includes(k)) out.push(k);
+  };
+  for (const k of [base, bridged]) {
+    add(k);
+    add(foldHamza(k));
+  }
+  return out;
 }
 
 /**

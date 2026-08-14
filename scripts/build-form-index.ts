@@ -13,7 +13,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeArabicForSearch } from "../lib/search/arabicNormalize";
+import { normalizeArabicForSearch, foldHamza } from "../lib/search/arabicNormalize";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -64,23 +64,40 @@ async function main() {
 
   // form (normalized surface, + proclitic-stripped) → root (bare Arabic, exactly
   // as root-stats keys it). First occurrence wins.
+  //
+  // Two passes so DIRECT keys always beat hamza-dropped aliases: pass 1 keys the
+  // literal spellings; pass 2 adds a ء-dropped alias (قرءان → قران) only where no
+  // direct key exists, so a hamza-less query (قران/قرآن) reaches the قرءان entry
+  // without ever overwriting a genuinely different word that was keyed directly.
   const out: Record<string, string> = {};
+  const entries: { keys: string[]; root: string }[] = [];
   for (const w of words.values()) {
     if (!w.root) continue;
     const surface = normalizeArabicForSearch(bw2ar(w.surf));
     if (!surface) continue;
-    const forms = new Set<string>([surface]);
+    const keys = new Set<string>([surface]);
     const stripped = surface.replace(PROCLITIC, "");
-    if (stripped.length >= 2) forms.add(stripped);
-    for (const f of forms) {
+    if (stripped.length >= 2) keys.add(stripped);
+    entries.push({ keys: [...keys], root: w.root });
+    for (const f of keys) {
       if (f.length >= 2 && !(f in out)) out[f] = w.root;
+    }
+  }
+  let aliasCount = 0;
+  for (const { keys, root } of entries) {
+    for (const k of keys) {
+      const fh = foldHamza(k);
+      if (fh.length >= 2 && fh !== k && !(fh in out)) {
+        out[fh] = root;
+        aliasCount += 1;
+      }
     }
   }
 
   await fs.writeFile(OUT, JSON.stringify({ version: 1, forms: out }));
   const bytes = (await fs.stat(OUT)).size;
-  console.log(`✅ form-index.json — ${Object.keys(out).length} forms · ${(bytes / 1024).toFixed(0)} KB`);
-  for (const q of ["اسم", "اسماء", "كتاب", "الرحمن"]) {
+  console.log(`✅ form-index.json — ${Object.keys(out).length} forms (${aliasCount} hamza aliases) · ${(bytes / 1024).toFixed(0)} KB`);
+  for (const q of ["اسم", "اسماء", "كتاب", "الرحمن", "قران", "قرءان", "القران"]) {
     console.log(`   ${q} → ${out[normalizeArabicForSearch(q)] ?? "—"}`);
   }
 }

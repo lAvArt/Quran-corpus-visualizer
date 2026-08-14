@@ -11,7 +11,7 @@
  * field doesn't dominate, and rare terms (high IDF) float to the top.
  */
 
-import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+import { searchKeyVariants } from "@/lib/search/arabicNormalize";
 
 const ARABIC_RANGE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
@@ -31,8 +31,11 @@ export function tokenizeForBm25(text: string): string[] {
     const piece = raw.trim();
     if (!piece) continue;
     if (ARABIC_RANGE.test(piece)) {
-      const norm = normalizeArabicForSearch(piece);
-      if (norm) terms.push(norm);
+      // Emit every hamza/madda spelling variant (searchKeyVariants) at BOTH
+      // index and query time, so a word the corpus writes with an explicit
+      // hamza (قُرْءَان) is reachable by the modern spellings (قرآن/قران/قرأن)
+      // and vice-versa — the same bridge the home path uses.
+      for (const v of searchKeyVariants(piece)) terms.push(v);
     } else {
       const lower = piece.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (lower && lower.length > 1 && !STOP_WORDS.has(lower)) terms.push(lower);
