@@ -331,12 +331,17 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   // shown, then resolve the typed word's specific lemma + exact form so the
   // result panel can offer the "exact match" narrowing.
   const activeIsRoot = active !== null && !isNameHit(active);
+  // Prefetch as soon as there's a query (not just once a root result renders),
+  // so the drill stats are ready when the panel mounts — the smart default
+  // (lead with Word for a specific typed word) then applies without a visible
+  // Root→Word flip. Cached after the first load, so it's paid once per session.
+  const hasTypedQuery = dq.trim().length > 0;
   useEffect(() => {
-    if (!activeIsRoot || drillIdx) return;
+    if (!hasTypedQuery || drillIdx) return;
     let on = true;
     loadLemmaFormStats().then((d) => on && setDrillIdx(d)).catch(() => {});
     return () => { on = false; };
-  }, [activeIsRoot, drillIdx]);
+  }, [hasTypedQuery, drillIdx]);
   const drill = useMemo<{ lemma: DrillEntry | null; form: DrillEntry | null } | null>(() => {
     if (!activeIsRoot || !drillIdx) return null;
     const term = dq.trim();
@@ -524,6 +529,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
             <ResultPanel
               stat={active}
               drill={drill}
+              query={dq.trim()}
               formIdx={formIdx}
               drillIdx={drillIdx}
               t={t}
@@ -706,6 +712,7 @@ function ResultChooser({
 function ResultPanel({
   stat,
   drill,
+  query,
   formIdx,
   drillIdx,
   t,
@@ -716,6 +723,7 @@ function ResultPanel({
 }: {
   stat: HomeHit;
   drill: { lemma: DrillEntry | null; form: DrillEntry | null } | null;
+  query: string;
   formIdx: FormIndex | null;
   drillIdx: LemmaFormStats | null;
   t: ReturnType<typeof useTranslations>;
@@ -739,9 +747,28 @@ function ResultPanel({
 
   // Exact-match drill-down: narrow a root result to its specific lemma (word +
   // inflections) or exact surface form. Only offered for roots that actually
-  // resolve to a lemma/form. Resets to the root view on every new result.
+  // resolve to a lemma/form.
   const [gran, setGran] = useState<"root" | "lemma" | "form">("root");
-  useEffect(() => setGran("root"), [statId]);
+  // Smart default: if the user typed a SPECIFIC word (its normalized form isn't
+  // the bare root — e.g. قرآن, whose root قرا also covers the unrelated قروء)
+  // and that word has a lemma, lead with the Word view so they see just that
+  // word, not the whole root family. A bare-root query (قرا) stays on Root, and
+  // once the user picks a tab their choice sticks (no snap-back on data load).
+  const typedSpecificWord =
+    !isName && !!query && normalizeArabicForSearch(query) !== stat.bare;
+  const userChoseGranRef = useRef(false);
+  useEffect(() => {
+    userChoseGranRef.current = false;
+    setGran("root");
+  }, [statId]);
+  useEffect(() => {
+    if (userChoseGranRef.current) return;
+    setGran(typedSpecificWord && drill?.lemma ? "lemma" : "root");
+  }, [typedSpecificWord, drill]);
+  const chooseGran = (g: "root" | "lemma" | "form") => {
+    userChoseGranRef.current = true;
+    setGran(g);
+  };
   const showDrill = !isName && !!drill && !!(drill.lemma || drill.form);
   const drillEntry: DrillEntry | null =
     gran === "lemma" ? drill?.lemma ?? null : gran === "form" ? drill?.form ?? null : null;
@@ -890,7 +917,7 @@ function ResultPanel({
                   className={`mhome-drill-tab ${gran === g ? "is-active" : ""}`}
                   style={gran === g ? { borderColor: color, color } : undefined}
                   disabled={g !== "root" && !e}
-                  onClick={() => setGran(g)}
+                  onClick={() => chooseGran(g)}
                 >
                   <span className="mhome-drill-lab">{label}</span>
                   {typeof n === "number" && <span className="mhome-drill-n">{n.toLocaleString()}</span>}
