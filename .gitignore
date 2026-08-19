@@ -22,6 +22,19 @@ arabic-book-corpus-platform/
 # UX screenshot harness output
 .ux-shots/
 
+# Lexicon OCR cache — paid API output, regenerable, large
+.lexicon-cache/
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
+
+# Reference lexicon scans in docs/ are third-party copyrighted books (~130 MB).
+# This is a public repo: never commit them, and never commit text derived from
+# them until the licensing question is settled.
+docs/*.pdf
+public/data/root-meanings.json
+
 # Video captures (intro/tutorial recordings) — never commit media
 *.webm
 *.mp4

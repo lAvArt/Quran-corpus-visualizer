@@ -92,7 +92,7 @@ export const translations: Record<Language, Translations> = {
     },
     ar: {
         // Header
-        appTitle: "مرصد القرآن",
+        appTitle: "مرصد اللسانيات القرآنية",
         corpusAtlas: "أطلس القرآن",
         surahs: "سورة",
         tokens: "كلمة",

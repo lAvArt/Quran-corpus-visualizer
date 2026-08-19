@@ -8,9 +8,9 @@ Interactive exploration of Quranic linguistic structure, morphology, search, and
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![CI](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml)
-[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://quranobservatory.org)
+[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://www.quranobservatory.org)
 
-[Live Demo](https://quranobservatory.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
+[Live Demo](https://www.quranobservatory.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
 
 </div>
 
@@ -96,8 +96,26 @@ Quranic Linguistics Observatory is a Next.js application for exploring the Quran
 
 ### Search and analysis
 
-- Fast global search across Arabic text, roots, lemmas, glosses, and translations
-- Dedicated Search workspace with grouped results, explicit fallback messaging, and recovery paths
+<!-- SEARCH:RESULT -->
+<img width="2560" height="1260" alt="Search result — occurrence count, spread across surahs, and drill-down" src="public/docs/images/search-result.png" />
+<!-- END:SEARCH -->
+
+The landing page is the search box. Type, and the answer resolves as you go:
+
+- **Suggestions from the first letter**, ranked by frequency, with a chooser when the
+  query is ambiguous (`اسم` → the root سمو, 381x, or the name إسماعيل, 12x)
+- **Three levels of counting** for any hit — the root (`رحمة` → ر-ح-م, 339x), the word
+  across all its inflections (114x), and the exact written form (35x)
+- **Modern spelling finds Uthmani rasm.** The corpus omits the medial long alef and
+  writes hamza its own way, so `صالح`, `قرآن`, `قران`, `قرءان` — and `quran` — all
+  resolve to what the text actually spells
+- **Proper nouns are searchable and countable.** They carry no root in the corpus, so
+  they are indexed separately, with spelling variants, multi-word compounds
+  (`ذو القرنين`), and partial matching (`اسماع` → إسماعيل)
+- Verse carousel per result, highlighting the searched word by content rather than by
+  word position
+- Dedicated Search workspace with grouped results, a paginated root dossier, a surah
+  dossier, and explicit fallback messaging
 - Morphological filters by root, lemma, part of speech, and ayah
 - Semantic and collocation queries through Supabase/PostgreSQL functions
 - Optional image-assisted root extraction and OCR-assisted utilities for search entry
