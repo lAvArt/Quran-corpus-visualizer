@@ -14,6 +14,32 @@ import { createClient } from "@/lib/supabase/client";
 import { clearDevAuthUser, readDevAuthUser, readDevSession } from "@/lib/dev/testOverrides";
 import { formatSupabaseError } from "@/lib/supabase/errors";
 import { APP_EMAIL_IDENTITY } from "@/lib/config/appIdentity";
+import { SITE_URL } from "@/lib/seo/site";
+
+// ── Auth callback origin ───────────────────────────────────────────
+
+/**
+ * Where Supabase should send the user back to.
+ *
+ * NOT `location.origin`. The Supabase project is SHARED with sibling Pluragate
+ * apps, so a redirect it cannot match against its allow-list silently falls back
+ * to the project-wide SITE_URL — which is another app entirely (that is how
+ * Google sign-in was landing on pluranet's /en/coming-soon?code=…). Pinning
+ * production traffic to the one canonical origin means a single allow-list entry
+ * (`https://www.quranobservatory.org/auth/callback`) covers every visitor, no
+ * matter which alias host they arrived on.
+ *
+ * Local dev and Vercel previews keep their own origin — they are allow-listed
+ * separately (e.g. `http://localhost:3000/**`, `https://*.vercel.app/**`).
+ */
+function authCallbackUrl(path = "/auth/callback"): string {
+    if (typeof window === "undefined") return `${SITE_URL}${path}`;
+    const { hostname, origin } = window.location;
+    const isLocal =
+        hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local");
+    if (isLocal || hostname.endsWith(".vercel.app")) return `${origin}${path}`;
+    return `${SITE_URL}${path}`;
+}
 
 // ── Context shape ──────────────────────────────────────────────────
 
@@ -97,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     password,
                     options: {
                         // Supabase will send a confirmation email automatically
-                        emailRedirectTo: `${location.origin}/auth/callback`,
+                        emailRedirectTo: authCallbackUrl(),
                         // App marker for the SHARED Supabase project's email
                         // templates: they branch on {{ .Data.app }} so this
                         // app's users get Quran-Observatory-branded emails
@@ -118,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: "google",
                 options: {
-                    redirectTo: `${location.origin}/auth/callback`,
+                    redirectTo: authCallbackUrl(),
                 },
             });
             return { error: error?.message ?? null };
@@ -159,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         async (email: string) => {
             try {
                 const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${location.origin}/auth/callback?next=update-password`,
+                    redirectTo: authCallbackUrl("/auth/callback?next=update-password"),
                 });
                 return { error: error?.message ?? null };
             } catch (error) {

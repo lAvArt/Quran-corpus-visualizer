@@ -286,16 +286,30 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   const candidates = useMemo<HomeHit[]>(() => {
     const q = dq.trim();
     if (!q || !idx || !nameIdx) return [];
-    const qn = normalizeArabicForSearch(q);
     const out: HomeHit[] = [];
     const seen = new Set<string>();
-    const pushRoot = (bare?: string) => {
+    // Hits that answer the query DIRECTLY, recorded at push time rather than
+    // re-derived below: a hit's own key can't tell you it was exact. رحم reached
+    // from "الرحمن" through the form index IS the answer the user typed, yet its
+    // bare form doesn't equal the query — so key comparison would rank it level
+    // with a loose prefix guess and let a commoner root outrank it on frequency.
+    const direct = new Set<string>();
+    const hitKey = (h: HomeHit) => (isNameHit(h) ? `n:${h.key}` : `r:${h.bare}`);
+    const pushRoot = (bare?: string, isDirect = false) => {
       if (!bare) return;
       const r = idx.roots[bare];
-      if (r && !seen.has(`r:${bare}`)) { seen.add(`r:${bare}`); out.push(r); }
+      if (r && !seen.has(`r:${bare}`)) {
+        seen.add(`r:${bare}`);
+        if (isDirect) direct.add(`r:${bare}`);
+        out.push(r);
+      }
     };
-    const pushName = (e?: NameStat | null) => {
-      if (e && !seen.has(`n:${e.key}`)) { seen.add(`n:${e.key}`); out.push(e); }
+    const pushName = (e?: NameStat | null, isDirect = false) => {
+      if (e && !seen.has(`n:${e.key}`)) {
+        seen.add(`n:${e.key}`);
+        if (isDirect) direct.add(`n:${e.key}`);
+        out.push(e);
+      }
     };
 
     // Multi-word queries are phrases / compound names; a sub-word's root would
@@ -303,20 +317,29 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     const multiWord = /\s/.test(q);
 
     // Exact / direct matches.
-    pushName(nameIdx ? lookupName(nameIdx, q) : null);
+    pushName(nameIdx ? lookupName(nameIdx, q) : null, true);
     if (!multiWord) {
       const lr = lookupRoot(idx, q);
-      if (lr) pushRoot(lr.bare);
+      if (lr) pushRoot(lr.bare, true);
       // Inflected surface word → its root (اسم → سمو, الرحمن → رحم).
-      if (formIdx) pushRoot(lookupFormRoot(formIdx, q) ?? undefined);
+      if (formIdx) pushRoot(lookupFormRoot(formIdx, q) ?? undefined, true);
     }
     // Same-prefix alternatives (partial typing).
     for (const e of namePrefixMatches(nameIdx, q)) pushName(e);
     if (!multiWord) for (const r of rootPrefixMatches(idx, q)) pushRoot(r.bare);
 
+    // Three tiers, because suggestions now start at the first keystroke and a
+    // one-letter query drags in the most common roots in the Qurʾān — without
+    // this ordering they bury the word actually typed:
+    //   0. the query IS this entry's key (رحم typed, رحم found)
+    //   1. resolved from the query (الرحمن → رحم, موس → موسى) — exact in intent,
+    //      but its key differs, so key comparison alone would miss it
+    //   2. same-prefix suggestions, by frequency
+    const qn = normalizeArabicForSearch(q);
     const rank = (h: HomeHit) => {
       const key = isNameHit(h) ? h.key : normalizeArabicForSearch(h.bare);
-      return key === qn ? 0 : 1; // exact match sorts first
+      if (key === qn) return 0;
+      return direct.has(hitKey(h)) ? 1 : 2;
     };
     out.sort((a, b) => rank(a) - rank(b) || b.count - a.count);
     return out.slice(0, 8);

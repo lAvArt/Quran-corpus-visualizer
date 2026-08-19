@@ -225,12 +225,15 @@ export function lookupName(idx: NameStatsIndex, query: string): NameStat | null 
 
 /**
  * All names whose key (or alias) starts with the query — for the result
- * chooser. Proper nouns first, then by count. Min 3 chars (a 1–2 letter prefix
- * is too broad). Excludes the exact match (the caller lists it separately).
+ * chooser. Proper nouns first, then by count. Suggests from the FIRST letter:
+ * the home screen is a search box, and a search box that stays silent for two
+ * keystrokes reads as broken. Breadth is contained by the count sort + `limit`,
+ * not by a length gate. Excludes the exact match (the caller lists it
+ * separately).
  */
 export function namePrefixMatches(idx: NameStatsIndex, query: string, limit = 8): NameStat[] {
   const qn = normalizeArabicForSearch(query);
-  if (qn.length < 3) return [];
+  if (!qn) return [];
   const seen = new Set<string>();
   const hits: NameStat[] = [];
   const add = (e: NameStat | undefined) => {

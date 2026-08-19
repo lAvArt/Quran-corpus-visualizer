@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/routing";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -20,6 +21,24 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // A failed OAuth / email handshake redirects here carrying its reason. Before
+  // this, /auth/callback set ?error=… and nothing read it, so a broken sign-in
+  // was indistinguishable from arriving at the form for the first time.
+  const searchParams = useSearchParams();
+  const callbackError = searchParams.get("error");
+  useEffect(() => {
+    if (!callbackError) return;
+    const key =
+      callbackError === "auth_cancelled"
+        ? "errorCancelled"
+        : callbackError === "auth_no_code"
+          ? "errorNoCode"
+          : callbackError === "auth_provider_error"
+            ? "errorProvider"
+            : "errorCallback";
+    setError(t(key));
+  }, [callbackError, t]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

@@ -20,6 +20,10 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT_DIR, "public", "data", "quranic-corpus-morphology-0.4.txt");
 const OUT = path.join(ROOT_DIR, "public", "data", "root-stats.json");
 
+/** Verses baked per featured root. Keep in step with the live carousel's
+ *  `fetchOccurrences(..., 10)` in components/home/MinimalHome.tsx. */
+const EXAMPLES_PER_ROOT = 10;
+
 // ── Buckwalter → Arabic (identical table to lib/corpus/morphologyLoader.ts) ──
 const BW2AR: Record<string, string> = {
   "'": "ء", "|": "آ", ">": "أ", "<": "إ", "&": "ؤ", "}": "ئ", A: "ا", b: "ب",
@@ -276,8 +280,10 @@ async function main() {
     .slice(0, 48)
     .map((r) => r.bare);
 
-  // Example verses (one per distinct sūrah, up to 8) for each featured root — the
-  // "today's root" carousel reconstructs the verse and highlights the root word.
+  // Example verses (one per distinct sūrah, up to EXAMPLES_PER_ROOT) for each
+  // featured root — the "today's root" carousel reconstructs the verse and
+  // highlights the root word. Matches the live search result's carousel depth
+  // (`fetchOccurrences(..., 10)`), so both surfaces promise the same ten.
   for (const bare of featured) {
     const entry = out[bare];
     const occs = (rootOccs.get(entry.bw) ?? []).slice().sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
@@ -291,7 +297,7 @@ async function main() {
         .map((x) => ({ t: bw2ar(x.forms.join("")), root: x.rootBw ? bw2ar(x.rootBw) : "", pos: x.pos }))
         .filter((x) => x.t);
       if (wordsOut.length) examples.push({ s, a: av, w: wd, words: wordsOut });
-      if (examples.length >= 8) break;
+      if (examples.length >= EXAMPLES_PER_ROOT) break;
     }
     entry.examples = examples;
   }

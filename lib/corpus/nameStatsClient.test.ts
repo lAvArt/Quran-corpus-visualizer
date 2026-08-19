@@ -140,6 +140,15 @@ describe("name-stats.json data integrity", () => {
     expect(hits.some((e) => e.gloss?.startsWith("Imran"))).toBe(true); // عمران
   });
 
+  // The chooser suggests from the first keystroke; only the auto-resolve path
+  // (lookupName) still waits for 3 chars, so one letter offers choices rather
+  // than silently picking a name for the user.
+  it("namePrefixMatches suggests from a single letter", () => {
+    expect(namePrefixMatches(data, "م").length).toBeGreaterThan(0);
+    expect(namePrefixMatches(data, "مو").length).toBeGreaterThan(0);
+    expect(lookupName(data, "مو")).toBeNull();
+  });
+
   it("indexes multi-word compound names", () => {
     const dhul = data.names[normalizeArabicForSearch("ذو القرنين")];
     expect(dhul, "ذو القرنين missing").toBeDefined();

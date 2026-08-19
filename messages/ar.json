@@ -323,8 +323,8 @@
     "VisualizationSwitcher": {
         "select": "اختر",
         "dropdownTitle": "اختر الرسم البياني",
-        "moreVisualizations": "عرض جميع الرسوم",
-        "lessVisualizations": "عرض رسوم أقل",
+        "moreVisualizations": "مزيد من الرسوم",
+        "lessVisualizations": "رسوم أقل",
         "showMore": "+{count} أخرى في هذا التصنيف",
         "lightTheme": "الوضع الفاتح",
         "darkTheme": "الوضع الداكن",
@@ -383,9 +383,7 @@
                 "label": "شبكة التلازم التعبيري",
                 "description": "تحليل الجذور المتلازمة والجوار الدلالي"
             }
-        },
-        "moreVisualizations": "مزيد من الرسوم",
-        "lessVisualizations": "رسوم أقل"
+        }
     },
     "LanguageSwitcher": {
         "switchLabel": "التبديل إلى {locale}"
@@ -1429,7 +1427,11 @@
         "passwordMismatch": "كلمتا المرور غير متطابقتين.",
         "signUpSuccess": "تحقق من بريدك الإلكتروني لتأكيد الحساب. قد يستغرق الأمر دقيقتين — راجع مجلد الرسائل غير المرغوبة أيضًا. لديك حساب بالفعل؟ استخدم تسجيل الدخول أو «نسيت كلمة المرور؟».",
         "resetEmailSent": "تحقق من بريدك الإلكتروني للحصول على رابط إعادة التعيين.",
-        "sessionRequired": "انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى."
+        "sessionRequired": "انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.",
+        "errorCallback": "تعذّر إتمام تسجيل الدخول. حاول مرّة أخرى.",
+        "errorCancelled": "أُلغي تسجيل الدخول.",
+        "errorNoCode": "رابط الدخول ناقص أو سبق استعماله. حاول مرّة أخرى.",
+        "errorProvider": "رفض مزوّد الدخول الطلب. حاول مرّة أخرى."
     },
     "Profile": {
         "title": "ملفك الشخصي",

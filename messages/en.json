@@ -1427,7 +1427,11 @@
         "passwordMismatch": "Passwords do not match.",
         "signUpSuccess": "Check your email for a confirmation link. It can take a couple of minutes — look in spam too. Already have an account? Use Sign In or “Forgot password?” instead.",
         "resetEmailSent": "Check your email for the password reset link.",
-        "sessionRequired": "Your session has expired. Please sign in again."
+        "sessionRequired": "Your session has expired. Please sign in again.",
+        "errorCallback": "We couldn't complete that sign-in. Please try again.",
+        "errorCancelled": "Sign-in was cancelled.",
+        "errorNoCode": "That sign-in link is incomplete or has already been used. Please try again.",
+        "errorProvider": "The sign-in provider refused the request. Please try again."
     },
     "Profile": {
         "title": "Your Profile",
