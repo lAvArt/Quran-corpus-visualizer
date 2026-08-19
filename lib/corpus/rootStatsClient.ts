@@ -261,13 +261,16 @@ export function lookupRoot(idx: RootStatsIndex, query: string): RootStat | null 
 }
 
 /**
- * All roots whose bare form starts with the query (min 3 chars), by count — for
- * the result chooser. Excludes an exact bare match (listed separately). Uses the
- * shared search normalizer so it agrees with the name index and form index.
+ * All roots whose bare form starts with the query, by count — for the result
+ * chooser. Suggests from the FIRST letter (see `namePrefixMatches`): the count
+ * sort puts the roots worth seeing on top, so a broad 1-letter prefix costs
+ * nothing but a longer candidate list, which `limit` already caps. Excludes an
+ * exact bare match (listed separately). Uses the shared search normalizer so it
+ * agrees with the name index and form index.
  */
 export function rootPrefixMatches(idx: RootStatsIndex, query: string, limit = 6): RootStat[] {
   const qn = normalizeArabicForSearch(query);
-  if (qn.length < 3) return [];
+  if (!qn) return [];
   return Object.values(idx.roots)
     .filter((r) => {
       const b = normalizeArabicForSearch(r.bare);

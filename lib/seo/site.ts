@@ -1,11 +1,16 @@
 /**
  * Single source of truth for the public site origin, used by metadata,
- * sitemap, robots, and JSON-LD. Reads NEXT_PUBLIC_SITE_URL so the domain
- * cutover (quranobservatory.org → quranobservatory.org) is one env change,
- * not a repo-wide sweep.
+ * sitemap, robots, JSON-LD, and the Supabase auth callback. Reads
+ * NEXT_PUBLIC_SITE_URL so a domain move is one env change, not a repo-wide
+ * sweep.
+ *
+ * The default carries the `www.` host on purpose: that is what the deployment
+ * actually serves (the apex 308s to it), so canonical URLs, sitemap entries and
+ * the OAuth callback all name the host the browser ends up on — no redirect hop
+ * in the middle of an auth handshake, and one host to allow-list in Supabase.
  */
 export const SITE_URL = (
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://quranobservatory.org"
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.quranobservatory.org"
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "Quran Observatory";
