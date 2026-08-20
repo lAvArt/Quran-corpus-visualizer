@@ -476,10 +476,10 @@
         "dohaAria": "ابحث عن {word} في معجم الدوحة التاريخي",
         "actions": {
             "trackRoot": "تتبّع هذا الجذر",
-        "trackName": "تتبّع هذا الاسم",
+            "trackName": "تتبّع هذا الاسم",
             "tracking": "قيد التتبّع",
             "stopTracking": "إيقاف تتبّع هذا الجذر",
-        "stopTrackingName": "إيقاف تتبّع هذا الاسم",
+            "stopTrackingName": "إيقاف تتبّع هذا الاسم",
             "quizRoot": "اختبرني في هذا الجذر",
             "quizRootAria": "اختبرني في الجذر {root}"
         },
@@ -1599,5 +1599,16 @@
             "prompt": "أي جذر يظهر أكثر بجانب \"{root}\" في نفس الآية؟",
             "explanation": "\"{collocate}\" يتلازم مع \"{root}\" في {count} آية."
         }
+    },
+    "NearbySearch": {
+        "title": "الجوار",
+        "subtitle": "مَن يُذكر قرب «{term}»",
+        "windowLabel": "النطاق",
+        "windowAyah": "الآية نفسها",
+        "windowTokens": "± {n} كلمة",
+        "namesOnly": "الأعلام فقط",
+        "empty": "لا اسم في هذا النطاق.",
+        "stillLoading": "ما زالت المدونة تُحمَّل — الأعداد سترتفع.",
+        "pmiHint": "مقياس التلازم: كلما ارتفع كان اقتران الكلمتين أندر وأخصّ"
     }
 }
