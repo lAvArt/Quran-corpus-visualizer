@@ -65,7 +65,9 @@
             "ADJ": "adjective",
             "PRON": "pronoun",
             "P": "particle"
-        }
+        },
+        "versePrev": "Previous verse",
+        "verseNext": "Next verse"
     },
     "Error": {
         "title": "Something went wrong",
