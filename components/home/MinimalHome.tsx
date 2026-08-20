@@ -353,7 +353,6 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   // Drill-down (root → lemma → form): fetch the stats once a ROOT result is
   // shown, then resolve the typed word's specific lemma + exact form so the
   // result panel can offer the "exact match" narrowing.
-  const activeIsRoot = active !== null && !isNameHit(active);
   // Prefetch as soon as there's a query (not just once a root result renders),
   // so the drill stats are ready when the panel mounts — the smart default
   // (lead with Word for a specific typed word) then applies without a visible
@@ -366,11 +365,19 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     return () => { on = false; };
   }, [hasTypedQuery, drillIdx]);
   const drill = useMemo<{ lemma: DrillEntry | null; form: DrillEntry | null } | null>(() => {
-    if (!activeIsRoot || !drillIdx) return null;
+    if (!active || isNameHit(active) || !drillIdx) return null;
     const term = dq.trim();
     if (!term) return null;
-    return { lemma: lookupLemma(drillIdx, term), form: lookupForm(drillIdx, term) };
-  }, [activeIsRoot, drillIdx, dq]);
+    // A drill entry must belong to the root being displayed. lookupLemma /
+    // lookupForm match the TYPED TEXT against a global index, so "أب" returns
+    // أَبٌ (47×, root ابو) whichever root the chooser picked — which is how
+    // choosing ا-ب-ب (أَبًّا "fodder", 1×) rendered father's 47 occurrences and
+    // father's verses under a correct "الجذر 1" tile. An entry with no root of
+    // its own belongs to no root, so it cannot belong to this one either.
+    const bare = active.bare;
+    const ofRoot = (e: DrillEntry | null) => (e && e.r === bare ? e : null);
+    return { lemma: ofRoot(lookupLemma(drillIdx, term)), form: ofRoot(lookupForm(drillIdx, term)) };
+  }, [active, drillIdx, dq]);
 
   const today = useMemo(() => (idx ? rootOfTheDay(idx, epochDay) : null), [idx, epochDay]);
   const todayGloss = useMemo(() => (today ? resolveGloss(locale, today.bare, today.gloss) : null), [today, locale]);
