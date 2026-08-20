@@ -38,3 +38,4 @@ public/data/root-meanings.json
 # Video captures (intro/tutorial recordings) — never commit media
 *.webm
 *.mp4
+tsc_output.txt
