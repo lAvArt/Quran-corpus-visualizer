@@ -137,6 +137,10 @@ export default function MorphologyInspector({
 
         return {
             root: rootStr,
+            // What `root` actually holds: a real root, or — for proper nouns
+            // like مريم / موسى, which carry none — the lemma we grouped by.
+            // The labels below must say which, or they call a name a root.
+            byRoot,
             totalOccurrences: matchingTokens.length,
             surahCount: surahMap.size,
             totalAyahs: surahDistribution.reduce((acc, surah) => acc + surah.ayahCount, 0),
@@ -149,6 +153,9 @@ export default function MorphologyInspector({
     }, [token?.root, token?.lemma, allTokens, sortBy]);
 
     const tracked = rootDistribution ? isTracked(rootDistribution.root) : false;
+    // Proper nouns are tracked by lemma, so the button must not call them roots.
+    const trackKey = rootDistribution?.byRoot ? "actions.trackRoot" : "actions.trackName";
+    const stopTrackKey = rootDistribution?.byRoot ? "actions.stopTracking" : "actions.stopTrackingName";
 
     // One-shot scale pulse when THIS root's tracked state actually flips
     // (not merely when the user hovers/selects a different root that
@@ -445,7 +452,9 @@ export default function MorphologyInspector({
                         <span className="mi-big-count">{rootDistribution.totalOccurrences.toLocaleString()}</span>
                         <div className="mi-occurrence-labels">
                             <span className="mi-occ-line">
-                                {t("rootDistribution.occurrencesOfRoot")}{" "}
+                                {t(rootDistribution.byRoot
+                                    ? "rootDistribution.occurrencesOfRoot"
+                                    : "rootDistribution.occurrencesOfName")}{" "}
                                 <span className="mi-occ-root" lang="ar" dir="rtl">{rootDistribution.root}</span>
                             </span>
                             <span className="mi-occ-sub">
@@ -476,20 +485,27 @@ export default function MorphologyInspector({
                         type="button"
                         className={`mi-btn-track ${tracked ? "mi-btn-track-tracked" : ""} ${trackPulse ? "mi-btn-track-pulse" : ""}`}
                         onClick={handleTrackToggle}
-                        title={tracked ? t("actions.stopTracking") : undefined}
-                        aria-label={tracked ? t("actions.stopTracking") : undefined}
+                        title={tracked ? t(stopTrackKey) : undefined}
+                        aria-label={tracked ? t(stopTrackKey) : undefined}
                     >
                         <span className="mi-btn-icon" aria-hidden="true">{tracked ? "✓" : "+"}</span>
-                        {tracked ? t("actions.tracking") : t("actions.trackRoot")}
+                        {tracked ? t("actions.tracking") : t(trackKey)}
                     </button>
-                    <button
-                        type="button"
-                        className="mi-btn-quiz"
-                        onClick={handleQuizRoot}
-                        aria-label={t("actions.quizRootAria", { root: rootDistribution.root })}
-                    >
-                        {t("actions.quizRoot")}
-                    </button>
+                    {/* Quiz is root-only by construction: generateRootQuiz bails
+                        unless the term is in freqData.rootFrequencies, and a
+                        proper noun never is — the button rendered for names but
+                        always landed on "not enough data". Offer it only where
+                        it can deliver. */}
+                    {rootDistribution.byRoot && (
+                        <button
+                            type="button"
+                            className="mi-btn-quiz"
+                            onClick={handleQuizRoot}
+                            aria-label={t("actions.quizRootAria", { root: rootDistribution.root })}
+                        >
+                            {t("actions.quizRoot")}
+                        </button>
+                    )}
                 </div>
             ) : null}
 
