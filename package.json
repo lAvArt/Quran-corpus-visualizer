@@ -51,6 +51,7 @@
     "data:roots": "tsx scripts/build-root-stats.ts",
     "data:names": "tsx scripts/build-name-stats.ts",
     "data:forms": "tsx scripts/build-form-index.ts",
+    "audit:search": "tsx scripts/audit-search-coverage.ts",
     "data:lemma-form": "tsx scripts/build-lemma-form-stats.ts",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed-corpus.ts",
     "db:email-templates": "dotenv -e .env.local -- tsx scripts/push-email-templates.ts",
