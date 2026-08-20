@@ -476,8 +476,10 @@
         "dohaAria": "Look up {word} in the Doha Historical Dictionary",
         "actions": {
             "trackRoot": "Track this root",
+        "trackName": "Track this name",
             "tracking": "Tracking",
             "stopTracking": "Stop tracking this root",
+        "stopTrackingName": "Stop tracking this name",
             "quizRoot": "Quiz me on this root",
             "quizRootAria": "Quiz me on the root {root}"
         },
@@ -513,6 +515,7 @@
             "sortByOccurrence": "Sort by occurrences",
             "sortByOrder": "Sort by surah order",
             "occurrencesOfRoot": "× occurrences of root",
+            "occurrencesOfName": "× occurrences of name",
             "acrossSurahs": "across {count, plural, one {# surah} other {# surahs}}",
             "stillCounting": "still counting — corpus loading"
         },

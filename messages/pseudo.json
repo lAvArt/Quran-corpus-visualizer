@@ -476,8 +476,10 @@
         "dohaAria": "[!! Ļôôķ ûṗ {word} îñ ťħè Ḋôħâ Ħîṡťôṛîçâļ Ḋîçťîôñâṛý !!]",
         "actions": {
             "trackRoot": "[!! Ťṛâçķ ťħîṡ ṛôôť !!]",
+            "trackName": "[!! Ťṛâçķ ťħîṡ ñâṁè !!]",
             "tracking": "[!! Ťṛâçķîñġ !!]",
             "stopTracking": "[!! Ṡťôṗ ťṛâçķîñġ ťħîṡ ṛôôť !!]",
+            "stopTrackingName": "[!! Ṡťôṗ ťṛâçķîñġ ťħîṡ ñâṁè !!]",
             "quizRoot": "[!! Qûîž ṁè ôñ ťħîṡ ṛôôť !!]",
             "quizRootAria": "[!! Qûîž ṁè ôñ ťħè ṛôôť {root} !!]"
         },
@@ -513,6 +515,7 @@
             "sortByOccurrence": "[!! Ṡôṛť ḃý ôççûṛṛèñçèṡ !!]",
             "sortByOrder": "[!! Ṡôṛť ḃý ṡûṛâħ ôṛḋèṛ !!]",
             "occurrencesOfRoot": "[!! × ôççûṛṛèñçèṡ ôḟ ṛôôť !!]",
+            "occurrencesOfName": "[!! × ôççûṛṛèñçèṡ ôḟ ñâṁè !!]",
             "acrossSurahs": "[!! âçṛôṡṡ {count, plural, one {# surah} ôťħèṛ {# surahs}} !!]",
             "stillCounting": "[!! ṡťîļļ çôûñťîñġ — çôṛṗûṡ ļôâḋîñġ !!]"
         },

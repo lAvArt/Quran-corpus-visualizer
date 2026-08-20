@@ -476,8 +476,10 @@
         "dohaAria": "ابحث عن {word} في معجم الدوحة التاريخي",
         "actions": {
             "trackRoot": "تتبّع هذا الجذر",
+        "trackName": "تتبّع هذا الاسم",
             "tracking": "قيد التتبّع",
             "stopTracking": "إيقاف تتبّع هذا الجذر",
+        "stopTrackingName": "إيقاف تتبّع هذا الاسم",
             "quizRoot": "اختبرني في هذا الجذر",
             "quizRootAria": "اختبرني في الجذر {root}"
         },
@@ -513,6 +515,7 @@
             "sortByOccurrence": "فرز حسب التكرار",
             "sortByOrder": "فرز حسب ترتيب السور",
             "occurrencesOfRoot": "× من تكرارات الجذر",
+            "occurrencesOfName": "× من تكرارات الاسم",
             "acrossSurahs": "عبر {count, plural, one {سورة واحدة} other {# سور}}",
             "stillCounting": "العدّ مستمر — المدونة قيد التحميل"
         },
