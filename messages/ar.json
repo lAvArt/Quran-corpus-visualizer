@@ -43,8 +43,8 @@
         "statFirst": "أول ورود",
         "whereLabel": "أين ترد · حسب السورة",
         "ofSurahs": "{n} من ١١٤",
-        "exploreRoot": "شاهده في سياقه",
-        "exploreName": "شاهده في سياقه",
+        "exploreRoot": "عرض السياق",
+        "exploreName": "عرض السياق",
         "seeNetwork": "ادرس شبكة الجذر",
         "readVerses": "{n, plural, one {اقرأ الآية} other {اقرأ كل الآيات}}",
         "compareForms": "{n, plural, one {قارن الصيغة} other {قارن الصيغ}}",
@@ -58,7 +58,7 @@
         "versesTitle": "آيات تحتوي هذه الكلمة",
         "versesCount": "{shown} من {total}",
         "versesOpenHint": "اضغط لعرض الآيات",
-        "seeAllVerses": "اعرض كل {total} في المدونة الكاملة",
+        "seeAllVerses": "اعرض النتائج الـ {total} في المدونة الكاملة",
         "pos": {
             "N": "اسم",
             "V": "فعل",
@@ -120,8 +120,8 @@
     "Footer": {
         "github": "جيت هب",
         "source": "المصدر",
-        "credit": "البيانات: المدونة القرآنية العربية — قيس ديوكس",
-        "creditTitle": "بنية المدونة والصرف من المدونة القرآنية العربية، من إنشاء قيس ديوكس (جامعة ليدز)",
+        "credit": "البيانات: المدونة القرآنية العربية — ⁨Kais Dukes⁩",
+        "creditTitle": "بنية المدونة والصرف من المدونة القرآنية العربية، من إنشاء ⁨Kais Dukes⁩ (جامعة ليدز)",
         "about": "حول",
         "feedback": "ملاحظات",
         "quranApi": "واجهة التطبيقات",
@@ -476,8 +476,10 @@
         "dohaAria": "ابحث عن {word} في معجم الدوحة التاريخي",
         "actions": {
             "trackRoot": "تتبّع هذا الجذر",
+        "trackName": "تتبّع هذا الاسم",
             "tracking": "قيد التتبّع",
             "stopTracking": "إيقاف تتبّع هذا الجذر",
+        "stopTrackingName": "إيقاف تتبّع هذا الاسم",
             "quizRoot": "اختبرني في هذا الجذر",
             "quizRootAria": "اختبرني في الجذر {root}"
         },
@@ -513,6 +515,7 @@
             "sortByOccurrence": "فرز حسب التكرار",
             "sortByOrder": "فرز حسب ترتيب السور",
             "occurrencesOfRoot": "× من تكرارات الجذر",
+            "occurrencesOfName": "× من تكرارات الاسم",
             "acrossSurahs": "عبر {count, plural, one {سورة واحدة} other {# سور}}",
             "stillCounting": "العدّ مستمر — المدونة قيد التحميل"
         },

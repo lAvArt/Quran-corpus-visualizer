@@ -70,7 +70,7 @@ async function main() {
   // direct key exists, so a hamza-less query (قران/قرآن) reaches the قرءان entry
   // without ever overwriting a genuinely different word that was keyed directly.
   const out: Record<string, string> = {};
-  const entries: { keys: string[]; root: string }[] = [];
+  const entries: { keys: string[]; root: string; surface: string; stripped: string }[] = [];
   for (const w of words.values()) {
     if (!w.root) continue;
     const surface = normalizeArabicForSearch(bw2ar(w.surf));
@@ -78,10 +78,21 @@ async function main() {
     const keys = new Set<string>([surface]);
     const stripped = surface.replace(PROCLITIC, "");
     if (stripped.length >= 2) keys.add(stripped);
-    entries.push({ keys: [...keys], root: w.root });
-    for (const f of keys) {
-      if (f.length >= 2 && !(f in out)) out[f] = w.root;
-    }
+    entries.push({ keys: [...keys], root: w.root, surface, stripped });
+  }
+
+  // Pass 1 — LITERAL spellings only. A word's own spelling must claim its key
+  // before any alias can compete for it.
+  for (const e of entries) {
+    if (e.surface.length >= 2 && !(e.surface in out)) out[e.surface] = e.root;
+  }
+  // Pass 2 — proclitic-stripped aliases, gap-filling only. The stripper is
+  // blind: it cannot tell the preposition بـ from a root letter, so بَابًا
+  // yields the alias "ابا". Letting an alias claim a key ahead of a real word
+  // is how searching ضَلَّ answered with فضل (from فَضْل minus its ف).
+  for (const e of entries) {
+    const k = e.stripped;
+    if (k.length >= 2 && k !== e.surface && !(k in out)) out[k] = e.root;
   }
   let aliasCount = 0;
   for (const { keys, root } of entries) {
