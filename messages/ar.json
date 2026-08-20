@@ -58,7 +58,7 @@
         "versesTitle": "آيات تحتوي هذه الكلمة",
         "versesCount": "{shown} من {total}",
         "versesOpenHint": "اضغط لعرض الآيات",
-        "seeAllVerses": "اعرض كل {total} في المدونة الكاملة",
+        "seeAllVerses": "اعرض النتائج الـ {total} في المدونة الكاملة",
         "pos": {
             "N": "اسم",
             "V": "فعل",
