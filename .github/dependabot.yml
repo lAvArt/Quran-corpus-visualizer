@@ -1,0 +1,28 @@
+# Dependabot was raising security alerts on this repo but had no way to act on
+# them: security updates were disabled and no update config existed, so eight
+# advisories simply accumulated. Security updates are now enabled in the repo
+# settings; this file adds the routine cadence so patches land before they turn
+# into advisories.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # The toolchain churns constantly and is dev-only — reviewing thirty
+      # separate PRs a month is how update fatigue starts, so batch it.
+      dev-dependencies:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+      # Runtime patches are the ones that matter; keep them grouped but visible,
+      # and let majors come through on their own for a considered upgrade.
+      production-patches:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

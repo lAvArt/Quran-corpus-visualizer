@@ -594,7 +594,7 @@ async function _doLoadFullCorpus(
                 }
 
                 progress.currentTokens = allTokens.length;
-                console.log(`[CorpusLoader] Loaded ${chapter.name_simple}: ${verses.length} verses, ${allTokens.length} tokens`);
+                console.log("[CorpusLoader] Loaded %o: %o verses, %o tokens", chapter.name_simple, verses.length, allTokens.length);
                 notify();
             } catch (err) {
                 console.warn(`[CorpusLoader] Failed to load surah ${chapter.id}:`, err);
@@ -736,7 +736,10 @@ export async function loadSurahs(
                 await corpusCache.storeTokens(verseTokens);
                 await corpusCache.storeVerses(versesRecords);
             } catch (err) {
-                console.warn(`[CorpusLoader] Failed API load for surah ${suraId}, trying morphology fallback.`, err);
+                // Constant format string, values passed as arguments: console.*
+                // treats argument 0 as a format spec, so interpolating into it lets a
+                // value smuggle in directives (CodeQL js/tainted-format-string).
+                console.warn("[CorpusLoader] Failed API load for surah %o, trying morphology fallback.", suraId, err);
                 const fallbackTokens = morphologyFallbackBySura?.get(suraId) ?? [];
                 allTokens.push(...fallbackTokens);
                 await corpusCache.storeTokens(fallbackTokens);
