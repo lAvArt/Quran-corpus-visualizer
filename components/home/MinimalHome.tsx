@@ -1071,6 +1071,78 @@ function ResultPanel({
  * the word occurs in more ayahs than shown, a CTA sends the user to the full
  * corpus. Mirrors the resting "today's root" carousel's look.
  */
+/**
+ * Chevron pointing along the reading order asked for. `back` means "toward the
+ * start of the reading order" — left in LTR, right in RTL — so the glyph always
+ * agrees with the swipe gesture and the arrow key that triggers it.
+ */
+function Chevron({ back, isRtl }: { back: boolean; isRtl: boolean }) {
+  const pointsLeft = back !== isRtl;
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={pointsLeft ? undefined : { transform: "scaleX(-1)" }}
+    >
+      <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * Pointer controls for a verse carousel, rendered INSIDE the viewport (which
+ * clips, so they cannot hang outside the card). Dots stay for narrow screens —
+ * a thumb finds a dot row faster than a 34px target, and side arrows would
+ * crowd the ayah — while wider viewports get arrows plus a position counter;
+ * see the breakpoint swap in the stylesheet.
+ */
+function CarouselArrows({
+  isRtl,
+  backLabel,
+  forwardLabel,
+  onBack,
+  onForward,
+}: {
+  isRtl: boolean;
+  backLabel: string;
+  forwardLabel: string;
+  onBack: () => void;
+  onForward: () => void;
+}) {
+  return (
+    <>
+      <button type="button" className="mhome-nav mhome-nav-back" aria-label={backLabel} onClick={onBack}>
+        <Chevron back isRtl={isRtl} />
+      </button>
+      <button type="button" className="mhome-nav mhome-nav-fwd" aria-label={forwardLabel} onClick={onForward}>
+        <Chevron back={false} isRtl={isRtl} />
+      </button>
+    </>
+  );
+}
+
+/**
+ * ← / → step through a carousel in READING order: under RTL, ArrowLeft
+ * advances. Scoped to the carousel (it is focusable) rather than bound to
+ * window — the search box owns the arrow keys for caret movement, and this page
+ * is a search box first.
+ */
+function useCarouselKeys(isRtl: boolean, onBack: () => void, onForward: () => void) {
+  return useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault(); // otherwise the page scrolls sideways under the card
+      const forward = isRtl ? e.key === "ArrowLeft" : e.key === "ArrowRight";
+      (forward ? onForward : onBack)();
+    },
+    [isRtl, onBack, onForward]
+  );
+}
+
 function ResultVerses({
   verses,
   color,
@@ -1115,6 +1187,12 @@ function ResultVerses({
     setDir(d);
     setIdx(((i % n) + n) % n);
   }, [n]);
+
+  const onKeyDown = useCarouselKeys(
+    isRtl,
+    useCallback(() => go(idx - 1, -1), [go, idx]),
+    useCallback(() => go(idx + 1, 1), [go, idx])
+  );
 
   const onTouchStart = (e: React.TouchEvent) => {
     const p = e.touches[0];
@@ -1178,7 +1256,25 @@ function ResultVerses({
       </div>
 
       {!open ? (
-        <div className="mhome-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+        <div
+          className="mhome-carousel"
+          role="group"
+          aria-label={t("versesTitle")}
+          // The container holds focus, not the card: the card is keyed by index
+          // so it REMOUNTS on every step (that is what drives the slide
+          // animation), which destroys focus and would leave a keyboard user
+          // stuck after a single press. The container survives every step.
+          tabIndex={n > 1 ? 0 : undefined}
+          onKeyDown={onKeyDown}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={(e) => {
+            // Resume only once focus leaves the carousel entirely — stepping
+            // between the arrows and the card is still "the user is here".
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setPaused(false);
+          }}
+        >
           <div className="mhome-carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
             <button
               key={idx}
@@ -1194,21 +1290,35 @@ function ResultVerses({
                 <span className="mhome-verse-num">{ex.sura}:{ex.ayah}</span>
               </span>
             </button>
+            {n > 1 && (
+              <CarouselArrows
+                isRtl={isRtl}
+                backLabel={t("versePrev")}
+                forwardLabel={t("verseNext")}
+                onBack={() => go(idx - 1, -1)}
+                onForward={() => go(idx + 1, 1)}
+              />
+            )}
           </div>
           {n > 1 && (
-            <div className="mhome-dots" role="tablist" aria-label={t("versesTitle")}>
-              {verses.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === idx}
-                  aria-label={`${i + 1} / ${n}`}
-                  className={`mhome-dot ${i === idx ? "is-active" : ""}`}
-                  style={i === idx ? { background: color } : undefined}
-                  onClick={() => go(i, i > idx ? 1 : -1)}
-                />
-              ))}
+            <div className="mhome-nav-row">
+              <div className="mhome-dots" role="tablist" aria-label={t("versesTitle")}>
+                {verses.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === idx}
+                    aria-label={`${i + 1} / ${n}`}
+                    className={`mhome-dot ${i === idx ? "is-active" : ""}`}
+                    style={i === idx ? { background: color } : undefined}
+                    onClick={() => go(i, i > idx ? 1 : -1)}
+                  />
+                ))}
+              </div>
+              {/* Takes the dots' place above the breakpoint: across ten verses a
+                  dot row reads as decoration, a counter as position. */}
+              <span className="mhome-nav-count" dir="ltr">{idx + 1} / {n}</span>
             </div>
           )}
           <div className="mhome-rv-hint">{t("versesOpenHint")}</div>
@@ -1273,6 +1383,12 @@ function VerseCarousel({
     [n]
   );
 
+  const onKeyDown = useCarouselKeys(
+    isRtl,
+    useCallback(() => go(idx - 1, -1), [go, idx]),
+    useCallback(() => go(idx + 1, 1), [go, idx])
+  );
+
   // Auto-advance every ~5.5s unless paused (hover / swipe), expanded, or the
   // user prefers reduced motion.
   useEffect(() => {
@@ -1309,7 +1425,20 @@ function VerseCarousel({
   const ex = examples[idx];
 
   return (
-    <div className="mhome-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+    <div
+      className="mhome-carousel"
+      role="group"
+      aria-label={t("versesTitle")}
+      // Focus lives here, not on the card — see ResultVerses above.
+      tabIndex={n > 1 ? 0 : undefined}
+      onKeyDown={onKeyDown}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setPaused(false);
+      }}
+    >
       <div className="mhome-carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <button
           key={idx}
@@ -1337,6 +1466,15 @@ function VerseCarousel({
             </span>
           </span>
         </button>
+        {n > 1 && (
+          <CarouselArrows
+            isRtl={isRtl}
+            backLabel={t("versePrev")}
+            forwardLabel={t("verseNext")}
+            onBack={() => go(idx - 1, -1)}
+            onForward={() => go(idx + 1, 1)}
+          />
+        )}
       </div>
 
       {open && (
@@ -1383,19 +1521,22 @@ function VerseCarousel({
       )}
 
       {n > 1 && (
-        <div className="mhome-dots" role="tablist" aria-label="Verses">
-          {examples.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              role="tab"
-              aria-selected={i === idx}
-              aria-label={`Verse ${i + 1} of ${n}`}
-              className={`mhome-dot ${i === idx ? "is-active" : ""}`}
-              style={i === idx ? { background: color } : undefined}
-              onClick={() => go(i, i > idx ? 1 : -1)}
-            />
-          ))}
+        <div className="mhome-nav-row">
+          <div className="mhome-dots" role="tablist" aria-label={t("versesTitle")}>
+            {examples.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={i === idx}
+                aria-label={`${i + 1} / ${n}`}
+                className={`mhome-dot ${i === idx ? "is-active" : ""}`}
+                style={i === idx ? { background: color } : undefined}
+                onClick={() => go(i, i > idx ? 1 : -1)}
+              />
+            ))}
+          </div>
+          <span className="mhome-nav-count" dir="ltr">{idx + 1} / {n}</span>
         </div>
       )}
     </div>
@@ -1670,12 +1811,63 @@ const styles = `
   .mhome-verse-name { font: 500 12.5px 'Space Grotesk', sans-serif; color: var(--mh-ink); }
   .mhome-verse-num { font: 500 11px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.4); font-variant-numeric: tabular-nums; }
 
+  .mhome-nav-row { display: flex; justify-content: center; align-items: center; min-height: 8px; }
   .mhome-dots { display: flex; justify-content: center; gap: 7px; }
   .mhome-dot {
     width: 6px; height: 6px; padding: 0; border: none; border-radius: 999px; cursor: pointer;
     background: rgba(var(--mh-ink-rgb), 0.22); transition: width 0.22s, background 0.22s;
   }
   .mhome-dot.is-active { width: 22px; }
+
+  /* Carousel arrows. Inside the viewport because it clips (overflow: hidden),
+     so a negative offset would simply disappear. Logical insets, not left/right
+     — Lightning CSS compiles logical props behind :lang() at a specificity a
+     physical override cannot beat, so mixing the two loses silently in RTL. */
+  .mhome-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    display: none; place-items: center; width: 34px; height: 34px; padding: 0;
+    border-radius: 999px; cursor: pointer;
+    background: rgba(var(--mh-card-rgb), 0.82);
+    border: 1px solid var(--mh-hairline-soft);
+    color: rgba(var(--mh-ink-rgb), 0.6);
+    opacity: 0; transition: opacity 0.18s, color 0.18s, border-color 0.18s, background 0.18s;
+  }
+  .mhome-nav-back { inset-inline-start: 10px; }
+  .mhome-nav-fwd { inset-inline-end: 10px; }
+  .mhome-nav:hover { color: var(--mh-ink); border-color: var(--mh-accent-border); background: rgba(var(--mh-card-rgb), 0.95); }
+  /* Quiet until wanted — but never hidden from keyboard users, and always shown
+     on a device that cannot hover. */
+  .mhome-carousel:hover .mhome-nav,
+  .mhome-carousel:focus-within .mhome-nav { opacity: 1; }
+  .mhome-nav:focus-visible { opacity: 1; }
+  @media (hover: none) { .mhome-nav { opacity: 1; } }
+
+  /* The carousel is focusable (see the tabIndex comment), so it needs a ring
+     that reads as intentional rather than the browser's default rectangle. */
+  .mhome-carousel:focus { outline: none; }
+  .mhome-carousel:focus-visible {
+    outline: 2px solid var(--mh-accent-border);
+    outline-offset: 5px;
+    border-radius: 18px;
+  }
+
+  .mhome-nav-count {
+    display: none; font: 500 11px 'Space Grotesk', sans-serif;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+    color: rgba(var(--mh-ink-rgb), 0.42);
+  }
+
+  /* The swap the desktop ask is about: arrows + counter take over from the dot
+     row, which stays the touch affordance below the same 640px breakpoint the
+     rest of this component uses (NARROW_QUERY). */
+  @media (min-width: 641px) {
+    .mhome-nav { display: grid; }
+    .mhome-dots { display: none; }
+    .mhome-nav-count { display: inline; }
+    /* Keep the ayah clear of the arrow targets. Symmetric, so physical padding
+       is direction-agnostic here and sidesteps the logical-prop trap above. */
+    .mhome-verse { padding: 20px 54px; }
+  }
 
   @keyframes mhSlideNext { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
   @keyframes mhSlidePrev { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
