@@ -107,7 +107,18 @@ function useSurahName() {
 }
 
 /** 114-bar per-sūrah occurrence histogram. */
-function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: string; height?: number }) {
+function SurahStrip({
+  hist,
+  color,
+  height = 84,
+  activeSura = null,
+}: {
+  hist: number[];
+  color: string;
+  height?: number;
+  /** Sūrah whose bar to spotlight — tracks the verse shown in the carousel. */
+  activeSura?: number | null;
+}) {
   const [hover, setHover] = useState<{ sura: number; count: number } | null>(null);
   const surahName = useSurahName();
   const W = 720;
@@ -115,6 +126,9 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
   const n = 114;
   const gap = W / n;
   const max = Math.max(1, ...hist);
+  const activeC = activeSura != null ? hist[activeSura - 1] ?? 0 : 0;
+  const activeBH = activeC ? 3 + (activeC / max) * (H - 12) : 0;
+  const activeX = activeSura != null ? (activeSura - 1) * gap + gap * 0.5 : 0;
   return (
     <div className="mhome-strip">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
@@ -123,22 +137,32 @@ function SurahStrip({ hist, color, height = 84 }: { hist: number[]; color: strin
           if (!c) return null;
           const v = c / max;
           const bh = 3 + v * (H - 12);
-          const x = i * gap + gap * 0.18;
+          const isActive = i + 1 === activeSura;
+          const wide = isActive ? gap * 0.72 : gap * 0.6;
+          const x = i * gap + (gap - Math.max(1.4, wide)) / 2;
           const faint = v <= 0.26;
           const isHover = hover?.sura === i + 1;
+          const base = isActive || isHover ? 1 : v > 0.6 ? 1 : faint ? 1 : 0.55;
+          // When a verse is spotlighted, fade the rest so the active bar pops —
+          // the distribution shape stays readable, just quieter.
+          const spotlight = activeSura != null && !isActive && !isHover;
           return (
             <rect
               key={i}
               x={x}
               y={H - bh}
-              width={Math.max(1.4, gap * 0.6)}
+              width={Math.max(1.4, wide)}
               height={bh}
               rx={1}
-              style={{ fill: isHover || !faint ? color : "rgba(var(--mh-ink-rgb), 0.18)" }}
-              opacity={isHover ? 1 : v > 0.6 ? 1 : faint ? 1 : 0.55}
+              style={{ fill: isActive || isHover || !faint ? color : "rgba(var(--mh-ink-rgb), 0.18)" }}
+              opacity={spotlight ? Math.min(base, 0.32) : base}
             />
           );
         })}
+        {/* Spotlight the carousel's current verse: a marker dot above its bar. */}
+        {activeSura != null && activeC > 0 && (
+          <circle cx={activeX} cy={H - activeBH - 6} r={3} style={{ fill: color, stroke: "var(--mh-canvas)", strokeWidth: 1 }} />
+        )}
         {/* full-height hover targets so thin bars are easy to catch */}
         {hist.map((c, i) =>
           c ? (
@@ -799,6 +823,10 @@ function ResultPanel({
     userChoseGranRef.current = true;
     setGran(g);
   };
+
+  // Sūrah of the verse currently shown in the carousel → the strip spotlights it.
+  const [activeSura, setActiveSura] = useState<number | null>(null);
+  useEffect(() => setActiveSura(null), [statId]);
   const showDrill = !isName && !!drill && !!(drill.lemma || drill.form);
   const drillEntry: DrillEntry | null =
     gran === "lemma" ? drill?.lemma ?? null : gran === "form" ? drill?.form ?? null : null;
@@ -993,7 +1021,7 @@ function ResultPanel({
         <span className="mhome-where-lab">{t("whereLabel")}</span>
         <span className="mhome-where-of">{t("ofSurahs", { n: stat.surahs })}</span>
       </div>
-      <SurahStrip hist={stat.hist} color={color} height={74} />
+      <SurahStrip hist={stat.hist} color={color} height={74} activeSura={activeSura} />
       {/* The SVG bars always run sūrah 1 → 114 left-to-right, so the axis
           labels must too — even in RTL. */}
       <div className="mhome-ticks" dir="ltr">
@@ -1004,7 +1032,11 @@ function ResultPanel({
 
       <div className="mhome-top">
         {stat.top.map(([sura, c, ayah]) => (
-          <div key={sura} className="mhome-top-chip">
+          <div
+            key={sura}
+            className={`mhome-top-chip ${sura === activeSura ? "is-active" : ""}`}
+            style={sura === activeSura ? { borderColor: color } : undefined}
+          >
             <span className="mhome-top-name">{surahName(sura)}</span>
             {/* When the word occurs in this sūrah just once, show its verse ref
                 instead of "1×" — more useful than a count of one. */}
@@ -1032,6 +1064,7 @@ function ResultPanel({
           color={color}
           total={versesTotal}
           isHit={isHit}
+          onActiveVerse={drilling ? undefined : setActiveSura}
           t={t}
           onOpenAyah={onOpenAyah}
           onOpenFull={() => (isName ? onExploreName(stat) : onExplore(stat.bare, "radial-sura", stat.first?.sura ?? stat.top[0]?.[0]))}
@@ -1155,6 +1188,7 @@ function ResultVerses({
   color,
   total,
   isHit,
+  onActiveVerse,
   t,
   onOpenAyah,
   onOpenFull,
@@ -1167,6 +1201,9 @@ function ResultVerses({
       numbering drift that made position-based highlighting land on the wrong
       word (e.g. الله instead of the adjacent سميع). */
   isHit: (normalizedWord: string) => boolean;
+  /** The sūrah of the verse currently on screen (null while the full list is
+      expanded), so the sūrah strip above can highlight the matching bar. */
+  onActiveVerse?: (sura: number | null) => void;
   t: ReturnType<typeof useTranslations>;
   onOpenAyah: (sura: number, ayah: number, word?: number) => void;
   onOpenFull: () => void;
@@ -1189,6 +1226,13 @@ function ResultVerses({
     }, 5500);
     return () => clearTimeout(timer);
   }, [idx, paused, open, n]);
+
+  // Tell the sūrah strip which bar to highlight: the verse on screen (collapsed
+  // carousel), or none while the full list is open. Clear on unmount.
+  useEffect(() => {
+    onActiveVerse?.(open ? null : verses[idx]?.sura ?? null);
+  }, [idx, open, verses, onActiveVerse]);
+  useEffect(() => () => onActiveVerse?.(null), [onActiveVerse]);
 
   const go = useCallback((i: number, d: number) => {
     setDir(d);
@@ -2049,7 +2093,8 @@ const styles = `
   .mhome-strip-tip-count { font: 600 12px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
 
   .mhome-top { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
-  .mhome-top-chip { display: flex; align-items: center; gap: 10px; padding: 8px 13px; border-radius: 11px; background: var(--mh-raised); border: 1px solid var(--mh-hairline); }
+  .mhome-top-chip { display: flex; align-items: center; gap: 10px; padding: 8px 13px; border-radius: 11px; background: var(--mh-raised); border: 1px solid var(--mh-hairline); transition: background 0.2s, border-color 0.2s; }
+  .mhome-top-chip.is-active { background: rgba(var(--mh-card-rgb), 0.9); }
   .mhome-top-name { font: 500 13px 'Space Grotesk', sans-serif; color: var(--mh-ink); white-space: nowrap; }
   .mhome-top-bar { width: 40px; height: 4px; border-radius: 999px; background: var(--mh-hairline); overflow: hidden; display: block; flex: 0 0 auto; }
   .mhome-top-bar span { display: block; height: 100%; border-radius: 999px; }
