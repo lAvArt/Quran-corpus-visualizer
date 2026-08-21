@@ -143,6 +143,10 @@ async function main() {
     hist: number[];
     first: { sura: number; ayah: number; word: number } | null;
     firstAyahBySura: Map<number, number>;
+    /** First word-ref [sura, ayah, word] of each distinct ayah, capped — the
+        carousel fetches these directly (offline) instead of re-querying the DB
+        by lemma, which the seed misalignment can under-count (see the memory). */
+    occ: [number, number, number][];
     pos: Record<string, number>;
     lems: Set<string>;          // raw Buckwalter LEMs merged here
     isPN: boolean;
@@ -161,14 +165,16 @@ async function main() {
     if (!a) {
       a = {
         key, display, count: 0, surahs: new Set(), verses: new Set(), forms: new Set(),
-        hist: new Array(115).fill(0), first: null, firstAyahBySura: new Map(), pos: {}, lems: new Set(), isPN: false,
+        hist: new Array(115).fill(0), first: null, firstAyahBySura: new Map(), occ: [], pos: {}, lems: new Set(), isPN: false,
         lemCount: new Map(),
       };
       agg.set(key, a);
     }
     a.count++;
     a.surahs.add(w.sura);
-    a.verses.add(`${w.sura}:${w.ayah}`);
+    const vkey = `${w.sura}:${w.ayah}`;
+    if (!a.verses.has(vkey) && a.occ.length < 11) a.occ.push([w.sura, w.ayah, w.word]);
+    a.verses.add(vkey);
     if (w.formBw) a.forms.add(bw2ar(w.formBw));
     if (w.sura >= 1 && w.sura <= 114) a.hist[w.sura]++;
     if (!a.firstAyahBySura.has(w.sura)) a.firstAyahBySura.set(w.sura, w.ayah);
@@ -275,6 +281,7 @@ async function main() {
       top,
       hist,
       pos,
+      occ: a.occ.length ? a.occ.map(([s, ay, wd]) => [s, ay, wd, 1] as [number, number, number, number]) : undefined,
     };
     for (const al of arAliases) addAlias(al, a.key);
   }
