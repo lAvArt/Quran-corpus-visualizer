@@ -123,6 +123,25 @@ describe("name-stats.json data integrity", () => {
     expect(e.count).toBeGreaterThan(0);
   });
 
+  // Every name carries offline occurrence refs (capped at 11 distinct ayahs) so
+  // the verse carousel renders them directly, instead of re-querying the DB by
+  // lemma — which under-counted سبأ (showed 27:22 but not 34:15).
+  it("carries occ refs for every name, covering both of سبأ's verses", () => {
+    const saba = data.names[normalizeArabicForSearch("سبأ")];
+    expect(saba, "سبأ missing").toBeDefined();
+    expect(saba.verses).toBe(2);
+    const ayahs = (saba.occ ?? []).map(([s, a]) => `${s}:${a}`);
+    expect(ayahs).toEqual(expect.arrayContaining(["27:22", "34:15"]));
+
+    // Invariant across all names: occ ref count == min(distinct verses, cap).
+    for (const e of Object.values(data.names)) {
+      const refs = e.occ ?? [];
+      expect(refs.length, `${e.key} has no occ refs`).toBe(Math.min(e.verses, 11));
+      const distinct = new Set(refs.map(([s, a]) => `${s}:${a}`));
+      expect(distinct.size, `${e.key} occ has duplicate ayahs`).toBe(refs.length);
+    }
+  });
+
   it("resolves full-alif spellings of dagger-alif names via aliasIndex", () => {
     // Solomon is stored "سليمن"; users type "سليمان".
     const key = data.aliasIndex?.[normalizeArabicForSearch("سليمان")];
