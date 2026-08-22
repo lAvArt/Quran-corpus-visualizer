@@ -509,10 +509,13 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
             {/* Collocation as a search answer: what is NAMED near the query.
                 Sits under the root card because it answers a different question
                 — the root card is "what is this word", this is "who says it". */}
-            {spotlightRoot.trim() ? (
+            {spotlightRoot.trim() || parsedQuery.near ? (
               <NearbyPanel
                 tokens={allTokens}
-                term={spotlightRoot}
+                // With a near: operator the anchor is the free text alone —
+                // spotlightRoot may still carry the raw query, operator included.
+                term={parsedQuery.near ? parsedQuery.freeText : spotlightRoot}
+                pairValue={parsedQuery.near ?? null}
                 isCorpusLoading={isLoadingCorpus}
                 onOpenRef={(sura, ayah) => search.setFilterAyah(`${sura}:${ayah}`)}
               />

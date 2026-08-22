@@ -9,6 +9,13 @@ export interface ParsedSearchQuery {
   ayah?: string;
   text?: string;
   gloss?: string;
+  /**
+   * Proximity companion: `near:X` / `قرب:X` asks what the free text co-occurs
+   * with. Consumed by the الجوار panel as a pair filter; the retrieval engine
+   * ignores it, which is also why it must be parsed OUT — an unrecognized
+   * chunk would fall into freeText and pollute the lexical query.
+   */
+  near?: string;
 }
 
 const POS_ALIASES: Record<string, PartOfSpeech> = {
@@ -37,6 +44,8 @@ const FIELD_ALIASES: Record<string, keyof Omit<ParsedSearchQuery, "raw" | "freeT
   t: "text",
   gloss: "gloss",
   g: "gloss",
+  near: "near",
+  قرب: "near",
 };
 
 export function parseSearchQuery(rawInput: string): ParsedSearchQuery {
