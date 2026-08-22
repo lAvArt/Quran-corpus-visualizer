@@ -14,6 +14,7 @@ import {
     getCollocations,
     getPairCooccurrence,
     type CollocationOptions,
+    type CollocationGroupKind,
     type CollocationTermKind,
     type RootFrequencyData,
 } from "@/lib/search/collocation";
@@ -246,7 +247,7 @@ export default function CollocationNetworkGraph({
     const [minFrequency, setMinFrequency] = useState<number>(2);
     const [targetKind, setTargetKind] = useState<CollocationTermKind>("root");
     const [targetValue, setTargetValue] = useState<string>(highlightRoot ?? "");
-    const [groupBy, setGroupBy] = useState<CollocationTermKind>("root");
+    const [groupBy, setGroupBy] = useState<CollocationGroupKind>("root");
     const [filterPos, setFilterPos] = useState<PartOfSpeech | "">("");
     const [pairKind, setPairKind] = useState<CollocationTermKind>("lemma");
     const [pairValue, setPairValue] = useState<string>("");
@@ -1556,7 +1557,7 @@ export default function CollocationNetworkGraph({
                                         <div style={{ ...controlLabelStyle, marginBottom: 6, minHeight: 34, display: "flex", alignItems: "flex-end" }}>{t("groupBy")}</div>
                                         <select
                                             value={groupBy}
-                                            onChange={e => setGroupBy(e.target.value as CollocationTermKind)}
+                                            onChange={e => setGroupBy(e.target.value as CollocationGroupKind)}
                                             style={{ ...controlFieldStyle, width: "100%" }}
                                         >
                                             <option value="root">{t("groupByRoot")}</option>

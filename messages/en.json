@@ -476,10 +476,10 @@
         "dohaAria": "Look up {word} in the Doha Historical Dictionary",
         "actions": {
             "trackRoot": "Track this root",
-        "trackName": "Track this name",
+            "trackName": "Track this name",
             "tracking": "Tracking",
             "stopTracking": "Stop tracking this root",
-        "stopTrackingName": "Stop tracking this name",
+            "stopTrackingName": "Stop tracking this name",
             "quizRoot": "Quiz me on this root",
             "quizRootAria": "Quiz me on the root {root}"
         },
@@ -1599,5 +1599,20 @@
             "prompt": "Which root most frequently appears alongside \"{root}\" in the same ayah?",
             "explanation": "\"{collocate}\" co-occurs with \"{root}\" in {count} ayahs."
         }
+    },
+    "NearbySearch": {
+        "title": "Nearby",
+        "subtitle": "Who is named near “{term}”",
+        "windowLabel": "Window",
+        "windowAyah": "Same ayah",
+        "windowTokens": "± {n} words",
+        "namesOnly": "Names only",
+        "empty": "Nothing named within this window.",
+        "stillLoading": "Still loading the corpus — counts will rise.",
+        "pmiHint": "PMI: how distinctively the two occur together (higher = rarer pairing)",
+        "anchorForm": "exact form",
+        "anchorLemma": "word family",
+        "showMore": "Show more",
+        "anchorSwitchHint": "Switch between the exact written form and the whole word family"
     }
 }

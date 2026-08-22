@@ -1,6 +1,24 @@
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 
-export type CollocationTermKind = "root" | "lemma";
+/**
+ * What a collocation query is anchored to.
+ *
+ * "form" is the exact written word, and it exists because the lemma branch
+ * cannot express it: lemmaCandidates() expands a value into suffix-stripped
+ * variants, so asking for لِأَبِيهِ that way would also drag in لأبي / لأب and
+ * inflate a 9-occurrence question into a different one. A form means those
+ * tokens and no others.
+ */
+export type CollocationTermKind = "root" | "lemma" | "form";
+
+/**
+ * What collocates are grouped INTO. Deliberately narrower than
+ * CollocationTermKind: you can anchor on an exact form, but grouping results by
+ * form is not supported — the frequency tables behind PMI only carry root and
+ * lemma counts, so a "form" grouping would silently be scored against root
+ * frequencies and report a confident, wrong PMI.
+ */
+export type CollocationGroupKind = "root" | "lemma";
 
 export interface CollocationTerm {
   kind: CollocationTermKind;
@@ -17,16 +35,30 @@ export interface CollocationOptions {
   windowType: "ayah" | "distance" | "surah";
   distance?: number; // e.g., 3 means +/- 3 tokens
   minFrequency?: number; // Minimum number of times the collocate must appear with the target
-  groupBy?: CollocationTermKind;
+  groupBy?: CollocationGroupKind;
   filter?: CollocateFilter;
   pairTerm?: CollocationTerm | null;
+  /**
+   * Exact anchor positions as [sura, ayah, wordPosition]. When present, the
+   * target is THESE tokens, not whatever tokenMatchesTerm finds — the escape
+   * hatch for exact-form anchoring, because live tokens carry font presentation
+   * glyphs in `text` (ﭑ ﭒ …), so no string comparison can find a written form
+   * in them. The precomputed form index (lemma-form-stats.json) knows every
+   * position a form occupies; passing those positions here anchors on them.
+   *
+   * Caveat, documented rather than hidden: word positions come from QAC
+   * numbering, which drifts from Quran.com numbering in the ~435 ayahs where
+   * QAC merges words. There the anchor lands a token or two off — a ±N window
+   * absorbs that; an exact-position feature would not.
+   */
+  anchorRefs?: ReadonlyArray<readonly [number, number, number]>;
 }
 
 export interface CollocationResult {
   // For backward compatibility with existing consumers; equals `label`.
   root: string;
   label: string;
-  groupBy: CollocationTermKind;
+  groupBy: CollocationGroupKind;
   count: number; // Co-occurrence count
   pmi: number; // Pointwise Mutual Information
   // Include lemma data for display purposes
@@ -204,11 +236,16 @@ function normalizeTerm(term: string | CollocationTerm): CollocationTerm {
   return term;
 }
 
-function getTokenValueByKind(token: CorpusToken, kind: CollocationTermKind): string {
+function getTokenValueByKind(token: CorpusToken, kind: CollocationGroupKind): string {
   return kind === "root" ? token.root : token.lemma;
 }
 
 function tokenMatchesTerm(token: CorpusToken, term: CollocationTerm): boolean {
+  if (term.kind === "form") {
+    // Exact written word — no candidate expansion, no affix stripping.
+    return normalizeArabicForMatch(token.text) === normalizeArabicForMatch(term.value);
+  }
+
   if (term.kind === "root") {
     if (!token.root) return false;
     const tokenRoot = normalizeArabicForMatch(token.root);
@@ -307,9 +344,28 @@ function getFrequencyForTerm(
   return total;
 }
 
+/**
+ * Frequency of an exact-form anchor, in the unit the window is measured in:
+ * tokens for a distance window, distinct ayahs or surahs otherwise. Mirrors
+ * what the root/lemma frequency tables hold, so PMI stays comparable.
+ */
+function countTargetWindows(
+  tokens: CorpusToken[],
+  targetIndices: number[],
+  windowType: CollocationOptions["windowType"]
+): number {
+  if (windowType === "distance") return targetIndices.length;
+  const seen = new Set<string>();
+  for (const i of targetIndices) {
+    const t = tokens[i];
+    seen.add(windowType === "surah" ? String(t.sura) : `${t.sura}:${t.ayah}`);
+  }
+  return seen.size;
+}
+
 function getFrequencyForGroupedValue(
   freqData: RootFrequencyData,
-  groupBy: CollocationTermKind,
+  groupBy: CollocationGroupKind,
   value: string,
   windowType: CollocationOptions["windowType"]
 ): number {
@@ -351,11 +407,20 @@ export function getCollocations(
   const collocateLemmas = new Map<string, Set<string>>();
   const collocateWindows = new Map<string, Set<string>>();
 
-  // Find all indices of the target term
+  // Find all indices of the target term — by explicit position when the caller
+  // supplied them (see anchorRefs above), by token matching otherwise.
   const targetIndices: number[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokenMatchesTerm(tokens[i], targetTerm)) {
-      targetIndices.push(i);
+  if (options.anchorRefs?.length) {
+    const wanted = new Set(options.anchorRefs.map(([su, ay, w]) => `${su}:${ay}:${w}`));
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (wanted.has(`${t.sura}:${t.ayah}:${t.position}`)) targetIndices.push(i);
+    }
+  } else {
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokenMatchesTerm(tokens[i], targetTerm)) {
+        targetIndices.push(i);
+      }
     }
   }
 
@@ -479,7 +544,14 @@ export function getCollocations(
     : windowType === "surah"
       ? freqData.totalSurahs
       : freqData.totalTokens;
-  const targetFreq = getFrequencyForTerm(freqData, targetTerm, windowType);
+  // A "form" anchor has no precomputed frequency table — freqData only counts
+  // roots and lemmas — and reading 0 from it would abort the whole query. The
+  // exact figure is already in hand: targetIndices IS every occurrence of the
+  // form, so derive the frequency in the same unit the window uses.
+  const targetFreq =
+    targetTerm.kind === "form" || options.anchorRefs?.length
+      ? countTargetWindows(tokens, targetIndices, windowType)
+      : getFrequencyForTerm(freqData, targetTerm, windowType);
 
   if (targetFreq === 0) return results; // Should not happen given we found indices
 

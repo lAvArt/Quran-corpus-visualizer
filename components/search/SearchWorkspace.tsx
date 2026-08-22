@@ -17,6 +17,7 @@ import { useSearch } from "@/lib/hooks/useSearch";
 import type { SearchMatchType } from "@/lib/analytics/events";
 import { normalizeRootFamily, normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 import { parseSearchQuery } from "@/lib/search/queryParser";
+import NearbyPanel from "@/components/search/NearbyPanel";
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
 import type { SearchResultItem, SearchResultKind } from "@/lib/search/searchTypes";
 
@@ -503,6 +504,18 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                   </div>
                 </div>
               </article>
+            ) : null}
+
+            {/* Collocation as a search answer: what is NAMED near the query.
+                Sits under the root card because it answers a different question
+                — the root card is "what is this word", this is "who says it". */}
+            {spotlightRoot.trim() ? (
+              <NearbyPanel
+                tokens={allTokens}
+                term={spotlightRoot}
+                isCorpusLoading={isLoadingCorpus}
+                onOpenRef={(sura, ayah) => search.setFilterAyah(`${sura}:${ayah}`)}
+              />
             ) : null}
 
             {rootInsight ? (
