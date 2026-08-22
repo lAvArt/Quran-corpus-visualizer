@@ -38,6 +38,20 @@ export interface CollocationOptions {
   groupBy?: CollocationGroupKind;
   filter?: CollocateFilter;
   pairTerm?: CollocationTerm | null;
+  /**
+   * Exact anchor positions as [sura, ayah, wordPosition]. When present, the
+   * target is THESE tokens, not whatever tokenMatchesTerm finds — the escape
+   * hatch for exact-form anchoring, because live tokens carry font presentation
+   * glyphs in `text` (ﭑ ﭒ …), so no string comparison can find a written form
+   * in them. The precomputed form index (lemma-form-stats.json) knows every
+   * position a form occupies; passing those positions here anchors on them.
+   *
+   * Caveat, documented rather than hidden: word positions come from QAC
+   * numbering, which drifts from Quran.com numbering in the ~435 ayahs where
+   * QAC merges words. There the anchor lands a token or two off — a ±N window
+   * absorbs that; an exact-position feature would not.
+   */
+  anchorRefs?: ReadonlyArray<readonly [number, number, number]>;
 }
 
 export interface CollocationResult {
@@ -393,11 +407,20 @@ export function getCollocations(
   const collocateLemmas = new Map<string, Set<string>>();
   const collocateWindows = new Map<string, Set<string>>();
 
-  // Find all indices of the target term
+  // Find all indices of the target term — by explicit position when the caller
+  // supplied them (see anchorRefs above), by token matching otherwise.
   const targetIndices: number[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokenMatchesTerm(tokens[i], targetTerm)) {
-      targetIndices.push(i);
+  if (options.anchorRefs?.length) {
+    const wanted = new Set(options.anchorRefs.map(([su, ay, w]) => `${su}:${ay}:${w}`));
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (wanted.has(`${t.sura}:${t.ayah}:${t.position}`)) targetIndices.push(i);
+    }
+  } else {
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokenMatchesTerm(tokens[i], targetTerm)) {
+        targetIndices.push(i);
+      }
     }
   }
 
@@ -526,7 +549,7 @@ export function getCollocations(
   // exact figure is already in hand: targetIndices IS every occurrence of the
   // form, so derive the frequency in the same unit the window uses.
   const targetFreq =
-    targetTerm.kind === "form"
+    targetTerm.kind === "form" || options.anchorRefs?.length
       ? countTargetWindows(tokens, targetIndices, windowType)
       : getFrequencyForTerm(freqData, targetTerm, windowType);
 

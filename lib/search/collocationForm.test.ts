@@ -90,3 +90,28 @@ describe("collocation: window width decides what is found", () => {
         expect(countOf(namesNear(form, "distance", 1), "إِبْرَٰهِيم")).toBe(1);
     });
 });
+
+describe("collocation: anchorRefs against glyph-text tokens", () => {
+    // The production condition: token.text is font presentation glyphs, so no
+    // string can match it. The form index supplies positions instead.
+    const glyphs = corpus.map((tk) => ({ ...tk, text: "ﭑ" /* ﭑ-class junk */ }));
+    const glyphFreq = calculateRootFrequencies(glyphs);
+    const refs: [number, number, number][] = [[6, 74, 3], [19, 42, 3]];
+
+    it("string matching finds nothing in glyph text", () => {
+        const rows = getCollocations({ kind: "form", value: "لأبيه" }, glyphs, glyphFreq, {
+            windowType: "distance", distance: 10, groupBy: "lemma", minFrequency: 1,
+        });
+        expect(rows).toEqual([]);
+    });
+
+    it("position anchoring recovers the full answer", () => {
+        const rows = getCollocations({ kind: "form", value: "لأبيه" }, glyphs, glyphFreq, {
+            windowType: "distance", distance: 10, groupBy: "lemma", minFrequency: 1,
+            anchorRefs: refs,
+        });
+        expect(rows.find((r) => r.label === "إِبْرَٰهِيم")?.count).toBe(2);
+        // the decoy stays out: its position is not in the refs
+        expect(rows.find((r) => r.label === "يَعْقُوب")).toBeUndefined();
+    });
+});

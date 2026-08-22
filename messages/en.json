@@ -1609,6 +1609,10 @@
         "namesOnly": "Names only",
         "empty": "Nothing named within this window.",
         "stillLoading": "Still loading the corpus — counts will rise.",
-        "pmiHint": "PMI: how distinctively the two occur together (higher = rarer pairing)"
+        "pmiHint": "PMI: how distinctively the two occur together (higher = rarer pairing)",
+        "anchorForm": "exact form",
+        "anchorLemma": "word family",
+        "showMore": "Show more",
+        "anchorSwitchHint": "Switch between the exact written form and the whole word family"
     }
 }

@@ -7,8 +7,9 @@ import {
     getCollocations,
     type CollocationTerm,
 } from "@/lib/search/collocation";
-import { normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
+import { foldRasmAlef, normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 import { loadNameStats, type NameStatsIndex } from "@/lib/corpus/nameStatsClient";
+import { loadLemmaFormStats, lookupForm, lookupLemma, type LemmaFormStats } from "@/lib/corpus/lemmaFormStatsClient";
 import type { CorpusToken } from "@/lib/schema/types";
 
 /**
@@ -19,6 +20,14 @@ import type { CorpusToken } from "@/lib/schema/types";
  * exact WRITTEN FORM when the query is one, because that is the question people
  * actually ask: لِأَبِيهِ occurs 9 times, and "who is speaking" is a property of
  * those 9 tokens — not of the lemma أَب, which covers 117.
+ *
+ * Live tokens cannot be text-matched for that (token.text is font glyphs), so
+ * form anchoring goes through the precomputed form index instead: it knows every
+ * position the form occupies, and the engine accepts those positions directly
+ * (anchorRefs). Only forms whose ref list is COMPLETE anchor this way — 91% of
+ * forms; the capped high-frequency remainder falls back to lemma anchoring —
+ * and a badge says which anchor is in effect rather than letting the two read
+ * alike.
  *
  * "Names only" cannot use the part-of-speech tag: normalizePos() folds QAC's PN
  * into plain "N", so a loaded token cannot say whether it is a proper noun. The
@@ -48,15 +57,35 @@ export interface NearbyPanelProps {
 
 export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }: NearbyPanelProps) {
     const t = useTranslations("NearbySearch");
-    const [windowChoice, setWindowChoice] = useState<WindowChoice>(10);
-    const [namesOnly, setNamesOnly] = useState(true);
+    // The window DEFAULT follows the anchor, because the two anchors ask
+    // different questions with different natural scopes. A form anchor is "who
+    // is around these exact tokens" — the speaker often sits in the PREVIOUS
+    // ayah, so it needs a token window (±10). A family anchor is "what stands
+    // out near this word" — there PMI only suppresses مِن and إِنّ when
+    // frequencies are counted per ayah, so the ayah window is the one that
+    // ranks خَلَقَ and كَفُور above the particles. The user's explicit pick
+    // always wins; it resets with the query.
+    const [windowPref, setWindowPref] = useState<WindowChoice | null>(null);
+    // Default OFF: the broader "what stands out near this word" question (إنسان →
+    // يئوس، كفور، نطفة…) is the general case; "who is named" narrows it.
+    const [namesOnly, setNamesOnly] = useState(false);
+    const [expanded, setExpanded] = useState(false);
     const [nameIdx, setNameIdx] = useState<NameStatsIndex | null>(null);
+    const [drillIdx, setDrillIdx] = useState<LemmaFormStats | null>(null);
 
     useEffect(() => {
         let alive = true;
         loadNameStats().then((d) => alive && setNameIdx(d)).catch(() => {});
+        loadLemmaFormStats().then((d) => alive && setDrillIdx(d)).catch(() => {});
         return () => { alive = false; };
     }, []);
+
+    useEffect(() => setExpanded(false), [term, windowPref, namesOnly]);
+    useEffect(() => setWindowPref(null), [term]);
+
+    /** Explicit anchor override; "auto" resolves by the typed-form heuristic below. */
+    const [anchorPref, setAnchorPref] = useState<"auto" | "form" | "lemma">("auto");
+    useEffect(() => setAnchorPref("auto"), [term]);
 
     /** Normalized lemma keys of everything the corpus treats as a proper name. */
     const nameKeys = useMemo(() => {
@@ -78,30 +107,69 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
      * engine's affix tolerance. Root anchoring is left to the root card above —
      * this panel is about the words as written.
      */
-    const anchor = useMemo<CollocationTerm | null>(() => {
+    const anchor = useMemo<{
+        term: CollocationTerm;
+        refs?: [number, number, number][];
+        /** Both anchors resolvable — the badge becomes a switch. */
+        switchable: boolean;
+    } | null>(() => {
         const q = term.trim();
         if (!q || !tokens.length) return null;
-        const key = normalizeArabicForSearch(q);
-        if (!key) return null;
-        const isWrittenForm = tokens.some((tk) => normalizeArabicForSearch(tk.text) === key);
-        return { kind: isWrittenForm ? "form" : "lemma", value: q };
-    }, [term, tokens]);
+        if (drillIdx) {
+            const form = lookupForm(drillIdx, q);
+            // Complete refs only: a capped list would silently count a subset
+            // and present it with the same confidence as the whole.
+            const formOk = !!form && form.refs.length >= form.c;
+            const lem = form?.l ? lookupLemma(drillIdx, form.l) : lookupLemma(drillIdx, q);
+            // WHICH anchor the user means, when both exist: typing the
+            // dictionary form itself (انسان, which IS the lemma) asks about the
+            // word everywhere — its bare spelling happens to occur once, at
+            // 17:13, and answering with that one ayah is technically right and
+            // practically wrong. Typing an inflected or cliticized form asks
+            // about those exact tokens. Rasm folding on both sides keeps the
+            // comparison stable across the dagger alif.
+            const typedTheLemma =
+                !!lem &&
+                foldRasmAlef(normalizeArabicForSearch(q)) === foldRasmAlef(normalizeArabicForSearch(lem.d));
+            const switchable = formOk && !!lem;
+            const useForm =
+                anchorPref === "form" ? formOk :
+                anchorPref === "lemma" ? false :
+                formOk && !typedTheLemma;
+            if (useForm && form) {
+                return { term: { kind: "form", value: q }, refs: form.refs.map(([su, ay, w]) => [su, ay, w]), switchable };
+            }
+            if (lem) return { term: { kind: "lemma", value: lem.d }, switchable };
+        }
+        return { term: { kind: "lemma", value: q }, switchable: false };
+    }, [term, tokens, drillIdx, anchorPref]);
+
+    const windowChoice: WindowChoice = windowPref ?? (anchor?.refs ? 10 : "ayah");
 
     const rows = useMemo(() => {
         if (!anchor || !freq) return [];
-        return getCollocations(anchor, tokens, freq, {
+        return getCollocations(anchor.term, tokens, freq, {
             windowType: windowChoice === "ayah" ? "ayah" : "distance",
             distance: windowChoice === "ayah" ? undefined : windowChoice,
             groupBy: "lemma",
             minFrequency: 1,
+            anchorRefs: anchor.refs,
+            // Content words only. Particles and pronouns are structure, never
+            // the answer to either question this panel asks; where a corpus
+            // path leaves pos untagged (everything "N") this simply keeps all.
+            filter: { pos: ["N", "V", "ADJ"] },
         })
             .filter((r) => !namesOnly || nameKeys.has(normalizeArabicForSearch(r.label)))
-            // Counts first, deliberately. PMI rewards rarity, so it floats a
-            // once-mentioned name above the one named eight times — the opposite
-            // of what "who is named near this?" means.
-            .sort((a, b) => b.count - a.count || b.pmi - a.pmi)
-            .slice(0, 12);
-    }, [anchor, freq, tokens, windowChoice, namesOnly, nameKeys]);
+            // Two questions, two orders. Names are sparse and every mention
+            // matters, so count leads (إبراهيم ×8 before ازر ×1 — raw PMI would
+            // invert them). The open list asks "what stands out", where raw
+            // count surfaces مِن and إِنّ; salience = count × PMI puts خَلَقَ,
+            // كَفُور and يَـُٔوس on top for إنسان, which is the expected answer.
+            .sort(namesOnly
+                ? (a, b) => b.count - a.count || b.pmi - a.pmi
+                : (a, b) => b.count * Math.max(b.pmi, 0) - a.count * Math.max(a.pmi, 0))
+            .slice(0, expanded ? 36 : 12);
+    }, [anchor, freq, tokens, windowChoice, namesOnly, nameKeys, expanded]);
 
     if (!anchor) return null;
 
@@ -110,7 +178,27 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
             <div className="nearby-head">
                 <div>
                     <p className="ui-kicker">{t("title")}</p>
-                    <p className="nearby-sub">{t("subtitle", { term: term.trim() })}</p>
+                    <p className="nearby-sub">
+                        {t("subtitle", { term: term.trim() })}
+                        {/* Which anchor produced these numbers — exact tokens or
+                            the lemma family. The two can differ by an order of
+                            magnitude, so it must be said — and where both are
+                            available, chosen. */}
+                        {anchor?.switchable ? (
+                            <button
+                                type="button"
+                                className="nearby-anchor-badge nearby-anchor-toggle"
+                                title={t("anchorSwitchHint")}
+                                onClick={() => setAnchorPref(anchor.refs ? "lemma" : "form")}
+                            >
+                                {anchor.refs ? t("anchorForm") : t("anchorLemma")} ⇄
+                            </button>
+                        ) : (
+                            <span className="nearby-anchor-badge">
+                                {anchor?.refs ? t("anchorForm") : t("anchorLemma")}
+                            </span>
+                        )}
+                    </p>
                 </div>
                 <div className="nearby-controls">
                     <div className="header-button-group" role="group" aria-label={t("windowLabel")}>
@@ -119,7 +207,7 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
                                 key={String(w)}
                                 type="button"
                                 className={`control-pill-btn ${windowChoice === w ? "active" : ""}`}
-                                onClick={() => setWindowChoice(w)}
+                                onClick={() => setWindowPref(w)}
                             >
                                 {w === "ayah" ? t("windowAyah") : t("windowTokens", { n: w })}
                             </button>
@@ -143,6 +231,7 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
             {rows.length === 0 ? (
                 <p className="nearby-empty">{t("empty")}</p>
             ) : (
+                <>
                 <ul className="nearby-list">
                     {rows.map((row) => (
                         <li key={row.label} className="nearby-row">
@@ -169,6 +258,12 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
                         </li>
                     ))}
                 </ul>
+                {!expanded && rows.length >= 12 && (
+                    <button type="button" className="nearby-more" onClick={() => setExpanded(true)}>
+                        {t("showMore")}
+                    </button>
+                )}
+                </>
             )}
 
             <style jsx>{`
@@ -193,6 +288,18 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
                 }
                 .nearby-ref:hover { color: var(--fg); border-color: var(--accent); }
                 .nearby-pmi { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+                .nearby-anchor-badge {
+                    margin-inline-start: 8px; padding: 1px 8px; border-radius: 999px;
+                    font-size: 0.7rem; border: 1px solid var(--line); color: var(--muted);
+                }
+                .nearby-anchor-toggle { cursor: pointer; background: transparent; }
+                .nearby-anchor-toggle:hover { color: var(--fg); border-color: var(--accent); }
+                .nearby-more {
+                    margin-top: 10px; align-self: center; padding: 6px 16px; border-radius: 999px;
+                    cursor: pointer; font-size: 0.8rem; background: transparent;
+                    border: 1px solid var(--line); color: var(--muted);
+                }
+                .nearby-more:hover { color: var(--fg); border-color: var(--accent); }
             `}</style>
         </article>
     );
