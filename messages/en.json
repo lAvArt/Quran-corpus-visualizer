@@ -1613,6 +1613,7 @@
         "anchorForm": "exact form",
         "anchorLemma": "word family",
         "showMore": "Show more",
-        "anchorSwitchHint": "Switch between the exact written form and the whole word family"
+        "anchorSwitchHint": "Switch between the exact written form and the whole word family",
+        "pairedWith": "with “{pair}”"
     }
 }

@@ -50,12 +50,14 @@ export interface NearbyPanelProps {
     tokens: CorpusToken[];
     /** The user's query, used verbatim as the anchor. */
     term: string;
+    /** near:X / قرب:X — restrict neighbours to this word's family. */
+    pairValue?: string | null;
     isCorpusLoading: boolean;
     /** Open an ayah reference ("6:74") in the surrounding workspace. */
     onOpenRef?: (sura: number, ayah: number) => void;
 }
 
-export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }: NearbyPanelProps) {
+export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLoading, onOpenRef }: NearbyPanelProps) {
     const t = useTranslations("NearbySearch");
     // The window DEFAULT follows the anchor, because the two anchors ask
     // different questions with different natural scopes. A form anchor is "who
@@ -154,6 +156,7 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
             groupBy: "lemma",
             minFrequency: 1,
             anchorRefs: anchor.refs,
+            pairTerm: pairValue ? { kind: "lemma", value: pairValue } : null,
             // Content words only. Particles and pronouns are structure, never
             // the answer to either question this panel asks; where a corpus
             // path leaves pos untagged (everything "N") this simply keeps all.
@@ -169,7 +172,7 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
                 ? (a, b) => b.count - a.count || b.pmi - a.pmi
                 : (a, b) => b.count * Math.max(b.pmi, 0) - a.count * Math.max(a.pmi, 0))
             .slice(0, expanded ? 36 : 12);
-    }, [anchor, freq, tokens, windowChoice, namesOnly, nameKeys, expanded]);
+    }, [anchor, freq, tokens, windowChoice, namesOnly, nameKeys, expanded, pairValue]);
 
     if (!anchor) return null;
 
@@ -184,6 +187,9 @@ export default function NearbyPanel({ tokens, term, isCorpusLoading, onOpenRef }
                             the lemma family. The two can differ by an order of
                             magnitude, so it must be said — and where both are
                             available, chosen. */}
+                        {pairValue && (
+                            <span className="nearby-anchor-badge">{t("pairedWith", { pair: pairValue })}</span>
+                        )}
                         {anchor?.switchable ? (
                             <button
                                 type="button"
