@@ -7,10 +7,10 @@ Interactive exploration of Quranic linguistic structure, morphology, search, and
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![CI](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/lAvArt/Quran-corpus-visualizer/actions/workflows/ci.yml)
+[![CI](https://github.com/lAvArt/Quranic-Linguistics-Observatory/actions/workflows/ci.yml/badge.svg)](https://github.com/lAvArt/Quranic-Linguistics-Observatory/actions/workflows/ci.yml)
 [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?logo=vercel)](https://www.quranobservatory.org)
 
-[Live Demo](https://www.quranobservatory.org) | [Report Bug](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quran-corpus-visualizer/issues/new?template=feature_request.md)
+[Live Demo](https://www.quranobservatory.org) | [Report Bug](https://github.com/lAvArt/Quranic-Linguistics-Observatory/issues/new?template=bug_report.md) | [Request Feature](https://github.com/lAvArt/Quranic-Linguistics-Observatory/issues/new?template=feature_request.md)
 
 </div>
 
@@ -170,8 +170,8 @@ The landing page is the search box. Type, and the answer resolves as you go:
 1. Clone the repository.
 
    ```bash
-   git clone https://github.com/lAvArt/Quran-corpus-visualizer.git
-   cd Quran-corpus-visualizer
+   git clone https://github.com/lAvArt/Quranic-Linguistics-Observatory.git
+   cd Quranic-Linguistics-Observatory
    ```
 
 2. Install dependencies.

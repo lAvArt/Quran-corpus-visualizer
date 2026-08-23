@@ -1,4 +1,4 @@
-# Design Brief: "Quran Corpus Visualizer" — an Observatory for the Language of the Qur'an
+# Design Brief: "Quranic Linguistics Observatory" — an Observatory for the Language of the Qur'an
 
 You are designing high-fidelity UI mockups for a web app that lets people explore the linguistic structure of the Qur'an through interactive data visualizations. Treat this as an "editorial data-art / scientific-viz observatory," NOT a generic SaaS dashboard. The visualizations are luminous data-art on near-black; the surrounding interface is quiet, precise and reverent and must recede so the graph is the hero.
 

@@ -35,7 +35,7 @@ export function Footer() {
                 <div className="site-footer-inner">
                     <nav className="site-footer-links" aria-label="Footer links">
                         <Link
-                            href="https://github.com/lAvArt/Quran-corpus-visualizer"
+                            href="https://github.com/lAvArt/Quranic-Linguistics-Observatory"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="site-footer-link"
