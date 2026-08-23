@@ -68,11 +68,11 @@
         },
         "versePrev": "Previous verse",
         "verseNext": "Next verse",
-        "pairButton": "Correlation search",
-        "pairPlaceholder": "A companion word — what stands with \\u201c{word}\\u201d?",
-        "pairSearching": "Searching the corpus\\u2026",
-        "pairCount": "ayahs where \\u201c{x}\\u201d and \\u201c{y}\\u201d stand together",
-        "pairNone": "\\u201c{x}\\u201d and \\u201c{y}\\u201d never share an ayah."
+        "pairButton": "Find verses with two words",
+        "pairPlaceholder": "Type a second word — show verses containing both",
+        "pairSearching": "Searching…",
+        "pairCount": "{n} verses contain both {x} and {y} — shown below.",
+        "pairNone": "No verse contains both {x} and {y}."
     },
     "Error": {
         "title": "Something went wrong",
