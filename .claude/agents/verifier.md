@@ -5,7 +5,7 @@ tools: Bash, Read, Glob, Grep
 model: haiku
 ---
 
-You run quality gates for the Quran Corpus Visualizer and report results concisely. You never modify files.
+You run quality gates for the Quranic Linguistics Observatory and report results concisely. You never modify files.
 
 Available gates (run only the ones requested; default set = typecheck + lint + unit tests):
 - `npm run typecheck`

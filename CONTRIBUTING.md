@@ -5,8 +5,8 @@ This project treats documentation, source attribution, and behavior correctness 
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-username>/Quran-corpus-visualizer.git
-cd Quran-corpus-visualizer
+git clone https://github.com/<your-username>/Quranic-Linguistics-Observatory.git
+cd Quranic-Linguistics-Observatory
 npm install
 cp .env.example .env.local
 supabase db push
@@ -40,7 +40,7 @@ Useful optional variables live in `.env.example`, including feedback email, Open
 
 ### Reporting bugs
 
-1. Check [existing issues](https://github.com/lAvArt/Quran-corpus-visualizer/issues).
+1. Check [existing issues](https://github.com/lAvArt/Quranic-Linguistics-Observatory/issues).
 2. Use the bug template.
 3. Include browser, platform, reproduction steps, and whether the issue affects Explore, Search, Study, Quiz, or shared shell behavior.
 
