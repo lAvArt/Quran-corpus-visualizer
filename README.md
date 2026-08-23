@@ -120,6 +120,19 @@ The landing page is the search box. Type, and the answer resolves as you go:
 - **Proper nouns are searchable and countable.** They carry no root in the corpus, so
   they are indexed separately, with spelling variants, multi-word compounds
   (`ذو القرنين`), and partial matching (`اسماع` → إسماعيل)
+- **Correlation search (الجوار)** — proximity as a first-class question, on two surfaces:
+  - The Search workspace answers *"what stands out near this word?"* with a collocation
+    panel: salience-ranked neighbours (`إنسان` → `يَئُوس`, `كَفُور`, `نُّطْفَة` — words the
+    user never typed), a names-only filter, window pills (same ayah / ±5 / ±10 words),
+    exact-form vs word-family anchoring with a ⇄ switch, and click-to-open ayah previews
+    with previous/next navigation
+  - `near:` / `قرب:` query operators scope the panel to one companion —
+    `لأبيه قرب:يوسف` → يُوسُف ×1 at 12:4 (قرب: is the first Arabic operator in the
+    query language)
+  - The home result card pairs with a companion word (the ⇄ button): the same card
+    re-renders scoped to the ayahs both words share — count, tiles, histogram and
+    carousel — with windows for same-ayah, ±5 words, or ± 1–10 adjacent verses, and a
+    "see all results" deep link into the Search workspace
 - Verse carousel per result, highlighting the searched word by content rather than by
   word position
 - Dedicated Search workspace with grouped results, a paginated root dossier, a surah
