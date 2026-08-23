@@ -8,6 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Correlation search (الجوار): a collocation panel in the Search workspace with
+  salience-ranked neighbours, names-only filter, window controls (same ayah /
+  ±5 / ±10 words), exact-form vs word-family anchoring, and inline ayah
+  previews with prev/next navigation.
+- `near:` / `قرب:` query operators — proximity as part of the query language;
+  `قرب:` is the first Arabic field operator.
+- Home correlation (⇄): the result card re-renders scoped to the ayahs both
+  words share (count, tiles, histogram, carousel), with same-ayah / ±5-word /
+  adjacent-verse windows (adjacency adjustable ± 1–10 verses) and a "see all
+  results" deep link into the Search workspace via `قرب:`.
+- `/api/corpus/cooccurrence` — server-side pair intersection powering the home
+  correlation (the offline indexes cap refs at 10 per entry, so client-side
+  intersection cannot answer pairs).
 - Experimental `Quiz` workspace with a daily puzzle and adaptive review flow.
 - Local quiz history storage plus summary helpers in `lib/quiz/quizProgress.ts`.
 - Supabase-backed quiz attempt sync through `lib/supabase/quizService.ts`.
@@ -23,6 +36,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Correlation matching across Uthmani orthography: rasm-folded lemma comparison
+  (typed ابراهيم now matches إِبْرَٰهِيم), restored small combining letters in
+  highlighting (إِبْرَٰهِـۧمَ at 2:133), and dual-spelling matching against the
+  database's full-alif lemma normalization.
+- A latent carousel crash: a stale index into an in-place-shortened verses
+  array read past the end and dropped the whole result card.
 - Documentation drift around migration counts, directory layout, and release verification steps.
 
 ## [0.5.0] - 2026-02-21

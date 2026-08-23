@@ -17,6 +17,9 @@ Example deep links: `/en?viz=radial-sura&surah=2`, `/en?viz=collocation-network&
 (URL-encode Arabic in scripts). Root params are corpus root keys — plain-alif forms,
 see `docs/DATA_SOURCES.md` and the hamza-normalization note in `lib/corpus`.
 
+| Search workspace | `/{locale}/search?q={query}` | `q` may carry the `near:`/`قرب:` operator (`?q=أب قرب:ابراهيم`) — the الجوار
+panel then renders pair mode with every co-occurrence window. The home pair card's "see all results" CTA deep-links here. |
+
 ## The nine modes
 
 All in `components/visualisations/`. Each renders its own left-panel cards through
