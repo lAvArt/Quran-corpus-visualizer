@@ -67,13 +67,36 @@ export async function GET(request: NextRequest) {
         // One entry per co-occurrence ayah, carrying X's first position in it
         // (the carousel deep-links that word; highlighting is content-based).
         const shared: { sura: number; ayah: number; word: number }[] = [];
+        // X's token count inside the shared ayahs — the pair card reuses the
+        // regular result card, whose headline number means OCCURRENCES, so the
+        // subset must be counted in the same unit or the card would silently
+        // change what its own biggest number means.
+        let xOccurrences = 0;
         for (const r of (xRows ?? []) as TokenRow[]) {
             const key = `${r.sura}:${r.ayah}`;
-            if (!yAyahs.has(key) || seen.has(key)) continue;
+            if (!yAyahs.has(key)) continue;
+            xOccurrences += 1;
+            if (seen.has(key)) continue;
             seen.add(key);
             shared.push({ sura: r.sura, ayah: r.ayah, word: r.position });
         }
         shared.sort((a, b) => a.sura - b.sura || a.ayah - b.ayah);
+
+        // The rest of the card's furniture, in the exact shapes RootStat uses:
+        // per-sūrah histogram, top-sūrah chips [suraId, count, firstAyah], and
+        // the first shared occurrence.
+        const hist = new Array<number>(114).fill(0);
+        const firstAyahInSura = new Map<number, number>();
+        for (const r of shared) {
+            hist[r.sura - 1] += 1;
+            if (!firstAyahInSura.has(r.sura)) firstAyahInSura.set(r.sura, r.ayah);
+        }
+        const top = [...firstAyahInSura.keys()]
+            .map((su) => [su, hist[su - 1], firstAyahInSura.get(su)!] as [number, number, number])
+            .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+            .slice(0, 5);
+        const surahs = firstAyahInSura.size;
+        const first = shared.length ? { sura: shared[0].sura, ayah: shared[0].ayah } : null;
 
         const ids = shared.slice(0, limit).map((r) => `${r.sura}:${r.ayah}`);
         let ayahs: { sura: number; ayah: number; word: number; text: string }[] = [];
@@ -90,7 +113,7 @@ export async function GET(request: NextRequest) {
             }));
         }
 
-        return NextResponse.json({ count: shared.length, ayahs });
+        return NextResponse.json({ count: shared.length, xOccurrences, surahs, first, top, hist, ayahs });
     } catch (err) {
         console.error("[/api/corpus/cooccurrence]", err);
         return NextResponse.json({ error: "Lookup failed" }, { status: 500 });

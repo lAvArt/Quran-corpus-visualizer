@@ -199,7 +199,6 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   const router = useRouter();
   const locale = (params?.locale as string) || "en";
   const isNarrow = useIsNarrowViewport();
-  const surahName = useSurahName();
 
   // Seeded (server-side) from ?q= so returning to the home page — e.g. browser
   // Back out of the graph — restores the last search instead of a blank box.
@@ -448,7 +447,16 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   const [pairOpen, setPairOpen] = useState(false);
   const [pairQ, setPairQ] = useState("");
   const [pairDq, setPairDq] = useState("");
-  const [pairRes, setPairRes] = useState<{ count: number; ayahs: { sura: number; ayah: number; word: number; text: string }[] } | null>(null);
+  interface PairRes {
+    count: number;
+    xOccurrences: number;
+    surahs: number;
+    first: { sura: number; ayah: number } | null;
+    top: [number, number, number][];
+    hist: number[];
+    ayahs: { sura: number; ayah: number; word: number; text: string }[];
+  }
+  const [pairRes, setPairRes] = useState<PairRes | null>(null);
   const [pairBusy, setPairBusy] = useState(false);
   useEffect(() => {
     const id = setTimeout(() => setPairDq(pairQ.trim()), 450);
@@ -468,27 +476,36 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     setPairBusy(true);
     fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}&limit=10`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d && typeof d.count === "number") setPairRes(d); else setPairRes({ count: 0, ayahs: [] }); })
+      .then((d) => {
+        if (d && typeof d.count === "number") setPairRes(d);
+        else setPairRes({ count: 0, xOccurrences: 0, surahs: 0, first: null, top: [], hist: [], ayahs: [] });
+      })
       .catch(() => {})
       .finally(() => setPairBusy(false));
     return () => ac.abort();
   }, [pairOpen, pairDq, active, drillIdx]);
 
-  /** Both the result word and the companion light up in the pair ayahs. */
-  const pairHit = useCallback((tok: string): boolean => {
-    if (!active) return false;
-    const norm = foldRasmAlef(normalizeArabicForSearch(tok));
-    if (norm.length < 2) return false;
-    const keys: string[] = [];
-    const push = (v?: string | null) => {
-      if (!v) return;
-      const k = foldRasmAlef(normalizeArabicForSearch(v));
-      if (k.length >= 2) keys.push(k);
-    };
-    push(active.bare); push(isNameHit(active) ? active.lemma : active.root.replace(/-/g, ""));
-    push(pairDq); if (drillIdx) push(lookupLemma(drillIdx, pairDq)?.d);
-    return keys.some((k) => norm === k || norm.includes(k));
-  }, [active, pairDq, drillIdx]);
+  const pairActive = pairOpen && !!pairDq && !!pairRes && pairRes.count > 0 && !!active;
+  // The SAME result card, scoped to the co-occurrence subset. Every field the
+  // card renders (headline count, tiles, histogram, top chips, carousel
+  // totals) reads the stat, so overriding the stat IS the pair mode.
+  const pairStat = useMemo<HomeHit | null>(() => {
+    if (!pairActive || !active || !pairRes) return null;
+    return {
+      ...active,
+      count: pairRes.xOccurrences,
+      surahs: pairRes.surahs,
+      verses: pairRes.count,
+      forms: 0,
+      first: pairRes.first,
+      top: pairRes.top,
+      hist: pairRes.hist,
+    } as HomeHit;
+  }, [pairActive, active, pairRes]);
+  const pairVerses = useMemo<OccurrenceAyah[] | null>(
+    () => (pairActive && pairRes ? pairRes.ayahs.map((a) => ({ sura: a.sura, ayah: a.ayah, text: a.text, positions: [a.word] })) : null),
+    [pairActive, pairRes],
+  );
 
   const enterAyah = useCallback(
     (s: number, a: number, w: number, root: string) => {
@@ -660,40 +677,15 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
               <button type="button" className="mhome-pair-x" aria-label={t("closeVerse")} onClick={() => setPairOpen(false)}>×</button>
             </div>
             {pairDq && (
-              <div className="mhome-pair-result">
-                {pairBusy && !pairRes ? (
-                  <p className="mhome-pair-note">{t("pairSearching")}</p>
-                ) : pairRes && pairRes.count > 0 ? (
-                  <>
-                    <p className="mhome-pair-count">
-                      <strong>{pairRes.count.toLocaleString()}</strong> {t("pairCount", { x: active.root, y: pairDq })}
-                    </p>
-                    <ul className="mhome-pair-list">
-                      {pairRes.ayahs.map((a) => (
-                        <li key={`${a.sura}:${a.ayah}`}>
-                          <button
-                            type="button"
-                            className="mhome-rv-row"
-                            onClick={() => enterAyah(a.sura, a.ayah, a.word, isNameHit(active) ? active.bare : active.bare)}
-                          >
-                            <p dir="rtl" lang="ar" className="mhome-rv-ar">
-                              {a.text.split(/\s+/).filter(Boolean).map((tok, j) => (
-                                <span key={j} className={pairHit(tok) ? "mhome-verse-hl" : undefined} style={pairHit(tok) ? { color: rootColor(active) } : undefined}>{tok}{" "}</span>
-                              ))}
-                            </p>
-                            <span className="mhome-rv-ref">
-                              <span className="mhome-verse-name">{surahName(a.sura)}</span>
-                              <span className="mhome-verse-num">{a.sura}:{a.ayah}</span>
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : pairRes ? (
-                  <p className="mhome-pair-note">{t("pairNone", { x: active.root, y: pairDq })}</p>
-                ) : null}
-              </div>
+              pairBusy && !pairRes ? (
+                <p className="mhome-pair-note">{t("pairSearching")}</p>
+              ) : pairRes && pairRes.count > 0 ? (
+                <p className="mhome-pair-note">
+                  {t("pairCount", { n: pairRes.count, x: active.root, y: pairDq })}
+                </p>
+              ) : pairRes ? (
+                <p className="mhome-pair-note">{t("pairNone", { x: active.root, y: pairDq })}</p>
+              ) : null
             )}
           </div>
         )}
@@ -702,8 +694,10 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
         <div className="mhome-reveal">
           {active ? (
             <ResultPanel
-              stat={active}
-              drill={drill}
+              stat={pairActive && pairStat ? pairStat : active}
+              pairWith={pairActive ? pairDq : null}
+              pairVerses={pairActive ? pairVerses : null}
+              drill={pairActive ? null : drill}
               query={dq.trim()}
               formIdx={formIdx}
               drillIdx={drillIdx}
@@ -886,6 +880,8 @@ function ResultChooser({
 
 function ResultPanel({
   stat,
+  pairWith = null,
+  pairVerses = null,
   drill,
   query,
   formIdx,
@@ -897,6 +893,12 @@ function ResultPanel({
   onBack,
 }: {
   stat: HomeHit;
+  /** Correlation mode: the companion word. The SAME card renders, scoped to
+      the ayahs both words share — the caller pre-scopes `stat` and supplies
+      the shared verses; here it only reshapes highlighting and hides the
+      drill/forms furniture, whose subset counts the pair API does not know. */
+  pairWith?: string | null;
+  pairVerses?: OccurrenceAyah[] | null;
   drill: { lemma: DrillEntry | null; form: DrillEntry | null } | null;
   query: string;
   formIdx: FormIndex | null;
@@ -948,7 +950,7 @@ function ResultPanel({
   // Sūrah of the verse currently shown in the carousel → the strip spotlights it.
   const [activeSura, setActiveSura] = useState<number | null>(null);
   useEffect(() => setActiveSura(null), [statId]);
-  const showDrill = !isName && !!drill && !!(drill.lemma || drill.form);
+  const showDrill = !pairWith && !isName && !!drill && !!(drill.lemma || drill.form);
   const drillEntry: DrillEntry | null =
     gran === "lemma" ? drill?.lemma ?? null : gran === "form" ? drill?.form ?? null : null;
   const drilling = drillEntry !== null;
@@ -963,6 +965,10 @@ function ResultPanel({
     drilling || (occ != null && occ.length > 0) || (Boolean(fetchTerm) && !/\s/.test(fetchTerm));
   const [verses, setVerses] = useState<OccurrenceAyah[] | null>(canFetchVerses ? null : []);
   useEffect(() => {
+    if (pairVerses) {
+      setVerses(pairVerses);
+      return;
+    }
     if (!canFetchVerses) {
       setVerses([]);
       return;
@@ -981,7 +987,7 @@ function ResultPanel({
     request.then((a) => setVerses(a));
     return () => ac.abort();
     // statId identifies the result; gran switches the drill-down granularity.
-  }, [statId, isName, gran]);
+  }, [statId, isName, gran, pairVerses]);
 
   // What the count card + carousel reflect: the drilled lemma/form, else root.
   const displayCount = drilling ? drillEntry!.c : stat.count;
@@ -992,11 +998,35 @@ function ResultPanel({
   // Content-based so it survives the corpus's QAC-vs-Uthmani word-numbering
   // drift (see ResultVerses). Root → the word's root; lemma → the word's lemma;
   // form → exact spelling; name → the name's surface (proclitic-tolerant).
+  const pairKeys = useMemo(() => {
+    if (!pairWith) return null;
+    const keys = new Set<string>();
+    const add = (v?: string | null) => {
+      if (!v) return;
+      const k = foldRasmAlef(normalizeArabicForSearch(v));
+      if (k.length >= 2) keys.add(k);
+    };
+    add(pairWith);
+    if (drillIdx) {
+      const lem = lookupLemma(drillIdx, pairWith);
+      add(lem?.d);
+      if (lem?.r) add(lem.r);
+    }
+    return keys;
+  }, [pairWith, drillIdx]);
+
   const formKey = drill?.form ? normalizeArabicForSearch(drill.form.d) : null;
   const lemmaKey = drill?.lemma ? normalizeArabicForSearch(drill.lemma.d) : null;
   const isHit = useCallback(
     (w: string): boolean => {
       if (!w) return false;
+      if (pairKeys) {
+        const folded = foldRasmAlef(w);
+        for (const k of pairKeys) {
+          if (folded === k || folded.includes(k)) return true;
+        }
+        // fall through: X's own match rules apply as usual
+      }
       if (gran === "form") return !!formKey && (w === formKey || foldRasmAlef(w) === formKey);
       if (gran === "lemma") {
         if (!lemmaKey || !drillIdx) return false;
@@ -1029,6 +1059,9 @@ function ResultPanel({
         <div className="mhome-count-lab">
           <div className="mhome-occ">{t("occurrences")}</div>
           <div className="mhome-ident">
+            {pairWith && (
+              <span className="mhome-pair-with" dir="rtl" lang="ar">⇄ {pairWith}</span>
+            )}
             <span dir="rtl" lang="ar" className="mhome-ident-ar" style={{ color }}>
               {displayArabic}
             </span>
@@ -1124,10 +1157,12 @@ function ResultPanel({
           <span className="mhome-stat-n">{stat.verses.toLocaleString()}</span>
           <span className="mhome-stat-l">{t("statVerses")}</span>
         </div>
-        <div className="mhome-stat">
-          <span className="mhome-stat-n">{stat.forms}</span>
-          <span className="mhome-stat-l">{t("statForms")}</span>
-        </div>
+        {!pairWith && (
+          <div className="mhome-stat">
+            <span className="mhome-stat-n">{stat.forms}</span>
+            <span className="mhome-stat-l">{t("statForms")}</span>
+          </div>
+        )}
         {stat.first && (
           <div className="mhome-stat">
             <span className="mhome-stat-n mhome-stat-ref">{surahName(stat.first.sura)}</span>
@@ -1215,9 +1250,11 @@ function ResultPanel({
               <button type="button" className="mhome-cta-s" onClick={() => onExplore(stat.bare, "root-network")}>
                 {t("seeNetwork")}
               </button>
-              <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "sankey-flow", stat.top[0]?.[0])}>
-                {t("compareForms", { n: stat.forms })}
-              </button>
+              {!pairWith && (
+                <button type="button" className="mhome-cta-g" onClick={() => onExplore(stat.bare, "sankey-flow", stat.top[0]?.[0])}>
+                  {t("compareForms", { n: stat.forms })}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -1334,6 +1371,13 @@ function ResultVerses({
   const n = verses.length;
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(1);
+  // The verses array can be SWAPPED under a mounted carousel (the correlation
+  // mode hands in the shared ayahs directly, with no unmount in between). A
+  // stale index into a shorter array read undefined and crashed the whole
+  // result card; clamp at the read site and snap back on shrink.
+  useEffect(() => {
+    if (idx >= n && n > 0) setIdx(0);
+  }, [idx, n]);
   const [open, setOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -1417,7 +1461,7 @@ function ResultVerses({
     return ayah.positions[0];
   };
 
-  const ex = verses[idx];
+  const ex = verses[Math.min(idx, Math.max(0, n - 1))];
   const hasMore = total > n;
 
   return (
@@ -1543,6 +1587,9 @@ function VerseCarousel({
   const n = examples.length;
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(1);
+  useEffect(() => {
+    if (idx >= n && n > 0) setIdx(0);
+  }, [idx, n]);
   const [open, setOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -1594,7 +1641,7 @@ function VerseCarousel({
     }
   };
 
-  const ex = examples[idx];
+  const ex = examples[Math.min(idx, Math.max(0, n - 1))];
 
   return (
     <div
@@ -2061,7 +2108,10 @@ const styles = `
     background: rgba(var(--mh-card-rgb), 0.7);
   }
   .mhome-pair { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+  /* Visually SECONDARY: narrower than the main bar and inset under it, so the
+     hierarchy reads at a glance instead of presenting two equal search bars. */
   .mhome-pair-bar {
+    width: min(560px, 92%); margin-inline: auto;
     display: flex; align-items: center; gap: 10px;
     padding: 8px 16px; border-radius: 14px;
     background: rgba(var(--mh-card-rgb), 0.55); border: 1px solid var(--mh-hairline);
@@ -2076,11 +2126,12 @@ const styles = `
     background: transparent; border: none; color: rgba(var(--mh-ink-rgb), 0.5); font-size: 16px;
   }
   .mhome-pair-x:hover { color: var(--mh-ink); }
-  .mhome-pair-result { display: flex; flex-direction: column; gap: 10px; }
-  .mhome-pair-count { margin: 0; font: 400 14px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.75); }
-  .mhome-pair-count strong { font-size: 19px; color: var(--mh-ink); }
-  .mhome-pair-note { margin: 0; font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.55); }
-  .mhome-pair-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .mhome-pair-note { margin: 0; font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.65); }
+  .mhome-pair-with {
+    margin-inline-start: 10px; padding: 2px 10px; border-radius: 999px;
+    font-size: 15px; border: 1px solid var(--mh-accent-border); color: var(--mh-ink);
+    background: rgba(var(--mh-card-rgb), 0.6);
+  }
 
   .mhome-rv { display: flex; flex-direction: column; gap: 12px; }
   .mhome-rv-lab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
