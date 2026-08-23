@@ -72,7 +72,13 @@
         "pairPlaceholder": "اكتب كلمة ثانية لعرض الآيات التي تجمعهما",
         "pairSearching": "جارٍ البحث…",
         "pairCount": "{n} آية تجمع «{x}» و«{y}» — معروضة أدناه.",
-        "pairNone": "لا آية تجمع «{x}» و«{y}»."
+        "pairNone": "لا آية تجمع «{x}» و«{y}».",
+        "pairWindowLabel": "نطاق البحث",
+        "pairWinAyah": "الآية نفسها",
+        "pairWinW5": "ضمن ٥ كلمات",
+        "pairWinAdjacent": "آية متجاورة",
+        "pairOccurrencesWith": "× مرة مع «{y}»",
+        "pairClear": "عودة إلى النتيجة الكاملة"
     },
     "Error": {
         "title": "حدث خطأ ما",

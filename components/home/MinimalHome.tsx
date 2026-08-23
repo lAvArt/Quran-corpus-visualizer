@@ -457,24 +457,28 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     ayahs: { sura: number; ayah: number; word: number; text: string }[];
   }
   const [pairRes, setPairRes] = useState<PairRes | null>(null);
+  /** ayah = exact shared ayah · w5 = within ±5 words · adjacent = ayah ±1. */
+  const [pairWindow, setPairWindow] = useState<"ayah" | "w5" | "adjacent">("ayah");
   const [pairBusy, setPairBusy] = useState(false);
   useEffect(() => {
     const id = setTimeout(() => setPairDq(pairQ.trim()), 450);
     return () => clearTimeout(id);
   }, [pairQ]);
   // A new primary result resets the companion; closing the bar clears it.
-  useEffect(() => { setPairQ(""); setPairDq(""); setPairRes(null); }, [active?.bare]);
+  useEffect(() => { setPairQ(""); setPairDq(""); setPairRes(null); setPairWindow("ayah"); }, [active?.bare]);
   useEffect(() => { if (!pairOpen) { setPairQ(""); setPairDq(""); setPairRes(null); } }, [pairOpen]);
   useEffect(() => {
     if (!pairOpen || !pairDq || !active) { setPairRes(null); return; }
     const xkind = isNameHit(active) ? "lemma" : "root";
     const x = isNameHit(active) ? (active.lemma || active.bare) : active.bare;
-    // The corpus writes rasm; resolve the typed companion to its corpus-spelled
-    // lemma when the drill index knows it (يئوس → يَئُوس), else send it raw.
-    const y = drillIdx ? (lookupLemma(drillIdx, pairDq)?.d ?? pairDq) : pairDq;
+    // Two spellings travel: the word as typed (the DB normalizes toward
+    // full-alif spellings, which is how people type) and the QAC-resolved
+    // lemma (rasm), whichever of the two the database actually holds.
+    const y = pairDq;
+    const yalt = drillIdx ? lookupLemma(drillIdx, pairDq)?.d ?? "" : "";
     const ac = new AbortController();
     setPairBusy(true);
-    fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}&limit=10`, { signal: ac.signal })
+    fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}${yalt ? `&yalt=${encodeURIComponent(yalt)}` : ""}&window=${pairWindow}&limit=10`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && typeof d.count === "number") setPairRes(d);
@@ -483,7 +487,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
       .catch(() => {})
       .finally(() => setPairBusy(false));
     return () => ac.abort();
-  }, [pairOpen, pairDq, active, drillIdx]);
+  }, [pairOpen, pairDq, active, drillIdx, pairWindow]);
 
   const pairActive = pairOpen && !!pairDq && !!pairRes && pairRes.count > 0 && !!active;
   // The SAME result card, scoped to the co-occurrence subset. Every field the
@@ -677,6 +681,20 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
               <button type="button" className="mhome-pair-x" aria-label={t("closeVerse")} onClick={() => setPairOpen(false)}>×</button>
             </div>
             {pairDq && (
+              <div className="mhome-pair-windows header-button-group" role="group" aria-label={t("pairWindowLabel")}>
+                {(["ayah", "w5", "adjacent"] as const).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className={`control-pill-btn ${pairWindow === w ? "active" : ""}`}
+                    onClick={() => setPairWindow(w)}
+                  >
+                    {w === "ayah" ? t("pairWinAyah") : w === "w5" ? t("pairWinW5") : t("pairWinAdjacent")}
+                  </button>
+                ))}
+              </div>
+            )}
+            {pairDq && (
               pairBusy && !pairRes ? (
                 <p className="mhome-pair-note">{t("pairSearching")}</p>
               ) : pairRes && pairRes.count > 0 ? (
@@ -696,6 +714,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
             <ResultPanel
               stat={pairActive && pairStat ? pairStat : active}
               pairWith={pairActive ? pairDq : null}
+              onClearPair={() => setPairOpen(false)}
               pairVerses={pairActive ? pairVerses : null}
               drill={pairActive ? null : drill}
               query={dq.trim()}
@@ -882,6 +901,7 @@ function ResultPanel({
   stat,
   pairWith = null,
   pairVerses = null,
+  onClearPair,
   drill,
   query,
   formIdx,
@@ -899,6 +919,8 @@ function ResultPanel({
       drill/forms furniture, whose subset counts the pair API does not know. */
   pairWith?: string | null;
   pairVerses?: OccurrenceAyah[] | null;
+  /** Clears correlation mode (the ⇄ chip doubles as the exit). */
+  onClearPair?: () => void;
   drill: { lemma: DrillEntry | null; form: DrillEntry | null } | null;
   query: string;
   formIdx: FormIndex | null;
@@ -1045,7 +1067,7 @@ function ResultPanel({
   );
 
   return (
-    <div className="mhome-result">
+    <div className={`mhome-result ${pairWith ? "is-paired" : ""}`}>
       <button type="button" className="mhome-back" onClick={onBack}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="15 18 9 12 15 6" />
@@ -1057,10 +1079,21 @@ function ResultPanel({
           {displayCount.toLocaleString()}
         </div>
         <div className="mhome-count-lab">
-          <div className="mhome-occ">{t("occurrences")}</div>
+          <div className="mhome-occ">
+            {pairWith ? t("pairOccurrencesWith", { y: pairWith }) : t("occurrences")}
+          </div>
           <div className="mhome-ident">
             {pairWith && (
-              <span className="mhome-pair-with" dir="rtl" lang="ar">⇄ {pairWith}</span>
+              <button
+                type="button"
+                className="mhome-pair-with"
+                dir="rtl"
+                lang="ar"
+                title={t("pairClear")}
+                onClick={onClearPair}
+              >
+                ⇄ {pairWith} ×
+              </button>
             )}
             <span dir="rtl" lang="ar" className="mhome-ident-ar" style={{ color }}>
               {displayArabic}
@@ -2130,7 +2163,17 @@ const styles = `
   .mhome-pair-with {
     margin-inline-start: 10px; padding: 2px 10px; border-radius: 999px;
     font-size: 15px; border: 1px solid var(--mh-accent-border); color: var(--mh-ink);
-    background: rgba(var(--mh-card-rgb), 0.6);
+    background: rgba(var(--mh-card-rgb), 0.6); cursor: pointer;
+  }
+  .mhome-pair-with:hover { background: rgba(var(--mh-card-rgb), 0.9); }
+  .mhome-pair-windows { justify-content: center; }
+  /* The whole card announces its scope: an accent edge band on the reading
+     side, so pair-scoped numbers can never pass for global ones even in a
+     crop that loses the chip and the note line. */
+  .mhome-result.is-paired {
+    border-inline-start: 3px solid var(--mh-accent-border);
+    padding-inline-start: 16px;
+    border-radius: 4px;
   }
 
   .mhome-rv { display: flex; flex-direction: column; gap: 12px; }

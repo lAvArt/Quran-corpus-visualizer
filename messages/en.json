@@ -72,7 +72,13 @@
         "pairPlaceholder": "Type a second word — show verses containing both",
         "pairSearching": "Searching…",
         "pairCount": "{n} verses contain both {x} and {y} — shown below.",
-        "pairNone": "No verse contains both {x} and {y}."
+        "pairNone": "No verse contains both {x} and {y}.",
+        "pairWindowLabel": "Search window",
+        "pairWinAyah": "Same verse",
+        "pairWinW5": "Within 5 words",
+        "pairWinAdjacent": "Adjacent verse",
+        "pairOccurrencesWith": "× times with “{y}”",
+        "pairClear": "Back to the full result"
     },
     "Error": {
         "title": "Something went wrong",
