@@ -81,7 +81,8 @@
         "pairClear": "Back to the full result",
         "pairSpanLabel": "How many adjacent verses",
         "pairSpanLess": "Narrower",
-        "pairSpanMore": "Wider"
+        "pairSpanMore": "Wider",
+        "pairSeeAll": "See all {n} results in Search"
     },
     "Error": {
         "title": "Something went wrong",

@@ -1,4 +1,5 @@
 import type { CorpusToken, PartOfSpeech } from "@/lib/schema/types";
+import { foldRasmAlef, normalizeArabicForSearch } from "@/lib/search/arabicNormalize";
 
 /**
  * What a collocation query is anchored to.
@@ -52,6 +53,12 @@ export interface CollocationOptions {
    * absorbs that; an exact-position feature would not.
    */
   anchorRefs?: ReadonlyArray<readonly [number, number, number]>;
+  /**
+   * How many co-occurrence windows each row keeps (default 8 — enough for a
+   * sample strip). A pair query's single row IS the result set, so its caller
+   * raises this to keep every window.
+   */
+  sampleCap?: number;
 }
 
 export interface CollocationResult {
@@ -256,10 +263,15 @@ function tokenMatchesTerm(token: CorpusToken, term: CollocationTerm): boolean {
 
   const tokenLemma = normalizeArabicForMatch(token.lemma);
   const tokenText = normalizeArabicForMatch(token.text);
+  // Rasm-tolerant key: the user types full-alif spellings (ابراهيم) while QAC
+  // lemmas carry the rasm (إِبْرَٰهِيم → إبرهيم after diacritic stripping) —
+  // without folding both sides, a قرب: pair on such a name matches nothing.
+  const tokenLemmaFolded = foldRasmAlef(normalizeArabicForSearch(token.lemma));
   const candidates = lemmaCandidates(term.value);
   if (candidates.size === 0) return false;
   for (const candidate of candidates) {
     if (candidate === tokenLemma || candidate === tokenText) return true;
+    if (tokenLemmaFolded.length >= 2 && foldRasmAlef(normalizeArabicForSearch(candidate)) === tokenLemmaFolded) return true;
   }
   return false;
 }
@@ -577,7 +589,7 @@ export function getCollocations(
       count,
       pmi,
       sampleLemmas: Array.from(collocateLemmas.get(collocateValue) || []).slice(0, 8),
-      sampleWindows: Array.from(collocateWindows.get(collocateValue) || []).slice(0, 8),
+      sampleWindows: Array.from(collocateWindows.get(collocateValue) || []).slice(0, options.sampleCap ?? 8),
     });
   }
 

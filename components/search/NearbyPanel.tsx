@@ -156,6 +156,9 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
             minFrequency: 1,
             anchorRefs: anchor.refs,
             pairTerm: pairValue ? { kind: "lemma", value: pairValue } : null,
+            // A pair query has ONE row and it is the result set — keep every
+            // window instead of the sample strip.
+            sampleCap: pairValue ? 1000 : undefined,
             // Content words only. Particles and pronouns are structure, never
             // the answer to either question this panel asks; where a corpus
             // path leaves pos untagged (everything "N") this simply keeps all.
@@ -313,7 +316,7 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
                                 <span className="nearby-pmi" title={t("pmiHint")}>{row.pmi.toFixed(1)}</span>
                             </div>
                             <div className="nearby-refs">
-                                {row.sampleWindows.slice(0, 6).map((w) => {
+                                {(pairValue ? row.sampleWindows : row.sampleWindows.slice(0, 6)).map((w) => {
                                     const [sura, ayah] = w.split(":").map(Number);
                                     const active = openRef?.row === row.label && openRef?.sura === sura && openRef?.ayah === ayah;
                                     return (
