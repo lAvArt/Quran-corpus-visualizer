@@ -38,7 +38,23 @@ export async function GET(request: NextRequest) {
     const xkind = searchParams.get("xkind") === "lemma" ? "lemma" : "root";
     const x = dbNormalize(searchParams.get("x")?.trim() ?? "");
     const y = dbNormalize(searchParams.get("y")?.trim() ?? "");
+    // Alternate spelling of Y. The DB normalizes toward full-alif spellings
+    // (ابراهيم), while the QAC-derived client indexes carry the rasm
+    // (ابرهيم/إِبْرَٰهِيم) — whichever the caller resolved, the other one may be
+    // the one the DB knows, so both are matched.
+    const yalt = dbNormalize(searchParams.get("yalt")?.trim() ?? "");
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "10"), 1), 20);
+    // ayah      — both words share the ayah (exact).
+    // w5        — same ayah AND within ±5 word positions. Within one ayah the
+    //             relative distance survives the QAC↔Quran.com numbering drift
+    //             unless a merged word sits between the two — off by 1–2 at
+    //             worst, which a ±5 window absorbs.
+    // adjacent  — Y stands in the same ayah or the one before/after it. This is
+    //             the إذ قال لأبيه pattern (speaker named in the previous ayah),
+    //             and it needs no token arithmetic at all, so it is immune to
+    //             the drift entirely.
+    const windowParam = searchParams.get("window");
+    const window = windowParam === "w5" || windowParam === "adjacent" ? windowParam : "ayah";
 
     if (!x || !y) {
         return NextResponse.json({ error: "x and y params are required" }, { status: 400 });
@@ -56,13 +72,39 @@ export async function GET(request: NextRequest) {
             supabase
                 .from("corpus_tokens")
                 .select("sura,ayah,position")
-                .or(`lemma_normalized.eq.${y},root_normalized.eq.${y}`)
+                .or(
+                    yalt && yalt !== y
+                        ? `lemma_normalized.eq.${y},root_normalized.eq.${y},lemma_normalized.eq.${yalt},root_normalized.eq.${yalt}`
+                        : `lemma_normalized.eq.${y},root_normalized.eq.${y}`,
+                )
                 .limit(5000),
         ]);
         if (xErr) throw xErr;
         if (yErr) throw yErr;
 
         const yAyahs = new Set((yRows ?? []).map((r: TokenRow) => `${r.sura}:${r.ayah}`));
+        const yPositions = new Map<string, number[]>();
+        for (const r of (yRows ?? []) as TokenRow[]) {
+            const key = `${r.sura}:${r.ayah}`;
+            const list = yPositions.get(key);
+            if (list) list.push(r.position);
+            else yPositions.set(key, [r.position]);
+        }
+        const matches = (r: TokenRow): boolean => {
+            const key = `${r.sura}:${r.ayah}`;
+            if (window === "w5") {
+                const ps = yPositions.get(key);
+                return !!ps && ps.some((py) => Math.abs(py - r.position) <= 5);
+            }
+            if (window === "adjacent") {
+                return (
+                    yAyahs.has(key) ||
+                    (r.ayah > 1 && yAyahs.has(`${r.sura}:${r.ayah - 1}`)) ||
+                    yAyahs.has(`${r.sura}:${r.ayah + 1}`)
+                );
+            }
+            return yAyahs.has(key);
+        };
         const seen = new Set<string>();
         // One entry per co-occurrence ayah, carrying X's first position in it
         // (the carousel deep-links that word; highlighting is content-based).
@@ -74,7 +116,7 @@ export async function GET(request: NextRequest) {
         let xOccurrences = 0;
         for (const r of (xRows ?? []) as TokenRow[]) {
             const key = `${r.sura}:${r.ayah}`;
-            if (!yAyahs.has(key)) continue;
+            if (!matches(r)) continue;
             xOccurrences += 1;
             if (seen.has(key)) continue;
             seen.add(key);
