@@ -459,13 +459,15 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   const [pairRes, setPairRes] = useState<PairRes | null>(null);
   /** ayah = exact shared ayah · w5 = within ±5 words · adjacent = ayah ±1. */
   const [pairWindow, setPairWindow] = useState<"ayah" | "w5" | "adjacent">("ayah");
+  /** Reach of the adjacent window (± ayahs), 1–10. */
+  const [pairSpan, setPairSpan] = useState(1);
   const [pairBusy, setPairBusy] = useState(false);
   useEffect(() => {
     const id = setTimeout(() => setPairDq(pairQ.trim()), 450);
     return () => clearTimeout(id);
   }, [pairQ]);
   // A new primary result resets the companion; closing the bar clears it.
-  useEffect(() => { setPairQ(""); setPairDq(""); setPairRes(null); setPairWindow("ayah"); }, [active?.bare]);
+  useEffect(() => { setPairQ(""); setPairDq(""); setPairRes(null); setPairWindow("ayah"); setPairSpan(1); }, [active?.bare]);
   useEffect(() => { if (!pairOpen) { setPairQ(""); setPairDq(""); setPairRes(null); } }, [pairOpen]);
   useEffect(() => {
     if (!pairOpen || !pairDq || !active) { setPairRes(null); return; }
@@ -478,7 +480,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     const yalt = drillIdx ? lookupLemma(drillIdx, pairDq)?.d ?? "" : "";
     const ac = new AbortController();
     setPairBusy(true);
-    fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}${yalt ? `&yalt=${encodeURIComponent(yalt)}` : ""}&window=${pairWindow}&limit=10`, { signal: ac.signal })
+    fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}${yalt ? `&yalt=${encodeURIComponent(yalt)}` : ""}&window=${pairWindow}${pairWindow === "adjacent" ? `&span=${pairSpan}` : ""}&limit=10`, { signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && typeof d.count === "number") setPairRes(d);
@@ -487,7 +489,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
       .catch(() => {})
       .finally(() => setPairBusy(false));
     return () => ac.abort();
-  }, [pairOpen, pairDq, active, drillIdx, pairWindow]);
+  }, [pairOpen, pairDq, active, drillIdx, pairWindow, pairSpan]);
 
   const pairActive = pairOpen && !!pairDq && !!pairRes && pairRes.count > 0 && !!active;
   // The SAME result card, scoped to the co-occurrence subset. Every field the
@@ -689,9 +691,36 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
                     className={`control-pill-btn ${pairWindow === w ? "active" : ""}`}
                     onClick={() => setPairWindow(w)}
                   >
-                    {w === "ayah" ? t("pairWinAyah") : w === "w5" ? t("pairWinW5") : t("pairWinAdjacent")}
+                    {w === "ayah"
+                      ? t("pairWinAyah")
+                      : w === "w5"
+                        ? t("pairWinW5")
+                        : t("pairWinAdjacent", { n: pairSpan })}
                   </button>
                 ))}
+                {pairWindow === "adjacent" && (
+                  <span className="mhome-pair-span" role="group" aria-label={t("pairSpanLabel")}>
+                    <button
+                      type="button"
+                      className="control-pill-btn"
+                      aria-label={t("pairSpanLess")}
+                      disabled={pairSpan <= 1}
+                      onClick={() => setPairSpan((n) => Math.max(1, n - 1))}
+                    >
+                      −
+                    </button>
+                    <span className="mhome-pair-span-n" dir="ltr">± {pairSpan}</span>
+                    <button
+                      type="button"
+                      className="control-pill-btn"
+                      aria-label={t("pairSpanMore")}
+                      disabled={pairSpan >= 10}
+                      onClick={() => setPairSpan((n) => Math.min(10, n + 1))}
+                    >
+                      +
+                    </button>
+                  </span>
+                )}
               </div>
             )}
             {pairDq && (
@@ -2166,7 +2195,13 @@ const styles = `
     background: rgba(var(--mh-card-rgb), 0.6); cursor: pointer;
   }
   .mhome-pair-with:hover { background: rgba(var(--mh-card-rgb), 0.9); }
-  .mhome-pair-windows { justify-content: center; }
+  .mhome-pair-windows { justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .mhome-pair-span { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 6px; }
+  .mhome-pair-span-n {
+    min-width: 42px; text-align: center; font: 600 13px 'Space Grotesk', sans-serif;
+    font-variant-numeric: tabular-nums; color: var(--mh-ink);
+  }
+  .mhome-pair-span .control-pill-btn:disabled { opacity: 0.35; cursor: default; }
   /* The whole card announces its scope: an accent edge band on the reading
      side, so pair-scoped numbers can never pass for global ones even in a
      crop that loses the chip and the note line. */
