@@ -115,3 +115,15 @@ describe("collocation: anchorRefs against glyph-text tokens", () => {
         expect(rows.find((r) => r.label === "يَعْقُوب")).toBeUndefined();
     });
 });
+
+describe("collocation: rasm-tolerant lemma matching", () => {
+    it("a typed full-alif name matches the QAC rasm lemma", () => {
+        // إبراهيم is stored إِبْرَٰهِيم; a user types ابراهيم. Without rasm
+        // folding on both sides, a pair query on the name matched nothing.
+        const rows = getCollocations({ kind: "form", value: "لأبيه" }, corpus, freq, {
+            windowType: "distance", distance: 10, groupBy: "lemma", minFrequency: 1,
+            pairTerm: { kind: "lemma", value: "ابراهيم" },
+        });
+        expect(rows.find((r) => r.label === "إِبْرَٰهِيم")?.count).toBe(2);
+    });
+});

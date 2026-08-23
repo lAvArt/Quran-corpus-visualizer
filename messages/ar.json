@@ -81,7 +81,8 @@
         "pairClear": "عودة إلى النتيجة الكاملة",
         "pairSpanLabel": "عدد الآيات المجاورة",
         "pairSpanLess": "أضيق",
-        "pairSpanMore": "أوسع"
+        "pairSpanMore": "أوسع",
+        "pairSeeAll": "اعرض النتائج الـ {n} في مساحة البحث"
     },
     "Error": {
         "title": "حدث خطأ ما",

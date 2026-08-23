@@ -727,9 +727,25 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
               pairBusy && !pairRes ? (
                 <p className="mhome-pair-note">{t("pairSearching")}</p>
               ) : pairRes && pairRes.count > 0 ? (
-                <p className="mhome-pair-note">
-                  {t("pairCount", { n: pairRes.count, x: active.root, y: pairDq })}
-                </p>
+                <div className="mhome-pair-notewrap">
+                  <p className="mhome-pair-note">
+                    {t("pairCount", { n: pairRes.count, x: active.root, y: pairDq })}
+                  </p>
+                  {/* The card shows ten ayahs at most; the full set lives in the
+                      search workspace, which runs the SAME question through the
+                      قرب: operator — client-side, uncapped, previewable. */}
+                  <button
+                    type="button"
+                    className="mhome-rv-more"
+                    onClick={() =>
+                      router.push(
+                        `/${locale}/search?q=${encodeURIComponent(`${dq.trim() || active.bare} قرب:${pairDq}`)}`,
+                      )
+                    }
+                  >
+                    {t("pairSeeAll", { n: pairRes.count })} <span aria-hidden="true">→</span>
+                  </button>
+                </div>
               ) : pairRes ? (
                 <p className="mhome-pair-note">{t("pairNone", { x: active.root, y: pairDq })}</p>
               ) : null
@@ -2200,6 +2216,7 @@ const styles = `
   }
   .mhome-pair-x:hover { color: var(--mh-ink); }
   .mhome-pair-note { margin: 0; font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.65); }
+  .mhome-pair-notewrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .mhome-pair-with {
     margin-inline-start: 10px; padding: 2px 10px; border-radius: 999px;
     font-size: 15px; border: 1px solid var(--mh-accent-border); color: var(--mh-ink);
