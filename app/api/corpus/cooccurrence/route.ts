@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
     //             the drift entirely.
     const windowParam = searchParams.get("window");
     const window = windowParam === "w5" || windowParam === "adjacent" ? windowParam : "ayah";
+    // Reach of the adjacent window, in ayahs each side (±1 by default, up to
+    // ±10). Cost is one Set lookup per (X row × step) — no extra DB work — so
+    // the cap is interpretive, not computational: wider windows inflate counts,
+    // and past ~10 ayahs "nearby" stops meaning anything.
+    const span = Math.min(Math.max(Number(searchParams.get("span") ?? "1") || 1, 1), 10);
 
     if (!x || !y) {
         return NextResponse.json({ error: "x and y params are required" }, { status: 400 });
@@ -97,11 +102,12 @@ export async function GET(request: NextRequest) {
                 return !!ps && ps.some((py) => Math.abs(py - r.position) <= 5);
             }
             if (window === "adjacent") {
-                return (
-                    yAyahs.has(key) ||
-                    (r.ayah > 1 && yAyahs.has(`${r.sura}:${r.ayah - 1}`)) ||
-                    yAyahs.has(`${r.sura}:${r.ayah + 1}`)
-                );
+                if (yAyahs.has(key)) return true;
+                for (let k = 1; k <= span; k++) {
+                    if (r.ayah - k >= 1 && yAyahs.has(`${r.sura}:${r.ayah - k}`)) return true;
+                    if (yAyahs.has(`${r.sura}:${r.ayah + k}`)) return true;
+                }
+                return false;
             }
             return yAyahs.has(key);
         };

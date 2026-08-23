@@ -76,9 +76,12 @@
         "pairWindowLabel": "Search window",
         "pairWinAyah": "Same verse",
         "pairWinW5": "Within 5 words",
-        "pairWinAdjacent": "Adjacent verse",
+        "pairWinAdjacent": "± {n, plural, one {# verse} other {# verses}}",
         "pairOccurrencesWith": "× times with “{y}”",
-        "pairClear": "Back to the full result"
+        "pairClear": "Back to the full result",
+        "pairSpanLabel": "How many adjacent verses",
+        "pairSpanLess": "Narrower",
+        "pairSpanMore": "Wider"
     },
     "Error": {
         "title": "Something went wrong",

@@ -76,9 +76,12 @@
         "pairWindowLabel": "[!! Ṡèâṛçħ ŵîñḋôŵ !!]",
         "pairWinAyah": "[!! Ṡâṁè vèṛṡè !!]",
         "pairWinW5": "[!! Ŵîťħîñ 5 ŵôṛḋṡ !!]",
-        "pairWinAdjacent": "[!! Âḋĵâçèñť vèṛṡè !!]",
+        "pairWinAdjacent": "[!! ± {n, plural, one {# verse} ôťħèṛ {# verses}} !!]",
         "pairOccurrencesWith": "[!! × ťîṁèṡ ŵîťħ “{y}” !!]",
-        "pairClear": "[!! Ḃâçķ ťô ťħè ḟûļļ ṛèṡûļť !!]"
+        "pairClear": "[!! Ḃâçķ ťô ťħè ḟûļļ ṛèṡûļť !!]",
+        "pairSpanLabel": "[!! Ħôŵ ṁâñý âḋĵâçèñť vèṛṡèṡ !!]",
+        "pairSpanLess": "[!! Ñâṛṛôŵèṛ !!]",
+        "pairSpanMore": "[!! Ŵîḋèṛ !!]"
     },
     "Error": {
         "title": "[!! Ṡôṁèťħîñġ ŵèñť ŵṛôñġ !!]",

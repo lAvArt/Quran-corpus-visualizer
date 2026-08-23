@@ -76,9 +76,12 @@
         "pairWindowLabel": "نطاق البحث",
         "pairWinAyah": "الآية نفسها",
         "pairWinW5": "ضمن ٥ كلمات",
-        "pairWinAdjacent": "آية متجاورة",
+        "pairWinAdjacent": "{n, plural, one {± آية واحدة} two {± آيتين} few {± # آيات} other {± # آية}}",
         "pairOccurrencesWith": "× مرة مع «{y}»",
-        "pairClear": "عودة إلى النتيجة الكاملة"
+        "pairClear": "عودة إلى النتيجة الكاملة",
+        "pairSpanLabel": "عدد الآيات المجاورة",
+        "pairSpanLess": "أضيق",
+        "pairSpanMore": "أوسع"
     },
     "Error": {
         "title": "حدث خطأ ما",
