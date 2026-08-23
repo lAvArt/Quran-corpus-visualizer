@@ -199,6 +199,7 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
   const router = useRouter();
   const locale = (params?.locale as string) || "en";
   const isNarrow = useIsNarrowViewport();
+  const surahName = useSurahName();
 
   // Seeded (server-side) from ?q= so returning to the home page — e.g. browser
   // Back out of the graph — restores the last search instead of a blank box.
@@ -436,6 +437,59 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
     [locale, router]
   );
 
+  /**
+   * Correlation search — the home half of the الجوار idea. A companion word
+   * typed here is answered with the ayahs where it stands WITH the current
+   * result. Computed server-side (/api/corpus/cooccurrence): the home page
+   * carries no corpus by design, and the offline indexes cap refs at 10 per
+   * entry, so client-side intersection would break on any word with more than
+   * ten occurrences — إنسان alone has 71.
+   */
+  const [pairOpen, setPairOpen] = useState(false);
+  const [pairQ, setPairQ] = useState("");
+  const [pairDq, setPairDq] = useState("");
+  const [pairRes, setPairRes] = useState<{ count: number; ayahs: { sura: number; ayah: number; word: number; text: string }[] } | null>(null);
+  const [pairBusy, setPairBusy] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setPairDq(pairQ.trim()), 450);
+    return () => clearTimeout(id);
+  }, [pairQ]);
+  // A new primary result resets the companion; closing the bar clears it.
+  useEffect(() => { setPairQ(""); setPairDq(""); setPairRes(null); }, [active?.bare]);
+  useEffect(() => { if (!pairOpen) { setPairQ(""); setPairDq(""); setPairRes(null); } }, [pairOpen]);
+  useEffect(() => {
+    if (!pairOpen || !pairDq || !active) { setPairRes(null); return; }
+    const xkind = isNameHit(active) ? "lemma" : "root";
+    const x = isNameHit(active) ? (active.lemma || active.bare) : active.bare;
+    // The corpus writes rasm; resolve the typed companion to its corpus-spelled
+    // lemma when the drill index knows it (يئوس → يَئُوس), else send it raw.
+    const y = drillIdx ? (lookupLemma(drillIdx, pairDq)?.d ?? pairDq) : pairDq;
+    const ac = new AbortController();
+    setPairBusy(true);
+    fetch(`/api/corpus/cooccurrence?xkind=${xkind}&x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}&limit=10`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && typeof d.count === "number") setPairRes(d); else setPairRes({ count: 0, ayahs: [] }); })
+      .catch(() => {})
+      .finally(() => setPairBusy(false));
+    return () => ac.abort();
+  }, [pairOpen, pairDq, active, drillIdx]);
+
+  /** Both the result word and the companion light up in the pair ayahs. */
+  const pairHit = useCallback((tok: string): boolean => {
+    if (!active) return false;
+    const norm = foldRasmAlef(normalizeArabicForSearch(tok));
+    if (norm.length < 2) return false;
+    const keys: string[] = [];
+    const push = (v?: string | null) => {
+      if (!v) return;
+      const k = foldRasmAlef(normalizeArabicForSearch(v));
+      if (k.length >= 2) keys.push(k);
+    };
+    push(active.bare); push(isNameHit(active) ? active.lemma : active.root.replace(/-/g, ""));
+    push(pairDq); if (drillIdx) push(lookupLemma(drillIdx, pairDq)?.d);
+    return keys.some((k) => norm === k || norm.includes(k));
+  }, [active, pairDq, drillIdx]);
+
   const enterAyah = useCallback(
     (s: number, a: number, w: number, root: string) => {
       const sp = new URLSearchParams({
@@ -565,6 +619,18 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
             autoComplete="off"
             spellCheck={false}
           />
+          {active && (
+            <button
+              type="button"
+              className={`mhome-pair-btn ${pairOpen ? "is-on" : ""}`}
+              title={t("pairButton")}
+              aria-label={t("pairButton")}
+              aria-expanded={pairOpen}
+              onClick={() => setPairOpen((o) => !o)}
+            >
+              ⇄
+            </button>
+          )}
           {active ? (
             <span className="mhome-matched">
               <span className="mhome-match-dot" style={{ background: rootColor(active) }} />
@@ -576,6 +642,61 @@ export default function MinimalHome({ initialQuery = "" }: { initialQuery?: stri
             <kbd className="mhome-enter">{t("enterHint")} ⏎</kbd>
           )}
         </div>
+
+        {/* correlation bar — a second, smaller question under the first */}
+        {pairOpen && active && (
+          <div className="mhome-pair">
+            <div className="mhome-pair-bar">
+              <input
+                value={pairQ}
+                onChange={(e) => setPairQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") setPairOpen(false); }}
+                placeholder={t("pairPlaceholder", { word: active.root })}
+                aria-label={t("pairButton")}
+                autoComplete="off"
+                spellCheck={false}
+                dir="rtl"
+              />
+              <button type="button" className="mhome-pair-x" aria-label={t("closeVerse")} onClick={() => setPairOpen(false)}>×</button>
+            </div>
+            {pairDq && (
+              <div className="mhome-pair-result">
+                {pairBusy && !pairRes ? (
+                  <p className="mhome-pair-note">{t("pairSearching")}</p>
+                ) : pairRes && pairRes.count > 0 ? (
+                  <>
+                    <p className="mhome-pair-count">
+                      <strong>{pairRes.count.toLocaleString()}</strong> {t("pairCount", { x: active.root, y: pairDq })}
+                    </p>
+                    <ul className="mhome-pair-list">
+                      {pairRes.ayahs.map((a) => (
+                        <li key={`${a.sura}:${a.ayah}`}>
+                          <button
+                            type="button"
+                            className="mhome-rv-row"
+                            onClick={() => enterAyah(a.sura, a.ayah, a.word, isNameHit(active) ? active.bare : active.bare)}
+                          >
+                            <p dir="rtl" lang="ar" className="mhome-rv-ar">
+                              {a.text.split(/\s+/).filter(Boolean).map((tok, j) => (
+                                <span key={j} className={pairHit(tok) ? "mhome-verse-hl" : undefined} style={pairHit(tok) ? { color: rootColor(active) } : undefined}>{tok}{" "}</span>
+                              ))}
+                            </p>
+                            <span className="mhome-rv-ref">
+                              <span className="mhome-verse-name">{surahName(a.sura)}</span>
+                              <span className="mhome-verse-num">{a.sura}:{a.ayah}</span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : pairRes ? (
+                  <p className="mhome-pair-note">{t("pairNone", { x: active.root, y: pairDq })}</p>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* reveal zone */}
         <div className="mhome-reveal">
@@ -1927,6 +2048,40 @@ const styles = `
   :global([dir="rtl"]) .mhome-verse.is-prev { animation-name: mhSlideNext; }
 
   /* result verse carousel (ayahs containing the searched word) */
+  /* correlation (pair) search */
+  .mhome-pair-btn {
+    flex: none; width: 30px; height: 30px; border-radius: 999px; cursor: pointer;
+    display: grid; place-items: center; font-size: 15px;
+    background: transparent; border: 1px solid var(--mh-hairline-soft);
+    color: rgba(var(--mh-ink-rgb), 0.55);
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .mhome-pair-btn:hover, .mhome-pair-btn.is-on {
+    color: var(--mh-ink); border-color: var(--mh-accent-border);
+    background: rgba(var(--mh-card-rgb), 0.7);
+  }
+  .mhome-pair { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+  .mhome-pair-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; border-radius: 14px;
+    background: rgba(var(--mh-card-rgb), 0.55); border: 1px solid var(--mh-hairline);
+  }
+  .mhome-pair-bar input {
+    flex: 1; min-width: 0; background: none; border: none; outline: none;
+    font: 500 15px 'Space Grotesk', sans-serif; color: var(--mh-ink);
+  }
+  .mhome-pair-bar input::placeholder { color: rgba(var(--mh-ink-rgb), 0.38); }
+  .mhome-pair-x {
+    flex: none; width: 24px; height: 24px; border-radius: 999px; cursor: pointer;
+    background: transparent; border: none; color: rgba(var(--mh-ink-rgb), 0.5); font-size: 16px;
+  }
+  .mhome-pair-x:hover { color: var(--mh-ink); }
+  .mhome-pair-result { display: flex; flex-direction: column; gap: 10px; }
+  .mhome-pair-count { margin: 0; font: 400 14px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.75); }
+  .mhome-pair-count strong { font-size: 19px; color: var(--mh-ink); }
+  .mhome-pair-note { margin: 0; font: 400 13px 'Space Grotesk', sans-serif; color: rgba(var(--mh-ink-rgb), 0.55); }
+  .mhome-pair-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
   .mhome-rv { display: flex; flex-direction: column; gap: 12px; }
   .mhome-rv-lab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .mhome-rv-hint { text-align: center; font: 500 10.5px 'Space Grotesk', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(var(--mh-ink-rgb), 0.4); }
