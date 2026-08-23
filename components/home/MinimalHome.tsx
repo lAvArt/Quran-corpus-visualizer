@@ -1492,6 +1492,17 @@ function ResultVerses({
 
   const isArabicWord = (tok: string) => /[ء-يٱ-ەﭐ-ﻼ]/.test(tok);
 
+  // The Uthmani rasm writes some letters as COMBINING small letters — 2:133
+  // spells the name إِبْرَٰهِـۧمَ with a small high yeh (U+06E7) — and the
+  // shared normalizer strips those as diacritics, so the word normalizes to
+  // ابرهم and no key can match it. Restore them to real letters BEFORE
+  // normalizing, here in the highlight path only: the shared normalizer keys
+  // every shipped index, and changing it would desync them all.
+  const restoreSmallLetters = (tok: string) =>
+    tok.replace(/\u06E5|\u06E6|\u06E7|\u06E8/g, (m) =>
+      m === "\u06E5" ? "و" : m === "\u06E8" ? "ن" : "ي");
+  const normForHighlight = (tok: string) => normalizeArabicForSearch(restoreSmallLetters(tok));
+
   // Highlight the searched word(s) by CONTENT: normalize each rendered word and
   // ask isHit whether it belongs to the searched root/lemma/form. Deliberately
   // NOT by the API's word positions — those come from corpus_tokens, whose QAC-
@@ -1500,7 +1511,7 @@ function ResultVerses({
   // word. Content matching has no such offset.
   const renderText = (ayah: OccurrenceAyah) =>
     ayah.text.split(/\s+/).filter(Boolean).map((tok, j) => {
-      const norm = isArabicWord(tok) ? normalizeArabicForSearch(tok) : "";
+      const norm = isArabicWord(tok) ? normForHighlight(tok) : "";
       const hl = norm.length >= 2 && isHit(norm);
       return (
         <span key={j} className={hl ? "mhome-verse-hl" : undefined} style={hl ? { color } : undefined}>
@@ -1517,7 +1528,7 @@ function ResultVerses({
     for (const tok of ayah.text.split(/\s+/).filter(Boolean)) {
       if (!isArabicWord(tok)) continue;
       wi += 1;
-      const norm = normalizeArabicForSearch(tok);
+      const norm = normForHighlight(tok);
       if (norm.length >= 2 && isHit(norm)) return wi;
     }
     return ayah.positions[0];
