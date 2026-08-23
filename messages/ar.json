@@ -67,7 +67,12 @@
             "P": "حرف"
         },
         "versePrev": "الآية السابقة",
-        "verseNext": "الآية التالية"
+        "verseNext": "الآية التالية",
+        "pairButton": "بحث الاقتران",
+        "pairPlaceholder": "كلمة مقترنة — ما الذي يرد مع «{word}»؟",
+        "pairSearching": "جارٍ البحث في المدونة…",
+        "pairCount": "آية يقترن فيها «{x}» و«{y}»",
+        "pairNone": "لا تشترك «{x}» و«{y}» في آية واحدة."
     },
     "Error": {
         "title": "حدث خطأ ما",
@@ -1614,6 +1619,10 @@
         "anchorLemma": "عائلة الكلمة",
         "showMore": "عرض المزيد",
         "anchorSwitchHint": "بدّل بين الصيغة المطابقة وعائلة الكلمة كاملة",
-        "pairedWith": "مقترنًا بـ «{pair}»"
+        "pairedWith": "مقترنًا بـ «{pair}»",
+        "previewLoading": "جارٍ جلب الآية…",
+        "prevAyah": "الآية السابقة",
+        "nextAyah": "الآية التالية",
+        "openInObservatory": "افتح في المرصد"
     }
 }

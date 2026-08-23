@@ -67,7 +67,12 @@
             "P": "particle"
         },
         "versePrev": "Previous verse",
-        "verseNext": "Next verse"
+        "verseNext": "Next verse",
+        "pairButton": "Correlation search",
+        "pairPlaceholder": "A companion word — what stands with \\u201c{word}\\u201d?",
+        "pairSearching": "Searching the corpus\\u2026",
+        "pairCount": "ayahs where \\u201c{x}\\u201d and \\u201c{y}\\u201d stand together",
+        "pairNone": "\\u201c{x}\\u201d and \\u201c{y}\\u201d never share an ayah."
     },
     "Error": {
         "title": "Something went wrong",
@@ -1614,6 +1619,10 @@
         "anchorLemma": "word family",
         "showMore": "Show more",
         "anchorSwitchHint": "Switch between the exact written form and the whole word family",
-        "pairedWith": "with “{pair}”"
+        "pairedWith": "with “{pair}”",
+        "previewLoading": "Fetching the ayah…",
+        "prevAyah": "Previous ayah",
+        "nextAyah": "Next ayah",
+        "openInObservatory": "Open in the Observatory"
     }
 }

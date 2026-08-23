@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
     calculateRootFrequencies,
     getCollocations,
@@ -11,6 +11,7 @@ import { foldRasmAlef, normalizeArabicForSearch } from "@/lib/search/arabicNorma
 import { loadNameStats, type NameStatsIndex } from "@/lib/corpus/nameStatsClient";
 import { loadLemmaFormStats, lookupForm, lookupLemma, type LemmaFormStats } from "@/lib/corpus/lemmaFormStatsClient";
 import type { CorpusToken } from "@/lib/schema/types";
+import { fetchOccurrencesByRefs, type OccurrenceAyah } from "@/lib/corpus/occurrencesClient";
 
 /**
  * "What is named near this?" — collocation as a search answer rather than a graph.
@@ -53,11 +54,9 @@ export interface NearbyPanelProps {
     /** near:X / قرب:X — restrict neighbours to this word's family. */
     pairValue?: string | null;
     isCorpusLoading: boolean;
-    /** Open an ayah reference ("6:74") in the surrounding workspace. */
-    onOpenRef?: (sura: number, ayah: number) => void;
 }
 
-export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLoading, onOpenRef }: NearbyPanelProps) {
+export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLoading }: NearbyPanelProps) {
     const t = useTranslations("NearbySearch");
     // The window DEFAULT follows the anchor, because the two anchors ask
     // different questions with different natural scopes. A form anchor is "who
@@ -174,6 +173,65 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
             .slice(0, expanded ? 36 : 12);
     }, [anchor, freq, tokens, windowChoice, namesOnly, nameKeys, expanded, pairValue]);
 
+    const locale = useLocale();
+
+    /**
+     * Inline ayah preview. A ref pill used to push an ayah FILTER into the
+     * workspace — technically something, visibly nothing. A collocation row is
+     * a claim about two words standing together; the evidence is the ayah
+     * itself, so clicking the pill now opens it right here, with the previous
+     * and next ayahs one tap away (the anchor's sentence often starts an ayah
+     * earlier — that is the whole reason the ±N window exists).
+     */
+    // The row label is part of the key: several rows can cite the same ayah
+    // (قَالَ and إِبْرَٰهِيم both sample 6:74), and without it one click opened
+    // the same preview under every one of them.
+    const [openRef, setOpenRef] = useState<{ sura: number; ayah: number; row: string } | null>(null);
+    const [preview, setPreview] = useState<Record<string, OccurrenceAyah | null>>({});
+    useEffect(() => setOpenRef(null), [term, pairValue]);
+
+    const loadAyah = (sura: number, ayah: number) => {
+        const key = `${sura}:${ayah}`;
+        if (preview[key] !== undefined) return;
+        setPreview((m) => ({ ...m, [key]: null }));
+        fetchOccurrencesByRefs([[sura, ayah, 1, 1]], 1)
+            .then((rows) => setPreview((m) => ({ ...m, [key]: rows[0] ?? null })))
+            .catch(() => setPreview((m) => ({ ...m, [key]: null })));
+    };
+    const openAyah = (sura: number, ayah: number, row: string) => {
+        setOpenRef({ sura, ayah, row });
+        loadAyah(sura, ayah);
+    };
+
+    /** Highlight by CONTENT (the API's positions use drifting word numbers). */
+    const highlightKeys = useMemo(() => {
+        const keys = new Set<string>();
+        const add = (v?: string | null) => {
+            if (!v) return;
+            const k = foldRasmAlef(normalizeArabicForSearch(v));
+            if (k.length >= 2) keys.add(k);
+        };
+        add(term);
+        add(pairValue);
+        if (anchor?.term.kind === "lemma") add(anchor.term.value);
+        return keys;
+    }, [term, pairValue, anchor]);
+
+    const renderAyahText = (text: string, markLabel?: string) => {
+        const marks = new Set(highlightKeys);
+        if (markLabel) {
+            const k = foldRasmAlef(normalizeArabicForSearch(markLabel));
+            if (k.length >= 2) marks.add(k);
+        }
+        return text.split(/\s+/).filter(Boolean).map((tok, i) => {
+            const norm = foldRasmAlef(normalizeArabicForSearch(tok));
+            const hit = norm.length >= 2 && [...marks].some((k) => norm === k || norm.includes(k));
+            return (
+                <span key={i} className={hit ? "nearby-hl" : undefined}>{tok}{" "}</span>
+            );
+        });
+    };
+
     if (!anchor) return null;
 
     return (
@@ -241,26 +299,65 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
                 <ul className="nearby-list">
                     {rows.map((row) => (
                         <li key={row.label} className="nearby-row">
-                            <span className="nearby-label" lang="ar" dir="rtl">{row.label}</span>
-                            <span className="nearby-count">×{row.count.toLocaleString()}</span>
-                            <span className="nearby-refs">
-                                {row.sampleWindows.slice(0, 4).map((w) => {
+                            <div className="nearby-row-head">
+                                <span className="nearby-label" lang="ar" dir="rtl">{row.label}</span>
+                                <span className="nearby-count">×{row.count.toLocaleString()}</span>
+                                {/* PMI is kept, quietly: useful for "distinctively
+                                    associated", misleading as a primary sort. */}
+                                <span className="nearby-pmi" title={t("pmiHint")}>{row.pmi.toFixed(1)}</span>
+                            </div>
+                            <div className="nearby-refs">
+                                {row.sampleWindows.slice(0, 6).map((w) => {
                                     const [sura, ayah] = w.split(":").map(Number);
+                                    const active = openRef?.row === row.label && openRef?.sura === sura && openRef?.ayah === ayah;
                                     return (
                                         <button
                                             key={w}
                                             type="button"
-                                            className="nearby-ref"
-                                            onClick={() => onOpenRef?.(sura, ayah)}
+                                            className={`nearby-ref ${active ? "is-open" : ""}`}
+                                            aria-expanded={active}
+                                            onClick={() => (active ? setOpenRef(null) : openAyah(sura, ayah, row.label))}
                                         >
                                             {sura}:{ayah}
                                         </button>
                                     );
                                 })}
-                            </span>
-                            {/* PMI is kept, quietly: useful for "distinctively
-                                associated", misleading as a primary sort. */}
-                            <span className="nearby-pmi" title={t("pmiHint")}>{row.pmi.toFixed(1)}</span>
+                            </div>
+                            {openRef?.row === row.label && (
+                                <div className="nearby-preview" dir="rtl">
+                                    {(() => {
+                                        const key = `${openRef.sura}:${openRef.ayah}`;
+                                        const ay = preview[key];
+                                        if (!ay) {
+                                            return <p className="nearby-preview-wait">{t("previewLoading")}</p>;
+                                        }
+                                        return (
+                                            <>
+                                                <p className="nearby-preview-ar" lang="ar">{renderAyahText(ay.text, row.label)}</p>
+                                                <div className="nearby-preview-foot" dir="ltr">
+                                                    <span className="nearby-preview-ref">{openRef.sura}:{openRef.ayah}</span>
+                                                    <span className="nearby-preview-nav">
+                                                        {openRef.ayah > 1 && (
+                                                            <button type="button" className="nearby-ref" onClick={() => openAyah(openRef.sura, openRef.ayah - 1, row.label)}>
+                                                                {t("prevAyah")}
+                                                            </button>
+                                                        )}
+                                                        <button type="button" className="nearby-ref" onClick={() => openAyah(openRef.sura, openRef.ayah + 1, row.label)}>
+                                                            {t("nextAyah")}
+                                                        </button>
+                                                        <a
+                                                            className="nearby-ref nearby-open-graph"
+                                                            href={`/${locale}?viz=radial-sura&surah=${openRef.sura}&ayah=${openRef.ayah}`}
+                                                        >
+                                                            {t("openInObservatory")}
+                                                        </a>
+                                                    </span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>
@@ -273,20 +370,37 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
             )}
 
             <style jsx>{`
-                .nearby-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
+                .nearby-head { display: flex; flex-wrap: wrap; gap: 12px 16px; justify-content: space-between; align-items: flex-start; }
+                .nearby-controls { min-width: 0; }
+                .nearby-toggle { white-space: nowrap; }
                 .nearby-sub { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); }
                 .nearby-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
                 .nearby-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); cursor: pointer; }
                 .nearby-loading, .nearby-empty { margin: 12px 0 0; font-size: 0.85rem; color: var(--muted); }
-                .nearby-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+                .nearby-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
                 .nearby-row {
-                    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto;
-                    gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px;
+                    display: flex; flex-direction: column; gap: 7px;
+                    padding: 10px 12px; border-radius: 10px;
                     background: var(--ui-surface); border: 1px solid var(--line);
                 }
-                .nearby-label { font-size: 1.05rem; }
+                .nearby-row-head { display: flex; align-items: baseline; gap: 10px; }
+                .nearby-label { font-size: 1.1rem; }
                 .nearby-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+                .nearby-row-head .nearby-pmi { margin-inline-start: auto; }
                 .nearby-refs { display: flex; flex-wrap: wrap; gap: 5px; }
+                .nearby-ref.is-open { color: var(--fg); border-color: var(--accent); }
+                .nearby-preview {
+                    margin-top: 4px; padding: 12px 14px; border-radius: 10px;
+                    background: color-mix(in srgb, var(--ui-surface) 55%, transparent);
+                    border: 1px dashed var(--line);
+                }
+                .nearby-preview-ar { margin: 0; font-size: 1.35rem; line-height: 2.3; }
+                .nearby-hl { color: var(--accent); font-weight: 700; }
+                .nearby-preview-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+                .nearby-preview-ref { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+                .nearby-preview-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+                .nearby-preview-wait { margin: 0; font-size: 0.82rem; color: var(--muted); }
+                .nearby-open-graph { text-decoration: none; }
                 .nearby-ref {
                     padding: 2px 7px; border-radius: 999px; cursor: pointer; font-size: 0.75rem;
                     font-variant-numeric: tabular-nums; background: transparent;

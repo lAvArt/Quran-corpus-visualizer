@@ -517,7 +517,6 @@ export default function SearchWorkspace({ initialCorpusData }: SearchWorkspacePr
                 term={parsedQuery.near ? parsedQuery.freeText : spotlightRoot}
                 pairValue={parsedQuery.near ?? null}
                 isCorpusLoading={isLoadingCorpus}
-                onOpenRef={(sura, ayah) => search.setFilterAyah(`${sura}:${ayah}`)}
               />
             ) : null}
 
