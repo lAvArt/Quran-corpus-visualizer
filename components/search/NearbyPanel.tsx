@@ -224,7 +224,13 @@ export default function NearbyPanel({ tokens, term, pairValue = null, isCorpusLo
             if (k.length >= 2) marks.add(k);
         }
         return text.split(/\s+/).filter(Boolean).map((tok, i) => {
-            const norm = foldRasmAlef(normalizeArabicForSearch(tok));
+            // Small combining letters (U+06E5–U+06E8) are real letters in the
+            // rasm (إِبْرَٰهِـۧمَ at 2:133); restore before normalizing or the
+            // word can never match its key. Highlight-only — the shared
+            // normalizer keys the shipped indexes.
+            const restored = tok.replace(/\u06E5|\u06E6|\u06E7|\u06E8/g, (m) =>
+                m === "\u06E5" ? "و" : m === "\u06E8" ? "ن" : "ي");
+            const norm = foldRasmAlef(normalizeArabicForSearch(restored));
             const hit = norm.length >= 2 && [...marks].some((k) => norm === k || norm.includes(k));
             return (
                 <span key={i} className={hit ? "nearby-hl" : undefined}>{tok}{" "}</span>
