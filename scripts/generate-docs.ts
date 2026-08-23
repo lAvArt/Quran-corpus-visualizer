@@ -16,6 +16,16 @@ const HERO_TARGET = {
 
 const VIZ_TARGETS = [
     {
+        id: 'COLLOCATION_NETWORK',
+        vizMode: 'collocation-network',
+        switcherLabel: 'Collocation Network',
+        filename: 'collocation-network.png',
+        alt: 'Collocation Network — roots that stand together, weighted by PMI',
+        // A real neighborhood beats the seeded example: علم has 76 shared
+        // occurrences and fills the canvas.
+        extraParams: '&root=%D8%B9%D9%84%D9%85'
+    },
+    {
         id: 'RADIAL_SURA',
         vizMode: 'radial-sura',
         switcherLabel: 'Radial Sura',
@@ -112,11 +122,11 @@ async function generateDocumentationScreenshots() {
     // 3. HERO — capture the search-first landing in its resting state.
     console.log('Capturing home landing (hero)...');
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.mhome', { state: 'visible' });
+    await page.waitForSelector('.mhome', { state: 'visible', timeout: 180000 });
     await page.waitForSelector('.mhome-chip', { state: 'visible', timeout: 30000 });
     await page.waitForTimeout(1800); // let the atmosphere + entrance settle
     const heroPath = path.join(process.cwd(), 'public', 'docs', 'images', HERO_TARGET.filename);
-    await page.screenshot({ path: heroPath, fullPage: false });
+    if (!process.argv.includes('--only')) await page.screenshot({ path: heroPath, fullPage: false });
     console.log(`Saved hero screenshot to ${heroPath}`);
 
     // 4. Enter the Observatory (AppShell) via a deep-link param, then wait for
@@ -131,13 +141,18 @@ async function generateDocumentationScreenshots() {
     await page.waitForSelector('.status-bar-label[data-status="full"]', { state: 'attached', timeout: 300000 });
     console.log(`Full corpus ready!`);
 
+    const only = process.argv.includes('--only')
+        ? process.argv[process.argv.indexOf('--only') + 1]
+        : null;
+
     for (const target of VIZ_TARGETS) {
+        if (only && target.vizMode !== only) continue;
         console.log(`Processing ${target.vizMode}...`);
 
         // Select the mode via the deep-link param — AppShell hydrates `?viz=`
         // reactively, which is far more robust than driving the switcher UI
         // (whose modes can hide behind collapsed "show more" groups).
-        await page.goto(`${BASE}/en?viz=${target.vizMode}&surah=1`);
+        await page.goto(`${BASE}/en?viz=${target.vizMode}&surah=1${(target as { extraParams?: string }).extraParams ?? ''}`);
         await page.waitForSelector('.immersive-viewport', { state: 'visible' });
         // Re-navigation restarts the corpus stream from cache — wait for it to
         // reach "full" again so every graph is fully populated, not mid-load.

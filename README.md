@@ -76,11 +76,19 @@ Quranic Linguistics Observatory is a Next.js application for exploring the Quran
 </tr>
 <tr>
 <td width="50%" valign="top">
+<!-- GRAPH:COLLOCATION_NETWORK -->
+<img width="2560" height="1260" alt="Collocation Network — roots that stand together, weighted by PMI" src="public/docs/images/collocation-network.png" />
+<!-- END:GRAPH -->
+<div align="center"><sub><b>Collocation Network</b> — roots that stand together, weighted by PMI</sub></div>
+</td>
+<td width="50%" valign="top">
 <!-- GRAPH:ARC_FLOW -->
 <img width="2560" height="1260" alt="Arc Flow Diagram" src="public/docs/images/arc-flow.png" />
 <!-- END:GRAPH -->
 <div align="center"><sub><b>Arc Flow</b> — linear ayah sequence with connecting arcs</sub></div>
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 <!-- GRAPH:DEPENDENCY_TREE -->
 <img width="2560" height="1260" alt="Ayah Dependency Graph" src="public/docs/images/dependency-tree.png" />
