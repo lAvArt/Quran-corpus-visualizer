@@ -5,7 +5,7 @@ This project treats documentation, source attribution, and behavior correctness 
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-username>/Quranic-Linguistics-Observatory.git
+git clone https://github.com/lAvArt/Quranic-Linguistics-Observatory.git
 cd Quranic-Linguistics-Observatory
 npm install
 cp .env.example .env.local
