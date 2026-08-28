@@ -160,7 +160,7 @@ The landing page is the search box. Type, and the answer resolves as you go:
 
 ### Prerequisites
 
-- Node.js 20+ recommended
+- Node.js 22.22.2+ (required by `jsdom` and `@testing-library/jest-dom`; CI runs Node 22)
 - npm
 - A [Supabase](https://supabase.com) project
 - [Supabase CLI](https://supabase.com/docs/guides/cli) for local migration workflows
