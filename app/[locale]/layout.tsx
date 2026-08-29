@@ -77,8 +77,16 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     },
     manifest: "/manifest.webmanifest",
     icons: {
-      icon: '/favicon.svg',
-      shortcut: '/favicon.svg',
+      // Both are listed on purpose. Google's favicon crawler is unreliable with
+      // an SVG-only icon, and the .ico is the size it actually wants (>=48px,
+      // a multiple of 48); browsers that prefer the sharper vector take the SVG.
+      // Both now carry the #0e161a plate — a transparent white-on-nothing mark
+      // rendered invisible against Google's white results page.
+      icon: [
+        { url: '/favicon.ico', sizes: '48x48', type: 'image/x-icon' },
+        { url: '/favicon.svg', type: 'image/svg+xml' },
+      ],
+      shortcut: '/favicon.ico',
       apple: '/icon-any.svg',
     },
   };
