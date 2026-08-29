@@ -53,6 +53,7 @@
     "data:forms": "tsx scripts/build-form-index.ts",
     "audit:search": "tsx scripts/audit-search-coverage.ts",
     "data:lemma-form": "tsx scripts/build-lemma-form-stats.ts",
+    "graphs:build": "tsx scripts/build-graph-images.ts",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed-corpus.ts",
     "db:email-templates": "dotenv -e .env.local -- tsx scripts/push-email-templates.ts",
     "docs:generate": "concurrently -k -s first \"npm run dev\" \"wait-on http://127.0.0.1:3000 && npx tsx scripts/generate-docs.ts\""

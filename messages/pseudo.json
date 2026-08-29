@@ -1634,5 +1634,10 @@
         "prevAyah": "[!! Ṗṛèvîôûṡ âýâħ !!]",
         "nextAyah": "[!! Ñèẋť âýâħ !!]",
         "openInObservatory": "[!! Ôṗèñ îñ ťħè Ôḃṡèṛvâťôṛý !!]"
+    },
+    "VizGallery": {
+        "whatItShows": "[!! Ŵħâť îť ṡħôŵṡ !!]",
+        "whatItIsFor": "[!! Ŵħâť îť îṡ ḟôṛ !!]",
+        "openLive": "[!! Ôṗèñ ťħè îñťèṛâçťîvè {title} !!]"
     }
 }

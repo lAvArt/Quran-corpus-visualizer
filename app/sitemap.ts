@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { SITE_URL, LOCALES } from '@/lib/seo/site';
+import { VIZ_GALLERY, graphImagePath } from '@/lib/seo/vizGallery';
 
 const PAGES = [
     { path: '',              changeFrequency: 'daily'   as const, priority: 1.0 },
@@ -30,6 +31,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
                     languages: {
                         en: `${SITE_URL}/en${page.path}`,
                         ar: `${SITE_URL}/ar${page.path}`,
+                    },
+                },
+            });
+        }
+    }
+
+    // Gallery pages: one indexable URL per visualization, each carrying the
+    // rendered PNG. `images` emits <image:image> so Google Images can discover
+    // a graph that is otherwise client-built inline SVG and therefore
+    // invisible to it. Requires public/graphs/*.png — run `npm run graphs:build`.
+    for (const locale of LOCALES) {
+        for (const entry of VIZ_GALLERY) {
+            const path = `/viz/${entry.mode}`;
+            entries.push({
+                url: `${SITE_URL}/${locale}${path}`,
+                lastModified: now,
+                changeFrequency: 'monthly',
+                priority: 0.6,
+                images: [`${SITE_URL}${graphImagePath(entry.mode)}`],
+                alternates: {
+                    languages: {
+                        en: `${SITE_URL}/en${path}`,
+                        ar: `${SITE_URL}/ar${path}`,
                     },
                 },
             });
