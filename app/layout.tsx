@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { Metadata, Viewport } from "next";
 import { Amiri, Fraunces, Space_Grotesk } from "next/font/google";
 import { cookies } from "next/headers";
+import { getLocale } from "next-intl/server";
 import {
   THEME_COOKIE_NAME,
   THEME_BOOTSTRAP_SOURCE,
@@ -62,10 +63,17 @@ export default async function AppLayout({ children }: Readonly<{ children: React
     parseThemePreferenceCookie(cookieStore.get(THEME_COOKIE_NAME)?.value)
   );
   const themeBootstrapConfig = serializeThemeBootstrapConfig(getThemeBootstrapConfig());
+  // Above the [locale] segment getLocale() reads the middleware's
+  // X-NEXT-INTL-LOCALE header, so /ar no longer ships <html lang="en"> to
+  // crawlers. "pseudo" is a QA locale, not a BCP-47 tag — declare it as "en".
+  // dir stays on .locale-shell: flipping it here would move the page scrollbar
+  // and re-scope every [dir="rtl"] descendant selector to body-level portals.
+  const locale = await getLocale();
+  const lang = locale === "pseudo" ? "en" : locale;
 
   return (
     <html
-      lang="en"
+      lang={lang}
       className={`${spaceGrotesk.variable} ${fraunces.variable} ${amiri.variable}`}
       data-theme={themeDocumentState.theme}
       data-color-theme={themeDocumentState.colorThemeId}
