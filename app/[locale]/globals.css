@@ -7024,3 +7024,68 @@ select:focus-visible {
     transition: none;
   }
 }
+
+/* ── Visualization gallery pages (/{locale}/viz/{mode}) ──────────────
+   Static, indexable pages that carry a rendered PNG of one graph so search
+   engines have an image to crawl — the live graphs are client-built inline
+   SVG, which Google cannot index. Deliberately plain: this is a reading
+   surface, not part of the app shell. */
+
+.viz-gallery-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+  color: var(--ink);
+}
+
+.viz-gallery-page h1 {
+  font-size: var(--text-h1);
+  margin: 0 0 8px;
+}
+
+.viz-gallery-page h2 {
+  font-size: var(--text-h3);
+  margin: 32px 0 8px;
+}
+
+.viz-gallery-page p {
+  font-size: var(--text-body);
+  line-height: 1.65;
+  margin: 0;
+  color: var(--ink-secondary);
+}
+
+.viz-gallery-claim {
+  font-size: var(--text-h3);
+  color: var(--ink-muted);
+  margin-bottom: 28px;
+}
+
+/* Intrinsic width/height are set on the element so the box is reserved before
+   the PNG loads; this keeps it fluid without reintroducing layout shift. */
+.viz-gallery-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-1);
+}
+
+.viz-gallery-cta {
+  margin-top: 36px;
+}
+
+.viz-gallery-cta a {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.viz-gallery-cta a:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}

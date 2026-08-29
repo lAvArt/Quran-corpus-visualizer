@@ -1634,5 +1634,10 @@
         "prevAyah": "الآية السابقة",
         "nextAyah": "الآية التالية",
         "openInObservatory": "افتح في المرصد"
+    },
+    "VizGallery": {
+        "whatItShows": "ماذا يعرض",
+        "whatItIsFor": "الغرض منه",
+        "openLive": "افتح {title} التفاعلية"
     }
 }

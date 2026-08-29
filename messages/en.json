@@ -1634,5 +1634,10 @@
         "prevAyah": "Previous ayah",
         "nextAyah": "Next ayah",
         "openInObservatory": "Open in the Observatory"
+    },
+    "VizGallery": {
+        "whatItShows": "What it shows",
+        "whatItIsFor": "What it is for",
+        "openLive": "Open the interactive {title}"
     }
 }
