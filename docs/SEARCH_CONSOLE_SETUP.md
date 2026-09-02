@@ -107,3 +107,13 @@ Normal for a brand-new domain with no links — it is a priority signal, not an 
 The cure is step 6 (links) plus time; re-requesting indexing weekly does no harm.
 Do **not** start changing metadata in response — it was verified correct, and churn
 resets evaluation.
+
+### If the favicon in results is still the old one
+
+Google caches favicons separately from pages and refreshes them on its own
+schedule, often weeks behind a deploy. You can see what it currently holds at
+`https://www.google.com/s2/favicons?domain=quranobservatory.org&sz=64`. After
+changing the icon, request indexing for the homepage (step 4) — that is the page
+Google reads the favicon link from — and wait. The served files can be checked
+directly: `/favicon.ico` and `/favicon.svg` must both draw the `#0e161a` plate
+behind the mark, otherwise the icon vanishes on the white results page.
