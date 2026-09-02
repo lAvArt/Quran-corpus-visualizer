@@ -80,8 +80,10 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       // Both are listed on purpose. Google's favicon crawler is unreliable with
       // an SVG-only icon, and the .ico is the size it actually wants (>=48px,
       // a multiple of 48); browsers that prefer the sharper vector take the SVG.
-      // Both now carry the #0e161a plate — a transparent white-on-nothing mark
+      // Both carry the #0e161a plate — a transparent white-on-nothing mark
       // rendered invisible against Google's white results page.
+      // favicon.svg is the app icon artwork (icon-any.svg) and favicon.ico is
+      // generated from it by `npm run favicon:build`.
       icon: [
         { url: '/favicon.ico', sizes: '48x48', type: 'image/x-icon' },
         { url: '/favicon.svg', type: 'image/svg+xml' },
