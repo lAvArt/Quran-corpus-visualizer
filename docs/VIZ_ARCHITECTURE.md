@@ -33,7 +33,7 @@ the sidebar portal (see Shell anatomy).
 | `dependency-tree` | `AyahDependencyGraph.tsx` | Per-ayah syntax tree with labeled dependency arcs; surah/ayah stepper controls in sidebar. |
 | `sankey-flow` | `RootFlowSankey.tsx` | Root → word-form ribbons for the scoped surah; on-canvas chips carry scope/coverage. |
 | `surah-distribution` | `SurahDistributionGraph.tsx` | All 114 surahs, x = surah index, dot = surah (revelation place color, size = ayahs). |
-| `corpus-architecture` | `CorpusArchitectureMap.tsx` | Corpus → surah → root structure map with root search. |
+| `corpus-architecture` | `CorpusArchitectureMap.tsx` | Corpus → surah → root structure map with root search. **Occurrence mode** (2026-09-05) when a root is selected and no surah is drilled: leaves become that root's AYAHS, one wire per occurrence, everything else hidden; surahs carrying it stay lit, the rest are dim ring markers. |
 | `knowledge-graph` | `KnowledgeGraphViz.tsx` | Personal tracked-roots network; ghost/empty state when nothing tracked. |
 | `collocation-network` | `CollocationNetworkGraph.tsx` | PMI-weighted collocates orbiting a target root; "Heuristic estimate" badge = derived, not corpus-annotated. Strongest default view of the nine. |
 
@@ -116,6 +116,24 @@ onboarding localStorage `quran-corpus-onboarding`.
   static 114-surah skeleton (angles from `SURAH_NAMES`, fixed from first paint) and
   reveals root branches per batch with a CSS opacity stagger (once per arrival,
   tracked in a ref; instant under reduced motion).
+- **Structure-map occurrence mode** (`CorpusArchitectureMap.tsx`, 2026-09-05). Selecting a
+  root turns the map into "where does this word live across the whole Quran": occurrence
+  leaves keep `type: "word_root"` and `originalId` = the root (so every geometry/color/
+  label memo works unchanged) and carry an extra `ayah`. Rules learned building it:
+  the surah-drill adoption of `selectedSurahId` is SKIPPED while a root is active and a
+  NEW root clears an existing drill — otherwise arriving with a root landed on one
+  focused surah with everything else at 0.05, the opposite of the cross-corpus view the
+  map exists for. Occurrence wires ignore the rank/LOD gating (one root's wires ARE the
+  content). Label admission exempts by NODE id here, not root identity — every leaf
+  shares the root, so the root test would exempt them all and admit every label at once.
+  The selected wire is read from the shared focused token (`focusedSura`/`focusedAyah`),
+  never local state, so an ayah picked in the inspector's occurrence list lights the same
+  wire. Hover previews the ayah (debounced 90ms verse fetch), click pins it.
+- **Nothing may change the visualization mode but the user.** The inspector's surah rows
+  used to pass `"radial-sura"` to `onSelectSurah`, yanking users out of whatever view
+  they were in; its ayah chips are now buttons (`onSelectAyah` → focus that word, scope
+  to its surah, root untouched). List clicks change SELECTION, never the mode — the mode
+  is chosen in the visualization switcher.
 - **Fit-to-view** (`lib/viz/fitToView.ts`) — shared fit helper, chrome-aware on all four
   sides: left dock (`.viz-dock`/`.viz-sidebar-stack`), right ContextDrawer when open
   (`.context-drawer`, aspect-ratio-guarded so the mobile bottom-sheet variant doesn't
