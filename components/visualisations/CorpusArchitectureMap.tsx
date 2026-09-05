@@ -10,6 +10,7 @@ import type { CorpusToken } from "@/lib/schema/types";
 import { resolveVisualizationTheme } from "@/lib/schema/visualizationTypes";
 import { useZoom } from "@/lib/hooks/useZoom";
 import { SURAH_NAMES } from "@/lib/data/surahData";
+import { getAyah } from "@/lib/corpus/corpusLoader";
 import { VizExplainerDialog, HelpIcon } from "@/components/ui/VizExplainerDialog";
 import { useVizControl } from "@/lib/hooks/VizControlContext";
 import { getFrequencyColor, getIdentityColor, type LexicalColorMode } from "@/lib/theme/lexicalColoring";
@@ -22,6 +23,15 @@ interface CorpusArchitectureMapProps {
     selectedSurahId?: number;
     theme?: "light" | "dark";
     lexicalColorMode?: LexicalColorMode;
+    /** Occurrence mode: focusing a word writes the selection back so the
+     *  inspector shows that ayah — the graph's own selected wire follows
+     *  from `focusedSura`/`focusedAyah` coming back down. */
+    onTokenFocus?: (tokenId: string) => void;
+    onTokenHover?: (tokenId: string | null) => void;
+    /** The globally focused token's position, so an ayah picked ANYWHERE
+     *  (the inspector's occurrence list, another view) lights its wire here. */
+    focusedSura?: number | null;
+    focusedAyah?: number | null;
 }
 
 interface HierarchyNode {
@@ -31,6 +41,14 @@ interface HierarchyNode {
     value: number;
     children?: HierarchyNode[];
     originalId?: number | string; // For syncing with global state
+    /**
+     * Occurrence mode only (see `occurrenceMode` below): the ayah this leaf
+     * stands for. The leaf keeps `type: "word_root"` and `originalId` = the
+     * root deliberately — every geometry/color/label memo in this file keys
+     * off those two, so an occurrence fans out, colors and declutters exactly
+     * like a root node without a parallel code path.
+     */
+    ayah?: number;
 }
 
 // Text is the expensive element in this graph (glyph shaping/layout + a
@@ -89,6 +107,10 @@ export default function CorpusArchitectureMap({
     selectedSurahId,
     theme = "dark",
     lexicalColorMode = "theme",
+    onTokenFocus,
+    onTokenHover,
+    focusedSura,
+    focusedAyah,
 }: CorpusArchitectureMapProps) {
     const locale = useLocale();
     const isArabicLocale = locale.startsWith("ar");
@@ -184,11 +206,27 @@ export default function CorpusArchitectureMap({
     const reduceMotion = prefersReducedMotion();
     useEffect(() => { setIsMounted(true); }, []);
 
+    // Adopting the shared surah as a DRILL target is right when this map is
+    // the thing being navigated, and wrong the moment a root is selected: the
+    // whole point of arriving here with a root is the cross-corpus view, and
+    // drilling into one surah is exactly what hid it (every other surah
+    // dimmed to 0.05). So the adoption is skipped while a root is active, and
+    // a NEW root clears any existing drill — the standard adopt-the-prop /
+    // never-write-back pattern (docs/VIZ_ARCHITECTURE.md, "Selection is
+    // global"). Clicking a surah dot still drills; that is an explicit pick.
+    const prevHighlightRootRef = useRef<string | null | undefined>(highlightRoot);
     useEffect(() => {
+        const prev = prevHighlightRootRef.current;
+        prevHighlightRootRef.current = highlightRoot;
+        if (highlightRoot && highlightRoot !== prev) {
+            setFocusedSurahId(null);
+            return;
+        }
+        if (highlightRoot) return;
         if (selectedSurahId) {
             setFocusedSurahId(selectedSurahId);
         }
-    }, [selectedSurahId]);
+    }, [selectedSurahId, highlightRoot]);
 
     useEffect(() => {
         // cleanup not needed anymore
@@ -232,6 +270,54 @@ export default function CorpusArchitectureMap({
         });
         return surahMap;
     }, [stableTokens]);
+
+    // The root under examination: the shared selection (search, another
+    // view's pick, a collocation target) or this map's own root search.
+    const activeRootKey = highlightRoot || internalSelectedRoot;
+
+    // Every ayah in the corpus where that root occurs, grouped by surah, with
+    // a representative token so clicking an occurrence can focus a real word.
+    const occurrencesBySurah = useMemo(() => {
+        if (!activeRootKey) return new Map<number, { ayah: number; count: number; tokenId: string }[]>();
+        const bySurah = new Map<number, Map<number, { ayah: number; count: number; tokenId: string }>>();
+        for (const tk of stableTokens) {
+            if (tk.root !== activeRootKey) continue;
+            let ayahs = bySurah.get(tk.sura);
+            if (!ayahs) {
+                ayahs = new Map();
+                bySurah.set(tk.sura, ayahs);
+            }
+            const existing = ayahs.get(tk.ayah);
+            if (existing) existing.count++;
+            else ayahs.set(tk.ayah, { ayah: tk.ayah, count: 1, tokenId: tk.id });
+        }
+        const out = new Map<number, { ayah: number; count: number; tokenId: string }[]>();
+        bySurah.forEach((ayahs, suraId) => {
+            out.set(suraId, Array.from(ayahs.values()).sort((a, b) => a.ayah - b.ayah));
+        });
+        return out;
+    }, [activeRootKey, stableTokens]);
+
+    // Occurrence mode: a root is selected and no surah is drilled into, so the
+    // map answers "where does this word live across the whole Quran" — one
+    // wire per occurrence, everything else hidden. This is the mode the
+    // structure map exists for; the unfiltered root fan is the resting state.
+    const occurrenceMode = Boolean(activeRootKey) && !focusedSurahId && occurrencesBySurah.size > 0;
+
+    const occurrenceStats = useMemo(() => {
+        let total = 0;
+        let ayahs = 0;
+        occurrencesBySurah.forEach((list) => {
+            ayahs += list.length;
+            list.forEach((entry) => { total += entry.count; });
+        });
+        return { total, ayahs, surahs: occurrencesBySurah.size };
+    }, [occurrencesBySurah]);
+
+    const occurrenceNodeId = useCallback(
+        (suraId: number, ayah: number) => `s${suraId}-r${activeRootKey}-a${ayah}`,
+        [activeRootKey]
+    );
 
     // Batch-arrival reveal bookkeeping (mirrors SurahDistributionGraph's
     // hasCommittedInitialNodesRef pattern, per-surah instead of once-
@@ -303,7 +389,7 @@ export default function CorpusArchitectureMap({
         };
 
         const UNFOCUSED_LIMIT = 10; // compact summary for unfocused surahs
-        const activeHighlight = highlightRoot || internalSelectedRoot;
+        const activeHighlight = activeRootKey;
 
         Object.keys(SURAH_NAMES)
             .map(Number)
@@ -321,6 +407,30 @@ export default function CorpusArchitectureMap({
                         value: 0,
                         originalId: suraId,
                         children: []
+                    });
+                    return;
+                }
+
+                // Occurrence mode: this surah's leaves are the selected
+                // root's AYAHS, not its top roots. A surah without the root
+                // keeps its dot (the 114-surah ring is the map's frame) but
+                // grows no children, so no wire is drawn to it at all.
+                if (occurrenceMode) {
+                    const occurrences = occurrencesBySurah.get(suraId) ?? [];
+                    root.children!.push({
+                        id: `s-${suraId}`,
+                        name: surahName,
+                        type: "surah",
+                        value: data.tokenCount,
+                        originalId: suraId,
+                        children: occurrences.map((entry) => ({
+                            id: `s${suraId}-r${activeHighlight}-a${entry.ayah}`,
+                            name: String(entry.ayah),
+                            type: "word_root" as const,
+                            value: entry.count,
+                            originalId: activeHighlight as string,
+                            ayah: entry.ayah,
+                        })),
                     });
                     return;
                 }
@@ -364,7 +474,7 @@ export default function CorpusArchitectureMap({
             });
 
         return root;
-    }, [surahRootData, focusedSurahId, highlightRoot, internalSelectedRoot]);
+    }, [surahRootData, focusedSurahId, activeRootKey, occurrenceMode, occurrencesBySurah]);
 
     // Layout Calculation. NOTE: as of the static skeleton below, this
     // dynamic cluster's own per-node `x`/`y` are only used for the CORPUS
@@ -411,6 +521,69 @@ export default function CorpusArchitectureMap({
         return ids;
     }, [hoveredNode]);
 
+    // The selected occurrence is read from the SHARED focused token, not kept
+    // locally: clicking a wire focuses that word, and the selection comes back
+    // down as focusedSura/focusedAyah — so an ayah picked in the inspector's
+    // occurrence list lights the same wire, with one source of truth.
+    const selectedOccurrence = useMemo(() => {
+        if (!occurrenceMode || focusedSura == null || focusedAyah == null) return null;
+        const list = occurrencesBySurah.get(focusedSura);
+        if (!list?.some((entry) => entry.ayah === focusedAyah)) return null;
+        return { sura: focusedSura, ayah: focusedAyah };
+    }, [occurrenceMode, focusedSura, focusedAyah, occurrencesBySurah]);
+
+    // Hovering a wire OR its end dot previews that ayah — both set
+    // `hoveredNode`, so this one derivation serves the two.
+    const hoveredOccurrence = useMemo(() => {
+        if (!occurrenceMode || hoveredNode?.data.ayah == null) return null;
+        const suraId = hoveredNode.parent?.data.originalId as number | undefined;
+        if (suraId == null) return null;
+        return { sura: suraId, ayah: hoveredNode.data.ayah };
+    }, [occurrenceMode, hoveredNode]);
+
+    const selectedOccurrenceNodeId = selectedOccurrence
+        ? occurrenceNodeId(selectedOccurrence.sura, selectedOccurrence.ayah)
+        : null;
+
+    // The occurrence card previews what is under the pointer and falls back to
+    // the pinned one — same contract as the radial map's ayah card.
+    const previewOccurrence = hoveredOccurrence ?? selectedOccurrence;
+    const isPreviewPinned = !hoveredOccurrence && !!selectedOccurrence;
+    const previewSura = previewOccurrence?.sura ?? null;
+    const previewAyah = previewOccurrence?.ayah ?? null;
+    const [previewAyahText, setPreviewAyahText] = useState<string | null>(null);
+    useEffect(() => {
+        if (previewSura == null || previewAyah == null) {
+            setPreviewAyahText(null);
+            return;
+        }
+        let cancelled = false;
+        // Debounced: sweeping the pointer across a fan of wires must not fire
+        // a verse fetch per wire.
+        const timer = window.setTimeout(() => {
+            getAyah(previewSura, previewAyah).then((record) => {
+                if (!cancelled) setPreviewAyahText(record?.textUthmani ?? null);
+            });
+        }, 90);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [previewSura, previewAyah]);
+
+    const previewOccurrenceCount = useMemo(() => {
+        if (previewSura == null || previewAyah == null) return 0;
+        return occurrencesBySurah.get(previewSura)?.find((entry) => entry.ayah === previewAyah)?.count ?? 0;
+    }, [previewSura, previewAyah, occurrencesBySurah]);
+
+    const handleOccurrenceSelect = useCallback(
+        (suraId: number, ayah: number) => {
+            const tokenId = occurrencesBySurah.get(suraId)?.find((entry) => entry.ayah === ayah)?.tokenId;
+            if (tokenId) onTokenFocus?.(tokenId);
+        },
+        [occurrencesBySurah, onTokenFocus]
+    );
+
     const getOpacity = useCallback(
         (d: d3.HierarchyPointNode<HierarchyNode>) => {
             // Pending surah (its corpus batch hasn't landed yet): always
@@ -430,8 +603,20 @@ export default function CorpusArchitectureMap({
                 return 0.05;
             }
 
+            // Occurrence mode: the selected root's ayahs are the only leaves
+            // that exist, so they are all fully lit; a surah is lit when it
+            // carries the root and stays a dim ring marker when it doesn't.
+            if (occurrenceMode) {
+                if (d.data.id === "corpus") return 0.6;
+                if (d.data.type === "word_root") return 1;
+                if (d.data.type === "surah") {
+                    return occurrencesBySurah.has(d.data.originalId as number) ? 1 : 0.12;
+                }
+                return 0.1;
+            }
+
             // If we are filtering by root (either from parent or internal selection):
-            const activeRoot = highlightRoot || internalSelectedRoot;
+            const activeRoot = activeRootKey;
             if (activeRoot) {
                 const isMatch = d.data.type === 'word_root' && d.data.originalId === activeRoot;
                 const isParentSurah = d.children?.some(child => child.data.originalId === activeRoot);
@@ -443,7 +628,7 @@ export default function CorpusArchitectureMap({
             if (!hoveredNode) return 0.8; // Default opacity high
             return hoveredRelationIds?.has(d.data.id) ? 1 : 0.1;
         },
-        [focusedSurahId, highlightRoot, internalSelectedRoot, hoveredNode, hoveredRelationIds, surahRootData]
+        [focusedSurahId, activeRootKey, occurrenceMode, occurrencesBySurah, hoveredNode, hoveredRelationIds, surahRootData]
     );
 
     const themeColors = resolveVisualizationTheme(theme);
@@ -835,6 +1020,12 @@ export default function CorpusArchitectureMap({
                 if (node.parent?.data.id === focusSurahNodeId) return true;
                 return node.data.id === focusSurahNodeId;
             }
+            // Occurrence mode draws every occurrence at EVERY zoom: the
+            // rank/LOD gating below exists to thin a 585-root fan, and there
+            // is no fan here — one root's wires are the entire content, and
+            // hiding them until the user zooms is what made the view read as
+            // broken (same call as the radial map's always-on mesh).
+            if (occurrenceMode) return true;
             if (node.data.type !== "word_root") return true;
             if (rootVisibilityLimit !== Infinity) {
                 const rank = rootRankById.get(node.data.id) ?? 999;
@@ -857,7 +1048,7 @@ export default function CorpusArchitectureMap({
         };
 
         return nodes.filter((node) => shouldShowRoot(node) && isInView(node));
-    }, [nodes, lodMode, highlightRoot, hoveredNode, focusSurahNodeId, deferredZoom, rootRankById, rootVisibilityLimit, nodePositionById, viewRadius]);
+    }, [nodes, lodMode, highlightRoot, hoveredNode, focusSurahNodeId, occurrenceMode, deferredZoom, rootRankById, rootVisibilityLimit, nodePositionById, viewRadius]);
 
     // Count how many focused-surah roots are currently in the viewport
     const focusedSurahRootsInView = useMemo(() => {
@@ -867,6 +1058,17 @@ export default function CorpusArchitectureMap({
 
     const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.data.id)), [visibleNodes]);
     const visibleLinks = useMemo(() => {
+        if (occurrenceMode) {
+            return links.filter((link) => {
+                if (!visibleNodeIds.has(link.source.data.id) || !visibleNodeIds.has(link.target.data.id)) return false;
+                // Centre spokes only to surahs that actually carry the root —
+                // the rest of the 114-spoke fan IS the noise being filtered.
+                if (link.source.data.id === "corpus") {
+                    return occurrencesBySurah.has(link.target.data.originalId as number);
+                }
+                return true;
+            });
+        }
         if (!focusSurahNodeId) {
             return links.filter((link) => visibleNodeIds.has(link.source.data.id) && visibleNodeIds.has(link.target.data.id));
         }
@@ -879,7 +1081,7 @@ export default function CorpusArchitectureMap({
             const isFocusRootLink = link.source.parent?.data.id === focusSurahNodeId || link.target.parent?.data.id === focusSurahNodeId;
             return (isCorpusToSurah || isFocusLink || isFocusRootLink) && visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId);
         });
-    }, [links, visibleNodeIds, focusSurahNodeId]);
+    }, [links, visibleNodeIds, focusSurahNodeId, occurrenceMode, occurrencesBySurah]);
 
     const labelOffsetForNode = useCallback(
         (node: d3.HierarchyPointNode<HierarchyNode>) => {
@@ -960,10 +1162,17 @@ export default function CorpusArchitectureMap({
             else bySurah.set(parentId, [node]);
         });
 
+        // Exemption = "this is the thing the user is pointing at", so it must
+        // be per NODE in occurrence mode: every leaf there shares the active
+        // root, and the root-identity test below would exempt all of them,
+        // admitting every ayah label at once — the overlap this whole
+        // separation pass exists to prevent.
         const isExemptRoot = (node: d3.HierarchyPointNode<HierarchyNode>) =>
-            (!!internalSelectedRoot && node.data.originalId === internalSelectedRoot) ||
-            (!!highlightRoot && node.data.originalId === highlightRoot) ||
-            hoveredNode?.data.id === node.data.id;
+            occurrenceMode
+                ? node.data.id === selectedOccurrenceNodeId || hoveredNode?.data.id === node.data.id
+                : (!!internalSelectedRoot && node.data.originalId === internalSelectedRoot) ||
+                  (!!highlightRoot && node.data.originalId === highlightRoot) ||
+                  hoveredNode?.data.id === node.data.id;
 
         bySurah.forEach((candidates) => {
             const exempt = candidates.filter(isExemptRoot);
@@ -989,7 +1198,7 @@ export default function CorpusArchitectureMap({
         });
 
         return admitted;
-    }, [nodes, lodMode, highlightRoot, focusSurahNodeId, internalSelectedRoot, hoveredNode, rootArcPositionById, zoomLevel, getOpacity, svgPixelWidth, viewRadius]);
+    }, [nodes, lodMode, highlightRoot, focusSurahNodeId, internalSelectedRoot, occurrenceMode, selectedOccurrenceNodeId, hoveredNode, rootArcPositionById, zoomLevel, getOpacity, svgPixelWidth, viewRadius]);
 
     return (
         <section
@@ -1023,7 +1232,16 @@ export default function CorpusArchitectureMap({
                             <div className="viz-left-panel">
                                 <strong style={{ fontSize: '0.95em' }}>{t("title")}</strong>
                                 <div style={{ marginTop: 8, fontSize: '0.7em', opacity: 0.5, lineHeight: 1.6 }}>
-                                    {focusedSurahId ? (
+                                    {occurrenceMode ? (
+                                        <>
+                                            {t("occurrenceSummary", {
+                                                root: activeRootKey ?? "",
+                                                count: occurrenceStats.total,
+                                                ayahCount: occurrenceStats.ayahs,
+                                                surahCount: occurrenceStats.surahs,
+                                            })}
+                                        </>
+                                    ) : focusedSurahId ? (
                                         <>
                                             {focusedSurahRootsInView}/{corpusCoverage.focusedSurahRootCount} {ts("root")}s {t("visibleLabel")}
                                             {focusedSurahRootsInView < corpusCoverage.focusedSurahRootCount && (
@@ -1040,8 +1258,55 @@ export default function CorpusArchitectureMap({
                                 </div>
                             </div>
 
+                            {/* Occurrence card — hover previews the ayah in full,
+                                a click pins it. Same contract as the radial
+                                map's ayah card so the two views read alike. */}
                             <AnimatePresence>
-                                {selectedRootInfo && (
+                                {occurrenceMode && previewOccurrence && (
+                                    <motion.div
+                                        className="viz-left-panel"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 10 }}
+                                        transition={reduceMotion ? { duration: 0 } : undefined}
+                                    >
+                                        <div className="viz-tooltip-title">{ts("ayahCaps")} {previewOccurrence.ayah}</div>
+                                        <div className="viz-tooltip-subtitle">
+                                            {previewOccurrence.sura}. {SURAH_NAMES[previewOccurrence.sura]?.name ?? ""}
+                                            {" · "}
+                                            {previewOccurrence.sura}:{previewOccurrence.ayah}
+                                        </div>
+                                        <div className="viz-tooltip-subtitle" style={{ opacity: 0.7, fontSize: "0.72rem" }}>
+                                            {isPreviewPinned ? t("ayahPinned") : t("ayahHoverHint")}
+                                        </div>
+                                        {previewAyahText && (
+                                            <div
+                                                className="viz-tooltip-subtitle arabic-text"
+                                                style={{
+                                                    marginTop: "0.5rem",
+                                                    fontSize: "1.3rem",
+                                                    lineHeight: 1.6,
+                                                    textAlign: "right",
+                                                    direction: "rtl",
+                                                    width: "100%",
+                                                    color: "var(--ink)",
+                                                    paddingBottom: "0.5rem",
+                                                    borderBottom: "1px solid var(--line)",
+                                                }}
+                                            >
+                                                {previewAyahText}
+                                            </div>
+                                        )}
+                                        <div className="viz-tooltip-row" style={{ marginTop: 8 }}>
+                                            <span className="viz-tooltip-label arabic-text">{activeRootKey}</span>
+                                            <span className="viz-tooltip-value">{previewOccurrenceCount}</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <AnimatePresence>
+                                {!occurrenceMode && selectedRootInfo && (
                                     <motion.div
                                         className="viz-left-panel"
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -1140,8 +1405,19 @@ export default function CorpusArchitectureMap({
                                         className="viz-legend-dot"
                                         style={{ background: legendRootColor, width: 8, height: 8 }}
                                     />
-                                    <span style={{ fontSize: '0.75em' }}>{ts("root")}</span>
+                                    <span style={{ fontSize: '0.75em' }}>
+                                        {occurrenceMode ? t("occurrenceLegend") : ts("root")}
+                                    </span>
                                 </div>
+                                {occurrenceMode && (
+                                    <div className="viz-legend-item" style={{ marginBottom: '6px' }}>
+                                        <div
+                                            className="viz-legend-dot"
+                                            style={{ background: themeColors.accentSecondary, width: 8, height: 8 }}
+                                        />
+                                        <span style={{ fontSize: '0.75em' }}>{t("selectedOccurrenceLegend")}</span>
+                                    </div>
+                                )}
                                 <div className="viz-legend-item">
                                     <div
                                         className="viz-legend-line"
@@ -1192,6 +1468,23 @@ export default function CorpusArchitectureMap({
                                     link.target.parent?.data.id === focusSurahNodeId
                                     : false;
                                 const pathD = radialLink(link) || "";
+                                // Occurrence wires carry their own emphasis:
+                                // the picked one in a distinct hue, the hovered
+                                // one in the accent, the rest in the root's
+                                // colour so the burst still reads as one word.
+                                const occurrenceAyah = occurrenceMode ? link.target.data.ayah ?? null : null;
+                                const occurrenceSura = occurrenceAyah != null
+                                    ? (link.target.parent?.data.originalId as number | undefined) ?? null
+                                    : null;
+                                const isSelectedOccurrence =
+                                    occurrenceAyah != null && link.target.data.id === selectedOccurrenceNodeId;
+                                const isHoveredOccurrence =
+                                    occurrenceAyah != null && hoveredNode?.data.id === link.target.data.id;
+                                const occurrenceStroke = isSelectedOccurrence
+                                    ? themeColors.accentSecondary
+                                    : isHoveredOccurrence
+                                        ? themeColors.accent
+                                        : rootNodeColorById.get(link.target.data.id) ?? stroke;
                                 // Surah->root links don't exist in the DOM until their surah's
                                 // batch lands (see hierarchyData) — corpus->surah links exist
                                 // for all 114 surahs from first paint, so only surah->root
@@ -1213,13 +1506,19 @@ export default function CorpusArchitectureMap({
                                     <g key={`${link.source.data.id}->${link.target.data.id}`}>
                                         <path
                                             d={pathD}
-                                            stroke={stroke}
+                                            stroke={occurrenceAyah != null ? occurrenceStroke : stroke}
                                             opacity={
-                                                isFocusLink
-                                                    ? 0.9
-                                                    : Math.min(getOpacity(link.source), getOpacity(link.target)) * 0.5
+                                                isSelectedOccurrence || isHoveredOccurrence
+                                                    ? 1
+                                                    : isFocusLink
+                                                        ? 0.9
+                                                        : occurrenceAyah != null
+                                                            ? 0.55
+                                                            : Math.min(getOpacity(link.source), getOpacity(link.target)) * 0.5
                                             }
-                                            strokeWidth={isFocusLink ? 1.6 : 1}
+                                            strokeWidth={
+                                                isSelectedOccurrence ? 2.6 : isHoveredOccurrence ? 2 : isFocusLink ? 1.6 : 1
+                                            }
                                             // `d` is recomputed on every zoom/layout change — never `transition-all`
                                             // here or the browser eases the rendered path toward each new `d` while
                                             // React writes the attribute instantly (the wire-lag defect fixed on
@@ -1234,9 +1533,27 @@ export default function CorpusArchitectureMap({
                                             d={pathD}
                                             stroke="transparent"
                                             strokeWidth={10}
+                                            vectorEffect="non-scaling-stroke"
                                             fill="none"
                                             style={{ cursor: "pointer" }}
+                                            onMouseEnter={() => {
+                                                if (occurrenceAyah == null) return;
+                                                setHoveredNode(link.target);
+                                                const tokenId = occurrenceSura != null
+                                                    ? occurrencesBySurah.get(occurrenceSura)?.find((e) => e.ayah === occurrenceAyah)?.tokenId
+                                                    : undefined;
+                                                if (tokenId) onTokenHover?.(tokenId);
+                                            }}
+                                            onMouseLeave={() => {
+                                                if (occurrenceAyah == null) return;
+                                                setHoveredNode((prev) => (prev?.data.id === link.target.data.id ? null : prev));
+                                                onTokenHover?.(null);
+                                            }}
                                             onClick={() => {
+                                                if (occurrenceAyah != null && occurrenceSura != null) {
+                                                    handleOccurrenceSelect(occurrenceSura, occurrenceAyah);
+                                                    return;
+                                                }
                                                 if (link.target.data.type === "word_root") {
                                                     const root = link.target.data.originalId as string;
                                                     const surahId = link.target.parent?.data.originalId as number | undefined;
@@ -1306,6 +1623,13 @@ export default function CorpusArchitectureMap({
                                                 onNodeSelect?.('surah', surahId);
                                                 setSelectedRootInfo(null);
                                                 setInternalSelectedRoot(null);
+                                            } else if (occurrenceMode && node.data.ayah != null) {
+                                                // Occurrence dot: pick the AYAH. Re-selecting the
+                                                // root here would be a no-op at best and, on the
+                                                // deselect branch below, would clear the very
+                                                // filter this mode is built on.
+                                                const suraId = node.parent?.data.originalId as number | undefined;
+                                                if (suraId != null) handleOccurrenceSelect(suraId, node.data.ayah);
                                             } else if (node.data.type === 'word_root') {
                                                 const root = node.data.originalId as string;
                                                 // Toggle: click again to deselect
@@ -1332,6 +1656,15 @@ export default function CorpusArchitectureMap({
                                         opacity={getOpacity(node)}
                                         className={`corpus-arch-fade${isMountReveal ? " corpus-arch-reveal" : ""}`}
                                     >
+                                        {node.data.id === selectedOccurrenceNodeId && (
+                                            <circle
+                                                r={7}
+                                                fill="none"
+                                                stroke={themeColors.accentSecondary}
+                                                strokeWidth={1.6}
+                                                pointerEvents="none"
+                                            />
+                                        )}
                                         {isHighlighted && node.data.type !== "corpus" && (
                                             <circle
                                                 r={node.data.type === "surah" ? 7.5 : 4.8}
@@ -1344,7 +1677,13 @@ export default function CorpusArchitectureMap({
                                         )}
                                         <circle
                                             r={node.data.type === "surah" ? 5 : (node.data.type === "corpus" ? 0 : 3)}
-                                            fill={node.data.type === "surah" ? themeColors.accent : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)}
+                                            fill={
+                                                node.data.id === selectedOccurrenceNodeId
+                                                    ? themeColors.accentSecondary
+                                                    : node.data.type === "surah"
+                                                        ? themeColors.accent
+                                                        : (rootNodeColorById.get(node.data.id) ?? themeColors.nodeColors.default)
+                                            }
                                             stroke="var(--bg-0)"
                                             strokeWidth={node.data.type === "corpus" ? 0 : 0.65}
                                             pointerEvents="none"
@@ -1404,7 +1743,11 @@ export default function CorpusArchitectureMap({
                                     textTransform: 'uppercase'
                                 }}
                             >
-                                {focusedSurahId ? `${ts("surahCaps")} ${focusedSurahId}` : (internalSelectedRoot ? "" : t("corpus"))}
+                                {focusedSurahId
+                                    ? `${ts("surahCaps")} ${focusedSurahId}`
+                                    : occurrenceMode
+                                        ? ts("selectedRoot")
+                                        : (internalSelectedRoot ? "" : t("corpus"))}
                             </text>
                             <text
                                 y={10}
@@ -1418,8 +1761,27 @@ export default function CorpusArchitectureMap({
                             >
                                 {focusedSurahId
                                     ? SURAH_NAMES[focusedSurahId]?.name
-                                    : (internalSelectedRoot ?? t("architecture"))}
+                                    : occurrenceMode
+                                        ? activeRootKey
+                                        : (internalSelectedRoot ?? t("architecture"))}
                             </text>
+                            {occurrenceMode && !focusedSurahId && (
+                                <text
+                                    y={44}
+                                    textAnchor="middle"
+                                    style={{
+                                        fontSize: '13px',
+                                        fill: themeColors.textColors.muted,
+                                        letterSpacing: '0.06em',
+                                        textTransform: 'uppercase',
+                                    }}
+                                >
+                                    {t("occurrenceCentre", {
+                                        count: occurrenceStats.total,
+                                        surahCount: occurrenceStats.surahs,
+                                    })}
+                                </text>
+                            )}
                             {focusedSurahId && (
                                 <text
                                     y={50}
