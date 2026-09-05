@@ -775,6 +775,8 @@
             "matchesLabel": "Matches",
             "linkedVerses": "Linked verses: {verses}",
             "selectedRoot": "Selected Root",
+            "ayahPinned": "Pinned — click another ayah to switch",
+            "ayahHoverHint": "Hover preview — click to pin",
             "nodeAyah": "Ayah {id}",
             "nodeTokens": "{count} Tokens",
             "rootConnection": "Root Connection",

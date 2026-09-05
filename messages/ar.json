@@ -775,6 +775,8 @@
             "matchesLabel": "المطابقات",
             "linkedVerses": "الآيات المرتبطة: {verses}",
             "selectedRoot": "الجذر المختار",
+            "ayahPinned": "مثبّتة — انقر آية أخرى للتبديل",
+            "ayahHoverHint": "معاينة عند التحويم — انقر للتثبيت",
             "nodeAyah": "آية {id}",
             "nodeTokens": "{count} كلمات",
             "rootConnection": "اتصال الجذر",
