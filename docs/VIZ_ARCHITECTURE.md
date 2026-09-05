@@ -129,6 +129,25 @@ onboarding localStorage `quran-corpus-onboarding`.
   The selected wire is read from the shared focused token (`focusedSura`/`focusedAyah`),
   never local state, so an ayah picked in the inspector's occurrence list lights the same
   wire. Hover previews the ayah (debounced 90ms verse fetch), click pins it.
+- **Untangling the structure map** (2026-09-05, same pass). Three separate causes,
+  all worth remembering: (1) `d3.linkRadial` derives control points from the SOURCE's
+  own angle, and the corpus node has none — it sits at radius 0 where `getNodeAngle`
+  falls back to 0 (straight up), so all 114 centre spokes left the middle heading north
+  before curving back to their surah, piling into one knot. Centre spokes are now drawn
+  as straight radial lines (`buildLinkPath`); straight spokes share only the origin and
+  cannot cross. (2) The root fan spreads up to 120° while a surah's slot on the ring is
+  ~3.2°, so in occurrence mode every surah's wires swept across ~38 neighbours.
+  Occurrences separate on the RADIAL axis instead (stacked in ayah order, ~11px apart,
+  band capped at 420px since `viewRadius` grows with the longest offset) and keep a
+  ≤2.2° fan. (3) Label decluttering measured arc length (angle × radius), which is the
+  right axis for a sideways fan and collapses to nothing for a radial stack near the top
+  of the ring — `rootLabelAxisById` switches to radius in occurrence mode.
+- **`fitBoundsToView` ignored the viewBox ORIGIN** (fixed 2026-09-05). Every viz draws
+  with a `0 0 w h` viewBox except the structure map, which centres its own coordinate
+  system (`-r -r 2r 2r`) for polar geometry. The helper computed its target centre as an
+  offset from zero, so every fit on that map — the Focus button included — was shifted by
+  `r` and pushed the graph almost entirely off-screen. It now adds `vb.x`/`vb.y`; a no-op
+  for the other ten. Any new viz with a centred viewBox depends on this.
 - **Nothing may change the visualization mode but the user.** The inspector's surah rows
   used to pass `"radial-sura"` to `onSelectSurah`, yanking users out of whatever view
   they were in; its ayah chips are now buttons (`onSelectAyah` → focus that word, scope
