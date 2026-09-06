@@ -33,7 +33,7 @@ the sidebar portal (see Shell anatomy).
 | `dependency-tree` | `AyahDependencyGraph.tsx` | Per-ayah syntax tree with labeled dependency arcs; surah/ayah stepper controls in sidebar. |
 | `sankey-flow` | `RootFlowSankey.tsx` | Root → word-form ribbons for the scoped surah; on-canvas chips carry scope/coverage. |
 | `surah-distribution` | `SurahDistributionGraph.tsx` | All 114 surahs, x = surah index, dot = surah (revelation place color, size = ayahs). |
-| `corpus-architecture` | `CorpusArchitectureMap.tsx` | Corpus → surah → root structure map with root search. |
+| `corpus-architecture` | `CorpusArchitectureMap.tsx` | Corpus → surah → root structure map with root search. **Occurrence mode** (2026-09-05) when a root is selected and no surah is drilled: leaves become that root's AYAHS, one wire per occurrence, everything else hidden; surahs carrying it stay lit, the rest are dim ring markers. |
 | `knowledge-graph` | `KnowledgeGraphViz.tsx` | Personal tracked-roots network; ghost/empty state when nothing tracked. |
 | `collocation-network` | `CollocationNetworkGraph.tsx` | PMI-weighted collocates orbiting a target root; "Heuristic estimate" badge = derived, not corpus-annotated. Strongest default view of the nine. |
 
@@ -92,9 +92,15 @@ onboarding localStorage `quran-corpus-onboarding`.
 ## Cross-cutting mechanics
 
 - **Radial LOD** (`RadialSuraMap.tsx` top constants): surahs > `OVERVIEW_WORD_THRESHOLD`
-  (800 words) render hairline per-ayah ticks; zooming past `DETAIL_ZOOM_THRESHOLD` (2.2×)
+  (800 words) render hairline per-ayah ticks; zooming past `DETAIL_ZOOM_THRESHOLD` (1.3×)
   swaps ticks → full word bars in place. Small surahs always render full detail.
   Initial fit-to-ring runs for **all** surah sizes (small-surah overflow was a bug, fixed).
+  Only the bars/root dots are LOD-gated (2026-09-05): the root-connection mesh draws at
+  EVERY zoom (overview = pair-deduped, dominant-roots-first, capped `OVERVIEW_MESH_ARC_CAP`)
+  and hover/selection emphasis (hovered root, active ayah) is drawn from the full
+  connection set on top, so wires and hover respond identically zoomed out or in.
+  The ayah card (left panel) previews the HOVERED ayah in full — text, roots, matches —
+  and a click pins it; hover text fetch is debounced 90ms.
 - **Corpus data streams in — for real now.** `lib/corpus/sampleCorpus.ts` provides a
   tiny stub before real data lands, and `loadFullCorpus({ onBatch })` emits ~12 batches
   of WHOLE surahs (10/batch, ascending; never a partial surah — both Supabase and
@@ -110,6 +116,43 @@ onboarding localStorage `quran-corpus-onboarding`.
   static 114-surah skeleton (angles from `SURAH_NAMES`, fixed from first paint) and
   reveals root branches per batch with a CSS opacity stagger (once per arrival,
   tracked in a ref; instant under reduced motion).
+- **Structure-map occurrence mode** (`CorpusArchitectureMap.tsx`, 2026-09-05). Selecting a
+  root turns the map into "where does this word live across the whole Quran": occurrence
+  leaves keep `type: "word_root"` and `originalId` = the root (so every geometry/color/
+  label memo works unchanged) and carry an extra `ayah`. Rules learned building it:
+  the surah-drill adoption of `selectedSurahId` is SKIPPED while a root is active and a
+  NEW root clears an existing drill — otherwise arriving with a root landed on one
+  focused surah with everything else at 0.05, the opposite of the cross-corpus view the
+  map exists for. Occurrence wires ignore the rank/LOD gating (one root's wires ARE the
+  content). Label admission exempts by NODE id here, not root identity — every leaf
+  shares the root, so the root test would exempt them all and admit every label at once.
+  The selected wire is read from the shared focused token (`focusedSura`/`focusedAyah`),
+  never local state, so an ayah picked in the inspector's occurrence list lights the same
+  wire. Hover previews the ayah (debounced 90ms verse fetch), click pins it.
+- **Untangling the structure map** (2026-09-05, same pass). Three separate causes,
+  all worth remembering: (1) `d3.linkRadial` derives control points from the SOURCE's
+  own angle, and the corpus node has none — it sits at radius 0 where `getNodeAngle`
+  falls back to 0 (straight up), so all 114 centre spokes left the middle heading north
+  before curving back to their surah, piling into one knot. Centre spokes are now drawn
+  as straight radial lines (`buildLinkPath`); straight spokes share only the origin and
+  cannot cross. (2) The root fan spreads up to 120° while a surah's slot on the ring is
+  ~3.2°, so in occurrence mode every surah's wires swept across ~38 neighbours.
+  Occurrences separate on the RADIAL axis instead (stacked in ayah order, ~11px apart,
+  band capped at 420px since `viewRadius` grows with the longest offset) and keep a
+  ≤2.2° fan. (3) Label decluttering measured arc length (angle × radius), which is the
+  right axis for a sideways fan and collapses to nothing for a radial stack near the top
+  of the ring — `rootLabelAxisById` switches to radius in occurrence mode.
+- **`fitBoundsToView` ignored the viewBox ORIGIN** (fixed 2026-09-05). Every viz draws
+  with a `0 0 w h` viewBox except the structure map, which centres its own coordinate
+  system (`-r -r 2r 2r`) for polar geometry. The helper computed its target centre as an
+  offset from zero, so every fit on that map — the Focus button included — was shifted by
+  `r` and pushed the graph almost entirely off-screen. It now adds `vb.x`/`vb.y`; a no-op
+  for the other ten. Any new viz with a centred viewBox depends on this.
+- **Nothing may change the visualization mode but the user.** The inspector's surah rows
+  used to pass `"radial-sura"` to `onSelectSurah`, yanking users out of whatever view
+  they were in; its ayah chips are now buttons (`onSelectAyah` → focus that word, scope
+  to its surah, root untouched). List clicks change SELECTION, never the mode — the mode
+  is chosen in the visualization switcher.
 - **Fit-to-view** (`lib/viz/fitToView.ts`) — shared fit helper, chrome-aware on all four
   sides: left dock (`.viz-dock`/`.viz-sidebar-stack`), right ContextDrawer when open
   (`.context-drawer`, aspect-ratio-guarded so the mobile bottom-sheet variant doesn't
@@ -136,7 +179,12 @@ onboarding localStorage `quran-corpus-onboarding`.
   root/surah when the prop changes (ref-track the previous prop; adoption never calls
   the write-back) and WRITES BACK explicit user picks (click/blur/Enter/change only —
   never hover) via `onRootSelect`-style callbacks. Explicit picks re-lock
-  `searchLockedRoot` (they are authoritative). The URL mirrors
+  `searchLockedRoot` (they are authoritative). **The selected root is pinned**
+  (2026-09-05): clicking empty canvas, toggling a wire off, or focusing a token
+  (an ayah-bar click focuses the ayah's first word for the inspector) never
+  clears or swaps it — only another explicit root pick or the breadcrumb does.
+  `useSelectionState.selectedRootValue` therefore prefers `selectedRoot` over the
+  focused token's root (lemma likewise, only adopted within the pinned root). The URL mirrors
   `{viz, surah, ayah, root, lemma}` via debounced `window.history.replaceState`
   (never `token`), gated on deep-link hydration completing; the controller's own URL
   writes are deduped against Next's `useSearchParams` echo via
@@ -177,11 +225,10 @@ Search-to-graph escalation is deliberately staged; keep new features on a rung:
 
 Related mechanics added the same day:
 
-- **Staged overview LOD (radial)**: overview stages keyed to the ENTRY-FIT
-  scale (`overviewBaseScaleRef`), not absolute zoom — stage 1 (1.6×base) top-8
-  roots' arcs, stage 2 (2.6×base) full faint mesh (capped 400 paths);
-  highlighted-root arcs + count-scaled match ticks + ayah milestones at every
-  stage. Pattern: never reveal on one cliff; each zoom step earns structure.
+- **Staged overview LOD (radial)** — RETIRED 2026-09-05 (user feedback: wires
+  and hover must show at every zoom). The mesh is now always on (see Radial LOD
+  above); highlighted-root arcs + count-scaled match ticks + ayah milestones
+  remain at every zoom. Bars/root dots are still the only zoom-gated layer.
 - **Sticky node drag (root-network)**: d3-drag subject carries node x/y (grab
   offset), drop keeps fx/fy (no orbit snap-back), dblclick unpins. Never null
   fx/fy on drag end while a strong radial force exists.
