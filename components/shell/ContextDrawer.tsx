@@ -31,6 +31,7 @@ interface ContextDrawerProps {
   onTokenSelect: (tokenId: string) => void;
   onRootSelect: (root: string | null) => void;
   onSelectSurah: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
+  onSelectAyah: (surahId: number, tokenId: string) => void;
   onLemmaSelect: (lemma: string) => void;
   onSearchOpened: () => void;
   onSearchQuerySubmitted: (query: string) => void;
@@ -61,6 +62,7 @@ export default function ContextDrawer({
   onTokenSelect,
   onRootSelect,
   onSelectSurah,
+  onSelectAyah,
   onLemmaSelect,
   onSearchOpened,
   onSearchQuerySubmitted,
@@ -207,6 +209,7 @@ export default function ContextDrawer({
           allTokens={allTokens}
           onRootSelect={onRootSelect}
           onSelectSurah={onSelectSurah}
+          onSelectAyah={onSelectAyah}
           isCorpusLoading={isCorpusLoading}
         />
       </div>

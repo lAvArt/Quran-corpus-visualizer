@@ -60,8 +60,17 @@ export function useSelectionState(allTokens: CorpusToken[]): SelectionState {
       ? focusedToken.ayah
       : null;
 
-  const selectedRootValue = focusedToken?.root || selectedRoot || null;
-  const selectedLemmaValue = focusedToken?.lemma || selectedLemma || null;
+  // The explicitly chosen root (search, root click) is PINNED: focusing a
+  // token — e.g. clicking an ayah bar, which focuses that ayah's first word
+  // so the inspector has content — must not swap the selected root to that
+  // word's root. The token's root only fills in when nothing is pinned. Same
+  // for the lemma: a focused token's lemma is only adopted when it belongs
+  // to the pinned root (or nothing is pinned), so root and lemma never
+  // disagree in the breadcrumb.
+  const selectedRootValue = selectedRoot || focusedToken?.root || null;
+  const focusedTokenInPinnedRoot = !selectedRoot || focusedToken?.root === selectedRoot;
+  const selectedLemmaValue =
+    selectedLemma || (focusedTokenInPinnedRoot ? focusedToken?.lemma : null) || null;
 
   const representativeToken = useMemo(() => {
     if (focusedToken) return null;

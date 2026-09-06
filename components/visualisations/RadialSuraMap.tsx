@@ -105,19 +105,14 @@ const OVERVIEW_WORD_THRESHOLD = 800;
 // large surahs open in the cheap overview and only cross into detail on a
 // deliberate zoom.
 const DETAIL_ZOOM_THRESHOLD = 1.3;
-// Staged overview reveal — instead of one cliff at DETAIL_ZOOM_THRESHOLD,
-// each zoom step earns more structure. The resting overview is never empty:
-// it always draws the dominant roots' arcs; stage 1 widens the set, stage 2
-// adds the full (faint) mesh before the detail swap. Highlighted-root arcs
-// show at every stage. Thresholds are RELATIVE to the entry-fit scale (a
-// 286-ayah ring fits at ~0.3×, a 40-ayah one near 1×), so "a nudge of zoom"
-// means the same thing in every surah. Kept low so the connection web is
-// already interesting while still zoomed out, not only after diving to detail.
-const OVERVIEW_STAGE1_RATIO = 1.2;
-const OVERVIEW_STAGE2_RATIO = 1.6;
-const OVERVIEW_REST_TOP_ROOTS = 14;
-const OVERVIEW_STAGE1_TOP_ROOTS = 32;
-const OVERVIEW_STAGE_ARC_CAP = 600;
+// The connection mesh is NOT zoom-gated: it draws at every zoom level
+// (deduped by ayah pair, dominant roots first, capped) so the surah's root
+// web is the first thing the overview shows rather than something earned by
+// zooming. Only the per-word bars/root dots stay behind DETAIL_ZOOM_THRESHOLD
+// — they are the expensive part (10,000+ nodes for Al-Baqarah); a capped
+// path mesh is not. Hover/selection emphasis is drawn from the FULL
+// connection set on top, so the response is identical at every zoom.
+const OVERVIEW_MESH_ARC_CAP = 900;
 
 // Overview shares detail mode's ring geometry (same innerRadius, same per-
 // ayah angles) so crossing the zoom threshold swaps tick <-> bar IN PLACE —
@@ -183,6 +178,10 @@ export default function RadialSuraMap({
   const [selectedConnection, setSelectedConnection] = useState<RootConnection | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<RootConnection | null>(null);
   const [fullAyahText, setFullAyahText] = useState<string | null>(null);
+  // Hover preview text — the ayah card shows the hovered ayah in full, as if
+  // it were clicked; clicking pins it (fullAyahText). Debounced so sweeping
+  // the pointer across hundreds of ticks doesn't fire a fetch per tick.
+  const [hoverAyahText, setHoverAyahText] = useState<string | null>(null);
   const prevSuraIdRef = useRef<number | null>(null);
   const shouldAnimateConnections = prevSuraIdRef.current === null || prevSuraIdRef.current !== suraId;
   const shouldAnimateBars = shouldAnimateConnections;
@@ -224,6 +223,23 @@ export default function RadialSuraMap({
       setFullAyahText(null);
     }
   }, [selectedAyah, suraId]);
+
+  useEffect(() => {
+    if (!hoveredAyah || hoveredAyah === selectedAyah) {
+      setHoverAyahText(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      getAyah(suraId, hoveredAyah).then((record) => {
+        if (!cancelled) setHoverAyahText(record?.textUthmani ?? null);
+      });
+    }, 90);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [hoveredAyah, selectedAyah, suraId]);
 
   const themeColors = resolveVisualizationTheme(theme);
 
@@ -616,62 +632,19 @@ export default function RadialSuraMap({
     [centerX, centerY, innerRadius, ayahCount]
   );
 
-  // Entry-fit baseline for the staged reveal: the first non-default scale
-  // the zoom lands on (the fit-to-ring result). Reset per surah.
-  const overviewBaseScaleRef = useRef<number | null>(null);
-  useEffect(() => {
-    overviewBaseScaleRef.current = null;
-  }, [suraId]);
-  useEffect(() => {
-    if (overviewBaseScaleRef.current === null && zoomScale !== 1) {
-      overviewBaseScaleRef.current = zoomScale;
-    }
-  }, [zoomScale]);
-
-  // Which overview stage the current zoom has earned (0 until the first
-  // threshold; only ever re-evaluates to a different NUMBER on a crossing,
-  // so downstream memos don't churn per zoom tick).
-  const overviewBaseScale = overviewBaseScaleRef.current ?? 1;
-  const overviewStage = isOverviewMode
-    ? zoomScale >= overviewBaseScale * OVERVIEW_STAGE2_RATIO
-      ? 2
-      : zoomScale >= overviewBaseScale * OVERVIEW_STAGE1_RATIO
-        ? 1
-        : 0
-    : 0;
-
-  const overviewTopRoots = useMemo(() => {
-    if (!isOverviewMode) return new Set<string>();
-    const count = overviewStage >= 1 ? OVERVIEW_STAGE1_TOP_ROOTS : OVERVIEW_REST_TOP_ROOTS;
-    return new Set(
-      [...rootTokenTotals.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, count)
-        .map(([root]) => root)
-    );
-  }, [isOverviewMode, rootTokenTotals, overviewStage]);
-
+  // Every ayah pair's arc geometry, shared by the detail mesh and the
+  // overview layers. Deduped by pair — one curve serves every root that
+  // links those two ayahs.
   const connectionPaths = useMemo(() => {
     const map = new Map<string, string>();
-    // Overview mode never draws the FULL curve mesh at rest (that's exactly
-    // what turns a large surah into an illegible hairball) — but it's never
-    // empty either: the dominant roots' arcs always render, stage 1 widens
-    // the set, stage 2 brings everything in faintly.
-    const conns = isOverviewMode
-      ? overviewStage === 2
-        ? rootConnections
-        : rootConnections.filter(
-            (conn) => conn.root === highlightRoot || overviewTopRoots.has(conn.root)
-          )
-      : rootConnections;
-    conns.forEach((conn) => {
+    rootConnections.forEach((conn) => {
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (!map.has(key)) {
         map.set(key, generateConnectionPath(conn.sourceAyah, conn.targetAyah));
       }
     });
     return map;
-  }, [rootConnections, generateConnectionPath, isOverviewMode, highlightRoot, overviewStage, overviewTopRoots]);
+  }, [rootConnections, generateConnectionPath]);
 
   // Overview highlight arcs — the highlighted root's ayah-to-ayah web, drawn
   // even at the zoomed-out level (deduped by ayah pair; plain paths, no
@@ -693,27 +666,53 @@ export default function RadialSuraMap({
     return out;
   }, [isOverviewMode, highlightRoot, rootConnections, connectionPaths]);
 
-  // Overview arcs for non-highlight roots (dominant set at rest/stage 1,
-  // everything at stage 2), deduped by ayah pair and capped so the densest
-  // surahs can't flood the overview with thousands of paths.
-  const overviewStageConnections = useMemo(() => {
+  // Overview mesh for every other root, at EVERY zoom level (no stage
+  // gating): deduped by ayah pair, dominant roots first so the cap keeps the
+  // arcs that matter, capped so the densest surahs can't flood the
+  // fitted-out view with thousands of paths.
+  const overviewMeshConnections = useMemo(() => {
     if (!isOverviewMode) return [];
+    const ordered = [...rootConnections].sort(
+      (a, b) => (rootTokenTotals.get(b.root) ?? 0) - (rootTokenTotals.get(a.root) ?? 0)
+    );
     const seen = new Set<string>();
     const out: { key: string; d: string; conn: RootConnection }[] = [];
-    for (const conn of rootConnections) {
+    for (const conn of ordered) {
       if (conn.root === highlightRoot) continue;
-      if (overviewStage < 2 && !overviewTopRoots.has(conn.root)) continue;
       const key = `${conn.sourceAyah}-${conn.targetAyah}`;
       if (seen.has(key)) continue;
       seen.add(key);
       const d = connectionPaths.get(key);
       if (d) {
         out.push({ key, d, conn });
-        if (out.length >= OVERVIEW_STAGE_ARC_CAP) break;
+        if (out.length >= OVERVIEW_MESH_ARC_CAP) break;
       }
     }
     return out;
-  }, [isOverviewMode, overviewStage, rootConnections, highlightRoot, overviewTopRoots, connectionPaths]);
+  }, [isOverviewMode, rootConnections, rootTokenTotals, highlightRoot, connectionPaths]);
+
+  // Overview hover/selection emphasis: the hovered root's arcs and the
+  // active (hovered or selected) ayah's arcs, drawn on top of the mesh from
+  // the FULL connection set — an arc the cap dropped still lights up when
+  // its root or ayah is pointed at, so hovering behaves the same zoomed out
+  // as in detail. Small by construction (one root, one ayah).
+  const overviewEmphasisConnections = useMemo(() => {
+    if (!isOverviewMode || (!hoveredRoot && !activeAyah)) return [];
+    const seen = new Set<string>();
+    const out: { key: string; d: string; conn: RootConnection; byRoot: boolean }[] = [];
+    for (const conn of rootConnections) {
+      const byRoot = !!hoveredRoot && conn.root === hoveredRoot;
+      const byAyah =
+        !!activeAyah && (conn.sourceAyah === activeAyah || conn.targetAyah === activeAyah);
+      if (!byRoot && !byAyah) continue;
+      const key = `${conn.sourceAyah}-${conn.targetAyah}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = connectionPaths.get(key);
+      if (d) out.push({ key, d, conn, byRoot });
+    }
+    return out;
+  }, [isOverviewMode, hoveredRoot, activeAyah, rootConnections, connectionPaths]);
 
   const barsWithGeometry = useMemo(() => {
     return ayahBars.map((bar) => {
@@ -991,14 +990,20 @@ export default function RadialSuraMap({
     );
   }, [dimensionsReady, isMounted, isLargeSurah, isSurahDataComplete, suraId, barsWithGeometry, innerRadius, centerX, centerY, fitBounds, maxBarHeight, compactLayout]);
 
-  const selectedAyahData = useMemo(
-    () => (selectedAyah ? ayahBars.find((bar) => bar.ayah === selectedAyah) ?? null : null),
-    [selectedAyah, ayahBars]
+  // The ayah card previews whatever is under the pointer and falls back to
+  // the pinned (clicked) ayah when the pointer leaves — hover shows the ayah
+  // exactly as a click would, the click only makes it stick.
+  const previewAyah = hoveredAyah ?? selectedAyah;
+  const isPreviewPinned = previewAyah !== null && previewAyah === selectedAyah;
+  const previewAyahData = useMemo(
+    () => (previewAyah ? ayahBars.find((bar) => bar.ayah === previewAyah) ?? null : null),
+    [previewAyah, ayahBars]
   );
-  const selectedAyahRootEntries = useMemo(() => {
-    if (!selectedAyah) return [];
-    return ayahRootEntriesByAyah.get(selectedAyah) ?? [];
-  }, [selectedAyah, ayahRootEntriesByAyah]);
+  const previewAyahRootEntries = useMemo(() => {
+    if (!previewAyah) return [];
+    return ayahRootEntriesByAyah.get(previewAyah) ?? [];
+  }, [previewAyah, ayahRootEntriesByAyah]);
+  const previewAyahText = isPreviewPinned ? fullAyahText : hoverAyahText;
 
   const renderedConnections = useMemo(() => {
     // Keep every root's connections in view even while a root is highlighted —
@@ -1040,11 +1045,17 @@ export default function RadialSuraMap({
 
   const handleAyahSelect = useCallback((ayah: number, preferredRoot?: string) => {
     setSelectedAyah(ayah);
+    // Focus a word so the inspector has content: the explicitly chosen root
+    // first, else the PINNED root's word in this ayah (so pinning اذن and
+    // clicking an ayah that contains it inspects that occurrence, not the
+    // ayah's first proclitic), else the ayah's first word. The pinned root
+    // itself never changes here — see useSelectionState.selectedRootValue.
+    const root = preferredRoot ?? highlightRoot ?? null;
     const tokenId =
-      (preferredRoot ? ayahTokenIdByAyahRoot.get(`${ayah}::${preferredRoot}`) : undefined) ??
+      (root ? ayahTokenIdByAyahRoot.get(`${ayah}::${root}`) : undefined) ??
       ayahTokenIdByAyah.get(ayah);
     if (tokenId) onTokenFocus(tokenId);
-  }, [ayahTokenIdByAyahRoot, ayahTokenIdByAyah, onTokenFocus]);
+  }, [ayahTokenIdByAyahRoot, ayahTokenIdByAyah, onTokenFocus, highlightRoot]);
 
   // Zoom the camera into an ayah's neighborhood in DETAIL geometry (a handful
   // of neighboring ayahs, not one isolated bar) — reused by both the overview
@@ -1177,6 +1188,17 @@ export default function RadialSuraMap({
     }
   }, [ayahTokenIdByAyah, onTokenHover]);
 
+  // The overview hit ring unmounts on the tick -> bar swap (and vice versa)
+  // without firing pointerleave, which left the hovered ayah stuck on the
+  // card after a click-to-zoom. Reset hover on every LOD change; the new
+  // layer's own enter events take over as soon as the pointer moves.
+  useEffect(() => {
+    lastPointerAyahRef.current = null;
+    setHoveredAyah(null);
+    setHoveredRoot(null);
+    onTokenHover(null);
+  }, [isOverviewMode, onTokenHover]);
+
   const handleRootNodeHover = useCallback((ayah: number | null, root: string | null) => {
     setHoveredRoot((prev) => (prev === root ? prev : root));
     handleBarHover(ayah);
@@ -1196,8 +1218,8 @@ export default function RadialSuraMap({
       selectedConnection?.targetAyah === connection.targetAyah;
 
     if (isSameSelection) {
+      // Toggle the wire off; the root stays pinned (see the canvas onClick).
       setSelectedConnection(null);
-      if (onRootSelect) onRootSelect(null);
       return;
     }
 
@@ -1272,32 +1294,11 @@ export default function RadialSuraMap({
               </span>
             </div>
 
-            {/* Overview-mode ayah hover preview: deliberately lighter than the
-                click-driven selected-ayah panel below (no async full-text
-                fetch) so sweeping the pointer across hundreds of ticks stays
-                cheap instead of reintroducing the hover jank this LOD change
-                is meant to fix. Not animated for the same reason. */}
-            {isOverviewMode && hoveredAyah && (
-              <div className="viz-left-panel">
-                <div className="viz-tooltip-title">{ts("ayahCaps")} {hoveredAyah}</div>
-                <div className="viz-tooltip-subtitle">{suraName}:{hoveredAyah}</div>
-                <div className="viz-tooltip-row">
-                  <span className="viz-tooltip-label">{ts("occurrences")}</span>
-                  <span className="viz-tooltip-value">{overviewTicksByAyah.get(hoveredAyah)?.tokenCount ?? 0}</span>
-                </div>
-                {highlightRoot && (
-                  <div className="viz-tooltip-row">
-                    <span className="viz-tooltip-label">{t("matchesLabel")}</span>
-                    <span className="viz-tooltip-value">{ayahRootCounts.get(hoveredAyah)?.get(highlightRoot) ?? 0}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Selected Ayah sits ABOVE Selected Root: the ayah is the more
-                specific thing the user just clicked, so it leads the stack. */}
+            {/* Ayah card (hover preview / pinned) sits ABOVE Selected Root:
+                the ayah is the more specific thing under the pointer, so it
+                leads the stack. */}
             <AnimatePresence>
-              {selectedAyahData && (
+              {previewAyahData && (
                 <motion.div
                   className="viz-left-panel"
                   initial={{ opacity: 0, y: 10 }}
@@ -1305,10 +1306,13 @@ export default function RadialSuraMap({
                   exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: motionSafeDuration(200) / 1000 }}
                 >
-                  <div className="viz-tooltip-title">{ts("ayahCaps")} {selectedAyah}</div>
-                  <div className="viz-tooltip-subtitle">{suraName}:{selectedAyah}</div>
+                  <div className="viz-tooltip-title">{ts("ayahCaps")} {previewAyah}</div>
+                  <div className="viz-tooltip-subtitle">{suraName}:{previewAyah}</div>
+                  <div className="viz-tooltip-subtitle" style={{ opacity: 0.7, fontSize: "0.72rem" }}>
+                    {isPreviewPinned ? t("ayahPinned") : t("ayahHoverHint")}
+                  </div>
 
-                  {fullAyahText && (
+                  {previewAyahText && (
                     <div className="viz-tooltip-subtitle arabic-text" style={{
                       marginTop: '0.5rem',
                       fontSize: '1.4rem',
@@ -1320,18 +1324,24 @@ export default function RadialSuraMap({
                       paddingBottom: '0.5rem',
                       borderBottom: '1px solid var(--line)'
                     }}>
-                      {fullAyahText}
+                      {previewAyahText}
                     </div>
                   )}
                   <div className="viz-tooltip-row">
                     <span className="viz-tooltip-label">{ts("occurrences")}</span>
-                    <span className="viz-tooltip-value">{selectedAyahData.tokenCount}</span>
+                    <span className="viz-tooltip-value">{previewAyahData.tokenCount}</span>
                   </div>
                   <div className="viz-tooltip-row">
                     <span className="viz-tooltip-label">{ts("dominantPOS")}</span>
-                    <span className="viz-tooltip-value">{selectedAyahData.dominantPOS}</span>
+                    <span className="viz-tooltip-value">{previewAyahData.dominantPOS}</span>
                   </div>
-                  {selectedAyahRootEntries.length > 0 && (
+                  {highlightRoot && previewAyah && (
+                    <div className="viz-tooltip-row">
+                      <span className="viz-tooltip-label">{t("matchesLabel")}</span>
+                      <span className="viz-tooltip-value">{ayahRootCounts.get(previewAyah)?.get(highlightRoot) ?? 0}</span>
+                    </div>
+                  )}
+                  {previewAyahRootEntries.length > 0 && (
                     <div style={{ marginTop: "0.7rem", display: "grid", gap: "0.45rem" }}>
                       <span
                         className="viz-tooltip-label"
@@ -1340,20 +1350,20 @@ export default function RadialSuraMap({
                         {ts("roots")}
                       </span>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                        {selectedAyahRootEntries.map((entry) => {
+                        {previewAyahRootEntries.map((entry) => {
                           const chipColor = getRootBaseColor(entry.root, entry.globalCount);
                           const isDimmed = !!highlightRoot && entry.root !== highlightRoot;
                           return (
                             <button
                               type="button"
-                              key={`${selectedAyah}-${entry.root}`}
+                              key={`${previewAyah}-${entry.root}`}
                               onClick={() => {
-                                if (!selectedAyah) return;
+                                if (!previewAyah) return;
                                 setSelectedConnection(null);
                                 setHoveredConnection(null);
                                 setHoveredRoot(entry.root);
                                 if (onRootSelect) onRootSelect(entry.root);
-                                handleAyahSelect(selectedAyah, entry.root);
+                                handleAyahSelect(previewAyah, entry.root);
                               }}
                               style={{
                                 display: "inline-flex",
@@ -1586,7 +1596,10 @@ export default function RadialSuraMap({
             style={{ width: "100%", height: "100%", cursor: "grab" }}
             onClick={(event) => {
               if (event.target !== event.currentTarget) return;
-              if (onRootSelect) onRootSelect(null);
+              // Empty-canvas click clears the LOCAL ayah/wire selection only.
+              // The shared root stays pinned: a searched or clicked root is
+              // released only by an explicit pick of another root (or the
+              // breadcrumb), never by a stray click on nothing.
               setSelectedAyah(null);
               setSelectedConnection(null);
               setHoveredRoot(null);
@@ -1744,10 +1757,11 @@ export default function RadialSuraMap({
                 )}
               </g>
 
-              {/* Root connections (flowing curves inside the circle) — this
-                  curve mesh is exactly what turns a large surah into an
-                  illegible hairball at scale, so overview mode skips it
-                  entirely rather than just thinning it out. */}
+              {/* Root connections (flowing curves inside the circle), detail
+                  mode: every connection with hover/selection emphasis. In
+                  overview the same web is drawn by the capped mesh +
+                  emphasis layers below, so nothing is zoom-gated but the
+                  per-word bars. */}
               {!isOverviewMode && (
               <g className="connections">
                 {renderedConnections.map((conn, idx) => {
@@ -1821,24 +1835,20 @@ export default function RadialSuraMap({
               </g>
               )}
 
-              {/* Ayah bars radiating outward (detail mode), or one hairline
-                  tick per ayah (overview mode) — see isOverviewMode above. */}
-              {/* Staged overview mesh: dominant roots' arcs at stage 1, the
-                  full faint mesh at stage 2 — every zoom step earns more
-                  structure instead of one all-or-nothing cliff at the
-                  detail threshold. */}
-              {isOverviewMode && overviewStageConnections.length > 0 && (
-                <g className="overview-connections overview-stage">
-                  {overviewStageConnections.map(({ key, d, conn }) => (
+              {/* Overview mesh: the faint root web at every zoom level (no
+                  stage cliff) — see OVERVIEW_MESH_ARC_CAP. */}
+              {isOverviewMode && overviewMeshConnections.length > 0 && (
+                <g className="overview-connections overview-mesh">
+                  {overviewMeshConnections.map(({ key, d, conn }) => (
                     <g key={key}>
                       <path
                         d={d}
                         className="connection"
-                        stroke="url(#connectionGrad)"
+                        stroke={lexicalColorMode === "theme" ? "url(#connectionGrad)" : conn.color}
                         strokeWidth={Math.max(0.8, innerRadius * 0.0016)}
                         fill="none"
                         pointerEvents="none"
-                        style={{ opacity: overviewStage === 2 ? 0.16 : overviewStage === 1 ? 0.24 : 0.2 }}
+                        style={{ opacity: hoveredRoot || activeAyah ? 0.12 : 0.3 }}
                       />
                       {/* Invisible hit target — non-scaling so it stays a
                           comfortable ~14 screen-px whatever the zoom, making the
@@ -1895,6 +1905,27 @@ export default function RadialSuraMap({
                 </g>
               )}
 
+              {/* Overview emphasis: hovered root / active ayah arcs, on top of
+                  the mesh, from the full connection set. No filter — a glow on
+                  a hundred paths is what made hover jank in the first place. */}
+              {isOverviewMode && overviewEmphasisConnections.length > 0 && (
+                <g className="overview-connections overview-emphasis" pointerEvents="none">
+                  {overviewEmphasisConnections.map(({ key, d, conn, byRoot }) => (
+                    <path
+                      key={key}
+                      d={d}
+                      className="connection highlighted"
+                      stroke={byRoot ? themeColors.accent : activeRootColorMap?.get(conn.root) ?? conn.color}
+                      strokeWidth={Math.max(1.2, innerRadius * 0.0024)}
+                      fill="none"
+                      style={{ opacity: 0.85 }}
+                    />
+                  ))}
+                </g>
+              )}
+
+              {/* Ayah bars radiating outward (detail mode), or one hairline
+                  tick per ayah (overview mode) — see isOverviewMode above. */}
               {isOverviewMode ? (
                 <g className="ayah-ticks">
                   {(() => {
