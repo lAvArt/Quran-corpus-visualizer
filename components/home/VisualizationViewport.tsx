@@ -41,6 +41,9 @@ interface VisualizationViewportProps {
   experienceLevel: ExperienceLevel;
   selectedSurahId: number;
   selectedAyahInSurah: number | null;
+  /** The globally focused token — the structure map lights its occurrence
+   *  wire from this, wherever the ayah was picked. */
+  focusedToken: CorpusToken | null;
   selectedRoot: string | null;
   selectedRootValue: string | null;
   selectedLemmaValue: string | null;
@@ -64,6 +67,7 @@ export default function VisualizationViewport({
   experienceLevel,
   selectedSurahId,
   selectedAyahInSurah,
+  focusedToken,
   selectedRoot,
   selectedRootValue,
   selectedLemmaValue,
@@ -133,6 +137,10 @@ export default function VisualizationViewport({
               if (type === "surah") setSelectedSurahId(id as number);
               if (type === "root") handleRootSelect(id as string);
             }}
+            onTokenFocus={setFocusedTokenId}
+            onTokenHover={setHoverTokenId}
+            focusedSura={focusedToken?.sura ?? null}
+            focusedAyah={focusedToken?.ayah ?? null}
             theme={theme}
             lexicalColorMode={lexicalColorMode}
           />
