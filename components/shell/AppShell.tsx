@@ -212,6 +212,14 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
     setIsDeepLinkHydrated(true);
   }, [pendingDeepLink, navigateToResult]);
 
+  // Picking an occurrence from the inspector's list scopes to its surah and
+  // focuses the word, and deliberately touches NOTHING else: not the root
+  // (it stays pinned — the occurrence belongs to it) and not the viz mode.
+  const handleSelectAyah = useCallback((surahId: number, tokenId: string) => {
+    c.setSelectedSurahId(surahId);
+    c.setFocusedTokenId(tokenId);
+  }, [c.setSelectedSurahId, c.setFocusedTokenId]);
+
   const clearFocus = useCallback(() => {
     c.setFocusedTokenId(null);
     c.setSelectedRoot(null);
@@ -321,6 +329,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
           lexicalColorMode={c.lexicalColorMode}
           setHoverTokenId={c.setHoverTokenId}
           setFocusedTokenId={c.setFocusedTokenId}
+          focusedToken={c.focusedToken}
           setSelectedSurahId={c.setSelectedSurahId}
           handleRootSelect={c.handleRootSelect}
           handleSurahSelect={c.handleSurahSelect}
@@ -365,6 +374,7 @@ function AppShellContent({ initialCorpusData, initialThemePreference }: AppShell
         onTokenSelect={c.handleTokenSelect}
         onRootSelect={c.handleRootSelect}
         onSelectSurah={c.handleSurahSelect}
+        onSelectAyah={handleSelectAyah}
         onLemmaSelect={c.handleLemmaSelect}
         onSearchOpened={() => c.handleSearchOpened("sidebar")}
         onSearchQuerySubmitted={(q) => c.handleSearchQuerySubmitted(q, "sidebar")}

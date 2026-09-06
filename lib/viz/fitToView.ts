@@ -276,6 +276,16 @@ export function fitBoundsToView(
   const vw = vb && vb.width ? vb.width : svg.clientWidth;
   const vh = vb && vb.height ? vb.height : svg.clientHeight;
   if (!vw || !vh) return;
+  // The viewBox ORIGIN, which is not always 0,0. Every viz here draws with a
+  // top-left origin except the corpus structure map, which centres its own
+  // coordinate system ("-r -r 2r 2r") so polar geometry can be written around
+  // 0,0. `bounds` and `getBBox()` are in that same user space, and the
+  // translate computed below has to land the framed centre at a user-space
+  // coordinate — so the target point must be measured FROM the viewBox origin,
+  // not from zero. Omitting these shifted that map's every fit by `r`, which
+  // pushed the graph almost entirely off-screen. A no-op for the 0,0 cases.
+  const vbx = vb && vb.width ? vb.x : 0;
+  const vby = vb && vb.height ? vb.y : 0;
 
   // Floating chrome sits ON TOP of the canvas (fixed, docked to an edge), not
   // beside it — a fit centred on the FULL canvas can seat content half-hidden
@@ -302,8 +312,8 @@ export function fitBoundsToView(
   );
   const visibleCenterX = insetStart + availableWidth / 2;
   const visibleCenterY = insetTop + availableHeight / 2;
-  const tx = visibleCenterX - scale * (bounds.x + bounds.width / 2);
-  const ty = visibleCenterY - scale * (bounds.y + bounds.height / 2);
+  const tx = vbx + visibleCenterX - scale * (bounds.x + bounds.width / 2);
+  const ty = vby + visibleCenterY - scale * (bounds.y + bounds.height / 2);
   const transform = d3.zoomIdentity.translate(tx, ty).scale(scale);
 
   d3.select<SVGSVGElement, unknown>(svg)

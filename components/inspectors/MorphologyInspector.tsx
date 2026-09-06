@@ -15,6 +15,10 @@ interface MorphologyInspectorProps {
     allTokens: CorpusToken[];
     onRootSelect?: (root: string | null) => void;
     onSelectSurah?: (surahId: number, preferredView?: "root-network" | "radial-sura") => void;
+    /** Pick one occurrence (surah + a token in that ayah). Focuses the word so
+     *  this panel shows the ayah and the active view lights it — without
+     *  changing which visualization is on screen. */
+    onSelectAyah?: (surahId: number, tokenId: string) => void;
     /** True while the corpus is still streaming — occurrence numbers are
      *  partial, so the card shows a live "still counting" cue. */
     isCorpusLoading?: boolean;
@@ -41,6 +45,7 @@ export default function MorphologyInspector({
     allTokens,
     onRootSelect,
     onSelectSurah,
+    onSelectAyah,
     isCorpusLoading,
 }: MorphologyInspectorProps) {
     const t = useTranslations("MorphologyInspector");
@@ -127,6 +132,9 @@ export default function MorphologyInspector({
                             .map((entry) => entry.text)
                             .filter((value, index, array) => array.indexOf(value) === index)
                             .slice(0, 3),
+                        // A real token in this ayah, so picking the chip can
+                        // focus the actual word rather than re-deriving one.
+                        tokenId: ad.tokens[0]?.id ?? null,
                     }))
                     .sort((a, b) => a.ayah - b.ayah),
             }))
@@ -205,7 +213,7 @@ export default function MorphologyInspector({
         arabic: string;
         ayahCount: number;
         forms: string[];
-        ayahs: { ayah: number; count: number; forms: string[] }[];
+        ayahs: { ayah: number; count: number; forms: string[]; tokenId: string | null }[];
     };
 
     /** Render inline SVG histogram for surah distribution */
@@ -537,7 +545,13 @@ export default function MorphologyInspector({
                                         className="mi-surah-btn"
                                         data-testid={`inspector-root-surah-${surah.suraId}`}
                                         onClick={() => {
-                                            onSelectSurah?.(surah.suraId, "radial-sura");
+                                            // Scope to the surah in whatever view is on
+                                            // screen. Forcing "radial-sura" here yanked the
+                                            // user out of the structure map every time they
+                                            // picked a surah from this list — the view is the
+                                            // user's choice, made in the visualization
+                                            // switcher, not a side effect of a list click.
+                                            onSelectSurah?.(surah.suraId);
                                             onRootSelect?.(rootDistribution.root);
                                         }}
                                     >
@@ -549,18 +563,29 @@ export default function MorphologyInspector({
                                         <span className="mi-surah-count">{surah.count}</span>
                                     </button>
                                     <div className="mi-ayah-chips">
-                                        {surah.ayahs.slice(0, 8).map((ayah) => (
-                                            <span
-                                                key={ayah.ayah}
-                                                className="mi-ayah-chip"
-                                                title={`${surah.suraId}:${ayah.ayah} — ${ayah.forms.join(", ")}`}
-                                            >
-                                                {surah.suraId}:{ayah.ayah}
-                                                {ayah.count > 1 ? (
-                                                    <span className="mi-ayah-x">x{ayah.count}</span>
-                                                ) : null}
-                                            </span>
-                                        ))}
+                                        {surah.ayahs.slice(0, 8).map((ayah) => {
+                                            const isActiveAyah =
+                                                token?.sura === surah.suraId && token?.ayah === ayah.ayah;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={ayah.ayah}
+                                                    className={`mi-ayah-chip${isActiveAyah ? " is-active" : ""}`}
+                                                    data-testid={`inspector-ayah-${surah.suraId}-${ayah.ayah}`}
+                                                    aria-pressed={isActiveAyah}
+                                                    disabled={!ayah.tokenId}
+                                                    title={`${surah.suraId}:${ayah.ayah} — ${ayah.forms.join(", ")}`}
+                                                    onClick={() => {
+                                                        if (ayah.tokenId) onSelectAyah?.(surah.suraId, ayah.tokenId);
+                                                    }}
+                                                >
+                                                    {surah.suraId}:{ayah.ayah}
+                                                    {ayah.count > 1 ? (
+                                                        <span className="mi-ayah-x">x{ayah.count}</span>
+                                                    ) : null}
+                                                </button>
+                                            );
+                                        })}
                                         {surah.ayahs.length > 8 ? (
                                             <span className="mi-ayah-chip mi-ayah-more">
                                                 +{surah.ayahs.length - 8}
@@ -1042,14 +1067,40 @@ export default function MorphologyInspector({
                     gap: 4px;
                     padding: 0 2px;
                 }
+                /* A chip is a real button now (it picks that occurrence), so
+                   it has to shed the UA button styling and gain focus/hover/
+                   active states. The "more" chip stays a span and inherits the
+                   base rule unchanged. NOTE: no backticks in this block — it
+                   lives inside a styled-jsx template literal. */
                 .mi-ayah-chip {
                     font-family: 'Space Grotesk', sans-serif;
                     font-size: 10px;
                     color: var(--ink-muted);
                     background: color-mix(in srgb, var(--line) 60%, transparent);
+                    border: 1px solid transparent;
                     border-radius: 4px;
                     padding: 2px 5px;
                     white-space: nowrap;
+                }
+                button.mi-ayah-chip {
+                    cursor: pointer;
+                    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+                }
+                button.mi-ayah-chip:hover:not(:disabled) {
+                    color: var(--ink);
+                    background: color-mix(in srgb, var(--accent) 18%, transparent);
+                }
+                button.mi-ayah-chip:focus-visible {
+                    outline: 2px solid var(--accent);
+                    outline-offset: 1px;
+                }
+                button.mi-ayah-chip:disabled {
+                    cursor: default;
+                }
+                button.mi-ayah-chip.is-active {
+                    color: var(--ink);
+                    background: color-mix(in srgb, var(--accent) 28%, transparent);
+                    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
                 }
                 .mi-ayah-x {
                     color: color-mix(in srgb, var(--accent) 70%, transparent);
